@@ -4,6 +4,12 @@ Todo cambio notable a este proyecto se documenta aquí. Sigue [Keep a Changelog]
 
 ## [Unreleased]
 
+## [0.54.1] - 2026-10-20
+
+### Fixed
+
+- Los artefactos Claude publicados resuelven la raiz del paquete por la sustitucion de contenido de `${CLAUDE_PLUGIN_ROOT}` (la version cargada) y no por el marker compartido, que queda como fallback sin sustitucion; una raiz sustituida invalida aborta sin caer a los markers (#2462, MEF-ADR-0053 decision 7).
+
 ## [0.54.0] - 2026-10-16
 
 ### Added
@@ -3598,7 +3604,8 @@ Y reemplazar referencias en `CLAUDE.md` del proyecto: `/eda-evsourcing-azure-har
 - Los agentes `reviewer` e `implementer` mantienen el placeholder literal `ADR-XXXX` en sus plantillas de reporte (no es un bug; el agente lo sustituye en tiempo de ejecución por el número real del ADR aplicable).
 - Los ejemplos de código en `test-writer.md`, `implementer.md` y `smoke-test-writer.md` conservan nombres concretos de un proyecto consumidor (`Programacion`, `ControlHoras`) anotados en el "Contrato con el consumidor" de cada agente como ejemplos pedagógicos.
 
-[Unreleased]: https://github.com/augusto-romero-arango/mefisto/compare/v0.54.0...HEAD
+[Unreleased]: https://github.com/augusto-romero-arango/mefisto/compare/v0.54.1...HEAD
+[0.54.1]: https://github.com/augusto-romero-arango/mefisto/compare/v0.54.0...v0.54.1
 [0.54.0]: https://github.com/augusto-romero-arango/mefisto/compare/v0.53.2...v0.54.0
 [0.53.2]: https://github.com/augusto-romero-arango/mefisto/compare/v0.53.1...v0.53.2
 [0.53.1]: https://github.com/augusto-romero-arango/mefisto/compare/v0.53.0...v0.53.1

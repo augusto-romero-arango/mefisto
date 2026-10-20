@@ -170,3 +170,4 @@ no necesita estar residente en cada sesión, solo cuando se busca en qué ADR vi
 | Conexion de las tools MCP de consulta con el backend paginado: catalogo y ventana temporal piden `Take = tope` y reenvian `siguienteCursor`; solo la desambiguacion pide un elemento de mas (correccion de la doctrina de servidores MCP) | MEF-ADR-0047 |
 | Superficie de observacion como mod: el aviso de tests ajustados por el reviewer pasa del issue al PR (enmienda de la superficie de observacion por mods) | MEF-ADR-0055 |
 | Modo de lanzamiento sin pane en el consumidor (`--parallel`) | MEF-ADR-0055 |
+| Raiz del paquete en artefactos Claude (sustitucion de `${CLAUDE_PLUGIN_ROOT}`) | MEF-ADR-0053 |
