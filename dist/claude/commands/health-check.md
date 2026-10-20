@@ -33,10 +33,11 @@ mefisto_claude_is_opencode_root() {
       (.minimumRuntimeVersion | type == "string" and test("^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$"))
     ' "$root/mefisto-manifest.json" >/dev/null 2>&1
 }
-if [ -n "${CLAUDE_PLUGIN_ROOT:-}" ]; then
-    mefisto_claude_candidate="$CLAUDE_PLUGIN_ROOT"
+mefisto_claude_loaded='${CLAUDE_PLUGIN_ROOT}'
+if [[ "$mefisto_claude_loaded" != '${'* ]]; then
+    mefisto_claude_candidate="$mefisto_claude_loaded"
     mefisto_claude_root="$(mefisto_claude_root_from_candidate)" || {
-        printf '%s\n' 'ERROR Claude: la raiz indicada por CLAUDE_PLUGIN_ROOT es invalida; reabra o reinstale el plugin.' >&2; exit 1;
+        printf 'ERROR Claude: la raiz cargada (%s) es invalida; recargue o reinstale el plugin.\n' "$mefisto_claude_loaded" >&2; exit 1;
     }
 else
     mefisto_claude_cursor="$PWD"
@@ -81,6 +82,8 @@ fi
 MEFISTO_PACKAGE_ROOT="$mefisto_claude_root"
 export MEFISTO_PACKAGE_ROOT
 ```
+
+Ejecuta este bloque en cada llamada Bash de este comando, sin guardarlo en un archivo ni reutilizar el de otro comando: la raiz que fija es la de la version cargada.
 
 Dashboard de salud del entorno desplegado. Ejecuta queries contra App Insights, verifica el ultimo apply de infraestructura en CI (workflow `infra-cd.yml`, MEF-ADR-0021/MEF-ADR-0022) y presenta un resumen con semaforos. Comunicate en **espanol**.
 
