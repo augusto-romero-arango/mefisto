@@ -1,6 +1,6 @@
 {
   "name": "mefisto",
-  "version": "0.54.0",
+  "version": "0.54.1",
   "description": "Harness opinionado de Claude Code para construir aplicaciones serverless en Azure con Event Driven Architecture, Event Sourcing (Marten + Wolverine), Postgres y .NET 10. Incluye pipelines TDD, IaC, tooling, scaffolding y agentes/skills especializados.",
   "author": {
     "name": "Augusto Romero Arango"
