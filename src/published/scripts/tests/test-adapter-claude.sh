@@ -237,7 +237,7 @@ assert_claude_resolution_fails() {
         fail "$label"; fail "$label incluye accion concreta"
     fi
 }
-assert_claude_resolution_fails 'relativa/plugin' 'sustitucion relativa sin markers aborta antes del script'
+assert_claude_resolution_fails 'relativa/plugin' 'sustitucion relativa aborta antes del script'
 assert_claude_resolution_fails "$WORK/no-existe" 'raiz ausente aborta antes del script'
 BROKEN="$WORK/plugin roto"; ln -s "$WORK/no-existe" "$BROKEN"
 assert_claude_resolution_fails "$BROKEN" 'symlink roto aborta antes del script'

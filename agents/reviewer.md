@@ -37,7 +37,7 @@ mefisto_claude_is_opencode_root() {
     ' "$root/mefisto-manifest.json" >/dev/null 2>&1
 }
 mefisto_claude_loaded='${CLAUDE_PLUGIN_ROOT}'
-if [ "${mefisto_claude_loaded#/}" != "$mefisto_claude_loaded" ]; then
+if [[ "$mefisto_claude_loaded" != '${'* ]]; then
     mefisto_claude_candidate="$mefisto_claude_loaded"
     mefisto_claude_root="$(mefisto_claude_root_from_candidate)" || {
         printf 'ERROR Claude: la raiz cargada (%s) es invalida; recargue o reinstale el plugin.\n' "$mefisto_claude_loaded" >&2; exit 1;
