@@ -65,6 +65,7 @@ expected_package_root_and_effective_contract_body() {
     expected_effective_contract_body "$runtime" "$source"
 }
 first_bash_block() { awk '/^```bash$/{inside=1; next} /^```$/{if (inside) exit} inside' "$1"; }
+claude_substitute() { local pat='${CLAUDE_PLUGIN_ROOT}'; printf '%s\n' "${1//"$pat"/$2}"; }
 validator_fixture() {
     local agent="$1" extra="$2" destination="$WORK/$agent.md"
     printf '%s\n' '---' > "$destination"
@@ -338,7 +339,7 @@ for adr in mef-adr-0002-estrategia-testing-event-sourcing.md mef-adr-0016-conven
 for resource in modelos-marten.md read-apis.md naming.md config-test.md; do cp "$REPO_ROOT/skills/projections/$resource" "$claude_package/skills/projections/$resource"; done
 claude_physical="$(cd "$claude_package" && pwd -P)"
 claude_preamble="$(first_bash_block "$REPO_ROOT/dist/claude/agents/reviewer.md")"
-claude_resolved="$(CLAUDE_PLUGIN_ROOT="$claude_package/" bash -c "$claude_preamble"$'\n''test -f "$MEFISTO_PACKAGE_ROOT/docs/adr/mef-adr-0016-convencion-naming-tests.md" && for resource in modelos-marten.md read-apis.md naming.md config-test.md; do test -f "$MEFISTO_PACKAGE_ROOT/skills/projections/$resource" || exit 1; done && printf "%s\n" "$MEFISTO_PACKAGE_ROOT"' 2>/dev/null)"; rc=$?
+claude_resolved="$(bash -c "$(claude_substitute "$claude_preamble" "$claude_package/")"$'\n''test -f "$MEFISTO_PACKAGE_ROOT/docs/adr/mef-adr-0016-convencion-naming-tests.md" && for resource in modelos-marten.md read-apis.md naming.md config-test.md; do test -f "$MEFISTO_PACKAGE_ROOT/skills/projections/$resource" || exit 1; done && printf "%s\n" "$MEFISTO_PACKAGE_ROOT"' 2>/dev/null)"; rc=$?
 [ "$rc" -eq 0 ] && [ "$claude_resolved" = "$claude_physical" ] && pass 'reviewer Claude generado abre ADRs y Skill desde un package root con espacios' || fail 'reviewer Claude generado no resuelve su conocimiento desde el package root efectivo'
 
 opencode_package="$WORK/paquete OpenCode con espacios"
@@ -354,7 +355,7 @@ opencode_resolved="$(XDG_DATA_HOME="$opencode_data" MEFISTO_TEST_PACKAGE_ROOT="$
 [ "$rc" -eq 0 ] && [ "$opencode_resolved" = "$opencode_physical" ] && pass 'reviewer OpenCode generado abre ADRs y Skill desde un package root con espacios' || fail 'reviewer OpenCode generado no resuelve su conocimiento desde el package root efectivo'
 
 claude_preamble="$(first_bash_block "$REPO_ROOT/dist/claude/agents/projection-implementer.md")"
-claude_resolved="$(CLAUDE_PLUGIN_ROOT="$claude_package/" bash -c "$claude_preamble"$'\n''for adr in mef-adr-0035-doctrina-proyeccion-query-read-side.md mef-adr-0034-worker-proyecciones-read-models.md mef-adr-0006-convenciones-nombramiento-funciones-azure.md mef-adr-0041-forma-propia-vista-read-side.md mef-adr-0028-estrategia-tenancy.md mef-adr-0029-test-composicion-host.md; do test -f "$MEFISTO_PACKAGE_ROOT/docs/adr/$adr" || exit 1; done && for resource in modelos-marten.md naming.md read-apis.md config-test.md; do test -f "$MEFISTO_PACKAGE_ROOT/skills/projections/$resource" || exit 1; done && printf "%s\n" "$MEFISTO_PACKAGE_ROOT"' 2>/dev/null)"; rc=$?
+claude_resolved="$(bash -c "$(claude_substitute "$claude_preamble" "$claude_package/")"$'\n''for adr in mef-adr-0035-doctrina-proyeccion-query-read-side.md mef-adr-0034-worker-proyecciones-read-models.md mef-adr-0006-convenciones-nombramiento-funciones-azure.md mef-adr-0041-forma-propia-vista-read-side.md mef-adr-0028-estrategia-tenancy.md mef-adr-0029-test-composicion-host.md; do test -f "$MEFISTO_PACKAGE_ROOT/docs/adr/$adr" || exit 1; done && for resource in modelos-marten.md naming.md read-apis.md config-test.md; do test -f "$MEFISTO_PACKAGE_ROOT/skills/projections/$resource" || exit 1; done && printf "%s\n" "$MEFISTO_PACKAGE_ROOT"' 2>/dev/null)"; rc=$?
 [ "$rc" -eq 0 ] && [ "$claude_resolved" = "$claude_physical" ] && pass 'projection-implementer Claude generado abre ADRs y Skill desde un package root con espacios' || fail 'projection-implementer Claude generado no resuelve su conocimiento desde el package root efectivo'
 
 opencode_preamble="$(first_bash_block "$REPO_ROOT/dist/opencode/agents/projection-implementer.md")"
@@ -362,7 +363,7 @@ opencode_resolved="$(XDG_DATA_HOME="$opencode_data" MEFISTO_TEST_PACKAGE_ROOT="$
 [ "$rc" -eq 0 ] && [ "$opencode_resolved" = "$opencode_physical" ] && pass 'projection-implementer OpenCode generado abre ADRs y Skill desde un package root con espacios' || fail 'projection-implementer OpenCode generado no resuelve su conocimiento desde el package root efectivo'
 
 claude_preamble="$(first_bash_block "$REPO_ROOT/dist/claude/agents/projection-test-writer.md")"
-claude_resolved="$(CLAUDE_PLUGIN_ROOT="$claude_package/" bash -c "$claude_preamble"$'\n''for adr in mef-adr-0035-doctrina-proyeccion-query-read-side.md mef-adr-0034-worker-proyecciones-read-models.md mef-adr-0006-convenciones-nombramiento-funciones-azure.md mef-adr-0041-forma-propia-vista-read-side.md mef-adr-0016-convencion-naming-tests.md mef-adr-0002-estrategia-testing-event-sourcing.md; do test -f "$MEFISTO_PACKAGE_ROOT/docs/adr/$adr" || exit 1; done && for resource in modelos-marten.md naming.md read-apis.md config-test.md; do test -f "$MEFISTO_PACKAGE_ROOT/skills/projections/$resource" || exit 1; done && printf "%s\n" "$MEFISTO_PACKAGE_ROOT"' 2>/dev/null)"; rc=$?
+claude_resolved="$(bash -c "$(claude_substitute "$claude_preamble" "$claude_package/")"$'\n''for adr in mef-adr-0035-doctrina-proyeccion-query-read-side.md mef-adr-0034-worker-proyecciones-read-models.md mef-adr-0006-convenciones-nombramiento-funciones-azure.md mef-adr-0041-forma-propia-vista-read-side.md mef-adr-0016-convencion-naming-tests.md mef-adr-0002-estrategia-testing-event-sourcing.md; do test -f "$MEFISTO_PACKAGE_ROOT/docs/adr/$adr" || exit 1; done && for resource in modelos-marten.md naming.md read-apis.md config-test.md; do test -f "$MEFISTO_PACKAGE_ROOT/skills/projections/$resource" || exit 1; done && printf "%s\n" "$MEFISTO_PACKAGE_ROOT"' 2>/dev/null)"; rc=$?
 [ "$rc" -eq 0 ] && [ "$claude_resolved" = "$claude_physical" ] && pass 'projection-test-writer Claude generado abre ADRs y Skill desde un package root con espacios' || fail 'projection-test-writer Claude generado no resuelve su conocimiento desde el package root efectivo'
 
 opencode_preamble="$(first_bash_block "$REPO_ROOT/dist/opencode/agents/projection-test-writer.md")"

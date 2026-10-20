@@ -27,9 +27,12 @@ make_opencode_root() {
     mkdir -p "$root"
     jq -n '{schemaVersion:1,runtime:"opencode",version:"1.2.3",commit:"0123456789abcdef0123456789abcdef01234567",minimumRuntimeVersion:"1.18.29"}' > "$root/mefisto-manifest.json"
 }
+unset CLAUDE_PLUGIN_ROOT
+# Reproduce lo que hace Claude Code al cargar el artefacto: reemplaza el texto exacto; con raiz vacia no hay sustitucion.
 resolve_claude() {
-    local cwd="$1" runtime_root="$2" trace="$3"
-    (cd "$cwd" && CLAUDE_PLUGIN_ROOT="$runtime_root" MEFISTO_TEST_TRACE="$trace" bash -c "$PREAMBLE_CODE"$'\n''printf "ROOT=%s\\n" "$MEFISTO_PACKAGE_ROOT"; "$MEFISTO_PACKAGE_ROOT/scripts/probe.sh"')
+    local cwd="$1" runtime_root="$2" trace="$3" code="$PREAMBLE_CODE" pat='${CLAUDE_PLUGIN_ROOT}'
+    [ -z "$runtime_root" ] || code="${code//"$pat"/$runtime_root}"
+    (cd "$cwd" && MEFISTO_TEST_TRACE="$trace" bash -c "$code"$'\n''printf "ROOT=%s\\n" "$MEFISTO_PACKAGE_ROOT"; "$MEFISTO_PACKAGE_ROOT/scripts/probe.sh"')
 }
 make_agent() { printf '%s\n' '---' "{\"kind\":\"agent\",\"id\":\"$1\",\"description\":\"Prueba.\",\"mode\":\"subagent\",\"capabilities\":$2${3:-}}" '---' '{{mefisto:assert-consumer-repo}}' > "$WORK/$1.md"; }
 render_fails_without_output() {
@@ -180,9 +183,9 @@ mkdir -p "$CONSUMER/.mefisto/pipeline" "$CONSUMER/.claude/pipeline"
 printf '%s/\n' "$CANONICAL_ROOT" > "$CONSUMER/.mefisto/pipeline/.plugin-root"
 printf '%s\n' "$LEGACY_ROOT" > "$CONSUMER/.claude/pipeline/.plugin-root"
 out="$(resolve_claude "$SUBDIR" "$RUNTIME_ROOT/" "$WORK/runtime.trace" 2> "$WORK/runtime.err")"; rc=$?
-[ "$rc" -eq 0 ] && [ "$out" = "ROOT=$RUNTIME_PHYSICAL" ] && [ -f "$WORK/runtime.trace" ] && pass 'variable runtime prevalece y normaliza paths con espacios' || fail 'variable runtime no prevalecio o no ejecuto el script'
+[ "$rc" -eq 0 ] && [ "$out" = "ROOT=$RUNTIME_PHYSICAL" ] && [ -f "$WORK/runtime.trace" ] && pass 'caso Bitakora: la sustitucion nueva prevalece sobre el canonico viejo valido y normaliza paths con espacios' || fail 'la sustitucion no prevalecio sobre el canonico'
 out="$(resolve_claude "$SUBDIR" '' "$WORK/canonical.trace" 2> "$WORK/canonical.err")"; rc=$?
-[ "$rc" -eq 0 ] && [ "$out" = "ROOT=$CANONICAL_PHYSICAL" ] && pass 'marker canonico se resuelve desde un subdirectorio' || fail 'marker canonico no se resolvio desde subdirectorio'
+[ "$rc" -eq 0 ] && [ "$out" = "ROOT=$CANONICAL_PHYSICAL" ] && pass 'sin sustitucion, el marker canonico se resuelve desde un subdirectorio' || fail 'marker canonico no se resolvio desde subdirectorio'
 printf '%s\n' "$OPENCODE_ROOT" > "$CONSUMER/.mefisto/pipeline/.plugin-root"
 printf '%s\n' "$LEGACY_ROOT" > "$CONSUMER/.claude/pipeline/.plugin-root"
 out="$(resolve_claude "$CONSUMER" '' "$WORK/contaminacion.trace" 2> "$WORK/contaminacion.err")"; rc=$?
@@ -229,12 +232,12 @@ assert_claude_resolution_fails() {
     resolve_claude "$WORK" "$candidate" "$trace" > "$WORK/failure.stdout" 2> "$WORK/failure.stderr"; rc=$?
     if [ "$rc" -ne 0 ] && [ ! -e "$trace" ]; then
         contains "$(< "$WORK/failure.stderr")" 'ERROR Claude:' "$label"
-        contains "$(< "$WORK/failure.stderr")" 'reabra o reinstale' "$label incluye accion concreta"
+        contains "$(< "$WORK/failure.stderr")" 'reinstale' "$label incluye accion concreta"
     else
         fail "$label"; fail "$label incluye accion concreta"
     fi
 }
-assert_claude_resolution_fails 'relativa/plugin' 'raiz relativa aborta antes del script'
+assert_claude_resolution_fails 'relativa/plugin' 'sustitucion relativa sin markers aborta antes del script'
 assert_claude_resolution_fails "$WORK/no-existe" 'raiz ausente aborta antes del script'
 BROKEN="$WORK/plugin roto"; ln -s "$WORK/no-existe" "$BROKEN"
 assert_claude_resolution_fails "$BROKEN" 'symlink roto aborta antes del script'
@@ -244,6 +247,18 @@ WRONG_VERSION="$WORK/plugin version invalida"; make_plugin_root "$WRONG_VERSION"
 assert_claude_resolution_fails "$WRONG_VERSION" 'version no SemVer aborta antes del script'
 UNREADABLE="$WORK/plugin metadata ilegible"; make_plugin_root "$UNREADABLE"; printf '%s\n' '{' > "$UNREADABLE/.claude-plugin/plugin.json"
 assert_claude_resolution_fails "$UNREADABLE" 'metadata ilegible aborta antes del script'
+
+# Sustitucion invalida: aborta con el mensaje nuevo y no lee los markers (aunque el canonico sea valido).
+printf '%s\n' "$CANONICAL_ROOT" > "$CONSUMER/.mefisto/pipeline/.plugin-root"
+printf '%s\n' "$LEGACY_ROOT" > "$CONSUMER/.claude/pipeline/.plugin-root"
+for bad in "$WORK/no-existe" "$OPENCODE_ROOT"; do
+    rm -f "$WORK/sust.trace"
+    resolve_claude "$SUBDIR" "$bad" "$WORK/sust.trace" > "$WORK/sust.stdout" 2> "$WORK/sust.err"; rc=$?
+    [ "$rc" -ne 0 ] && [ ! -e "$WORK/sust.trace" ] && [ ! -s "$WORK/sust.stdout" ] && contains "$(< "$WORK/sust.err")" "ERROR Claude: la raiz cargada ($bad) es invalida; recargue o reinstale el plugin." "sustitucion invalida ($(basename "$bad")) aborta sin caer a los markers" || fail "sustitucion invalida ($bad) debio abortar sin fallback"
+done
+absent "$PREAMBLE_CODE" '${CLAUDE_PLUGIN_ROOT:-' 'el preambulo ya no consulta la variable de entorno'
+contains "$PREAMBLE_CODE" "mefisto_claude_loaded='\${CLAUDE_PLUGIN_ROOT}'" 'el preambulo arranca con la forma exacta que Claude sustituye'
+contains "$(< "$WORK/agent.md")" 'Ejecuta este bloque en cada llamada Bash de este comando, sin guardarlo en un archivo ni reutilizar el de otro comando: la raiz que fija es la de la version cargada.' 'la regla de uso acompana al preambulo, fuera del bloque'
 
 WORKTREE="$WORK/worktree consumidor/directorio"; mkdir -p "$WORKTREE/.mefisto/pipeline" "$WORKTREE/sub"
 printf '%s\n' "$CANONICAL_ROOT" > "$WORKTREE/.mefisto/pipeline/.plugin-root"
