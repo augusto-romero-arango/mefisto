@@ -39,8 +39,9 @@ expected_rendered_body() {
     esac
     translated_source_body "$runtime" "$source"
 }
-# El agente puede resolver config-path/instructions-path sin necesitar
-# package-root (#1408): reconstruye solo el preambulo del contrato efectivo.
+# Reconstruye solo el preambulo del contrato efectivo de config-path/
+# instructions-path (#1408); hoy ningun agente lo usa sin package-root, asi que
+# solo lo compone expected_package_root_and_effective_contract_body.
 expected_effective_contract_body() {
     local runtime="$1" source="$2" raw_body needs_config=0 needs_instructions=0
     raw_body="$(body_without_adapter_lines "$source")"
