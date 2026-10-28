@@ -243,6 +243,19 @@ PR, merge, sync) y los restantes quedan `aplazado` en el resumen final, con la l
 para relanzarlos en el mismo orden. No es un fallo: el exit code es 0 y no dispara
 `--stop-on-error`. La senal se consume al detenerse, asi que no afecta la corrida siguiente.
 
+### 7. Salto por dependencia no satisfecha (issue #2478)
+
+El paso 1.5 valida las dependencias una sola vez, antes de arrancar, y da por satisfecha toda
+dependencia que esta antes en el batch. Si ese eslabon falla y el batch sigue, el motor
+revisa `## Dependencias` del issue **antes de cada eslabon** (sin leer ni mutar el label
+`bloqueado`). Una dependencia esta satisfecha si quedo `completado` en este batch o esta
+`CLOSED` (issue) / `MERGED` (PR) en GitHub. Si no, el eslabon no se lanza (ni snapshot ni
+pipeline) y queda `saltado: depende de #N (<motivo>)`, con motivo `fallido en este batch`,
+el estado de GitHub (`OPEN`) o `no consultable`. El salto cuenta en `Fallidos` pero no
+marca el batch como fallido ni dispara `--stop-on-error`; la cascada sale sola y los
+independientes siguen. El resumen colorea `saltado` en amarillo y cierra con
+`Relanza tras resolver sus dependencias: /mefisto-sequential <nums>`.
+
 ## Reglas
 
 - **No esperes a que termine.** El script corre en background dentro de tmux. Devuelve el control inmediatamente.
