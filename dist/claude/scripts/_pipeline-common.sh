@@ -2952,3 +2952,17 @@ detect_smoke_only() {
     printf '%s' "$out"
     [ "$has_smoke" = true ] && [ "$has_other" = false ]
 }
+
+# extract_canonical_dependencies <body>
+#
+# Imprime, una por linea y sin repetir, las dependencias canonicas de la seccion
+# '## Dependencias' del body de un issue (issue #2471): items que EMPIEZAN con
+# 'Depende de #N' o 'Bloqueado por #N' (con o sin vineta, sin distinguir
+# mayusculas). Ignora 'Bloquea #N', 'Relacionado: #N' y la prosa. Misma regla
+# anclada que next-order.sh.
+extract_canonical_dependencies() {
+    printf '%s\n' "${1:-}" \
+        | awk '/^##[[:space:]]*[Dd]ependencias/{f=1;next} /^##[[:space:]]/{f=0} f' \
+        | { grep -ioE '^[[:space:]]*([-*][[:space:]]+)?(Depende de|Bloqueado por)[[:space:]]+#[0-9]+' || true; } \
+        | { grep -oE '[0-9]+' || true; } | awk '!seen[$0]++'
+}
