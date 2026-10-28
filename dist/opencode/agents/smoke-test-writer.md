@@ -195,6 +195,10 @@ Segun el codigo declarado, verifica ademas:
 | `200 OK` | Valida la representacion que declara el contrato: presencia y forma de los campos que el issue espera en el body, nunca reglas de negocio (ver "NO verificar el body de la respuesta en detalle" mas abajo -- esas ya las cubren los unit tests). |
 | `202 Accepted` | Solo si el contrato lo declaro con su justificacion -- el procesamiento sigue en curso, no hay representacion que validar. |
 
+### Endpoint cuyo contrato cambia: alinea toda invocacion existente
+
+Extension a HTTP de la regla de tools MCP (issue #2480). Si la HU cambia el contrato de un endpoint (payload, status de exito, forma de la respuesta), alinea toda invocacion existente de ese endpoint en cualquier proyecto `tests/*.SmokeTests`, no solo en su clase: otras clases del dominio, smokes de otros dominios y la suite MCP lo invocan, p. ej. en su Arrange, y quedan desalineados (compilan, pero fallan contra dev). El pipeline te pasa la lista bajo "Smokes existentes que invocan los endpoints modificados"; si corres sin ella, busca la `Route` del `HttpTrigger` (cada `{param}` es un segmento, sin distinguir mayusculas) en todos los proyectos SmokeTests, incluidas las rutas armadas sobre una `const string` del mismo archivo (`$"{RutaTurnos}/{turnoId}"`). La lista no distingue metodo HTTP: revisa cada coincidencia. Las reglas de aislamiento de dominio no cambian: no asertes sobre DLQ ni suscripciones ajenas (ver "Que NO hacer").
+
 ### Regla de cobertura completa de efectos secundarios
 
 **Todo test donde el comando se ejecuta exitosamente DEBE verificar todos los efectos secundarios de la funcion bajo prueba, sin importar si el endpoint responde `200`, `201`, `202` o `204`.** Un smoke test no esta completo si solo verifica el status code HTTP -- debe verificar que los efectos realmente ocurrieron:
@@ -667,7 +671,7 @@ Al finalizar, genera el summary en `.mefisto/pipeline/summaries/stage-2b-smoke-t
 **No-ops PUT/DELETE cubiertos:** {ninguno | lista con endpoint, estado ya alcanzado, codigo declarado y verificacion de cero eventos/publicaciones por corrida}
 **Escenarios de identidad/stream inexistente separados:** {ninguno | lista con endpoint y status declarado en el issue}
 
-**Smokes existentes revisados:** {solo servidores MCP: lista de archivos que invocan las tools modificadas, cada uno con "cambio" o "sin cambio"; ninguno si no hay coincidencias}
+**Smokes existentes revisados:** {lista de archivos que invocan las tools MCP o los endpoints HTTP modificados, cada uno con "cambio" o "sin cambio"; ninguno si no hay coincidencias}
 
 **Resultado contra dev:** {PASSED | FAILED | ENTORNO NO DISPONIBLE}
 ```
