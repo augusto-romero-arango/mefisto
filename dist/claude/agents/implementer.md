@@ -631,7 +631,7 @@ public class FunctionEndpoint(ICommandRouter commandRouter, ILogger<FunctionEndp
 Consumo de un evento publico de otro BC via el backbone compartido — misma herencia, `Connection` apunta al alias del backbone (ej. `COSMOS`); aqui el mensaje deserializa directo al comando local, sin traduccion:
 
 ```csharp
-public class NotificarCuandoDiaCalculado(ICommandRouter commandRouter, ILogger<NotificarCuandoDiaCalculado> logger)
+public class FunctionEndpoint(ICommandRouter commandRouter, ILogger<FunctionEndpoint> logger)
     : ServiceBusEndpointBase<NotificarDiaCalculado>(commandRouter, logger)
 {
     [Function("NotificarCuandoDiaCalculado")]

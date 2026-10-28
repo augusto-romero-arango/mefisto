@@ -945,7 +945,7 @@ namespace <RootNamespace>.{PascalCase}.Infraestructura;
 /// <summary>
 /// Clase base para FunctionEndpoints de ServiceBus.
 /// Encapsula la orquestacion: deserializar (fallo = dead letter, mensaje ilegible) -> despachar al command router (fallo = abandono, el bus reintenta hasta max_delivery_count) -> complete / lock-lost (solo warning).
-/// Cada endpoint concreto hereda, define [Function] + [ServiceBusTrigger] y delega a <see cref="ProcesarMensaje"/>.
+/// Cada endpoint concreto hereda, define [Function] + [ServiceBusTrigger] y delega a <c>ProcesarMensaje</c>.
 /// La sobrecarga con <c>crearComando</c> traduce el evento a otro comando; es la unica implementacion de la politica de liquidacion.
 /// El Connection del [ServiceBusTrigger] lo elige el endpoint concreto segun el origen del topic
 /// (SERVICE_BUS_CONNECTION_INTERNO para IPrivateEvent intra-BC; SERVICE_BUS_CONNECTION_&lt;ALIAS&gt; del
