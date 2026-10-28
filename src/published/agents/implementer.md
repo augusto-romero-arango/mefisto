@@ -271,7 +271,7 @@ El endpoint correspondiente hereda de `PrivateEventEndpointBase<TurnoCreado>` (l
 
 | Caso | Por que | Que usar |
 |---|---|---|
-| Consumir un `IPublicEvent` (inter-BC via backbone, u otro plano del producto) | 2.1.0 no trae `IPublicEventHandlerAsync`/router publico; `IPrivateEventRouter` esta restringido a `IPrivateEvent` | `ServiceBusEndpointBase<T>` + `ICommandRouter`, deserializando a un comando local |
+| Consumir un `IPublicEvent` (inter-BC via backbone, u otro plano del producto) | 2.1.0 no trae `IPublicEventHandlerAsync`/router publico; `IPrivateEventRouter` esta restringido a `IPrivateEvent` | `ServiceBusEndpointBase<T>` + `ICommandRouter`: `ProcesarMensaje(message, actions, ct)` si el mensaje deserializa directo al comando local; `ProcesarMensaje(message, actions, crearComando, ct)` si el comando agrega identidad, semantica o campos |
 | Fan-in: varios tipos de evento en un queue de sesion (MEF-ADR-0026) | No hay un unico `TEvento` -- el despacho es por `Subject`; ademas el comando no es espejo (estampa datos de transporte, aplana/renombra) | `ServiceBusSessionEndpointBase` + `ICommandRouter` |
 | La traduccion agrega semantica o campos que el evento no trae (timestamp de recepcion, aplanamiento, combinar fuentes, validacion/identidad propia) | El comando **no** es espejo: tiene razon de existir | Comando explicito + `ICommandHandlerAsync<TComando>` |
 | Comando genuino desde el boundary externo (endpoint HTTP) | No hay evento; es un comando del cliente | `ICommandHandlerAsync<TComando>` (patron CommandHandler intacto) |
@@ -514,71 +514,38 @@ El `Connection` del trigger determina a que ASB se conecta Azure Functions para 
 
 **Integracion externa diferida**: consumir de un ASB verdaderamente externo (aplicacion ajena al producto) queda fuera de alcance hasta que exista el primer caso real (MEF-ADR-0024 decision #5, default-off). No se wirea hoy; al mencionarlo en el codigo o en la guia, dejarlo como `// TODO(MEF-ADR-0024 #5): integracion externa diferida`.
 
+La politica de liquidacion (deserializar: ilegible -> dead letter; invocar: fallo -> abandono; lock perdido -> warning; exito -> complete) vive **una sola vez** en `ServiceBusEndpointBase<TEvento>` (Paso 10c del `domain-scaffolder`). El endpoint concreto hereda, declara `[Function]` + `[ServiceBusTrigger]` y delega en una sola expresion a `ProcesarMensaje`; nunca liquida a mano.
+
+Hay dos firmas:
+
+- **Sin traduccion** `ProcesarMensaje(message, messageActions, ct)`: el mensaje deserializa directo al comando local (el router recibe el objeto deserializado).
+- **Con traduccion** `ProcesarMensaje(message, messageActions, crearComando, ct)`: el comando agrega identidad, semantica o campos que el evento no trae. `crearComando` corre despues de deserializar y dentro de la etapa de invocacion: si lanza, el mensaje se abandona como un fallo del handler (no se trata como ilegible).
+
 ```csharp
 public class FunctionEndpoint(ICommandRouter commandRouter, ILogger<FunctionEndpoint> logger)
+    : ServiceBusEndpointBase<TurnoCreado>(commandRouter, logger)
 {
     [Function("DepurarMarcacionesCuandoTurnoCreado")]
-    public async Task DepurarMarcacionesCuandoTurnoCreado(
+    public Task Run(
         [ServiceBusTrigger("turno-creado", "depuracion-escucha-programacion",
-            Connection = "SERVICE_BUS_CONNECTION_INTERNO")]
-        ServiceBusReceivedMessage message,
-        ServiceBusMessageActions messageActions,
-        CancellationToken ct)
-    {
-        // Etapa 1: deserializar. Un cuerpo ilegible nunca mejora al reintentar -> dead letter con el
-        // tipo de la excepcion como razon.
-        TurnoCreado evento;
-        try
-        {
-            evento = message.Body.ToObjectFromJson<TurnoCreado>()!;
-        }
-        catch (Exception ex)
-        {
-            logger.LogError(ex, "Mensaje ilegible {MessageId} - dead letter", message.MessageId);
-            await messageActions.DeadLetterMessageAsync(
-                message,
-                deadLetterReason: ex.GetType().Name,
-                deadLetterErrorDescription: ex.Message,
-                cancellationToken: ct);
-            return;
-        }
-
-        // Etapa 2: invocar. Cualquier fallo del handler (conflicto de concurrencia, caida breve de
-        // Postgres, excepcion lanzada para pedir reintento) se abandona: el bus lo redelivera hasta
-        // max_delivery_count y solo entonces lo mueve al DLQ.
-        try
-        {
-            await commandRouter.InvokeAsync(
-                new DepurarMarcacionesDeTurno(evento.TurnoId), ct);
-            await messageActions.CompleteMessageAsync(message, ct);
-        }
-        catch (ServiceBusException ex) when (ex.Reason == ServiceBusFailureReason.MessageLockLost)
-        {
-            logger.LogWarning(ex, "Lock perdido para mensaje {MessageId}", message.MessageId);
-        }
-        catch (Exception ex)
-        {
-            logger.LogError(ex,
-                "Error procesando mensaje {MessageId} (DeliveryCount {DeliveryCount}) - se abandona",
-                message.MessageId, message.DeliveryCount);
-            await messageActions.AbandonMessageAsync(message, cancellationToken: ct);
-        }
-    }
+            Connection = "SERVICE_BUS_CONNECTION_INTERNO")] ServiceBusReceivedMessage message,
+        ServiceBusMessageActions messageActions, CancellationToken ct)
+        => ProcesarMensaje(message, messageActions, e => new DepurarMarcacionesDeTurno(e.TurnoId), ct);
 }
 ```
 
-Consumo de un evento publico de otro BC via el backbone compartido — mismo patron, `Connection` apunta al alias del backbone (ej. `COSMOS`):
+Consumo de un evento publico de otro BC via el backbone compartido — misma herencia, `Connection` apunta al alias del backbone (ej. `COSMOS`); aqui el mensaje deserializa directo al comando local, sin traduccion:
 
 ```csharp
-[Function("NotificarCuandoDiaCalculado")]
-public async Task NotificarCuandoDiaCalculado(
-    [ServiceBusTrigger("dia-calculado", "notificaciones-escucha-calculo-horas",
-        Connection = "SERVICE_BUS_CONNECTION_COSMOS")]
-    ServiceBusReceivedMessage message,
-    ServiceBusMessageActions messageActions,
-    CancellationToken ct)
+public class NotificarCuandoDiaCalculado(ICommandRouter commandRouter, ILogger<NotificarCuandoDiaCalculado> logger)
+    : ServiceBusEndpointBase<NotificarDiaCalculado>(commandRouter, logger)
 {
-    // mismo cuerpo: deserializar (ilegible -> dead letter), invocar el comando (fallo -> abandono), completar
+    [Function("NotificarCuandoDiaCalculado")]
+    public Task Run(
+        [ServiceBusTrigger("dia-calculado", "notificaciones-escucha-calculo-horas",
+            Connection = "SERVICE_BUS_CONNECTION_COSMOS")] ServiceBusReceivedMessage message,
+        ServiceBusMessageActions messageActions, CancellationToken ct)
+        => ProcesarMensaje(message, messageActions, ct);
 }
 ```
 

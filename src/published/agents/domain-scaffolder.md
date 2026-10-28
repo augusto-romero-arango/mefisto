@@ -946,6 +946,7 @@ namespace <RootNamespace>.{PascalCase}.Infraestructura;
 /// Clase base para FunctionEndpoints de ServiceBus.
 /// Encapsula la orquestacion: deserializar (fallo = dead letter, mensaje ilegible) -> despachar al command router (fallo = abandono, el bus reintenta hasta max_delivery_count) -> complete / lock-lost (solo warning).
 /// Cada endpoint concreto hereda, define [Function] + [ServiceBusTrigger] y delega a <see cref="ProcesarMensaje"/>.
+/// La sobrecarga con <c>crearComando</c> traduce el evento a otro comando; es la unica implementacion de la politica de liquidacion.
 /// El Connection del [ServiceBusTrigger] lo elige el endpoint concreto segun el origen del topic
 /// (SERVICE_BUS_CONNECTION_INTERNO para IPrivateEvent intra-BC; SERVICE_BUS_CONNECTION_&lt;ALIAS&gt; del
 /// backbone compartido para IPublicEvent comun). Ver la tabla de convencion en la seccion
@@ -954,10 +955,18 @@ namespace <RootNamespace>.{PascalCase}.Infraestructura;
 public abstract class ServiceBusEndpointBase<TEvento>(ICommandRouter commandRouter, ILogger logger)
     where TEvento : class
 {
-    protected async Task ProcesarMensaje(
+    protected Task ProcesarMensaje(
         ServiceBusReceivedMessage message,
         ServiceBusMessageActions messageActions,
         CancellationToken ct)
+        => ProcesarMensaje(message, messageActions, evento => evento, ct);
+
+    protected async Task ProcesarMensaje<TComando>(
+        ServiceBusReceivedMessage message,
+        ServiceBusMessageActions messageActions,
+        Func<TEvento, TComando> crearComando,
+        CancellationToken ct)
+        where TComando : class
     {
         try
         {
@@ -979,7 +988,8 @@ public abstract class ServiceBusEndpointBase<TEvento>(ICommandRouter commandRout
                 return;
             }
 
-            await commandRouter.InvokeAsync(evento, ct);
+            // La traduccion corre en la etapa de invocacion: si lanza, es un fallo del handler (abandono), no un mensaje ilegible.
+            await commandRouter.InvokeAsync(crearComando(evento), ct);
             await messageActions.CompleteMessageAsync(message, ct);
         }
         catch (ServiceBusException ex) when (ex.Reason == ServiceBusFailureReason.MessageLockLost)
@@ -1536,7 +1546,7 @@ Y agregar en su lugar (en el mismo `<ItemGroup>` o en uno nuevo):
 
 **6. Crear `Infraestructura/ServiceBusEndpointBaseTests.cs`:**
 
-Tests de la orquestacion generica de `ServiceBusEndpointBase`. Cubren los 4 escenarios: camino feliz, lock perdido, error generico y JSON invalido.
+Tests de la orquestacion generica de `ServiceBusEndpointBase`. Cubren los 4 escenarios de la firma sin traduccion (camino feliz, lock perdido, error generico y JSON invalido) y 2 de la sobrecarga con `crearComando` (el router recibe el comando traducido y se completa; si la traduccion lanza, se abandona como fallo del handler).
 
 ```bash
 mkdir -p "$REPO_ROOT/tests/<RootNamespace>.{PascalCase}.Tests/Infraestructura"
@@ -1623,11 +1633,47 @@ public class ServiceBusEndpointBaseTests
         actions.MensajeCompletado.Should().BeFalse();
         router.Invocaciones.Should().Be(0);
     }
+
+    // Sobrecarga con traduccion: el router recibe el comando, no el evento, y el mensaje se completa
+    [Fact]
+    public async Task DebeRutearComandoTraducido_CuandoSeUsaCrearComando()
+    {
+        var router = new FakeCommandRouter();
+        var actions = new FakeServiceBusMessageActions();
+        var endpoint = new StubEndpoint(router, new FakeLogger());
+
+        await endpoint.ProcesarTraducido(
+            CrearMensaje(), actions, e => new ComandoStub(e.Nombre), CancellationToken.None);
+
+        router.UltimoComando.Should().Be(new ComandoStub("test"));
+        actions.MensajeCompletado.Should().BeTrue();
+    }
+
+    // La traduccion lanza -> mismo tratamiento que un fallo del handler (abandono), no dead-letter
+    [Fact]
+    public async Task DebeAbandonarMensaje_CuandoCrearComandoLanza()
+    {
+        var router = new FakeCommandRouter();
+        var actions = new FakeServiceBusMessageActions();
+        var endpoint = new StubEndpoint(router, new FakeLogger());
+
+        await endpoint.ProcesarTraducido<ComandoStub>(
+            CrearMensaje(), actions,
+            _ => throw new InvalidOperationException("Traduccion invalida"),
+            CancellationToken.None);
+
+        actions.MensajeAbandonado.Should().BeTrue();
+        actions.MensajeEnDeadLetter.Should().BeFalse();
+        actions.MensajeCompletado.Should().BeFalse();
+        router.Invocaciones.Should().Be(0);
+    }
 }
 
 // ---- Stub concreto minimo para testear la clase base ----
 
 internal record EventoStub(string? Nombre);
+
+internal record ComandoStub(string? Nombre);
 
 internal class StubEndpoint(ICommandRouter commandRouter, ILogger logger)
     : ServiceBusEndpointBase<EventoStub>(commandRouter, logger)
@@ -1637,6 +1683,14 @@ internal class StubEndpoint(ICommandRouter commandRouter, ILogger logger)
         ServiceBusMessageActions actions,
         CancellationToken ct)
         => ProcesarMensaje(message, actions, ct);
+
+    public Task ProcesarTraducido<TComando>(
+        ServiceBusReceivedMessage message,
+        ServiceBusMessageActions actions,
+        Func<EventoStub, TComando> crearComando,
+        CancellationToken ct)
+        where TComando : class
+        => ProcesarMensaje(message, actions, crearComando, ct);
 }
 
 // ---- Fakes manuales - NO NSubstitute ----
@@ -1646,6 +1700,7 @@ internal class FakeCommandRouter : ICommandRouter
     private readonly Exception? _excepcion;
 
     public int Invocaciones { get; private set; }
+    public object? UltimoComando { get; private set; }
 
     public FakeCommandRouter(Exception? excepcion = null) => _excepcion = excepcion;
 
@@ -1653,6 +1708,7 @@ internal class FakeCommandRouter : ICommandRouter
         where TCommand : class
     {
         Invocaciones++;
+        UltimoComando = command;
         if (_excepcion is not null) throw _excepcion;
         return Task.CompletedTask;
     }
@@ -4396,7 +4452,7 @@ Scaffold completado para el dominio "{kebab}":
     {PascalCase}/.gitkeep                - Subcarpeta de este dominio, vacia al nacer (la llena implementer)
 
   tests/<RootNamespace>.{PascalCase}.Tests/
-    Infraestructura/ServiceBusEndpointBaseTests.cs - Tests de orquestacion (feliz, lock-lost, abandono ante error del handler, dead-letter por JSON invalido)
+    Infraestructura/ServiceBusEndpointBaseTests.cs - Tests de orquestacion (feliz, lock-lost, abandono ante error del handler, dead-letter por JSON invalido, sobrecarga con traduccion)
     Infraestructura/ServiceBusSessionEndpointBaseTests.cs - Tests de orquestacion de fan-in (feliz, lock-lost, abandono ante error del handler, dead-letter por Subject no reconocido o cuerpo ilegible)
     Infraestructura/PrivateEventEndpointBaseTests.cs - Tests de orquestacion del EventHandler directo (feliz, lock-lost, abandono ante error del handler, dead-letter por JSON invalido)
     Infraestructura/ComposicionContenedorTests.cs - Test de composicion del contenedor DI: BuildServiceProvider(ValidateOnBuild + ValidateScopes) + resolucion explicita de los routers (issue #319, MEF-ADR-0029) + guarda derivada de eventos aplicados vs EventGraph del IDocumentStore compuesto (MEF-ADR-0036) + ruta Wolverine de cada evento de EnrutamientoEventos y guarda derivada de eventos de bus del dominio no declarados (issue #1804) + guardrails del sampler efectivo post-exporter y su ratio default + del flip de logs desacoplado del muestreo de trazas (issue #700) + del drop total de metricas via InMemoryExporter sin tumbar el TracerProvider (issue #764/#777) + del durability agent apagado en origen (MEF-ADR-0038)
