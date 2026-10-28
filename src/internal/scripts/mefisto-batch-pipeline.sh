@@ -66,6 +66,9 @@ source "$SCRIPT_DIR/lib/_mefisto-common.sh"
 assert_in_mefisto || exit 1
 ensure_githooks_installed
 source "$(cd "$SCRIPT_DIR/../../runtime/lib" && pwd)/mefisto-runtime.sh"
+# Lectura de '## Dependencias' (MEF-ADR-0018); la guarda tolera raices parciales
+# de tests que no copian la libreria (el gate por eslabon se omite sin ella).
+[ -f "$SCRIPT_DIR/lib/mefisto-deps.sh" ] && source "$SCRIPT_DIR/lib/mefisto-deps.sh"
 
 # --- Colores ---
 RED='\033[0;31m'
@@ -334,6 +337,39 @@ fail_issue() {
 # su `continue` lo salta, asi que la senal no interrumpe una cadena que ya
 # estaba fallando por otra razon -- solo el camino de exito la consulta.
 BATCH_STOP_SIGNAL="$MEFISTO_STATE_DIR/batch-stop"
+
+# --- Gate de dependencias por eslabon (issue #2478) -------------------------
+# El paso 1.5 de /mefisto-sequential da por satisfecha toda dependencia que esta
+# antes en el batch; si ese eslabon falla, el dependiente se construiria sobre un
+# main sin su productor. Este gate lo evita: no lee ni muta el label `bloqueado`
+# (issue #466), solo '## Dependencias'.
+#
+# unmet_dependency <issue>
+#   Imprime "<N>|<motivo>" de la primera dependencia no satisfecha y retorna 0;
+#   retorna 1 (sin imprimir) si todas estan satisfechas. Satisfecha = `completado*`
+#   en este batch, o CLOSED (issue) / MERGED (PR) en GitHub.
+unmet_dependency() {
+    local issue="$1" body deps dep st gh_state
+    type mefisto_forward_dependencies >/dev/null 2>&1 || return 1
+    body=$(gh issue view "$issue" --json body -q '.body' 2>/dev/null || true)
+    deps=$(printf '%s\n' "$body" | mefisto_forward_dependencies || true)
+    for dep in $deps; do
+        [ "$dep" = "$issue" ] && continue
+        st=$(get_status "$dep")
+        case "$st" in completado*) continue ;; esac
+        # GitHub decide antes que el motivo del batch: un eslabon que fallo
+        # despues de mergear deja su issue CLOSED y la dependencia satisfecha.
+        gh_state=$(gh issue view "$dep" --json state -q '.state' 2>/dev/null \
+            || gh pr view "$dep" --json state -q '.state' 2>/dev/null || true)
+        case "$gh_state" in CLOSED|MERGED) continue ;; esac
+        case "$st" in
+            saltado*|ERROR*) echo "$dep|fallido en este batch" ;;
+            *) echo "$dep|${gh_state:-no consultable}" ;;
+        esac
+        return 0
+    done
+    return 1
+}
 
 # --- Raiz ejecutable aislada por eslabon (issue #1107) ----------------------
 #
@@ -640,6 +676,15 @@ for ISSUE_NUM in ${BATCH_QUEUE[@]+"${BATCH_QUEUE[@]}"}; do
     CURRENT=$((COMPLETED + FAILED + 1))
     header "Issue #$ISSUE_NUM ($CURRENT/$TOTAL)"
     BATCH_CURRENT="$ISSUE_NUM"
+
+    # Gate de dependencias (issue #2478): antes de "en curso" y del snapshot.
+    # El salto cuenta en FAILED pero no toca HAVE_ERRORS ni --stop-on-error.
+    if UNMET=$(unmet_dependency "$ISSUE_NUM"); then
+        set_status "$ISSUE_NUM" "saltado: depende de #${UNMET%%|*} (${UNMET#*|})"
+        FAILED=$((FAILED + 1))
+        warn "Issue #$ISSUE_NUM saltado: depende de #${UNMET%%|*} (${UNMET#*|}); no se lanza el pipeline."
+        continue
+    fi
     set_status "$ISSUE_NUM" "en curso"
 
     # Se crea ANTES de cualquier tooling del issue. El snapshot queda vivo hasta
@@ -841,6 +886,7 @@ for ISSUE_NUM in "${ISSUE_NUMS[@]}"; do
     elif echo "$STATUS" | grep -q "^ERROR"; then
         COLOR="$RED"
     else
+        # `saltado` y `aplazado` caen aqui: amarillo.
         COLOR="$YELLOW"
     fi
     printf "${COLOR}%-10s %-8s %-45s${NC}\n" "#$ISSUE_NUM" "${PR:-(n/a)}" "$STATUS"
@@ -855,6 +901,15 @@ for ISSUE_NUM in "${ISSUE_NUMS[@]}"; do
     esac
 done
 DEFERRED=${#DEFERRED_NUMS[@]}
+
+# Issues saltados por dependencia no satisfecha (issue #2478), en el orden del batch.
+SKIPPED_NUMS=()
+for ISSUE_NUM in "${ISSUE_NUMS[@]}"; do
+    case "$(get_status "$ISSUE_NUM")" in
+        saltado*) SKIPPED_NUMS+=("$ISSUE_NUM") ;;
+    esac
+done
+SKIPPED=${#SKIPPED_NUMS[@]}
 
 BATCH_CURRENT=""
 if [ "$HAVE_ERRORS" = true ]; then
@@ -875,6 +930,12 @@ echo ""
 # aparte, despues de la fila de totales, y solo cuando hubo alguna espera.
 if [ "$BATCH_TOTAL_HOLD_SECONDS" -gt 0 ]; then
     echo -e "  Tiempo total en espera (hold): $(fmt_hold_duration "$BATCH_TOTAL_HOLD_SECONDS")"
+    echo ""
+fi
+
+if [ "$SKIPPED" -gt 0 ]; then
+    warn "$SKIPPED issue(s) saltados por dependencia no satisfecha. No se lanzaron."
+    echo -e "  Relanza tras resolver sus dependencias: ${BOLD}/mefisto-sequential ${SKIPPED_NUMS[*]}${NC}"
     echo ""
 fi
 
