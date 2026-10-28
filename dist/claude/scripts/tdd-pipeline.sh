@@ -1328,7 +1328,7 @@ Smokes existentes que invocan las tools modificadas: ninguno encontrado por el p
                 fi
             else
                 SMOKE_INVOKERS=$(list_smokes_invoking_routes "$WORKTREE_PATH" \
-                    $(echo "$SMOKE_FILES" | grep -vE "$MCP_TOOL_PATTERN" | grep -E 'FunctionEndpoint\.cs$' || true)) || SMOKE_INVOKERS=""
+                    $(echo "$SMOKE_FILES" | grep -vE "$MCP_TOOL_PATTERN" | grep -E '\.cs$' || true)) || SMOKE_INVOKERS=""
                 if [ -n "$SMOKE_INVOKERS" ]; then
                     SMOKE_INVOKERS_LISTING=$(printf '%s\n' "$SMOKE_INVOKERS" | awk -F'\t' '{print "- " $2 " (ruta: " $1 ")"}')
                     SMOKE_INVOKERS_BLOCK="
