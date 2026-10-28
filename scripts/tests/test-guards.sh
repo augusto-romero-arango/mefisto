@@ -703,6 +703,22 @@ for agente in "$REPO_ROOT"/agents/*.md; do
     done
 done
 
+# Paso "Esperar la publicacion del worker de proyecciones" (issue #2469): el job y el path que busca
+# deben seguir siendo el job 'publish:' y el path que genera projections-scaffolder.
+PS="$REPO_ROOT/agents/projections-scaffolder.md"
+PASO_WORKER=$(grep -F 'deploy-projections.yml") | select(.id' "$DS" || true)
+if grep -qE '^  publish:$' "$PS" && grep -qF 'select(.name == "publish")' "$DS"; then
+    pass "el job 'publish' del worker y el literal del paso de espera coinciden"
+else
+    fail "desalineacion entre el job 'publish:' de projections-scaffolder y el literal 'select(.name == \"publish\")' del paso de espera del worker"
+fi
+WORKER_PATH=$(grep -oE '\.github/workflows/deploy-projections\.yml' "$PS" | sort -u | head -1)
+if [ -n "$PASO_WORKER" ] && [ -n "$WORKER_PATH" ] && echo "$PASO_WORKER" | grep -qF "== \"$WORKER_PATH\""; then
+    pass "el paso de espera del worker busca el path que genera projections-scaffolder"
+else
+    fail "el paso de espera del worker no busca el path .github/workflows/deploy-projections.yml que genera projections-scaffolder"
+fi
+
 # actions: read en el reutilizable y en los dos jobs invocadores que hacen el 'uses:' (CA-4/CA-5).
 # Sin la concesion el run muere en startup_failure SIN annotation: nada mas lo atraparia.
 ACTIONS_READ=$(grep -cE '^[[:space:]]+actions: read' "$DS" || true)

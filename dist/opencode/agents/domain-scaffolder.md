@@ -3865,6 +3865,8 @@ Ambos archivos son **idempotentes** (misma logica de "si existe / si no existe" 
 >
 > **Orden obligatorio de los dos parches: primero el endpoint en todos los dominios, despues el workflow.** Este reutilizable es **uno por repo** y lo invocan los smoke tests de **todos** los dominios, asi que el step nuevo polea `/api/ready` tambien en los que se scaffoldearon antes de esta enmienda. Un dominio sin `ReadyCheck.cs` responde 404 a esa ruta, y `curl --fail` no distingue "todavia no arranco" de "este dominio no tiene el endpoint": la compuerta agota sus 120s y **tumba la suite** de ese dominio. Aplica primero el parche del Paso 1 (`ReadyCheck.cs` + `.Mensajes.cs` + `.resx` + probe + registro de DI) a **cada** dominio ya scaffoldeado, y solo entonces inserta el step aqui.
 
+> **Repos ya scaffoldeados antes del fix del issue #2469**: mismo limite de idempotencia -- el scaffolder no reescribe un `smoke-tests-dominio.yml` existente. Inserta a mano el step `Esperar la publicacion del worker de proyecciones del mismo commit` (contenido completo en el Paso 6.1 de arriba, sin `if`) entre `actions/setup-dotnet` y `Esperar deploys ajenos del mismo commit` (o, si el repo no tiene esa guarda, entre `actions/setup-dotnet` y `Esperar /api/ready`). No requiere cambios de `permissions` si el archivo ya concede `actions: read` (issue #604). Si el repo ya tiene un paso equivalente propio, conserva el suyo (en un consumidor el job puede llamarse `deploy` en vez de `publish`: ajusta el literal `select(.name == "publish")`).
+>
 > **Repos ya scaffoldeados antes del fix del issue #1273**: el scaffolder no sobrescribe proyectos ni workflows existentes. Actualiza manualmente `Fixtures/ApiFixture.cs` de cada suite de smoke: cambia `TimeoutGatePorVersion` a 420 s y agrega al error de agotamiento el SHA esperado, el ultimo SHA observado y la URL de `StartupLogs` de Kudu derivada del host de la Function App. El poll de `/api/ready` conserva su presupuesto independiente de 120 s.
 
 **Transcripcion byte-a-byte (issue #241).** Dos dominios pueden scaffoldearse en paralelo desde el mismo `origin/main`, cada uno viendo estos archivos ausentes y generandolos a la vez. Si ambas ramas los transcriben literal, el merge es un add/add de archivos identicos (benigno, sin conflicto); si alguna normaliza espacios, reordena claves o resume comentarios, el add/add se vuelve un conflicto real. Copia los bloques YAML de 6.1 y 6.2 **tal cual aparecen abajo**: sin normalizar indentacion, sin reordenar, sin resumir ni omitir comentarios.
@@ -3925,6 +3927,61 @@ jobs:
         with:
           dotnet-version: '10.0.x'
 
+      - name: Esperar la publicacion del worker de proyecciones del mismo commit
+        # Cierra la carrera entre los tests read-side de esta suite y la publicacion del worker de
+        # proyecciones (issue #2469, MEF-ADR-0031 seccion 4 enmendada). Los 'paths' de
+        # deploy-{kebab}.yml y de deploy-projections.yml comparten DomainEvents/** y global.json:
+        # un mismo push dispara ambos, y los tests que leen vistas materializadas por el worker
+        # pueden correr contra su revision vieja o en pleno cambio de revision. Sin 'if': aplica
+        # a toda clase de invocador, tambien a deploy-{kebab}.yml (que llega con expected_sha).
+        # Se espera el job 'publish', nunca el run completo (mismo motivo que la guarda de abajo:
+        # evitar el deadlock con un grupo 'concurrency' de smoke).
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          # En un deploy-{kebab}.yml disparado por workflow_run, github.sha no es necesariamente
+          # el commit desplegado (MEF-ADR-0031 seccion 1): manda expected_sha cuando llega.
+          SHA: ${{ inputs.expected_sha != '' && inputs.expected_sha || github.sha }}
+          RUN_ID: ${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          INTENTOS=120
+          ESPERA=5
+          for i in $(seq 1 "$INTENTOS"); do
+            # Se identifica el run por 'path' (sin '@ref'), no por nombre: el path lo genera
+            # projections-scaffolder, el 'name:' es texto libre editable por el consumidor.
+            RUNS=$(gh api "repos/$REPO/actions/runs?head_sha=$SHA" --paginate --jq \
+              '.workflow_runs[] | select((.path | split("@")[0]) == ".github/workflows/deploy-projections.yml") | select(.id != '"$RUN_ID"') | "\(.id) \(.status)"')
+            PENDIENTES=""
+            AVISOS=""
+            while read -r RUN RUN_STATUS; do
+              [ -n "${RUN:-}" ] || continue
+              PUBLISH=$(gh api "repos/$REPO/actions/runs/$RUN/jobs" --paginate --jq \
+                '.jobs[] | select(.name == "publish") | "\(.status) \(.conclusion)"')
+              if [ -z "$PUBLISH" ]; then
+                # Sin job 'publish': en vuelo si el run no termino; si termino, ausente (continuar).
+                [ "$RUN_STATUS" = "completed" ] || PENDIENTES="$PENDIENTES $RUN"
+                continue
+              fi
+              case "$PUBLISH" in
+                completed\ failure|completed\ cancelled) AVISOS="$AVISOS $RUN" ;;
+                completed*) ;;
+                *) PENDIENTES="$PENDIENTES $RUN" ;;
+              esac
+            done <<< "$RUNS"
+            if [ -z "$PENDIENTES" ]; then
+              for RUN in $AVISOS; do
+                echo "::warning::El job 'publish' del worker de proyecciones (run $RUN, commit $SHA) termino en failure o cancelled: esta suite corre contra la revision anterior del worker."
+              done
+              echo "Ninguna publicacion del worker de proyecciones del commit $SHA sigue en vuelo."
+              exit 0
+            fi
+            echo "Esperando el job 'publish' del worker de proyecciones:$PENDIENTES (intento $i/$INTENTOS)..."
+            sleep "$ESPERA"
+          done
+          echo "::error::Timeout esperando el job 'publish' del worker de proyecciones del commit $SHA."
+          exit 1
+
       - name: Esperar deploys ajenos del mismo commit
         # Cierra la carrera entre el smoke de un Function App ajeno y su deploy concurrente
         # (issue #604, MEF-ADR-0031 seccion 4 enmendada). Solo el invocador que despliega el
@@ -3955,7 +4012,8 @@ jobs:
             # el unico que expone un job 'deploy'. 'Deploy Projections Worker'
             # (.github/workflows/deploy-projections.yml, projections-scaffolder) comparte el
             # prefijo del nombre pero despliega el Container App del worker de proyecciones -- no
-            # toca ninguna Function App (nada que esperar) y sus jobs son 'build-and-test' y
+            # toca ninguna Function App (esta guarda no espera Function Apps de ese run; su
+            # publicacion la espera el paso anterior) y sus jobs son 'build-and-test' y
             # 'publish' (ningun 'deploy'), asi que sin esta exclusion la guarda de abajo moriria
             # en 'exit 1' cada vez que una corrida global de smoke coincidiera con una publicacion
             # del worker del mismo commit. Se excluye por 'path' y no por nombre:
@@ -4037,7 +4095,9 @@ jobs:
 >
 > Espera el **job** `deploy` de cada run ajeno, nunca el run completo, por dos razones: ese run ajeno corre su propio job de smoke **despues** del `deploy`, asi que esperar el run entero es esperar una suite que no gatea nada de este lado; y en cualquier repo que serialice los smoke con un grupo `concurrency` (lo hace el consumidor de origen con `smoke-tests-dev`; las plantillas de este agente no declaran ninguno) es directamente un **deadlock**: el job de smoke del ajeno no puede arrancar hasta que este job libere el grupo, y este job no termina hasta que ese run complete.
 >
-> Si un run ajeno no expone ningun job llamado `deploy`, la guarda **falla** en vez de asumir que ya termino (`::error::` + `exit 1`): degradar en silencio reintroduciria la carrera sin ninguna senal. El precio de esa decision es que el filtro de runs debe ser exacto, y por eso excluye `.github/workflows/deploy-projections.yml` (`projections-scaffolder`): su `name:` es `Deploy Projections Worker` -- matchea el prefijo -- pero despliega el Container App del worker de proyecciones, no toca ninguna Function App y sus jobs son `build-and-test`/`publish`; sin la exclusion, cada corrida global de smoke que coincidiera con una publicacion del worker del mismo commit moriria en `exit 1` por un run que nunca tuvo nada que esperar.
+> Si un run ajeno no expone ningun job llamado `deploy`, la guarda **falla** en vez de asumir que ya termino (`::error::` + `exit 1`): degradar en silencio reintroduciria la carrera sin ninguna senal. El precio de esa decision es que el filtro de runs debe ser exacto, y por eso excluye `.github/workflows/deploy-projections.yml` (`projections-scaffolder`): su `name:` es `Deploy Projections Worker` -- matchea el prefijo -- pero despliega el Container App del worker de proyecciones, no toca ninguna Function App y sus jobs son `build-and-test`/`publish`; sin la exclusion, cada corrida global de smoke que coincidiera con una publicacion del worker del mismo commit moriria en `exit 1` por un run sin job `deploy` que esta guarda no tiene como esperar. La exclusion no deja al worker sin espera: la cubre el paso anterior.
+>
+> **El paso "Esperar la publicacion del worker de proyecciones del mismo commit" (issue #2469, MEF-ADR-0031 seccion 4 enmendada) es una correccion distinta de esta guarda.** No lleva `if`: aplica a toda clase de invocador, incluida `deploy-{kebab}.yml`, que comparte `DomainEvents/**` y `global.json` en sus `paths` con `deploy-projections.yml` y por eso dispara ambos con un mismo push. Los tests read-side de la suite leen vistas materializadas por el worker, asi que no deben correr contra su revision vieja. Busca los runs del commit (`inputs.expected_sha` si llega, `github.sha` si no) cuyo `path` sin `@ref` es `.github/workflows/deploy-projections.yml` y espera el **job** `publish` (nunca el run: mismo motivo de deadlock). Sin run, o con `publish` ausente o `skipped` en un run terminado, continua sin aviso; con `publish` en `failure`/`cancelled` continua con `::warning::` (el fallo ya se ve en rojo en el run del worker y no debe tumbar el smoke del write-side); tras 120 intentos de 5 s falla con `::error::`. Si el job `publish` aun no existe y el run no termino, lo trata como en vuelo. No pide permisos nuevos: `actions: read` ya cubre la consulta. El worker es un Container App sin ingress (MEF-ADR-0034 seccion 8), asi que su revision solo se observa por la API de Actions, a traves de ese job.
 >
 > **Dos convenciones acopladas, y el test del marco que las sostiene (CA-6).** El literal `deploy` del job y el prefijo `Deploy ` del nombre son convenciones de `deploy-{kebab}.yml` (Paso 5), verificadas empiricamente contra 4 deploys reales del consumidor de origen; el path excluido es el que genera `projections-scaffolder`. Quien renombre cualquiera de las tres cosas debe mover el literal aqui tambien -- y el bloque `[H]` de `scripts/tests/test-guards.sh` falla si esa correspondencia se rompe, para que la deriva no deje a la guarda ciega en silencio.
 >

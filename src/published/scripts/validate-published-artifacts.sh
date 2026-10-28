@@ -71,7 +71,7 @@ EOF
     body_validation="$(awk -v id="$id" -v kind="$artifact_kind" -v rel="$rel" -v declared_skills="$declared_skills" -v available_skills="$available_skills" -v available_commands="$available_commands" '
         function allowed_placeholder(value) {
             if (value == "$ARGUMENTS") return 1
-            if (id == "domain-scaffolder" && value ~ /^\$(1|2|3|AJENOS|CSPROJ|ESPERA|EVENTO|RUN_CONCLUSION|RUN_EVENTO|RUN_RAMA|RUN_REPO|GITHUB_OUTPUT|INTENTOS|INTRUSOS|JOB_STATUS|PENDIENTES|PR_NUM|REPO|REPO_ROOT|RUN|RUN_ID|SECONDS|SHA|TIMEOUT|archivo|destino|f|i|paquete|presupuesto|proj|temporal|version_esperada)$/) return 1
+            if (id == "domain-scaffolder" && value ~ /^\$(1|2|3|AJENOS|AVISOS|PUBLISH|RUNS|RUN_STATUS|CSPROJ|ESPERA|EVENTO|RUN_CONCLUSION|RUN_EVENTO|RUN_RAMA|RUN_REPO|GITHUB_OUTPUT|INTENTOS|INTRUSOS|JOB_STATUS|PENDIENTES|PR_NUM|REPO|REPO_ROOT|RUN|RUN_ID|SECONDS|SHA|TIMEOUT|archivo|destino|f|i|paquete|presupuesto|proj|temporal|version_esperada)$/) return 1
             if (id == "domain-scaffolder" && (value == "${PR_NUM}" || value == "${REPO}" || value == "${RUN_SHA}" || value == "${TIMEOUT}" || value == "${archivo}")) return 1
             if (id == "projection-test-writer" && (value == "$PLUGIN_ROOT" || value == "$HOME" || value == "$2")) return 1
             if (id == "reviewer" && (value == "$PLUGIN_ROOT" || value == "$HOME")) return 1
