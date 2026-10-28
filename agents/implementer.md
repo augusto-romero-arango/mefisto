@@ -357,7 +357,7 @@ public partial class TurnoCreadoEventHandler(IEventStore eventStore)
 }
 ```
 
-El endpoint correspondiente hereda de `PrivateEventEndpointBase<TurnoCreado>` (lo crea el `domain-scaffolder`, contraparte de `ServiceBusEndpointBase<TEvento>`) en vez de rutear un `ICommandRouter` — mismo `[Function]`/`[ServiceBusTrigger]`, mismo manejo de fallos (complete/lock-lost/dead-letter), solo cambia el router inyectado.
+El endpoint correspondiente hereda de `PrivateEventEndpointBase<TurnoCreado>` (lo crea el `domain-scaffolder`, contraparte de `ServiceBusEndpointBase<TEvento>`) en vez de rutear un `ICommandRouter` — mismo `[Function]`/`[ServiceBusTrigger]`, mismo manejo de fallos (el fallo del handler se abandona y el bus lo reintenta; dead letter solo para el mensaje ilegible; lock-lost solo warning), solo cambia el router inyectado.
 
 **DI (composicion de servicios, `ComposicionServicios{Dominio}.cs`):** agregar `services.AgregarWolverinePrivateEventRouter();` junto a `AgregarWolverineEventSender()` (registro barato, lo hace el `domain-scaffolder` por defecto). Desde MEF-ADR-0029 el wiring vive en el metodo de extension `AgregarServicios{Dominio}`, no inline en `Program.cs` -- registra ahi para que el test de composicion (`ComposicionContenedorTests`) lo cubra. Si el dominio ya no rutea ningun comando, `AgregarWolverineCommandRouter()` puede retirarse; si ademas tiene endpoints HTTP o de fan-in, ambos routers conviven sin conflicto.
 
@@ -619,17 +619,43 @@ public class FunctionEndpoint(ICommandRouter commandRouter, ILogger<FunctionEndp
         ServiceBusMessageActions messageActions,
         CancellationToken ct)
     {
+        // Etapa 1: deserializar. Un cuerpo ilegible nunca mejora al reintentar -> dead letter con el
+        // tipo de la excepcion como razon.
+        TurnoCreado evento;
         try
         {
-            var evento = message.Body.ToObjectFromJson<TurnoCreado>();
+            evento = message.Body.ToObjectFromJson<TurnoCreado>()!;
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Mensaje ilegible {MessageId} - dead letter", message.MessageId);
+            await messageActions.DeadLetterMessageAsync(
+                message,
+                deadLetterReason: ex.GetType().Name,
+                deadLetterErrorDescription: ex.Message,
+                cancellationToken: ct);
+            return;
+        }
+
+        // Etapa 2: invocar. Cualquier fallo del handler (conflicto de concurrencia, caida breve de
+        // Postgres, excepcion lanzada para pedir reintento) se abandona: el bus lo redelivera hasta
+        // max_delivery_count y solo entonces lo mueve al DLQ.
+        try
+        {
             await commandRouter.InvokeAsync(
                 new DepurarMarcacionesDeTurno(evento.TurnoId), ct);
             await messageActions.CompleteMessageAsync(message, ct);
         }
+        catch (ServiceBusException ex) when (ex.Reason == ServiceBusFailureReason.MessageLockLost)
+        {
+            logger.LogWarning(ex, "Lock perdido para mensaje {MessageId}", message.MessageId);
+        }
         catch (Exception ex)
         {
-            logger.LogError(ex, "Error procesando mensaje {MessageId}", message.MessageId);
-            await messageActions.DeadLetterMessageAsync(message);
+            logger.LogError(ex,
+                "Error procesando mensaje {MessageId} (DeliveryCount {DeliveryCount}) - se abandona",
+                message.MessageId, message.DeliveryCount);
+            await messageActions.AbandonMessageAsync(message, cancellationToken: ct);
         }
     }
 }
@@ -646,7 +672,7 @@ public async Task NotificarCuandoDiaCalculado(
     ServiceBusMessageActions messageActions,
     CancellationToken ct)
 {
-    // mismo cuerpo: deserializar, invocar el comando, completar o dead-letter
+    // mismo cuerpo: deserializar (ilegible -> dead letter), invocar el comando (fallo -> abandono), completar
 }
 ```
 
@@ -658,7 +684,7 @@ Los dos endpoints anteriores consumen una **subscription** de un unico topic (un
 
 **Lookup map por `message.Subject`** cuando el queue recibe varios tipos de evento convergentes: `Subject` es la propiedad AMQP "subject", una etiqueta de aplicacion que el productor fija al publicar (`ServiceBusReceivedMessage.Subject`, [Azure.Messaging.ServiceBus](https://learn.microsoft.com/dotnet/api/azure.messaging.servicebus.servicebusreceivedmessage.subject)). Este despacho -- elegir que evento deserializar y que comando invocar segun una clave discreta -- es el caso canonico de la heuristica "Lookup map sobre switch/if para seleccion por clave discreta" (mas abajo): usa un `Dictionary<string, ...>` **estatico a nivel de modulo**, no un `switch`.
 
-El emisor de Wolverine (`WolverinePrivateEventSender`) publica via `messageBus.PublishAsync<IPrivateEvent>(@event, ...)`; el mapper de Azure Service Bus de Wolverine fija `ServiceBusMessage.Subject = envelope.MessageType`, y el naming por defecto de Wolverine (`WolverineMessageNaming`, estrategia `FullTypeNaming`) devuelve `Type.FullName` para tipos sin `[MessageIdentity]` -- los contratos EDA de este marco son records DTO planos, sin ese atributo. **Verificado empiricamente** en un consumidor real (`Cosmos.ControlPlane`, PR #95, fan-in `NotificarProgresoOnboarding`): con `nameof(TEvento)` como clave, el discriminante nunca casaba contra el `Subject` real (`Type.FullName`, con namespace completo) y **todas** las patas del fan-in terminaban en dead-letter (16 mensajes muertos, 0 activos en dev). El discriminante correcto es **`typeof(TEvento).FullName`**, no `nameof(TEvento)`. Si un `Subject` no coincide con ninguna clave del mapa, el `TryGetValue` falla, lanza y el mensaje se dead-letterea — por eso el mapa no puede quedar a medias. Si al scaffoldear este endpoint detectas que el productor no esta fijando `Subject` (por ejemplo, un emisor que no es Wolverine), documentalo en tu resumen (misma disciplina que con topics/subscriptions faltantes) — sin ese `Subject` el fan-in no despacha nada.
+El emisor de Wolverine (`WolverinePrivateEventSender`) publica via `messageBus.PublishAsync<IPrivateEvent>(@event, ...)`; el mapper de Azure Service Bus de Wolverine fija `ServiceBusMessage.Subject = envelope.MessageType`, y el naming por defecto de Wolverine (`WolverineMessageNaming`, estrategia `FullTypeNaming`) devuelve `Type.FullName` para tipos sin `[MessageIdentity]` -- los contratos EDA de este marco son records DTO planos, sin ese atributo. **Verificado empiricamente** en un consumidor real (`Cosmos.ControlPlane`, PR #95, fan-in `NotificarProgresoOnboarding`): con `nameof(TEvento)` como clave, el discriminante nunca casaba contra el `Subject` real (`Type.FullName`, con namespace completo) y **todas** las patas del fan-in terminaban en dead-letter (16 mensajes muertos, 0 activos en dev). El discriminante correcto es **`typeof(TEvento).FullName`**, no `nameof(TEvento)`. Si un `Subject` no coincide con ninguna clave del mapa, el `TryGetValue` falla, `Interpretar` lanza y el mensaje se dead-letterea (es ilegible: reintentar no lo arregla) — por eso el mapa no puede quedar a medias. Si al scaffoldear este endpoint detectas que el productor no esta fijando `Subject` (por ejemplo, un emisor que no es Wolverine), documentalo en tu resumen (misma disciplina que con topics/subscriptions faltantes) — sin ese `Subject` el fan-in no despacha nada.
 
 ```csharp
 public class ConsolidarCierreTurno(ICommandRouter commandRouter, ILogger<ConsolidarCierreTurno> logger)
@@ -666,17 +692,23 @@ public class ConsolidarCierreTurno(ICommandRouter commandRouter, ILogger<Consoli
 {
     // El discriminante (Subject) es una clave discreta -> mapa a nivel de modulo, no switch.
     // La decision "que evento deserializar y que comando invocar" vive en un solo lugar; agregar
-    // un evento convergente es agregar una fila. Un Subject no reconocido cae al TryGetValue y
-    // lanza (boundary), y la clase base lo dead-letterea.
-    private static readonly IReadOnlyDictionary<string, Func<BinaryData, ICommandRouter, CancellationToken, Task>>
-        DespachadorPorSubject = new Dictionary<string, Func<BinaryData, ICommandRouter, CancellationToken, Task>>
+    // un evento convergente es agregar una fila. Cada entrada deserializa el cuerpo (si falla, la
+    // base lo dead-letterea: mensaje ilegible) y RETORNA la invocacion sin ejecutarla (si esa
+    // invocacion falla, la base abandona y el bus reintenta en la misma sesion). Un Subject no
+    // reconocido cae al TryGetValue y lanza (boundary): tambien dead letter.
+    private static readonly IReadOnlyDictionary<string, Func<BinaryData, ICommandRouter, Func<CancellationToken, Task>>>
+        InterpretePorSubject = new Dictionary<string, Func<BinaryData, ICommandRouter, Func<CancellationToken, Task>>>
         {
-            [typeof(TurnoCreado).FullName!] = (body, router, ct) =>
-                router.InvokeAsync(
-                    new ConsolidarDesdeTurnoCreado(ServiceBusDeserializador.Deserializar<TurnoCreado>(body).TurnoId), ct),
-            [typeof(EmpleadoAsignado).FullName!] = (body, router, ct) =>
-                router.InvokeAsync(
-                    new ConsolidarDesdeEmpleadoAsignado(ServiceBusDeserializador.Deserializar<EmpleadoAsignado>(body).EmpleadoId), ct),
+            [typeof(TurnoCreado).FullName!] = (body, router) =>
+            {
+                var evento = ServiceBusDeserializador.Deserializar<TurnoCreado>(body);
+                return ct => router.InvokeAsync(new ConsolidarDesdeTurnoCreado(evento.TurnoId), ct);
+            },
+            [typeof(EmpleadoAsignado).FullName!] = (body, router) =>
+            {
+                var evento = ServiceBusDeserializador.Deserializar<EmpleadoAsignado>(body);
+                return ct => router.InvokeAsync(new ConsolidarDesdeEmpleadoAsignado(evento.EmpleadoId), ct);
+            },
         };
 
     [Function("ConsolidarCierreTurno")]
@@ -688,18 +720,18 @@ public class ConsolidarCierreTurno(ICommandRouter commandRouter, ILogger<Consoli
         CancellationToken ct)
         => ProcesarMensajeDeSesion(message, messageActions, ct);
 
-    protected override Task DespacharPorSubject(ServiceBusReceivedMessage message, CancellationToken ct)
+    protected override Func<CancellationToken, Task> Interpretar(ServiceBusReceivedMessage message)
     {
-        if (!DespachadorPorSubject.TryGetValue(message.Subject ?? string.Empty, out var despachar))
+        if (!InterpretePorSubject.TryGetValue(message.Subject ?? string.Empty, out var interpretar))
             throw new InvalidOperationException(
                 $"Subject no reconocido en el queue consolidar-cierre-turno: {message.Subject}");
 
-        return despachar(message.Body, commandRouter, ct);
+        return interpretar(message.Body, commandRouter);
     }
 }
 ```
 
-`ServiceBusSessionEndpointBase` (en `Infraestructura/`, la crea el `domain-scaffolder`) es la contraparte de `ServiceBusEndpointBase<TEvento>` para este caso: encapsula complete/lock-lost/dead-letter, pero delega el despacho al metodo abstracto `DespacharPorSubject` porque aqui no hay un unico `TEvento` -- el mapa decide, caso por caso, que evento deserializar y que comando invocar. Un `Subject` no reconocido debe lanzar (el `TryGetValue` fallido); la clase base lo captura como cualquier otro error y dead-letterea el mensaje.
+`ServiceBusSessionEndpointBase` (en `Infraestructura/`, la crea el `domain-scaffolder`) es la contraparte de `ServiceBusEndpointBase<TEvento>` para este caso: encapsula complete / lock-lost (solo warning) / abandono del fallo del handler / dead letter del mensaje ilegible, pero delega la interpretacion al metodo abstracto `Interpretar` porque aqui no hay un unico `TEvento` -- el mapa decide, caso por caso, que evento deserializar y que comando invocar, y devuelve la invocacion sin ejecutarla. La base separa interpretar (si lanza -- `Subject` desconocido o cuerpo ilegible -- dead letter con el tipo de la excepcion como razon) de invocar (si falla, abandono: el bus redelivera hasta `max_delivery_count`, en la misma sesion y conservando el orden).
 
 **Naming (MEF-ADR-0026 seccion 4, excepcion documentada de MEF-ADR-0006)**: el patron `{Accion}Cuando{Evento}` asume un estimulo unico y no aplica aqui -- exigirlo obligaria a elegir arbitrariamente uno de los N eventos convergentes. La convencion para Functions de fan-in es distinta: **el nombre del queue en kebab-case es el nombre de la Function que lo consume** (en PascalCase), y describe la decision o convergencia que resuelve, no un evento puntual. Ejemplo: queue `consolidar-cierre-turno` -> Function `ConsolidarCierreTurno`.
 

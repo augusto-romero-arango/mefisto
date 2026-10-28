@@ -118,8 +118,14 @@ aggregate queda permanentemente roto: nunca llegara al evento compensatorio que 
 **5. Fallos de infraestructura**
 
 Excepciones naturales del runtime (red, DB, ServiceBus). El retry y dead letter de Azure
-Functions los manejan automaticamente. No se capturan en el handler excepto en endpoints
-de ServiceBus donde se hace dead letter explicito.
+Functions los manejan automaticamente. No se capturan en el handler.
+
+En endpoints de ServiceBus el fallo del handler se abandona (`AbandonMessageAsync`) y lo
+reintenta el bus hasta `max_delivery_count`, donde la plataforma lo mueve al DLQ con razon
+`MaxDeliveryCountExceeded`. El dead letter explicito queda solo para el mensaje ilegible
+(cuerpo no deserializable o, en fan-in, `Subject` desconocido), con el tipo de la excepcion
+como `DeadLetterReason`. El lock perdido solo registra un warning. La etapa decide la
+liquidacion, no el tipo de la excepcion.
 
 ### Respuestas HTTP
 
@@ -265,6 +271,10 @@ nuevos").
 
 ## Control de cambios
 
+- 2026-10-28: enmienda (issue #2470). La capa 5 deja de autorizar el dead letter explicito ante
+  cualquier fallo en endpoints de ServiceBus: el fallo del handler se abandona y lo reintenta el
+  bus hasta `max_delivery_count`; el dead letter explicito queda solo para el mensaje ilegible.
+  Rige codigo nuevo, sin migracion de oficio de las bases ya scaffoldeadas.
 - 2026-09-07: enmienda (issue #850). La seccion 2 clasifica estado ya alcanzado -- identidad y
   alcance existentes con la intencion ya satisfecha -- como no-op exitoso: el aggregate retorna
   antes de agregar eventos y el handler finaliza sin persistir ni publicar; el endpoint responde

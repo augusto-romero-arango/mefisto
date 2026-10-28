@@ -944,7 +944,7 @@ namespace <RootNamespace>.{PascalCase}.Infraestructura;
 
 /// <summary>
 /// Clase base para FunctionEndpoints de ServiceBus.
-/// Encapsula la orquestacion: deserializar -> despachar al command router -> complete/lock-lost/dead-letter.
+/// Encapsula la orquestacion: deserializar (fallo = dead letter, mensaje ilegible) -> despachar al command router (fallo = abandono, el bus reintenta hasta max_delivery_count) -> complete / lock-lost (solo warning).
 /// Cada endpoint concreto hereda, define [Function] + [ServiceBusTrigger] y delega a <see cref="ProcesarMensaje"/>.
 /// El Connection del [ServiceBusTrigger] lo elige el endpoint concreto segun el origen del topic
 /// (SERVICE_BUS_CONNECTION_INTERNO para IPrivateEvent intra-BC; SERVICE_BUS_CONNECTION_&lt;ALIAS&gt; del
@@ -961,7 +961,24 @@ public abstract class ServiceBusEndpointBase<TEvento>(ICommandRouter commandRout
     {
         try
         {
-            var evento = ServiceBusDeserializador.Deserializar<TEvento>(message.Body);
+            TEvento evento;
+            try
+            {
+                evento = ServiceBusDeserializador.Deserializar<TEvento>(message.Body);
+            }
+            catch (Exception ex) when (ex is not ServiceBusException)
+            {
+                logger.LogError(ex,
+                    "Mensaje ilegible {MessageId} - dead letter (no se reintenta)",
+                    message.MessageId);
+                await messageActions.DeadLetterMessageAsync(
+                    message,
+                    deadLetterReason: ex.GetType().Name,
+                    deadLetterErrorDescription: ex.Message,
+                    cancellationToken: ct);
+                return;
+            }
+
             await commandRouter.InvokeAsync(evento, ct);
             await messageActions.CompleteMessageAsync(message, ct);
         }
@@ -973,8 +990,10 @@ public abstract class ServiceBusEndpointBase<TEvento>(ICommandRouter commandRout
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "Error procesando mensaje {MessageId}", message.MessageId);
-            await messageActions.DeadLetterMessageAsync(message, cancellationToken: ct);
+            logger.LogError(ex,
+                "Error procesando mensaje {MessageId} (DeliveryCount {DeliveryCount}) - se abandona para que el bus lo reintente",
+                message.MessageId, message.DeliveryCount);
+            await messageActions.AbandonMessageAsync(message, cancellationToken: ct);
         }
     }
 }
@@ -982,7 +1001,7 @@ public abstract class ServiceBusEndpointBase<TEvento>(ICommandRouter commandRout
 
 **10d. Crear el `ServiceBusSessionEndpointBase.cs` en `Infraestructura/`:**
 
-Contraparte de `ServiceBusEndpointBase<TEvento>` para el caso de fan-in de MEF-ADR-0026 (issue #271): un queue en modo sesion donde convergen N tipos de evento no tiene un unico `TEvento` que deserializar, asi que el despacho no puede vivir en la clase base. Esta clase encapsula solo lo que es identico entre ambos casos (complete/lock-lost/dead-letter) y delega la deserializacion + invocacion del comando al endpoint concreto via el metodo abstracto `DespacharPorSubject`.
+Contraparte de `ServiceBusEndpointBase<TEvento>` para el caso de fan-in de MEF-ADR-0026 (issue #271): un queue en modo sesion donde convergen N tipos de evento no tiene un unico `TEvento` que deserializar, asi que el despacho no puede vivir en la clase base. Esta clase encapsula solo lo que es identico entre ambos casos (complete / lock-lost / abandono del fallo del handler / dead letter del mensaje ilegible) y delega la interpretacion al endpoint concreto via el metodo abstracto `Interpretar`: deserializa el cuerpo segun `Subject` y devuelve la invocacion del comando **sin ejecutarla**. La base separa interpretar (fallo = dead letter) de invocar (fallo = abandono).
 
 ```csharp
 using Azure.Messaging.ServiceBus;
@@ -995,8 +1014,8 @@ namespace <RootNamespace>.{PascalCase}.Infraestructura;
 /// Clase base para FunctionEndpoints de fan-in sobre un queue de ServiceBus en modo sesion (MEF-ADR-0026).
 /// A diferencia de <see cref="ServiceBusEndpointBase{TEvento}"/> (un unico tipo de evento por
 /// subscription), aqui convergen N tipos de evento sobre el mismo queue: el endpoint concreto
-/// implementa <see cref="DespacharPorSubject"/> para deserializar y enrutar segun message.Subject;
-/// esta clase solo encapsula complete/lock-lost/dead-letter, igual que ServiceBusEndpointBase.
+/// implementa <see cref="Interpretar"/> para deserializar y enrutar segun message.Subject;
+/// esta clase solo encapsula complete/lock-lost/abandono/dead-letter del ilegible, igual que ServiceBusEndpointBase.
 /// El Connection del [ServiceBusTrigger] es siempre SERVICE_BUS_CONNECTION_INTERNO: el queue de
 /// fan-in vive en el namespace interno del BC (MEF-ADR-0026 seccion 2, MEF-ADR-0023) -- nunca en el
 /// backbone compartido. Ver la seccion "Endpoint de fan-in: queue en modo sesion" de
@@ -1011,7 +1030,25 @@ public abstract class ServiceBusSessionEndpointBase(ILogger logger)
     {
         try
         {
-            await DespacharPorSubject(message, ct);
+            Func<CancellationToken, Task> invocacion;
+            try
+            {
+                invocacion = Interpretar(message);
+            }
+            catch (Exception ex) when (ex is not ServiceBusException)
+            {
+                logger.LogError(ex,
+                    "Mensaje ilegible {MessageId} de la sesion {SessionId} - dead letter (no se reintenta)",
+                    message.MessageId, message.SessionId);
+                await messageActions.DeadLetterMessageAsync(
+                    message,
+                    deadLetterReason: ex.GetType().Name,
+                    deadLetterErrorDescription: ex.Message,
+                    cancellationToken: ct);
+                return;
+            }
+
+            await invocacion(ct);
             await messageActions.CompleteMessageAsync(message, ct);
         }
         catch (ServiceBusException ex) when (ex.Reason == ServiceBusFailureReason.MessageLockLost)
@@ -1023,24 +1060,24 @@ public abstract class ServiceBusSessionEndpointBase(ILogger logger)
         catch (Exception ex)
         {
             logger.LogError(ex,
-                "Error procesando mensaje {MessageId} de la sesion {SessionId}",
-                message.MessageId, message.SessionId);
-            await messageActions.DeadLetterMessageAsync(message, cancellationToken: ct);
+                "Error procesando mensaje {MessageId} de la sesion {SessionId} (DeliveryCount {DeliveryCount}) - se abandona para que el bus lo reintente en la misma sesion",
+                message.MessageId, message.SessionId, message.DeliveryCount);
+            await messageActions.AbandonMessageAsync(message, cancellationToken: ct);
         }
     }
 
     /// <summary>
-    /// Deserializa y despacha el mensaje segun message.Subject (nombre del tipo de evento convergente).
-    /// El endpoint concreto implementa el switch; un Subject no reconocido debe lanzar -- la clase
-    /// base lo captura como cualquier otro error y dead-letterea el mensaje.
+    /// Interpreta el mensaje segun message.Subject (nombre del tipo de evento convergente): deserializa
+    /// el cuerpo y devuelve la invocacion SIN ejecutarla. Si lanza (Subject desconocido o cuerpo
+    /// ilegible), la clase base manda el mensaje a dead letter; si falla la invocacion devuelta, lo abandona.
     /// </summary>
-    protected abstract Task DespacharPorSubject(ServiceBusReceivedMessage message, CancellationToken ct);
+    protected abstract Func<CancellationToken, Task> Interpretar(ServiceBusReceivedMessage message);
 }
 ```
 
 **10e. Crear el `PrivateEventEndpointBase.cs` en `Infraestructura/`:**
 
-Contraparte de `ServiceBusEndpointBase<TEvento>` para el patron EventHandler directo (issue #313, `Cosmos.EventDriven`, introducido en 2.1.0): cuando un dominio reacciona a un evento privado y el comando equivalente seria un espejo del evento, el endpoint no traduce a comando -- rutea el evento **directamente** via `IPrivateEventRouter` a su `IPrivateEventHandlerAsync<TEvent>`. Mismo manejo de fallos (complete/lock-lost/dead-letter) que `ServiceBusEndpointBase`; solo cambia el router inyectado y el tipo restringido a `IPrivateEvent`.
+Contraparte de `ServiceBusEndpointBase<TEvento>` para el patron EventHandler directo (issue #313, `Cosmos.EventDriven`, introducido en 2.1.0): cuando un dominio reacciona a un evento privado y el comando equivalente seria un espejo del evento, el endpoint no traduce a comando -- rutea el evento **directamente** via `IPrivateEventRouter` a su `IPrivateEventHandlerAsync<TEvent>`. Mismo manejo de fallos (complete / lock-lost / abandono del fallo del handler / dead letter del mensaje ilegible) que `ServiceBusEndpointBase`; solo cambia el router inyectado y el tipo restringido a `IPrivateEvent`.
 
 ```csharp
 using Azure.Messaging.ServiceBus;
@@ -1067,7 +1104,24 @@ public abstract class PrivateEventEndpointBase<TPrivateEvent>(IPrivateEventRoute
     {
         try
         {
-            var evento = ServiceBusDeserializador.Deserializar<TPrivateEvent>(message.Body);
+            TPrivateEvent evento;
+            try
+            {
+                evento = ServiceBusDeserializador.Deserializar<TPrivateEvent>(message.Body);
+            }
+            catch (Exception ex) when (ex is not ServiceBusException)
+            {
+                logger.LogError(ex,
+                    "Mensaje ilegible {MessageId} - dead letter (no se reintenta)",
+                    message.MessageId);
+                await messageActions.DeadLetterMessageAsync(
+                    message,
+                    deadLetterReason: ex.GetType().Name,
+                    deadLetterErrorDescription: ex.Message,
+                    cancellationToken: ct);
+                return;
+            }
+
             await privateEventRouter.InvokeAsync(evento, ct);
             await messageActions.CompleteMessageAsync(message, ct);
         }
@@ -1079,8 +1133,10 @@ public abstract class PrivateEventEndpointBase<TPrivateEvent>(IPrivateEventRoute
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "Error procesando mensaje {MessageId}", message.MessageId);
-            await messageActions.DeadLetterMessageAsync(message, cancellationToken: ct);
+            logger.LogError(ex,
+                "Error procesando mensaje {MessageId} (DeliveryCount {DeliveryCount}) - se abandona para que el bus lo reintente",
+                message.MessageId, message.DeliveryCount);
+            await messageActions.AbandonMessageAsync(message, cancellationToken: ct);
         }
     }
 }
@@ -1517,7 +1573,7 @@ public class ServiceBusEndpointBaseTests
         actions.MensajeEnDeadLetter.Should().BeFalse();
     }
 
-    // Lock perdido -> log warning, NO dead-letter
+    // Lock perdido -> log warning, ni abandono ni dead-letter
     [Fact]
     public async Task DebeLoguearWarning_CuandoSePierdeLock()
     {
@@ -1531,12 +1587,13 @@ public class ServiceBusEndpointBaseTests
         await endpoint.Procesar(CrearMensaje(), actions, CancellationToken.None);
 
         actions.MensajeEnDeadLetter.Should().BeFalse("el lock ya no es valido, no se puede dead-letter");
+        actions.MensajeAbandonado.Should().BeFalse("el lock ya no es valido, no se puede abandonar");
         logger.WarningLogueado.Should().BeTrue();
     }
 
-    // Error generico -> dead-letter el mensaje
+    // Error generico del handler -> abandono (el bus reintenta), nunca dead-letter
     [Fact]
-    public async Task DebeEnviarADeadLetter_CuandoOcurreErrorGenerico()
+    public async Task DebeAbandonarMensaje_CuandoOcurreErrorGenerico()
     {
         var router = new FakeCommandRouter(
             excepcion: new InvalidOperationException("Error inesperado"));
@@ -1545,11 +1602,12 @@ public class ServiceBusEndpointBaseTests
 
         await endpoint.Procesar(CrearMensaje(), actions, CancellationToken.None);
 
-        actions.MensajeEnDeadLetter.Should().BeTrue();
+        actions.MensajeAbandonado.Should().BeTrue();
+        actions.MensajeEnDeadLetter.Should().BeFalse();
         actions.MensajeCompletado.Should().BeFalse();
     }
 
-    // JSON invalido -> dead-letter (error de deserializacion)
+    // JSON invalido -> dead-letter sin abandono y sin invocar el router
     [Fact]
     public async Task DebeEnviarADeadLetter_CuandoJsonEsInvalido()
     {
@@ -1560,7 +1618,10 @@ public class ServiceBusEndpointBaseTests
         await endpoint.Procesar(CrearMensaje("no-es-json"), actions, CancellationToken.None);
 
         actions.MensajeEnDeadLetter.Should().BeTrue();
+        actions.DeadLetterReason.Should().NotBeNullOrEmpty();
+        actions.MensajeAbandonado.Should().BeFalse();
         actions.MensajeCompletado.Should().BeFalse();
+        router.Invocaciones.Should().Be(0);
     }
 }
 
@@ -1584,11 +1645,14 @@ internal class FakeCommandRouter : ICommandRouter
 {
     private readonly Exception? _excepcion;
 
+    public int Invocaciones { get; private set; }
+
     public FakeCommandRouter(Exception? excepcion = null) => _excepcion = excepcion;
 
     public Task InvokeAsync<TCommand>(TCommand command, CancellationToken ct = default)
         where TCommand : class
     {
+        Invocaciones++;
         if (_excepcion is not null) throw _excepcion;
         return Task.CompletedTask;
     }
@@ -1604,6 +1668,8 @@ internal class FakeServiceBusMessageActions : ServiceBusMessageActions
 
     public bool MensajeCompletado { get; private set; }
     public bool MensajeEnDeadLetter { get; private set; }
+    public bool MensajeAbandonado { get; private set; }
+    public string? DeadLetterReason { get; private set; }
 
     public FakeServiceBusMessageActions(Exception? excepcionAlCompletar = null)
         => _excepcionAlCompletar = excepcionAlCompletar;
@@ -1624,6 +1690,7 @@ internal class FakeServiceBusMessageActions : ServiceBusMessageActions
         CancellationToken cancellationToken = default)
     {
         MensajeEnDeadLetter = true;
+        DeadLetterReason = deadLetterReason;
         return Task.CompletedTask;
     }
 
@@ -1631,7 +1698,10 @@ internal class FakeServiceBusMessageActions : ServiceBusMessageActions
         ServiceBusReceivedMessage message,
         IDictionary<string, object>? propertiesToModify = null,
         CancellationToken cancellationToken = default)
-        => throw new NotImplementedException();
+    {
+        MensajeAbandonado = true;
+        return Task.CompletedTask;
+    }
 
     public override Task DeferMessageAsync(
         ServiceBusReceivedMessage message,
@@ -1663,7 +1733,7 @@ internal class FakeLogger : ILogger
 
 **7. Crear `Infraestructura/ServiceBusSessionEndpointBaseTests.cs`:**
 
-Tests de la orquestacion de `ServiceBusSessionEndpointBase` (MEF-ADR-0026). Cubren los mismos 4 escenarios que `ServiceBusEndpointBaseTests`, con "JSON invalido" reemplazado por "Subject no reconocido" (el equivalente de fan-in: el switch del endpoint concreto no sabe que hacer con el mensaje). Reusa `FakeCommandRouter`, `FakeServiceBusMessageActions` y `FakeLogger` del archivo anterior (mismo namespace de test, misma assembly).
+Tests de la orquestacion de `ServiceBusSessionEndpointBase` (MEF-ADR-0026). Cubren los mismos escenarios que `ServiceBusEndpointBaseTests`, con "JSON invalido" reemplazado por "Subject no reconocido" (`Interpretar` lanza) y un caso extra, "Subject reconocido con cuerpo ilegible" (ambos: dead letter sin abandono ni invocacion del router). Reusa `FakeCommandRouter`, `FakeServiceBusMessageActions` y `FakeLogger` del archivo anterior (mismo namespace de test, misma assembly).
 
 ```csharp
 using AwesomeAssertions;
@@ -1697,7 +1767,7 @@ public class ServiceBusSessionEndpointBaseTests
         actions.MensajeEnDeadLetter.Should().BeFalse();
     }
 
-    // Lock de sesion perdido -> log warning, NO dead-letter
+    // Lock de sesion perdido -> log warning, ni abandono ni dead-letter
     [Fact]
     public async Task DebeLoguearWarning_CuandoSePierdeLockDeSesion()
     {
@@ -1711,12 +1781,13 @@ public class ServiceBusSessionEndpointBaseTests
         await endpoint.Procesar(CrearMensaje(nameof(EventoStubSesion)), actions, CancellationToken.None);
 
         actions.MensajeEnDeadLetter.Should().BeFalse("el lock ya no es valido, no se puede dead-letter");
+        actions.MensajeAbandonado.Should().BeFalse("el lock ya no es valido, no se puede abandonar");
         logger.WarningLogueado.Should().BeTrue();
     }
 
-    // Error generico durante el despacho -> dead-letter el mensaje
+    // Error generico en la invocacion -> abandono (el bus reintenta en la misma sesion), nunca dead-letter
     [Fact]
-    public async Task DebeEnviarADeadLetter_CuandoOcurreErrorGenerico()
+    public async Task DebeAbandonarMensaje_CuandoOcurreErrorGenerico()
     {
         var router = new FakeCommandRouter(
             excepcion: new InvalidOperationException("Error inesperado"));
@@ -1725,11 +1796,12 @@ public class ServiceBusSessionEndpointBaseTests
 
         await endpoint.Procesar(CrearMensaje(nameof(EventoStubSesion)), actions, CancellationToken.None);
 
-        actions.MensajeEnDeadLetter.Should().BeTrue();
+        actions.MensajeAbandonado.Should().BeTrue();
+        actions.MensajeEnDeadLetter.Should().BeFalse();
         actions.MensajeCompletado.Should().BeFalse();
     }
 
-    // Subject no reconocido -> dead-letter (el switch del endpoint concreto lanza, MEF-ADR-0026)
+    // Subject no reconocido -> dead-letter sin abandono y sin invocar el router (Interpretar lanza, MEF-ADR-0026)
     [Fact]
     public async Task DebeEnviarADeadLetter_CuandoSubjectNoReconocido()
     {
@@ -1740,7 +1812,27 @@ public class ServiceBusSessionEndpointBaseTests
         await endpoint.Procesar(CrearMensaje("TipoDeEventoInexistente"), actions, CancellationToken.None);
 
         actions.MensajeEnDeadLetter.Should().BeTrue();
+        actions.DeadLetterReason.Should().Be(nameof(InvalidOperationException));
+        actions.MensajeAbandonado.Should().BeFalse();
         actions.MensajeCompletado.Should().BeFalse();
+        router.Invocaciones.Should().Be(0);
+    }
+
+    // Subject reconocido con cuerpo ilegible -> dead-letter sin abandono y sin invocar el router
+    [Fact]
+    public async Task DebeEnviarADeadLetter_CuandoSubjectReconocidoPeroCuerpoIlegible()
+    {
+        var router = new FakeCommandRouter();
+        var actions = new FakeServiceBusMessageActions();
+        var endpoint = new StubSessionEndpoint(router, new FakeLogger());
+
+        await endpoint.Procesar(
+            CrearMensaje(nameof(EventoStubSesion), "no-es-json"), actions, CancellationToken.None);
+
+        actions.MensajeEnDeadLetter.Should().BeTrue();
+        actions.MensajeAbandonado.Should().BeFalse();
+        actions.MensajeCompletado.Should().BeFalse();
+        router.Invocaciones.Should().Be(0);
     }
 }
 
@@ -1757,14 +1849,13 @@ internal class StubSessionEndpoint(ICommandRouter commandRouter, ILogger logger)
         CancellationToken ct)
         => ProcesarMensajeDeSesion(message, actions, ct);
 
-    protected override async Task DespacharPorSubject(ServiceBusReceivedMessage message, CancellationToken ct)
+    protected override Func<CancellationToken, Task> Interpretar(ServiceBusReceivedMessage message)
     {
         switch (message.Subject)
         {
             case nameof(EventoStubSesion):
                 var evento = ServiceBusDeserializador.Deserializar<EventoStubSesion>(message.Body);
-                await commandRouter.InvokeAsync(evento, ct);
-                break;
+                return ct => commandRouter.InvokeAsync(evento, ct);
             default:
                 throw new InvalidOperationException($"Subject no reconocido: {message.Subject}");
         }
@@ -1774,7 +1865,7 @@ internal class StubSessionEndpoint(ICommandRouter commandRouter, ILogger logger)
 
 **8. Crear `Infraestructura/PrivateEventEndpointBaseTests.cs`:**
 
-Tests de la orquestacion de `PrivateEventEndpointBase<TPrivateEvent>` (issue #313). Cubren los mismos 4 escenarios que `ServiceBusEndpointBaseTests`, con `IPrivateEventRouter` en vez de `ICommandRouter`. Reusa `FakeServiceBusMessageActions` y `FakeLogger` del archivo del punto 6 (mismo namespace de test, misma assembly).
+Tests de la orquestacion de `PrivateEventEndpointBase<TPrivateEvent>` (issue #313). Cubren los mismos escenarios que `ServiceBusEndpointBaseTests`, con `IPrivateEventRouter` en vez de `ICommandRouter`. Reusa `FakeServiceBusMessageActions` y `FakeLogger` del archivo del punto 6 (mismo namespace de test, misma assembly).
 
 ```csharp
 using AwesomeAssertions;
@@ -1807,7 +1898,7 @@ public class PrivateEventEndpointBaseTests
         actions.MensajeEnDeadLetter.Should().BeFalse();
     }
 
-    // Lock perdido -> log warning, NO dead-letter
+    // Lock perdido -> log warning, ni abandono ni dead-letter
     [Fact]
     public async Task DebeLoguearWarning_CuandoSePierdeLock()
     {
@@ -1821,12 +1912,13 @@ public class PrivateEventEndpointBaseTests
         await endpoint.Procesar(CrearMensaje(), actions, CancellationToken.None);
 
         actions.MensajeEnDeadLetter.Should().BeFalse("el lock ya no es valido, no se puede dead-letter");
+        actions.MensajeAbandonado.Should().BeFalse("el lock ya no es valido, no se puede abandonar");
         logger.WarningLogueado.Should().BeTrue();
     }
 
-    // Error generico -> dead-letter el mensaje
+    // Error generico del handler -> abandono (el bus reintenta), nunca dead-letter
     [Fact]
-    public async Task DebeEnviarADeadLetter_CuandoOcurreErrorGenerico()
+    public async Task DebeAbandonarMensaje_CuandoOcurreErrorGenerico()
     {
         var router = new FakePrivateEventRouter(
             excepcion: new InvalidOperationException("Error inesperado"));
@@ -1835,11 +1927,12 @@ public class PrivateEventEndpointBaseTests
 
         await endpoint.Procesar(CrearMensaje(), actions, CancellationToken.None);
 
-        actions.MensajeEnDeadLetter.Should().BeTrue();
+        actions.MensajeAbandonado.Should().BeTrue();
+        actions.MensajeEnDeadLetter.Should().BeFalse();
         actions.MensajeCompletado.Should().BeFalse();
     }
 
-    // JSON invalido -> dead-letter (error de deserializacion)
+    // JSON invalido -> dead-letter sin abandono y sin invocar el router
     [Fact]
     public async Task DebeEnviarADeadLetter_CuandoJsonEsInvalido()
     {
@@ -1850,7 +1943,10 @@ public class PrivateEventEndpointBaseTests
         await endpoint.Procesar(CrearMensaje("no-es-json"), actions, CancellationToken.None);
 
         actions.MensajeEnDeadLetter.Should().BeTrue();
+        actions.DeadLetterReason.Should().NotBeNullOrEmpty();
+        actions.MensajeAbandonado.Should().BeFalse();
         actions.MensajeCompletado.Should().BeFalse();
+        router.Invocaciones.Should().Be(0);
     }
 }
 
@@ -1874,11 +1970,14 @@ internal class FakePrivateEventRouter : IPrivateEventRouter
 {
     private readonly Exception? _excepcion;
 
+    public int Invocaciones { get; private set; }
+
     public FakePrivateEventRouter(Exception? excepcion = null) => _excepcion = excepcion;
 
     public Task InvokeAsync<TEvent>(TEvent @event, CancellationToken ct = default)
         where TEvent : class, IPrivateEvent
     {
+        Invocaciones++;
         if (_excepcion is not null) throw _excepcion;
         return Task.CompletedTask;
     }
@@ -4237,9 +4336,9 @@ Scaffold completado para el dominio "{kebab}":
     {PascalCase}/.gitkeep                - Subcarpeta de este dominio, vacia al nacer (la llena implementer)
 
   tests/<RootNamespace>.{PascalCase}.Tests/
-    Infraestructura/ServiceBusEndpointBaseTests.cs - Tests de orquestacion (feliz, lock-lost, dead-letter, JSON invalido)
-    Infraestructura/ServiceBusSessionEndpointBaseTests.cs - Tests de orquestacion de fan-in (feliz, lock-lost, dead-letter, Subject no reconocido)
-    Infraestructura/PrivateEventEndpointBaseTests.cs - Tests de orquestacion del EventHandler directo (feliz, lock-lost, dead-letter, JSON invalido)
+    Infraestructura/ServiceBusEndpointBaseTests.cs - Tests de orquestacion (feliz, lock-lost, abandono ante error del handler, dead-letter por JSON invalido)
+    Infraestructura/ServiceBusSessionEndpointBaseTests.cs - Tests de orquestacion de fan-in (feliz, lock-lost, abandono ante error del handler, dead-letter por Subject no reconocido o cuerpo ilegible)
+    Infraestructura/PrivateEventEndpointBaseTests.cs - Tests de orquestacion del EventHandler directo (feliz, lock-lost, abandono ante error del handler, dead-letter por JSON invalido)
     Infraestructura/ComposicionContenedorTests.cs - Test de composicion del contenedor DI: BuildServiceProvider(ValidateOnBuild + ValidateScopes) + resolucion explicita de los routers (issue #319, MEF-ADR-0029) + guarda derivada de eventos aplicados vs EventGraph del IDocumentStore compuesto (MEF-ADR-0036) + ruta Wolverine de cada evento de EnrutamientoEventos y guarda derivada de eventos de bus del dominio no declarados (issue #1804) + guardrails del sampler efectivo post-exporter y su ratio default + del flip de logs desacoplado del muestreo de trazas (issue #700) + del drop total de metricas via InMemoryExporter sin tumbar el TracerProvider (issue #764/#777) + del durability agent apagado en origen (MEF-ADR-0038)
     ReadyCheckTests.cs                     - Mapeo probe-exitoso -> 200 / probe-fallido -> 503 con cuerpo diagnosticable, fake manual del probe (MEF-ADR-0031 seccion 6, issue #671/#675)
                                            - Proyecto de tests unitarios (xUnit v3 + AwesomeAssertions)
