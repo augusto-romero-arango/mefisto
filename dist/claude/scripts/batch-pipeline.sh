@@ -317,6 +317,58 @@ hold_seconds_in_all_events_logs() {
     echo "$total"
 }
 
+# batch_dependency_gate <issue> (issue #2471, MEF-ADR-0007/0011)
+#
+# Compuerta de dependencias previa a cada eslabon. Devuelve 0 si el issue puede
+# lanzarse; 1 si debe saltarse, dejando el motivo en BATCH_GATE_REASON. Una
+# dependencia canonica ('Depende de #N'/'Bloqueado por #N') esta satisfecha si
+# quedo 'completado' en este batch o si en GitHub esta CLOSED (issue) o MERGED
+# (PR). Si todas lo estan y el issue tiene 'bloqueado', se le quita el label.
+BATCH_GATE_REASON=""
+batch_dependency_gate() {
+    local issue="$1" body labels dep deps st dstate has_blocked=false
+    BATCH_GATE_REASON=""
+    body=$(gh issue view "$issue" --json body -q .body 2>/dev/null) || body=""
+    labels=$(gh issue view "$issue" --json labels -q '.labels | map(.name) | join("\n")' 2>/dev/null) || labels=""
+    if printf '%s\n' "$labels" | grep -qx "bloqueado"; then has_blocked=true; fi
+    deps=$(extract_canonical_dependencies "$body")
+
+    if [ -z "$deps" ]; then
+        if [ "$has_blocked" = true ]; then
+            BATCH_GATE_REASON="bloqueado sin dependencias canonicas"
+            return 1
+        fi
+        return 0
+    fi
+
+    for dep in $deps; do
+        [ "$dep" = "$issue" ] && continue
+        st=$(get_status "$dep")
+        case "$st" in
+            completado*) continue ;;
+            saltado*|ERROR*)
+                BATCH_GATE_REASON="depende de #$dep (fallido en este batch)"
+                return 1 ;;
+        esac
+        dstate=$(gh issue view "$dep" --json state -q .state 2>/dev/null \
+            || gh pr view "$dep" --json state -q .state 2>/dev/null \
+            || echo "")
+        [ -z "$dstate" ] && dstate="no consultable"
+        case "$dstate" in
+            CLOSED|MERGED) continue ;;
+        esac
+        BATCH_GATE_REASON="depende de #$dep ($dstate)"
+        return 1
+    done
+
+    if [ "$has_blocked" = true ]; then
+        gh issue edit "$issue" --remove-label "bloqueado" >>"$LOG_FILE_ABS" 2>&1 \
+            && log "Issue #$issue: dependencias resueltas, se quito el label 'bloqueado'" \
+            || warn "Issue #$issue: no se pudo quitar el label 'bloqueado' (continuando)"
+    fi
+    return 0
+}
+
 # Inicializar status tracker
 for issue in "${ISSUE_NUMS[@]}"; do
     set_status "$issue" "pendiente"
@@ -415,6 +467,15 @@ for ISSUE_NUM in ${BATCH_QUEUE[@]+"${BATCH_QUEUE[@]}"}; do
         local_reason="${PIPELINE_SCRIPT#SKIP:}"
         warn "Issue #$ISSUE_NUM saltado ($local_reason) --- no se puede enrutar a un pipeline."
         set_status "$ISSUE_NUM" "saltado: $local_reason"
+        FAILED=$((FAILED + 1))
+        continue
+    fi
+
+    # Compuerta de dependencias (issue #2471): salta, sin tocar HAVE_ERRORS ni
+    # --stop-on-error, el issue cuyas dependencias canonicas no estan satisfechas.
+    if ! batch_dependency_gate "$ISSUE_NUM"; then
+        warn "Issue #$ISSUE_NUM saltado ($BATCH_GATE_REASON) --- no se lanza."
+        set_status "$ISSUE_NUM" "saltado: $BATCH_GATE_REASON"
         FAILED=$((FAILED + 1))
         continue
     fi
@@ -566,6 +627,19 @@ if [ "$BATCH_TOTAL_HOLD_SECONDS" -gt 0 ]; then
     echo -e "  ${YELLOW}En espera (hold) durante el batch: $(fmt_hold_duration "$BATCH_TOTAL_HOLD_SECONDS")${NC} -- por limite de uso o caida del proveedor, no cuenta como fallo"
 fi
 echo ""
+
+# Issues saltados por dependencia (issue #2471), en el orden del batch.
+DEP_SKIPPED_NUMS=()
+for ISSUE_NUM in "${ISSUE_NUMS[@]}"; do
+    case "$(get_status "$ISSUE_NUM")" in
+        "saltado: depende de"*|"saltado: bloqueado sin dependencias"*) DEP_SKIPPED_NUMS+=("$ISSUE_NUM") ;;
+    esac
+done
+if [ ${#DEP_SKIPPED_NUMS[@]} -gt 0 ]; then
+    warn "${#DEP_SKIPPED_NUMS[@]} issue(s) saltados por dependencias no satisfechas. No cambia el exit code por si solo."
+    echo -e "  Relanza tras resolver sus dependencias: ${BOLD}/sequential ${DEP_SKIPPED_NUMS[*]}${NC}"
+    echo ""
+fi
 
 if [ "$DEFERRED" -gt 0 ]; then
     warn "Parada solicitada: $DEFERRED issue(s) quedaron aplazados en esta corrida. No es un fallo del batch: el exit code no cambia por esto y nada quedo a medio pipeline."
