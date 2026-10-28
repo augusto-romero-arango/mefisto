@@ -1525,31 +1525,27 @@ jobs:
           set -euo pipefail
           ESPERADA="${{ steps.acr.outputs.login_server }}/projections:${{ github.sha }}"
           PLACEHOLDER="mcr.microsoft.com/k8se/quickstart:latest"
+          INICIO=$SECONDS
+          # Dos llamadas 'az' por intento (Container App + revision), no una por campo, para que
+          # cada intento cueste poco mas que su sleep. Salida JSON + jq: un campo nulo (p. ej.
+          # latestReadyRevisionName antes de la primera revision lista) queda vacio sin correr
+          # los demas, cosa que 'read' sobre tsv no garantiza.
           for i in $(seq 1 120); do
-            ULTIMA=$(az containerapp show \
+            APP=$(az containerapp show \
               --name ca-projections-{prefix_func} \
               --resource-group rg-{prefix} \
-              --query "properties.latestRevisionName" -o tsv)
-            LISTA=$(az containerapp show \
-              --name ca-projections-{prefix_func} \
-              --resource-group rg-{prefix} \
-              --query "properties.latestReadyRevisionName" -o tsv)
+              --query "{ultima: properties.latestRevisionName, lista: properties.latestReadyRevisionName}" -o json)
+            ULTIMA=$(jq -r '.ultima // empty' <<< "$APP")
+            LISTA=$(jq -r '.lista // empty' <<< "$APP")
             if [ -n "$ULTIMA" ]; then
-              IMAGEN=$(az containerapp revision show \
+              REV=$(az containerapp revision show \
                 --name ca-projections-{prefix_func} \
                 --resource-group rg-{prefix} \
                 --revision "$ULTIMA" \
-                --query "properties.template.containers[0].image" -o tsv)
-              PROVISION=$(az containerapp revision show \
-                --name ca-projections-{prefix_func} \
-                --resource-group rg-{prefix} \
-                --revision "$ULTIMA" \
-                --query "properties.provisioningState" -o tsv)
-              RUNNING=$(az containerapp revision show \
-                --name ca-projections-{prefix_func} \
-                --resource-group rg-{prefix} \
-                --revision "$ULTIMA" \
-                --query "properties.runningState" -o tsv)
+                --query "{imagen: properties.template.containers[0].image, provision: properties.provisioningState, running: properties.runningState}" -o json)
+              IMAGEN=$(jq -r '.imagen // empty' <<< "$REV")
+              PROVISION=$(jq -r '.provision // empty' <<< "$REV")
+              RUNNING=$(jq -r '.running // empty' <<< "$REV")
               if [ "$PROVISION" = "Failed" ] || [ "$RUNNING" = "Failed" ]; then
                 echo "::error::La revision $ULTIMA fallo (provisioningState=$PROVISION, runningState=$RUNNING)."
                 exit 1
@@ -1559,14 +1555,14 @@ jobs:
                 exit 1
               fi
               if [ "$LISTA" = "$ULTIMA" ] && [ "$IMAGEN" = "$ESPERADA" ]; then
-                echo "Revision lista $ULTIMA con la imagen $IMAGEN (intento $i)."
+                echo "Revision lista $ULTIMA con la imagen $IMAGEN (intento $i, ~$((SECONDS - INICIO))s)."
                 exit 0
               fi
-              echo "Intento $i/120: ultima=$ULTIMA lista=${LISTA:-<ninguna>} imagen=$IMAGEN"
+              echo "Intento $i/120: ultima=$ULTIMA lista=${LISTA:-<ninguna>} imagen=$IMAGEN provisioningState=$PROVISION runningState=$RUNNING"
             fi
             sleep 5
           done
-          echo "::error::Tras 10 min la revision lista no corre la imagen $ESPERADA."
+          echo "::error::Tras 120 intentos (~$((SECONDS - INICIO))s) la revision lista no corre la imagen $ESPERADA."
           exit 1
 ```
 
