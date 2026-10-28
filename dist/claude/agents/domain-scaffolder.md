@@ -3926,7 +3926,7 @@ Ambos archivos son **idempotentes** (misma logica de "si existe / si no existe" 
 >
 > **Orden obligatorio de los dos parches: primero el endpoint en todos los dominios, despues el workflow.** Este reutilizable es **uno por repo** y lo invocan los smoke tests de **todos** los dominios, asi que el step nuevo polea `/api/ready` tambien en los que se scaffoldearon antes de esta enmienda. Un dominio sin `ReadyCheck.cs` responde 404 a esa ruta, y `curl --fail` no distingue "todavia no arranco" de "este dominio no tiene el endpoint": la compuerta agota sus 120s y **tumba la suite** de ese dominio. Aplica primero el parche del Paso 1 (`ReadyCheck.cs` + `.Mensajes.cs` + `.resx` + probe + registro de DI) a **cada** dominio ya scaffoldeado, y solo entonces inserta el step aqui.
 
-> **Repos ya scaffoldeados antes del fix del issue #2469**: mismo limite de idempotencia -- el scaffolder no reescribe un `smoke-tests-dominio.yml` existente. Inserta a mano el step `Esperar la publicacion del worker de proyecciones del mismo commit` (contenido completo en el Paso 6.1 de arriba, sin `if`) entre `actions/setup-dotnet` y `Esperar deploys ajenos del mismo commit` (o, si el repo no tiene esa guarda, entre `actions/setup-dotnet` y `Esperar /api/ready`). No requiere cambios de `permissions` si el archivo ya concede `actions: read` (issue #604). Si el repo ya tiene un paso equivalente propio, conserva el suyo (en un consumidor el job puede llamarse `deploy` en vez de `publish`: ajusta el literal `select(.name == "publish")`).
+> **Repos ya scaffoldeados antes del fix del issue #2469**: mismo limite de idempotencia -- el scaffolder no reescribe un `smoke-tests-dominio.yml` existente. Inserta a mano el step `Esperar la publicacion del worker de proyecciones del mismo commit` (contenido completo en el Paso 6.1 de arriba, sin `if`) entre `actions/setup-dotnet` y `Esperar deploys ajenos del mismo commit` (o, si el repo no tiene esa guarda, entre `actions/setup-dotnet` y `Esperar /api/ready`). No requiere cambios de `permissions` si el archivo ya concede `actions: read`; si no, aplica antes los parches de permisos del issue #604 (reutilizable, `smoke-tests.yml` y cada `deploy-{kebab}.yml`): sin ellos el run muere en `startup_failure` sin annotation. Si el repo ya tiene un paso equivalente propio, conserva el suyo (en un consumidor el job puede llamarse `deploy` en vez de `publish`: ajusta el literal `select(.name == "publish")`).
 >
 > **Repos ya scaffoldeados antes del fix del issue #1273**: el scaffolder no sobrescribe proyectos ni workflows existentes. Actualiza manualmente `Fixtures/ApiFixture.cs` de cada suite de smoke: cambia `TimeoutGatePorVersion` a 420 s y agrega al error de agotamiento el SHA esperado, el ultimo SHA observado y la URL de `StartupLogs` de Kudu derivada del host de la Function App. El poll de `/api/ready` conserva su presupuesto independiente de 120 s.
 
@@ -3976,7 +3976,7 @@ on:
 
 permissions:
   contents: read
-  actions: read   # requerido por la guarda "Esperar deploys ajenos" (issue #604, MEF-ADR-0031 seccion 4)
+  actions: read   # requerido por la guarda "Esperar deploys ajenos" (issue #604) y por la espera del worker de proyecciones (issue #2469), MEF-ADR-0031 seccion 4
 
 jobs:
   smoke-tests:
