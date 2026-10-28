@@ -86,7 +86,7 @@ EOF
             if (id == "planner" && value == "${SESSION_ID}") return 1
             if ((id == "domain-scaffolder" || id == "mcp-scaffolder" || id == "projections-scaffolder" || id == "apim-gateway-scaffolder" || id == "workos-identity-scaffolder" || id == "infra-base-scaffolder") && value ~ /^\$(SCAFFOLD_BASE|HARNESS_REPO_SLUG|HARNESS_VERSION)$/) return 1
             if (id == "tooling-investigator" && (value == "$CONFIG" || value == "$HARNESS_REPO_SLUG")) return 1
-            if (id == "projections-scaffolder" && value ~ /^\$(BASE|CSPROJ|GITHUB_OUTPUT|IMAGEN_ACTIVA|INTRUSOS|LOGIN_SERVER|PROJ|REPO_ROOT|SEAM|SOURCE_REVISION_ID|destino|domainEventsCsproj|dominio|nombre|seam)$/) return 1
+            if (id == "projections-scaffolder" && value ~ /^\$(BASE|CSPROJ|ESPERADA|GITHUB_OUTPUT|IMAGEN|IMAGEN_ACTIVA|INTRUSOS|LISTA|LOGIN_SERVER|PLACEHOLDER|PROJ|PROVISION|REPO_ROOT|RUNNING|SEAM|SOURCE_REVISION_ID|ULTIMA|destino|domainEventsCsproj|dominio|i|nombre|seam)$/) return 1
             if (id == "infra-base-scaffolder" && value ~ /^\$(1|2|3|ALL_SECRETS|APPS|APP_NAME|BRANCH|CONFIG|COUNT|ERR|GITHUB_STEP_SUMMARY|NUGET_AUDIT_GREENFIELD|OUT|ROWS|RUNNER_TEMP|SOLUTION|GITHUB_WORKSPACE|ISSUE_NUM|KEY_VAULT_NAME|NAME|NS|PROJECTIONS_ENABLED|PROVIDERS_TF|PR_NUM|RESOURCE_GROUP|TYPE|VALUE|VALUE_REF|attempt|delay|f|i|id|k|max_attempts|name|p|severity|url|value|version)$/) return 1
             if (id == "infra-base-scaffolder" && value ~ /^\$\{(APP_ID|PR_NUM|TF_VAR_postgresql_admin_password|delay|environment|project_short|topic_name)\}$/) return 1
             if (id == "workos-identity-scaffolder" && value ~ /^\$(COMPOSICION|CSPROJ|IDENTITY_DIR|PROGRAM_CS|PROYECTO)$/) return 1
