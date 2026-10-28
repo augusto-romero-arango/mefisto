@@ -1084,8 +1084,8 @@ public abstract class ServiceBusSessionEndpointBase(ILogger logger)
             catch (Exception ex) when (ex is not ServiceBusException)
             {
                 logger.LogError(ex,
-                    "Mensaje ilegible {MessageId} de la sesion {SessionId} - dead letter (no se reintenta)",
-                    message.MessageId, message.SessionId);
+                    "Mensaje ilegible {MessageId} de la sesion {SessionId} (DeliveryCount {DeliveryCount}) - dead letter (no se reintenta)",
+                    message.MessageId, message.SessionId, message.DeliveryCount);
                 await messageActions.DeadLetterMessageAsync(
                     message,
                     deadLetterReason: ex.GetType().Name,
@@ -1100,8 +1100,8 @@ public abstract class ServiceBusSessionEndpointBase(ILogger logger)
         catch (ServiceBusException ex) when (ex.Reason == ServiceBusFailureReason.MessageLockLost)
         {
             logger.LogWarning(ex,
-                "Lock de sesion perdido para mensaje {MessageId}, sesion {SessionId} - Service Bus la re-entregara automaticamente",
-                message.MessageId, message.SessionId);
+                "Lock de sesion perdido para mensaje {MessageId}, sesion {SessionId} (DeliveryCount {DeliveryCount}) - Service Bus la re-entregara automaticamente",
+                message.MessageId, message.SessionId, message.DeliveryCount);
         }
         catch (Exception ex)
         {
