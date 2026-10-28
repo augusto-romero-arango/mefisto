@@ -2966,3 +2966,50 @@ extract_canonical_dependencies() {
         | { grep -ioE '^[[:space:]]*([-*][[:space:]]+)?(Depende de|Bloqueado por)[[:space:]]+#[0-9]+' || true; } \
         | { grep -oE '[0-9]+' || true; } | awk '!seen[$0]++'
 }
+
+# smoke_tool_name <archivo-Tool.cs>
+#
+# Imprime el nombre MCP de una tool (issue #2473): el literal de
+# 'NombreTool = "<nombre>"' (convencion de /scaffold-mcp) y, si no esta, el
+# primer literal de '[McpToolTrigger("<nombre>"'. Sin salida si no lo extrae.
+smoke_tool_name() {
+    local f="$1" n=""
+    [ -f "$f" ] || return 0
+    n=$(sed -n 's/.*NombreTool[[:space:]]*=[[:space:]]*"\([^"]*\)".*/\1/p' "$f" | head -1)
+    if [ -z "$n" ]; then
+        n=$(sed -n 's/.*McpToolTrigger([[:space:]]*"\([^"]*\)".*/\1/p' "$f" | head -1)
+    fi
+    [ -n "$n" ] && printf '%s\n' "$n"
+    return 0
+}
+
+# list_smokes_invoking_tools <worktree> <proyecto-smoke-relativo> <Tool.cs relativo>...
+#
+# Una linea '<nombre><TAB><ruta relativa al worktree>' por cada .cs del proyecto
+# SmokeTests que contiene el literal '"<nombre>"' de una tool modificada (issue
+# #2473). Si no puede extraer el nombre de un *Tool.cs, emite un warn con la
+# ruta (a stderr) y sigue. Compatible con bash 3.2.
+list_smokes_invoking_tools() {
+    local worktree="$1" project="$2" tool_rel name
+    shift 2
+    for tool_rel in "$@"; do
+        [ -n "$tool_rel" ] || continue
+        name=$(smoke_tool_name "$worktree/$tool_rel")
+        if [ -z "$name" ]; then
+            local motivo="sin NombreTool ni McpToolTrigger"
+            [ -f "$worktree/$tool_rel" ] || motivo="el archivo no existe en el worktree (tool borrada o renombrada)"
+            if declare -F warn >/dev/null 2>&1; then
+                warn "No se pudo extraer el nombre de la tool MCP de '$tool_rel' ($motivo)" >&2
+            else
+                echo "warn: No se pudo extraer el nombre de la tool MCP de '$tool_rel' ($motivo)" >&2
+            fi
+            continue
+        fi
+        [ -d "$worktree/$project" ] || continue
+        { grep -rlF --include='*.cs' -- "\"$name\"" "$worktree/$project" 2>/dev/null || true; } \
+            | sort | while IFS= read -r hit; do
+                [ -n "$hit" ] || continue
+                printf '%s\t%s\n' "$name" "${hit#"$worktree"/}"
+            done
+    done
+}
