@@ -252,12 +252,24 @@ asi -- su trigger es `push` a `main` mas `workflow_dispatch` (MEF-ADR-0034 secci
 sugeriria un encadenamiento inexistente. `github.sha` a secas es correcto especificamente porque
 este workflow no tiene ese disparador, no porque el punto 1 estuviera sobre-especificado.
 
-**Sin poll ni timeout (a diferencia del punto 3).** El worker no tiene un smoke test que haga poll
-de un endpoint de version: no existe la misma "ventana de swap" que motiva el punto 3 (el Container
-App corre `revision_mode = "Single"`, MEF-ADR-0034 seccion 8 -- una revision nueva reemplaza a la
-anterior en su propio ciclo, sin el patron `WEBSITE_RUN_FROM_PACKAGE` del punto 3). La verificacion
-de que el circuito quedo bien cableado es manual, por inspeccion de Application Insights --
-documentada en `projections-scaffolder.md` junto al paso que genera `deploy-projections.yml`.
+**Poll acotado en el propio `publish` (issue #2474).** El worker no expone un endpoint de version,
+pero si tiene una ventana entre que `az containerapp update` responde y la revision nueva queda
+lista: con `revision_mode = "Single"` (MEF-ADR-0034 seccion 8) la revision anterior sigue activa
+hasta entonces (*"The existing active revision isn't deactivated until the new revision is ready"*,
+[Update and deploy changes in Azure Container Apps](https://learn.microsoft.com/azure/container-apps/revisions#zero-downtime-deployment)),
+y el worker que proyecta sigue siendo el viejo. El job `publish` de `deploy-projections.yml` espera
+con un poll de 120 intentos de 5 s (10 min): cada intento lee `properties.latestRevisionName` y
+`properties.latestReadyRevisionName` del Container App
+([REST Container Apps - Get](https://learn.microsoft.com/rest/api/resource-manager/containerapps/container-apps/get))
+y la imagen de esa revision (`az containerapp revision show`). Es exito solo cuando
+`latestReadyRevisionName == latestRevisionName` y la imagen es exactamente
+`<login_server>/projections:<sha>`. Falla de inmediato si la revision mas nueva reporta
+`provisioningState` o `runningState` en `Failed`
+([REST Revisions - Get](https://learn.microsoft.com/rest/api/resource-manager/containerapps/container-apps-revisions/get-revision))
+o si la imagen sigue siendo el placeholder, y falla al agotarse el presupuesto. `properties.active`
+en lectura unica no sirve: la revision mas nueva puede figurar activa mientras aun se aprovisiona.
+El criterio es "revision nueva lista", no "read models al dia". La verificacion del circuito del
+SHA en telemetria sigue siendo por Application Insights, documentada en `projections-scaffolder.md`.
 
 ### 6. Extension a la capa de datos: endpoint dedicado `/api/ready` (issue #671)
 
@@ -629,3 +641,8 @@ la causa.
   Mantiene `/api/ready` en 120 s como presupuesto independiente de Marten/Postgres, no como "el mismo"
   timeout. Declara la propagacion separada al `domain-scaffolder` (#1273) y al `mcp-scaffolder` (#1274),
   sin mezclar sus implementaciones deliberadamente distintas.
+- 2026-10-28: enmienda la seccion 5 (issue #2474). El worker de proyecciones pasa de no tener espera a un
+  poll acotado en el job `publish` de `deploy-projections.yml` (120 intentos de 5 s): exito solo con
+  `latestReadyRevisionName == latestRevisionName` y la imagen de esa revision igual al tag del SHA
+  publicado; falla rapido ante `Failed` o placeholder. Cierra la ventana entre `update` y la revision
+  lista, que la lectura unica anterior no cubria.

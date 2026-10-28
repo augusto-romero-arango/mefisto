@@ -1469,18 +1469,55 @@ jobs:
             --resource-group rg-{prefix} \
             --image "${{ steps.acr.outputs.login_server }}/projections:${{ github.sha }}"
 
-      - name: Verificar que la revision activa dejo el placeholder
+      - name: Esperar la revision lista con la imagen del SHA publicado
+        # Poll acotado (issue #2474, MEF-ADR-0031 seccion 5): en modo Single la revision vieja
+        # sigue activa hasta que la nueva esta lista, y 'properties.template.containers[0].image'
+        # del Container App devuelve lo que 'update' acaba de escribir, no lo que corre. Exito
+        # solo si latestReadyRevisionName == latestRevisionName y la imagen de esa revision es
+        # exactamente la del SHA. 120 intentos x 5 s = 10 min.
         run: |
           set -euo pipefail
-          IMAGEN_ACTIVA=$(az containerapp show \
-            --name ca-projections-{prefix_func} \
-            --resource-group rg-{prefix} \
-            --query "properties.template.containers[0].image" -o tsv)
-          if [ "$IMAGEN_ACTIVA" = "mcr.microsoft.com/k8se/quickstart:latest" ]; then
-            echo "La revision activa del Container App sigue en el placeholder tras 'az containerapp update' -- la publicacion no tomo efecto." >&2
-            exit 1
-          fi
-          echo "Revision activa: $IMAGEN_ACTIVA"
+          ESPERADA="${{ steps.acr.outputs.login_server }}/projections:${{ github.sha }}"
+          PLACEHOLDER="mcr.microsoft.com/k8se/quickstart:latest"
+          INICIO=$SECONDS
+          # Dos llamadas 'az' por intento (Container App + revision), no una por campo, para que
+          # cada intento cueste poco mas que su sleep. Salida JSON + jq: un campo nulo (p. ej.
+          # latestReadyRevisionName antes de la primera revision lista) queda vacio sin correr
+          # los demas, cosa que 'read' sobre tsv no garantiza.
+          for i in $(seq 1 120); do
+            APP=$(az containerapp show \
+              --name ca-projections-{prefix_func} \
+              --resource-group rg-{prefix} \
+              --query "{ultima: properties.latestRevisionName, lista: properties.latestReadyRevisionName}" -o json)
+            ULTIMA=$(jq -r '.ultima // empty' <<< "$APP")
+            LISTA=$(jq -r '.lista // empty' <<< "$APP")
+            if [ -n "$ULTIMA" ]; then
+              REV=$(az containerapp revision show \
+                --name ca-projections-{prefix_func} \
+                --resource-group rg-{prefix} \
+                --revision "$ULTIMA" \
+                --query "{imagen: properties.template.containers[0].image, provision: properties.provisioningState, running: properties.runningState}" -o json)
+              IMAGEN=$(jq -r '.imagen // empty' <<< "$REV")
+              PROVISION=$(jq -r '.provision // empty' <<< "$REV")
+              RUNNING=$(jq -r '.running // empty' <<< "$REV")
+              if [ "$PROVISION" = "Failed" ] || [ "$RUNNING" = "Failed" ]; then
+                echo "::error::La revision $ULTIMA fallo (provisioningState=$PROVISION, runningState=$RUNNING)."
+                exit 1
+              fi
+              if [ "$IMAGEN" = "$PLACEHOLDER" ]; then
+                echo "::error::La revision $ULTIMA sigue en el placeholder tras 'az containerapp update' -- la publicacion no tomo efecto."
+                exit 1
+              fi
+              if [ "$LISTA" = "$ULTIMA" ] && [ "$IMAGEN" = "$ESPERADA" ]; then
+                echo "Revision lista $ULTIMA con la imagen $IMAGEN (intento $i, ~$((SECONDS - INICIO))s)."
+                exit 0
+              fi
+              echo "Intento $i/120: ultima=$ULTIMA lista=${LISTA:-<ninguna>} imagen=$IMAGEN provisioningState=$PROVISION runningState=$RUNNING"
+            fi
+            sleep 5
+          done
+          echo "::error::Tras 120 intentos (~$((SECONDS - INICIO))s) la revision lista no corre la imagen $ESPERADA."
+          exit 1
 ```
 
 > **Autenticacion por OIDC, sin decision pendiente (MEF-ADR-0022).** El job `publish` se autentica con `azure/login` por OpenID Connect -- `permissions: id-token: write` + `client-id`/`tenant-id`/`subscription-id` desde `secrets.AZURE_CLIENT_ID`/`AZURE_TENANT_ID`/`AZURE_SUBSCRIPTION_ID` --, **nunca** con el JSON unico `AZURE_CREDENTIALS`. Es el mismo mecanismo que ya emiten los otros cuatro workflows del marco (`domain-scaffolder`, `infra-base-scaffolder`): no hay nada que decidir ni que propagar aqui, sigue una convencion ya establecida.
@@ -1492,6 +1529,8 @@ jobs:
 > **Para quien mantenga este agente -- el filtro de `paths` cubre las dependencias de build, no solo el codigo (mismo principio que `deploy-{kebab}.yml`, issue #454).** Transcribe las rutas y sus comentarios tal cual, incluida la del propio workflow (un filtro de `paths` que no se incluye a si mismo no reacciona ni al commit que lo crea).
 >
 > **Repos con `deploy-projections.yml` ya generado antes del fix del issue #552**: la idempotencia de este paso (CA-1, "nunca sobrescribir") significa que un workflow ya scaffoldeado se queda **sin** la linea `src/<RootNamespace>.*.DomainEvents/**` para siempre -- este agente no lo reescribe solo. Aplica el mismo parche a mano: agrega esa linea (con su comentario) al bloque `paths` existente, justo despues de `src/<RootNamespace>.ReadModels/**` -- el mismo punto donde este agente la genera hoy.
+>
+> **Repos con `deploy-projections.yml` ya generado antes del issue #2474**: la idempotencia (CA-1 del issue #453) no regenera el archivo, asi que su ultimo paso sigue siendo "Verificar que la revision activa dejo el placeholder" (lectura unica que no prueba que el worker nuevo corra). Reemplazalo a mano por el paso "Esperar la revision lista con la imagen del SHA publicado" de arriba: poll de 120 intentos de 5 s sobre `latestRevisionName`/`latestReadyRevisionName` (`az containerapp show`) y la imagen de esa revision (`az containerapp revision show`), que solo termina en exito con `latestReadyRevisionName == latestRevisionName` y la imagen exacta `<login_server>/projections:${{ github.sha }}`. El job conserva el nombre `publish`.
 >
 > **Acoplamiento con la guarda "Esperar deploys ajenos" del smoke (issue #604, MEF-ADR-0031 seccion 4).** Este workflow se llama `Deploy Projections Worker`, asi que matchea el prefijo `Deploy ` con el que la guarda de `smoke-tests-dominio.yml` (`domain-scaffolder`, Paso 6.1) busca los deploys de Function App en vuelo del mismo commit -- pero no despliega ninguna Function App (Container App sin ingress, MEF-ADR-0034) y sus jobs son `build-and-test`/`publish`, ninguno llamado `deploy`. Porque esa guarda **falla** en vez de degradar en silencio cuando un run `Deploy *` no expone un job `deploy`, excluye este workflow por su `path` exacto (`.github/workflows/deploy-projections.yml`). Dos consecuencias para quien mantenga este agente: (a) si renombras el archivo generado, mueve tambien ese literal en el Paso 6.1 de `domain-scaffolder.md` -- el bloque `[H]` de `scripts/tests/test-guards.sh` falla si la correspondencia se rompe; (b) si algun issue futuro le agrega a este workflow un job de smoke que invoque `./.github/workflows/smoke-tests-dominio.yml` (la tercera clase de invocador de MEF-ADR-0031 seccion 4, hoy solo presente como personalizacion del consumidor de origen), ese job debe conceder `permissions: {contents: read, actions: read}` **a nivel de job** -- sin `actions: read` el run muere en `startup_failure` sin annotation visible, y a nivel de workflow alteraria los permisos de `publish` (`id-token: write`).
 >
