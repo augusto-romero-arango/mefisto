@@ -175,10 +175,36 @@ de que la guarda dejo de ver a ese invocador.
 nombre **sin** desplegar una Function App debe quedar fuera del filtro. Hoy hay exactamente uno:
 `Deploy Projections Worker` (`.github/workflows/deploy-projections.yml`, `projections-scaffolder`),
 que publica la imagen del Container App del worker (jobs `build-and-test`/`publish`) y no toca ningun
-FA -- no hay nada que esperar de el. La guarda lo excluye por su `path` exacto, no por su nombre: el
-path lo genera el scaffolder, el `name:` es texto libre que el consumidor puede editar. Sin esa
-exclusion, cada corrida de smoke con `expected_sha` vacio que coincidiera con una publicacion del
-worker del mismo commit moriria en `exit 1` por un run que nunca tuvo nada que esperar.
+FA -- la guarda no tiene ningun job `deploy` que esperar de el. La guarda lo excluye por su `path`
+exacto, no por su nombre: el path lo genera el scaffolder, el `name:` es texto libre que el consumidor
+puede editar. Sin esa exclusion, cada corrida de smoke con `expected_sha` vacio que coincidiera con
+una publicacion del worker del mismo commit moriria en `exit 1` por un run sin job `deploy`.
+
+**La espera del worker de proyecciones es una correccion distinta de la guarda (issue #2469).** Los
+`paths` de `deploy-{kebab}.yml` y de `deploy-projections.yml` comparten `DomainEvents/**` y
+`global.json`: un mismo push dispara ambos, y los tests del smoke que leen vistas materializadas por
+el worker pueden correr contra su revision vieja o en pleno cambio de revision. Por eso
+`smoke-tests-dominio.yml` lleva un paso propio, "Esperar la publicacion del worker de proyecciones del
+mismo commit", **sin condicion**: aplica a toda clase de invocador, tambien a `deploy-{kebab}.yml`
+(clase 1), que es justo la del sintoma y que la guarda no cubre porque solo corre con
+`expected_sha == ''`. El paso va antes de la guarda y:
+
+- busca los runs del commit cuyo `path` (sin `@ref`) es `.github/workflows/deploy-projections.yml`,
+  excluyendo el run propio, y espera hasta que su job `publish` tenga `status == completed`; si el job
+  aun no existe y el run no termino, lo trata como en vuelo;
+- el commit buscado es `inputs.expected_sha` cuando llega no vacio y `github.sha` en otro caso: en un
+  `deploy-{kebab}.yml` disparado por `workflow_run`, `github.sha` no es necesariamente el commit
+  desplegado (seccion 1);
+- sin run del worker, o con `publish` ausente o `skipped` en un run terminado, continua sin aviso; con
+  `publish` en `failure` o `cancelled` continua con `::warning::` que indica que la suite corre contra
+  la revision anterior del worker (el fallo ya se ve en rojo en el run del worker y no debe tumbar el
+  smoke del write-side); tras 120 intentos de 5 s falla con `::error::` y `exit 1`;
+- espera el job, nunca el run, por la misma razon de deadlock de la guarda; y no pide permisos nuevos
+  (`actions: read` ya cubre la consulta).
+
+El worker es un Container App sin ingress (MEF-ADR-0034 seccion 8), asi que su revision solo se observa
+por la API de Actions, a traves del job `publish`; que ese job termine solo con la revision lista
+corriendo la imagen del SHA lo garantiza el poll de la seccion 5.
 
 **Permisos del token (`actions: read`).** La guarda consulta la API de Actions
 (`GET /repos/{owner}/{repo}/actions/runs` y `.../jobs`), que requiere el scope `actions: read` en el
@@ -646,3 +672,8 @@ la causa.
   `latestReadyRevisionName == latestRevisionName` y la imagen de esa revision igual al tag del SHA
   publicado; falla rapido ante `Failed` o placeholder. Cierra la ventana entre `update` y la revision
   lista, que la lectura unica anterior no cubria.
+- 2026-10-28: enmienda la seccion 4 (issue #2469). Se elimina la premisa de que el worker de
+  proyecciones no tiene nada que esperar: la exclusion por `path` en la guarda se mantiene (el worker no
+  tiene job `deploy`), y la espera del job `publish` del worker del mismo commit pasa a ser un paso
+  propio de `smoke-tests-dominio.yml`, sin condicion, para toda clase de invocador, con `::warning::`
+  ante `failure`/`cancelled` y `::error::` tras 120 intentos de 5 s.
