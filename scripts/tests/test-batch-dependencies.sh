@@ -118,16 +118,18 @@ if [ "$LAST_RC" -eq 0 ] && grep -qx 2 "$CALLS"; then pass "2: B se lanzo y exit 
 grep -q "remove-label" "$FIX/edits" 2>/dev/null && pass "2: se quito 'bloqueado' antes de lanzar" || fail "2: no se quito 'bloqueado'"
 
 # --- Escenario 3: dependencia externa abierta / cerrada; bloqueado sin canonicas ---
-echo ""; echo "[3] externa OPEN salta; externa CLOSED lanza; bloqueado sin canonicas salta"
+echo ""; echo "[3] externa OPEN salta; externa CLOSED lanza; bloqueado sin canonicas salta; dependencia del batch ya CLOSED lanza"
 W="$TMP/w3"; FIX="$TMP/fix3"; mkdir -p "$FIX"; setup_work "$W"
 CALLS="$TMP/calls3"; : > "$CALLS"; fake_pipeline "$W" "$CALLS" 0
 echo OPEN > "$FIX/state-5"; echo OPEN > "$FIX/state-6"; echo OPEN > "$FIX/state-7"
+echo CLOSED > "$FIX/state-8"; echo OPEN > "$FIX/state-9"
 echo OPEN > "$FIX/state-90"; echo CLOSED > "$FIX/state-91"
 printf '## Dependencias\nDepende de #90\n' > "$FIX/body-5"
 printf '## Dependencias\nDepende de #91\n' > "$FIX/body-6"
 printf '## Dependencias\nNinguna\n' > "$FIX/body-7"; echo bloqueado > "$FIX/labels-7"
-run_batch "$W" 5 6 7
-grep -qx 6 "$CALLS" && ! grep -qx 5 "$CALLS" && ! grep -qx 7 "$CALLS" && pass "3: solo #6 se lanzo" || fail "3: calls=$(tr '\n' ' ' < "$CALLS")"
+printf '## Dependencias\nDepende de #8\n' > "$FIX/body-9"
+run_batch "$W" 5 6 7 8 9
+grep -qx 6 "$CALLS" && grep -qx 9 "$CALLS" && ! grep -qx 5 "$CALLS" && ! grep -qx 7 "$CALLS" && ! grep -qx 8 "$CALLS" && pass "3: solo #6 y #9 se lanzaron (#8 saltado por CLOSED satisface a #9)" || fail "3: calls=$(tr '\n' ' ' < "$CALLS")"
 echo "$LAST_OUT" | grep -E "#5\s" | grep -q "depende de #90 (OPEN)" && pass "3: #5 con motivo OPEN" || fail "3: motivo de #5"
 echo "$LAST_OUT" | grep -E "#7\s" | grep -q "bloqueado sin dependencias canonicas" && pass "3: #7 con motivo bloqueado sin canonicas" || fail "3: motivo de #7"
 [ "$LAST_RC" -eq 0 ] && pass "3: el salto solo no cambia el exit code" || fail "3: exit $LAST_RC"

@@ -344,12 +344,9 @@ batch_dependency_gate() {
     for dep in $deps; do
         [ "$dep" = "$issue" ] && continue
         st=$(get_status "$dep")
-        case "$st" in
-            completado*) continue ;;
-            saltado*|ERROR*)
-                BATCH_GATE_REASON="depende de #$dep (fallido en este batch)"
-                return 1 ;;
-        esac
+        [[ "$st" == completado* ]] && continue
+        # Un 'saltado: issue CLOSED' de este batch sigue satisfecho: el estado de
+        # GitHub decide antes que el motivo 'fallido en este batch'.
         dstate=$(gh issue view "$dep" --json state -q .state 2>/dev/null \
             || gh pr view "$dep" --json state -q .state 2>/dev/null \
             || echo "")
@@ -357,7 +354,10 @@ batch_dependency_gate() {
         case "$dstate" in
             CLOSED|MERGED) continue ;;
         esac
-        BATCH_GATE_REASON="depende de #$dep ($dstate)"
+        case "$st" in
+            saltado*|ERROR*) BATCH_GATE_REASON="depende de #$dep (fallido en este batch)" ;;
+            *) BATCH_GATE_REASON="depende de #$dep ($dstate)" ;;
+        esac
         return 1
     done
 

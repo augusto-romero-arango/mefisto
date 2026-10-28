@@ -2964,5 +2964,5 @@ extract_canonical_dependencies() {
     printf '%s\n' "${1:-}" \
         | awk '/^##[[:space:]]*[Dd]ependencias/{f=1;next} /^##[[:space:]]/{f=0} f' \
         | { grep -ioE '^[[:space:]]*([-*][[:space:]]+)?(Depende de|Bloqueado por)[[:space:]]+#[0-9]+' || true; } \
-        | grep -oE '[0-9]+' | awk '!seen[$0]++'
+        | { grep -oE '[0-9]+' || true; } | awk '!seen[$0]++'
 }
