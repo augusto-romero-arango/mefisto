@@ -14,6 +14,8 @@
 #         el dependiente SI se lanza.
 #   [C]   Dependencia fuera del batch OPEN en GitHub: `saltado ... (OPEN)`,
 #         y un salto por si solo no deja el batch en `failed` ni exit 1.
+#   [D]   Dependencia fallida en este batch pero CLOSED en GitHub (fallo tras
+#         el merge): satisfecha, el dependiente SI se lanza (CA-1).
 #
 # Uso: .claude/scripts/tests/test-batch-dependency-skip.sh
 # Exit code: 0 si todos los chequeos pasan, 1 si alguno falla.
@@ -183,6 +185,16 @@ run_case c "" 701 702
 grep -qx 701 "$CALLS" && ! grep -qx 702 "$CALLS" && pass "C: solo 701 se lanzo" || fail "C: llamadas: $(cat "$CALLS")"
 [ "$LAST_RC" -eq 0 ] && [ "$(jq -r .state "$STATUS_JSON")" = "completed" ] \
     && pass "C: exit 0 y batch completed (el salto no toca HAVE_ERRORS)" || fail "C: rc=$LAST_RC state=$(jq -r .state "$STATUS_JSON")"
+
+# -------- D: dependencia fallida en el batch pero CLOSED en GitHub --------
+echo ""
+echo "[D] Dependencia fallida en este batch pero CLOSED en GitHub: se lanza (CA-1)"
+mkdir -p "$TMP/bodies-d" "$TMP/states-d"
+body_dep "$TMP/bodies-d/802" 801
+printf 'CLOSED' > "$TMP/states-d/801"
+run_case d 801 801 802
+grep -qx 802 "$CALLS" && pass "D: el dependiente (802) se lanzo" || fail "D: 802 no se invoco: $(cat "$CALLS")"
+case "$(issue_status 802)" in saltado*) fail "D: 802 quedo saltado: '$(issue_status 802)'" ;; *) pass "D: 802 no quedo saltado" ;; esac
 
 echo ""
 echo "----------------------------------------"

@@ -354,18 +354,19 @@ unmet_dependency() {
     body=$(gh issue view "$issue" --json body -q '.body' 2>/dev/null || true)
     deps=$(printf '%s\n' "$body" | mefisto_forward_dependencies || true)
     for dep in $deps; do
+        [ "$dep" = "$issue" ] && continue
         st=$(get_status "$dep")
-        case "$st" in
-            completado*) continue ;;
-            saltado*|ERROR*) echo "$dep|fallido en este batch"; return 0 ;;
-        esac
+        case "$st" in completado*) continue ;; esac
+        # GitHub decide antes que el motivo del batch: un eslabon que fallo
+        # despues de mergear deja su issue CLOSED y la dependencia satisfecha.
         gh_state=$(gh issue view "$dep" --json state -q '.state' 2>/dev/null \
             || gh pr view "$dep" --json state -q '.state' 2>/dev/null || true)
-        case "$gh_state" in
-            CLOSED|MERGED) continue ;;
-            "") echo "$dep|no consultable"; return 0 ;;
-            *) echo "$dep|$gh_state"; return 0 ;;
+        case "$gh_state" in CLOSED|MERGED) continue ;; esac
+        case "$st" in
+            saltado*|ERROR*) echo "$dep|fallido en este batch" ;;
+            *) echo "$dep|${gh_state:-no consultable}" ;;
         esac
+        return 0
     done
     return 1
 }
