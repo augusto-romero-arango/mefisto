@@ -2996,10 +2996,12 @@ list_smokes_invoking_tools() {
         [ -n "$tool_rel" ] || continue
         name=$(smoke_tool_name "$worktree/$tool_rel")
         if [ -z "$name" ]; then
+            local motivo="sin NombreTool ni McpToolTrigger"
+            [ -f "$worktree/$tool_rel" ] || motivo="el archivo no existe en el worktree (tool borrada o renombrada)"
             if declare -F warn >/dev/null 2>&1; then
-                warn "No se pudo extraer el nombre de la tool MCP de '$tool_rel' (sin NombreTool ni McpToolTrigger)" >&2
+                warn "No se pudo extraer el nombre de la tool MCP de '$tool_rel' ($motivo)" >&2
             else
-                echo "warn: No se pudo extraer el nombre de la tool MCP de '$tool_rel'" >&2
+                echo "warn: No se pudo extraer el nombre de la tool MCP de '$tool_rel' ($motivo)" >&2
             fi
             continue
         fi

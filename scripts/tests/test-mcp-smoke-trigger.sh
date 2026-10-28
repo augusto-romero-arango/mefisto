@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # test-mcp-smoke-trigger.sh — Tests del disparo del Stage 2b (smoke-test-writer)
 # de scripts/tdd-pipeline.sh ante tools MCP nuevas o modificadas (issue #791) y
-# del anclaje a src/ + señal de anomalía de deteccion (issue #1562).
+# del anclaje a src/ + señal de anomalía de deteccion (issue #1562), y del
+# listado de smokes existentes que invocan las tools modificadas (issue #2473).
 #
 # Valida:
 #   A) Deteccion de SMOKE_FILES: un *Tool.cs bajo src/{NS}.Mcp.{Proposito}/
