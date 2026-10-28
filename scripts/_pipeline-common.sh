@@ -3013,3 +3013,73 @@ list_smokes_invoking_tools() {
             done
     done
 }
+
+# list_smokes_invoking_routes <worktree> <FunctionEndpoint.cs relativo>...
+#
+# Una linea '<ruta><TAB><archivo relativo al worktree>' por cada .cs de
+# tests/*.SmokeTests/ que invoca la ruta de un HttpTrigger modificado (issue
+# #2480). La ruta es el 'Route = "<plantilla>"' del trigger (un archivo sin
+# Route no aporta rutas). En cada smoke se resuelven en los literales las
+# referencias {Constante} a 'const string' del mismo archivo; cada literal que
+# empieza por /api/ se compara, sin distinguir mayusculas, contra la plantilla:
+# cada {param} casa un segmento sin '/', '?' ni ':' y la ruta termina ahi o
+# sigue con '?'. No distingue metodo HTTP. Requiere python3.
+list_smokes_invoking_routes() {
+    local worktree="$1"
+    shift
+    [ -d "$worktree/tests" ] || return 0
+    python3 -I - "$worktree" "$@" <<'PYEOF'
+import glob, os, re, sys
+
+worktree = sys.argv[1]
+routes = []
+for rel in sys.argv[2:]:
+    try:
+        with open(os.path.join(worktree, rel), encoding="utf-8", errors="replace") as fh:
+            text = fh.read()
+    except OSError:
+        continue
+    for m in re.finditer(r'\[\s*HttpTrigger\((.*?)\)\s*\]', text, re.S):
+        r = re.search(r'Route\s*=\s*"([^"]*)"', m.group(1))
+        if r and r.group(1) not in routes:
+            routes.append(r.group(1))
+
+def to_regex(tpl):
+    tpl = tpl.strip("/")
+    parts = re.split(r'(\{[^}]*\})', tpl)
+    body = "".join('[^/?:"]+' if p.startswith("{") else re.escape(p) for p in parts if p)
+    return re.compile(r'^/api/' + body + r'(\?.*)?$', re.I)
+
+compiled = [(r, to_regex(r)) for r in routes]
+const_re = re.compile(r'\bconst\s+string\s+(\w+)\s*=\s*\$?"((?:[^"\\]|\\.)*)"\s*;')
+lit_re = re.compile(r'\$?"((?:[^"\\]|\\.)*)"')
+
+out = []
+files = sorted(glob.glob(os.path.join(worktree, "tests", "*.SmokeTests", "**", "*.cs"), recursive=True))
+for path in files:
+    if not compiled:
+        break
+    try:
+        with open(path, encoding="utf-8", errors="replace") as fh:
+            src = fh.read()
+    except OSError:
+        continue
+    consts = {n: v for n, v in const_re.findall(src)}
+    hit = set()
+    for lit in lit_re.findall(src):
+        for _ in range(3):
+            new = re.sub(r'\{(\w+)\}', lambda m: consts.get(m.group(1), m.group(0)), lit)
+            if new == lit:
+                break
+            lit = new
+        if not lit.lower().startswith("/api/"):
+            continue
+        for tpl, rx in compiled:
+            if rx.match(lit):
+                hit.add(tpl)
+    rel = os.path.relpath(path, worktree)
+    for tpl in sorted(hit):
+        out.append("%s\t%s" % (tpl, rel))
+sys.stdout.write("".join(l + "\n" for l in out))
+PYEOF
+}

@@ -728,7 +728,9 @@ Al finalizar, genera el summary en `.mefisto/pipeline/summaries/stage-2b-smoke-t
 **No-ops PUT/DELETE cubiertos:** {ninguno | lista con endpoint, estado ya alcanzado, codigo declarado y verificacion de cero eventos/publicaciones por corrida}
 **Escenarios de identidad/stream inexistente separados:** {ninguno | lista con endpoint y status declarado en el issue}
 
-**Smokes existentes revisados:** {solo servidores MCP: lista de archivos que invocan las tools modificadas, cada uno con "cambio" o "sin cambio"; ninguno si no hay coincidencias}
+**Endpoints HTTP modificados: alinea toda invocacion existente** (extension de la regla de tools MCP, issue #2480). Si el contrato de un endpoint cambia (payload, status de exito, forma de la respuesta), alinea toda invocacion existente de ese endpoint en cualquier proyecto `tests/*.SmokeTests`: otras clases del dominio, smokes de otros dominios y la suite MCP la invocan, p. ej. en su Arrange, y quedan desalineadas. El pipeline te pasa la lista bajo "Smokes existentes que invocan los endpoints modificados"; si corres sin ella, busca la `Route` del `HttpTrigger` (con `{param}` como segmento y sin distinguir mayusculas) en todos los proyectos SmokeTests, incluidas rutas armadas sobre una `const string` del mismo archivo. No distingue metodo HTTP: revisa cada coincidencia. Las reglas de aislamiento de dominio no cambian: no asertes sobre DLQ ni suscripciones ajenas.
+
+**Smokes existentes revisados:** {lista de archivos que invocan las tools MCP o los endpoints HTTP modificados, cada uno con "cambio" o "sin cambio"; ninguno si no hay coincidencias}
 
 **Resultado contra dev:** {PASSED | FAILED | ENTORNO NO DISPONIBLE}
 ```

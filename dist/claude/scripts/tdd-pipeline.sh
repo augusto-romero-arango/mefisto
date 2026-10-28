@@ -1309,6 +1309,7 @@ elif [ "$IS_REFACTOR" != true ] && [ "$FROM_STAGE" -le 2 ]; then
             fi
 
             SMOKE_INVOKERS_BLOCK=""
+            SMOKE_INVOKERS=""
             if [ "$IS_MCP_SMOKE" = true ]; then
                 SMOKE_INVOKERS=$(list_smokes_invoking_tools "$WORKTREE_PATH" "$SMOKE_TEST_PROJECT" \
                     $(echo "$SMOKE_FILES" | grep -E "$MCP_TOOL_PATTERN" || true)) || SMOKE_INVOKERS=""
@@ -1323,6 +1324,22 @@ Revisa cada uno de esos archivos, incluidos los Arrange de otras clases que invo
                 else
                     SMOKE_INVOKERS_BLOCK="
 Smokes existentes que invocan las tools modificadas: ninguno encontrado por el pipeline (sin coincidencias del literal de la tool en ${SMOKE_TEST_PROJECT}). Revisa igualmente en la propia clase de la tool los asserts que el cambio contradice.
+"
+                fi
+            else
+                SMOKE_INVOKERS=$(list_smokes_invoking_routes "$WORKTREE_PATH" \
+                    $(echo "$SMOKE_FILES" | grep -vE "$MCP_TOOL_PATTERN" | grep -E 'FunctionEndpoint\.cs$' || true)) || SMOKE_INVOKERS=""
+                if [ -n "$SMOKE_INVOKERS" ]; then
+                    SMOKE_INVOKERS_LISTING=$(printf '%s\n' "$SMOKE_INVOKERS" | awk -F'\t' '{print "- " $2 " (ruta: " $1 ")"}')
+                    SMOKE_INVOKERS_BLOCK="
+Smokes existentes que invocan los endpoints modificados (en cualquier proyecto SmokeTests, tambien de otros dominios o de la suite MCP):
+$SMOKE_INVOKERS_LISTING
+
+Revisa cada uno de esos archivos, incluidos los Arrange que invocan el endpoint, y alinealo al contrato nuevo (payload, status de exito, forma de la respuesta). La lista no distingue metodo HTTP: es para revisar, no un gate.
+"
+                else
+                    SMOKE_INVOKERS_BLOCK="
+Smokes existentes que invocan los endpoints modificados: ninguno encontrado por el pipeline (sin coincidencias de la ruta en tests/*.SmokeTests). Si el contrato cambia, busca igualmente la ruta en los proyectos SmokeTests.
 "
                 fi
             fi
@@ -1356,12 +1373,28 @@ PROHIBIDO hacer 'git push' o 'gh pr create' (ni ninguna operacion de publicacion
             # Gate: solo compilación del proyecto de smoke tests
             log "Gate: verificando que smoke tests compilan..."
             st_build_rc=0
-            ST_BUILD_OUTPUT=$(dotnet build "$WORKTREE_PATH/$SMOKE_TEST_PROJECT" 2>&1) || st_build_rc=$?
-            echo "$ST_BUILD_OUTPUT" | tee -a "${LOG_FILE_ABS:-$LOG_FILE}" >/dev/null
-            if [ "$st_build_rc" -ne 0 ]; then
-                echo "$ST_BUILD_OUTPUT" | tail -20
-                abort "Stage 2b fallido: smoke tests no compilan (exit code: $st_build_rc). Revisa el log."
-            fi
+            # Compila SMOKE_TEST_PROJECT y todo tests/*.SmokeTests que el stage
+            # modifico (issue #2480: el agente alinea smokes de otros proyectos).
+            ST_BUILD_PROJECTS="$SMOKE_TEST_PROJECT"
+            ST_TOUCHED=$(git -C "$WORKTREE_PATH" status --porcelain 2>/dev/null | sed 's/^...//' ; \
+                git -C "$WORKTREE_PATH" diff --name-only "$SNAPSHOT_COMMIT"..HEAD 2>/dev/null || true)
+            ST_EXTRA=$(printf '%s\n' "$ST_TOUCHED" | sed -n 's|^\(tests/[^/]*\.SmokeTests\)/.*|\1|p' | sort -u)
+            while IFS= read -r st_proj; do
+                [ -n "$st_proj" ] || continue
+                [ "$st_proj" = "$SMOKE_TEST_PROJECT" ] && continue
+                [ -d "$WORKTREE_PATH/$st_proj" ] || continue
+                ST_BUILD_PROJECTS="${ST_BUILD_PROJECTS}
+${st_proj}"
+            done <<< "$ST_EXTRA"
+            while IFS= read -r st_proj; do
+                [ -n "$st_proj" ] || continue
+                ST_BUILD_OUTPUT=$(dotnet build "$WORKTREE_PATH/$st_proj" 2>&1) || st_build_rc=$?
+                echo "$ST_BUILD_OUTPUT" | tee -a "${LOG_FILE_ABS:-$LOG_FILE}" >/dev/null
+                if [ "$st_build_rc" -ne 0 ]; then
+                    echo "$ST_BUILD_OUTPUT" | tail -20
+                    abort "Stage 2b fallido: smoke tests no compilan en $st_proj (exit code: $st_build_rc). Revisa el log."
+                fi
+            done <<< "$ST_BUILD_PROJECTS"
 
             auto_commit_if_needed "smoke" "$SMOKE_COMMIT_SUBJECT"
 
@@ -2376,7 +2409,7 @@ Un match bajo \`src/\` no permitio derivar el proyecto de smoke tests: \`$SMOKE_
 "
         fi
 
-        # Smokes que invocan tools MCP modificadas y no cambiaron (issue #2473).
+        # Smokes que invocan tools MCP (#2473) o endpoints HTTP (#2480) modificados y no cambiaron.
         # Informativa: no bloquea ni cambia AGENT_ST_RES.
         SMOKE_UNCHANGED_SECTION=""
         if [ -n "$SMOKE_INVOKERS" ]; then
@@ -2392,7 +2425,7 @@ Un match bajo \`src/\` no permitio derivar el proyecto de smoke tests: \`$SMOKE_
             if [ -n "$SMOKE_UNCHANGED_LIST" ]; then
                 SMOKE_UNCHANGED_SECTION="## Smokes que invocan tools modificadas sin cambios
 
-Estos smokes invocan una tool MCP modificada por la HU y no cambiaron. Puede estar bien; revisa que sigan alineados con el contrato nuevo:
+Estos smokes invocan una tool MCP o un endpoint HTTP modificado por la HU y no cambiaron. Puede estar bien; revisa que sigan alineados con el contrato nuevo:
 
 ${SMOKE_UNCHANGED_LIST}
 "
