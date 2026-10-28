@@ -128,6 +128,11 @@ NOT_EVALUATED_FILES=""
 # construccion del cuerpo del PR la lee incluso cuando Stage 2b no corrio
 # (refactor puro, --from-stage 3): sin este default, `set -u` la volaria.
 SMOKE_ANOMALY_PATH=""
+# Smokes existentes que invocan tools MCP modificadas (issue #2473): lista
+# "<nombre>\t<ruta>" y seccion informativa del PR. Inicializadas aqui por la
+# misma razon que SMOKE_ANOMALY_PATH (`set -u` cuando Stage 2b no corre).
+SMOKE_INVOKERS=""
+SMOKE_UNCHANGED_SECTION=""
 PIPELINE_TESTS=""
 PIPELINE_PR=""
 HAS_BLOCKAGE=false
@@ -1303,6 +1308,25 @@ elif [ "$IS_REFACTOR" != true ] && [ "$FROM_STAGE" -le 2 ]; then
                 SMOKE_COMMIT_SUBJECT="test(hu-${ISSUE_NUM:-?}): smoke tests para endpoints"
             fi
 
+            SMOKE_INVOKERS_BLOCK=""
+            if [ "$IS_MCP_SMOKE" = true ]; then
+                SMOKE_INVOKERS=$(list_smokes_invoking_tools "$WORKTREE_PATH" "$SMOKE_TEST_PROJECT" \
+                    $(echo "$SMOKE_FILES" | grep -E "$MCP_TOOL_PATTERN" || true)) || SMOKE_INVOKERS=""
+                if [ -n "$SMOKE_INVOKERS" ]; then
+                    SMOKE_INVOKERS_LISTING=$(printf '%s\n' "$SMOKE_INVOKERS" | awk -F'\t' '{print "- " $2 " (tool: " $1 ")"}')
+                    SMOKE_INVOKERS_BLOCK="
+Smokes existentes que invocan las tools modificadas:
+$SMOKE_INVOKERS_LISTING
+
+Revisa cada uno de esos archivos, incluidos los Arrange de otras clases que invocan la tool, y alinealo al contrato nuevo (inputSchema, eco y campos de la respuesta). Revisa tambien en la propia clase de la tool los asserts que el cambio contradice.
+"
+                else
+                    SMOKE_INVOKERS_BLOCK="
+Smokes existentes que invocan las tools modificadas: ninguno encontrado por el pipeline (sin coincidencias del literal de la tool en ${SMOKE_TEST_PROJECT}). Revisa igualmente en la propia clase de la tool los asserts que el cambio contradice.
+"
+                fi
+            fi
+
             STAGE2B_PROMPT="Estás en el directorio raíz del proyecto ${HARNESS_PROJECT_NAME}.
 
 Contexto de la historia de usuario:
@@ -1311,7 +1335,7 @@ $ISSUE_CONTEXT
 
 El $STAGE2_AGENT creó/modificó $SMOKE_FILES_DESC:
 $SMOKE_FILES
-
+$SMOKE_INVOKERS_BLOCK
 $SMOKE_TASK_LINE
 IMPORTANTE: Solo escribe y compila. NO ejecutes los tests (el entorno dev puede no tener este código desplegado aún).
 Usa 'dotnet build' para verificar compilación, pero NO uses 'dotnet test'.
@@ -2352,6 +2376,29 @@ Un match bajo \`src/\` no permitio derivar el proyecto de smoke tests: \`$SMOKE_
 "
         fi
 
+        # Smokes que invocan tools MCP modificadas y no cambiaron (issue #2473).
+        # Informativa: no bloquea ni cambia AGENT_ST_RES.
+        SMOKE_UNCHANGED_SECTION=""
+        if [ -n "$SMOKE_INVOKERS" ]; then
+            SMOKE_UNCHANGED_LIST=""
+            SMOKE_CHANGED_NOW=$(git -C "$WORKTREE_PATH" diff --name-only "$SNAPSHOT_COMMIT"..HEAD 2>/dev/null || true)
+            while IFS=$'\t' read -r sm_tool sm_path; do
+                [ -n "$sm_path" ] || continue
+                if ! printf '%s\n' "$SMOKE_CHANGED_NOW" | grep -qxF -- "$sm_path"; then
+                    SMOKE_UNCHANGED_LIST="${SMOKE_UNCHANGED_LIST}- \`${sm_path}\` (invoca \`${sm_tool}\`)
+"
+                fi
+            done <<< "$SMOKE_INVOKERS"
+            if [ -n "$SMOKE_UNCHANGED_LIST" ]; then
+                SMOKE_UNCHANGED_SECTION="## Smokes que invocan tools modificadas sin cambios
+
+Estos smokes invocan una tool MCP modificada por la HU y no cambiaron. Puede estar bien; revisa que sigan alineados con el contrato nuevo:
+
+${SMOKE_UNCHANGED_LIST}
+"
+            fi
+        fi
+
         # Construir seccion de cobertura para el PR
         COVERAGE_SECTION=""
         if [ -n "$COV_TABLE" ]; then
@@ -2414,7 +2461,7 @@ ${RV_SUMMARY}
 
 </details>
 
-${SMOKE_ANOMALY_SECTION}${COVERAGE_SECTION}${WARNING_REMNANTS_SECTION}${REVIEWER_TESTS_SECTION}## Commits
+${SMOKE_ANOMALY_SECTION}${SMOKE_UNCHANGED_SECTION}${COVERAGE_SECTION}${WARNING_REMNANTS_SECTION}${REVIEWER_TESTS_SECTION}## Commits
 
 $COMMITS_LIST
 

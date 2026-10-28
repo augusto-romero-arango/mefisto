@@ -217,6 +217,46 @@ assert_script_contains "D7: evento SMOKE_ANOMALY escrito en events.log" \
 assert_script_contains "D8: la nota de anomalia en el PR nombra la ruta" \
     'Un match bajo \`src/\` no permitio derivar el proyecto de smoke tests: \`$SMOKE_ANOMALY_PATH\`.'
 
+# ─── Escenario E (issue #2473): helper list_smokes_invoking_tools ───────────
+echo "Escenario E: smokes existentes que invocan una tool modificada (reproduce #1245)"
+# shellcheck disable=SC1091
+source "$REPO_ROOT/scripts/_pipeline-common.sh"
+FX=$(mktemp -d)
+trap 'rm -rf "$FX"' EXIT
+MCP_SRC="src/${NS}.Mcp.Asistente"
+MCP_SMK="tests/${NS}.Mcp.Asistente.SmokeTests"
+mkdir -p "$FX/$MCP_SRC" "$FX/$MCP_SMK/CrearPlantillaSemanal" "$FX/$MCP_SMK/AsignarTurnoADia" "$FX/$MCP_SMK/BuscarPlantillas" "$FX/$MCP_SMK/Otra"
+cat > "$FX/$MCP_SRC/CrearPlantillaSemanalTool.cs" <<'CS'
+internal const string NombreTool = "crear_plantilla_semanal";
+CS
+cat > "$FX/$MCP_SRC/SinNombreTool.cs" <<'CS'
+[McpToolTrigger("x", "desc")]
+CS
+echo 'public class Nada {}' > "$FX/$MCP_SRC/SinNadaTool.cs"
+echo 'CallToolAsync("crear_plantilla_semanal", a);' > "$FX/$MCP_SMK/CrearPlantillaSemanal/CrearSmokeTests.cs"
+echo 'CallToolAsync("crear_plantilla_semanal", a);' > "$FX/$MCP_SMK/AsignarTurnoADia/AsignarSmokeTests.cs"
+echo 'CallToolAsync("crear_plantilla_semanal", a);' > "$FX/$MCP_SMK/BuscarPlantillas/BuscarSmokeTests.cs"
+echo 'CallToolAsync("otra_tool", a);' > "$FX/$MCP_SMK/Otra/OtraSmokeTests.cs"
+echo 'CallToolAsync("x", a);' > "$FX/$MCP_SMK/Otra/XSmokeTests.cs"
+
+E1=$(list_smokes_invoking_tools "$FX" "$MCP_SMK" "$MCP_SRC/CrearPlantillaSemanalTool.cs" 2>/dev/null)
+assert_eq "E1: lista las tres clases que invocan la tool" "3" "$(printf '%s\n' "$E1" | grep -c '^crear_plantilla_semanal'$'\t')"
+assert_eq "E2: no lista la clase que no la invoca" "false" \
+    "$(printf '%s\n' "$E1" | grep -qF 'OtraSmokeTests.cs' && echo true || echo false)"
+assert_eq "E3: formato <nombre><TAB><ruta> relativa al worktree" "true" \
+    "$(printf '%s\n' "$E1" | grep -qF "crear_plantilla_semanal"$'\t'"$MCP_SMK/AsignarTurnoADia/AsignarSmokeTests.cs" && echo true || echo false)"
+E4=$(list_smokes_invoking_tools "$FX" "$MCP_SMK" "$MCP_SRC/SinNombreTool.cs" 2>/dev/null)
+assert_eq "E4: sin NombreTool se resuelve por McpToolTrigger" "x"$'\t'"$MCP_SMK/Otra/XSmokeTests.cs" "$E4"
+E5_ERR=$(list_smokes_invoking_tools "$FX" "$MCP_SMK" "$MCP_SRC/SinNadaTool.cs" 2>&1 >/dev/null)
+assert_eq "E5: sin nombre extraible emite warn con la ruta" "true" \
+    "$(printf '%s' "$E5_ERR" | grep -qF "$MCP_SRC/SinNadaTool.cs" && echo true || echo false)"
+E5_OUT=$(list_smokes_invoking_tools "$FX" "$MCP_SMK" "$MCP_SRC/SinNadaTool.cs" 2>/dev/null)
+assert_eq "E5b: y no lista nada" "" "$E5_OUT"
+assert_script_contains "E6: el prompt MCP incluye la lista bajo su titulo" \
+    'Smokes existentes que invocan las tools modificadas'
+assert_script_contains "E7: seccion informativa del PR" \
+    '## Smokes que invocan tools modificadas sin cambios'
+
 echo
 echo "─── Resumen ───"
 echo "PASS: $PASS"
