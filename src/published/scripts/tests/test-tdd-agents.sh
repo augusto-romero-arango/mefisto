@@ -117,7 +117,7 @@ for index in "${!agents[@]}"; do
         reviewer)
             expected_profile='deep'
             expected_capabilities='["read", "edit", "shell", "skill"]'
-            expected_skills='["projections", "comment-cleanup"]'
+            expected_skills='["projections", "code-comments"]'
             expected_keys='["capabilities", "description", "effort", "id", "kind", "mode", "profile", "skills"]'
             ;;
         smoke-test-writer|projection-test-writer|projection-implementer)
@@ -229,8 +229,8 @@ for agent in "${agents[@]}"; do
     if [ "$agent" = reviewer ]; then
         grep -Fq 'model: "opus"' "$claude" && pass "$agent Claude materializa deep como opus" || fail "$agent Claude no materializa opus"
         grep -Fq 'tools: "Read, Glob, Grep, Edit, Write, Bash, Skill"' "$claude" && pass "$agent Claude materializa capacidades y Skill" || fail "$agent Claude no materializa Skill"
-        grep -Fq 'skills: ["projections","comment-cleanup"]' "$claude" && pass "$agent Claude conserva skills" || fail "$agent Claude no conserva skills"
-        grep -Fq '"skill":{"*":"deny","mefisto-projections":"allow","mefisto-comment-cleanup":"allow"}' "$opencode" && grep -Fq 'Antes de ejecutar este body, usa la tool nativa `skill` para cargar, en este orden: `mefisto-projections`, `mefisto-comment-cleanup`.' "$opencode" && pass "$agent OpenCode materializa skills" || fail "$agent OpenCode no materializa skills"
+        grep -Fq 'skills: ["projections","code-comments"]' "$claude" && pass "$agent Claude conserva skills" || fail "$agent Claude no conserva skills"
+        grep -Fq '"skill":{"*":"deny","mefisto-projections":"allow","mefisto-code-comments":"allow"}' "$opencode" && grep -Fq 'Antes de ejecutar este body, usa la tool nativa `skill` para cargar, en este orden: `mefisto-projections`, `mefisto-code-comments`.' "$opencode" && pass "$agent OpenCode materializa skills" || fail "$agent OpenCode no materializa skills"
     elif [ "$agent" = smoke-test-writer ] || [ "$agent" = projection-test-writer ] || [ "$agent" = projection-implementer ]; then
         grep -Fq 'model: "sonnet"' "$claude" && pass "$agent Claude materializa balanced como sonnet" || fail "$agent Claude no materializa sonnet"
         grep -Fq 'tools: "Read, Glob, Grep, Edit, Write, Bash, Skill"' "$claude" && pass "$agent Claude materializa capacidades y Skill" || fail "$agent Claude no materializa Skill"

@@ -7,7 +7,7 @@
   "profile": "deep",
   "effort": "thorough",
   "capabilities": ["read", "edit", "shell", "skill"],
-  "skills": ["projections", "comment-cleanup"]
+  "skills": ["projections", "code-comments"]
 }
 ---
 
@@ -605,7 +605,7 @@ git checkout -- src/ruta/al/archivo.cs
 
 ### 6b. Limpieza de comentarios sobre-documentados (MEF-ADR-0044)
 
-Aplica el Skill `comment-cleanup` (precargado via frontmatter, MEF-ADR-0033) sobre cada archivo
+Aplica el Skill `code-comments` (precargado via frontmatter, MEF-ADR-0033) sobre cada archivo
 `.cs` que el diff de este PR ya crea o modifica -- produccion, tests y smoke tests por igual.
 **Nunca abras un archivo `.cs` ajeno al diff solo para limpiarlo**: la frontera es estricta
 (MEF-ADR-0044 seccion 6) -- limpiar un archivo no tocado por el issue es un cambio fuera de
