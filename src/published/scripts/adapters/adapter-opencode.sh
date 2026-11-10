@@ -491,6 +491,83 @@ export default async function mefistoMcp({ client } = {}) {
 }
 EOF
 }
+published_opencode_effort() {
+    case "$1" in
+        quick) printf '%s' "low" ;;
+        light) printf '%s' "medium" ;;
+        standard) printf '%s' "high" ;;
+        thorough) printf '%s' "xhigh" ;;
+        exhaustive) printf '%s' "max" ;;
+        *) return 1 ;;
+    esac
+}
+
+render_efforts_plugin() {
+    local agents natives level native
+    agents="$(
+        for file in "$REPO_ROOT"/src/published/agents/*.md; do
+            frontmatter "$file" | jq -c '{id, profile, effort}' || exit 1
+        done | jq -s -c 'sort_by(.id)'
+    )" || return 1
+    natives='{}'
+    for level in quick light standard thorough exhaustive; do
+        native="$(published_opencode_effort "$level")" || return 1
+        natives="$(jq -c --arg level "$level" --arg native "$native" '. + {($level): $native}' <<< "$natives")" || return 1
+    done
+    cat <<EOF
+// GENERADO por src/published/scripts/adapters/adapter-opencode.sh desde src/published/agents/*.md. No editar a mano.
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+const agents = $agents;
+const natives = $natives;
+const owns = (object, key) => Object.prototype.hasOwnProperty.call(object, key);
+const isObject = (value) => value !== null && typeof value === "object" && !Array.isArray(value);
+const isText = (value) => typeof value === "string" && value.trim() !== "";
+const pick = (object, key) => (isObject(object) && owns(object, key) ? object[key] : undefined);
+const log = async (client, event, agent) => {
+  try { await client?.app?.log?.({ body: { service: "mefisto", level: "warn", message: event, extra: { event, agent } } }); } catch { /* failure: continue */ }
+};
+const validTextMap = (value) => value === undefined || (isObject(value) && Object.values(value).every(isText));
+const loadSection = (root) => {
+  let text;
+  try { text = readFileSync(join(root, ".mefisto", "models.json"), "utf8"); } catch (error) { return error?.code === "ENOENT" ? {} : null; }
+  try {
+    const mapping = JSON.parse(text);
+    if (!isObject(mapping)) return null;
+    const section = mapping.opencode === undefined ? {} : mapping.opencode;
+    if (!isObject(section)) return null;
+    const efforts = section.efforts;
+    if (!validTextMap(section.profiles) || !validTextMap(section.agents)) return null;
+    if (efforts !== undefined && (!isObject(efforts) || !validTextMap(efforts.agents) || !validTextMap(efforts.levels))) return null;
+    return section;
+  } catch { return null; }
+};
+
+export default async function mefistoEfforts({ client, worktree, directory } = {}) {
+  return {
+    config: async (config) => {
+      try {
+        if (!isObject(config)) throw new Error("invalid_config");
+        const section = loadSection(worktree || directory || process.cwd());
+        if (section === null) { await log(client, "efforts_mapping_invalid"); return; }
+        if (config.agent !== undefined && !isObject(config.agent)) throw new Error("invalid_agent");
+        for (const { id, profile, effort } of agents) {
+          const model = pick(section.agents, id) ?? pick(section.profiles, profile);
+          if (model === undefined) continue;
+          const level = pick(section.efforts?.agents, id) ?? effort;
+          if (!owns(natives, level)) { await log(client, "efforts_level_invalid", id); continue; }
+          const variant = pick(section.efforts?.levels, level) ?? natives[level];
+          const actual = pick(config.agent, id);
+          if (isObject(actual) && (actual.model !== undefined || actual.variant !== undefined)) { await log(client, "efforts_config_conflict", id); continue; }
+          if (config.agent === undefined) config.agent = {};
+          config.agent[id] = { ...(isObject(actual) ? actual : {}), model, variant };
+        }
+      } catch { await log(client, "efforts_config_hook_failed"); }
+    },
+  };
+}
+EOF
+}
 render() {
     local source="$1" marker="$2" rel fm instance kind raw_body translated preamble='' mode permissions tools agent native_skills='[]'
     local description_json capabilities_json mcp_json skills_json
@@ -556,10 +633,10 @@ if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
         path)
             case "${2:-}" in src/published/agents/*.md) printf 'agents/%s\n' "$(basename "$2")" ;; src/published/commands/*.md) printf 'commands/mefisto:%s\n' "$(basename "$2")" ;; *) error "$2: path: fuente publicada desconocida" ;; esac ;;
         render) [ "$#" -eq 3 ] || error 'render: se esperaban fuente y marcador'; render "$2" "$3" ;;
-        assets) validate_interactive_hooks && validate_published_mcp && { skill_assets | jq '. + [{id:"interactive-observability",source:"src/published/hooks/interactive-hooks.json",destination:"plugins/mefisto-observability.js",mode:"0644"},{id:"mcp-config",source:"src/published/contract/mcp-servers.json",destination:"plugins/mefisto-mcp.js",mode:"0644"}]'; } ;;
+        assets) validate_interactive_hooks && validate_published_mcp && { skill_assets | jq '. + [{id:"interactive-observability",source:"src/published/hooks/interactive-hooks.json",destination:"plugins/mefisto-observability.js",mode:"0644"},{id:"mcp-config",source:"src/published/contract/mcp-servers.json",destination:"plugins/mefisto-mcp.js",mode:"0644"},{id:"efforts-config",source:"src/published/contract/published-artifact.schema.json",destination:"plugins/mefisto-efforts.js",mode:"0644"}]'; } ;;
         render-asset)
             [ "$#" -eq 3 ] || error 'render-asset: se esperaban id y fuente'
-            case "$2" in interactive-observability) render_observability_plugin ;; mcp-config) render_mcp_plugin "$3" ;; *) render_skill_asset "$2" "$3" ;; esac ;;
+            case "$2" in interactive-observability) render_observability_plugin ;; mcp-config) render_mcp_plugin "$3" ;; efforts-config) render_efforts_plugin ;; *) render_skill_asset "$2" "$3" ;; esac ;;
         *) error 'uso: adapter-opencode.sh root|path|render|assets|render-asset' ;;
     esac
 fi

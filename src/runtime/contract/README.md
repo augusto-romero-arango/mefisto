@@ -241,3 +241,31 @@ del valor nativo: `efforts.levels[<nivel>]` > `runtime_<id>_default_effort
 <nivel>` (quick->low, light->medium, standard->high, thorough->xhigh,
 exhaustive->max en los adaptadores actuales) > vacio (heredar). Capturar el
 resultado con redirect a archivo, nunca con `$(...)`.
+
+### Effort en conversaciones
+
+El mapping de modelos rige en los pipelines (resolutor + `--variant`/`effort`
+por corrida). Cuando el usuario **conversa** con un agente fuera de un
+pipeline, cada runtime lo aplica distinto (MEF-ADR-0050):
+
+- **OpenCode**: el agente hereda el modelo interactivo y `variant` solo rige
+  si el agente fija su propio `model`, asi que el effort de fabrica no aplica
+  por si solo. El plugin generado `plugins/mefisto-efforts.js` inyecta
+  `agent.<id>.{model,variant}` **solo si** `.mefisto/models.json` del
+  repositorio fija modelo para ese agente (`opencode.agents.<id>` u
+  `opencode.profiles.<perfil>`). Sin modelo local no inyecta nada. Nivel:
+  `opencode.efforts.agents.<id>` > fabrica; nativo:
+  `opencode.efforts.levels.<nivel>` > tabla embebida del adaptador (misma que
+  `runtime_opencode_default_effort`, con test de paridad). Un nivel fuera del
+  vocabulario omite ese agente (`efforts_level_invalid`); si la config del
+  usuario ya fija `model` o `variant` del agente no se sobreescribe
+  (`efforts_config_conflict`); un mapping ilegible o de forma invalida no
+  inyecta nada (`efforts_mapping_invalid`). Nunca interrumpe el arranque. En un
+  worktree sin `.mefisto/models.json` no inyecta nada: los pipelines ya pasan
+  `--variant`.
+- **Claude Code**: la conversacion usa el effort de fabrica del frontmatter
+  del agente, que gana sobre `--effort`, `/effort` y los settings. El ajuste
+  de `.mefisto/models.json` rige solo en pipelines; no existe override por
+  agente en settings. La unica via para una conversacion es la variable de
+  entorno `CLAUDE_CODE_EFFORT_LEVEL`, global (todos los agentes) y la unica que
+  gana sobre el frontmatter.

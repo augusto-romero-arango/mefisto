@@ -78,3 +78,16 @@ La prueba aislada `src/published/scripts/tests/test-opencode-mcp-plugin.sh`
 cubre configuración vacía, configuración idéntica, conflicto, claves ajenas y
 doble invocación sin red ni stores de autenticación. El formato corresponde a
 la documentación y API de plugins de OpenCode 1.18.29 citadas en el issue.
+
+## Effort en conversaciones
+
+La release proyecta `plugins/mefisto-efforts.js` igual que `mefisto-mcp.js`
+(enlace del ledger, retirado por `deactivate` o por una release que no lo
+trae). Su hook `config` inyecta `agent.<id>.{model,variant}` solo cuando
+`<worktree>/.mefisto/models.json` fija modelo local para el agente; reglas y
+diagnósticos en `src/runtime/contract/README.md` ("Effort en conversaciones",
+issue #2501). La prueba aislada
+`src/published/scripts/tests/test-opencode-efforts-plugin.sh` cubre sin
+mapping, perfil, agente con nivel propio, `efforts.levels`, preservación de la
+config existente, conflicto y mapping ilegible, además de la paridad de la
+tabla de nativos y de los datos embebidos.

@@ -18,12 +18,29 @@ objetos rechazan propiedades adicionales.
 | `description` | requerido | requerido | `description` | `description` |
 | `mode` | requerido | no | selecciona la forma de ejecución; no se emite | `mode` |
 | `profile` | sí | sí | `model` resuelto por tabla del adaptador | no se emite `model`; hereda la configuración interactiva del usuario |
-| `effort` | requerido | no (rechazado) | `effort` nativo por tabla del adaptador (`quick`->`low`, `light`->`medium`, `standard`->`high`, `thorough`->`xhigh`, `exhaustive`->`max`), justo después de `model` | no se emite (se resuelve en #2501) |
+| `effort` | requerido | no (rechazado) | `effort` nativo por tabla del adaptador (`quick`->`low`, `light`->`medium`, `standard`->`high`, `thorough`->`xhigh`, `exhaustive`->`max`), justo después de `model` | no se emite en el agente; el plugin `plugins/mefisto-efforts.js` lo aplica como `variant` en conversaciones solo si el usuario fijo modelo local (ver abajo) |
 | `capabilities` (`read`, `edit`, `shell`, `web`, `skill`, `task`, `ask`) | sí | sí | `tools`/`allowed-tools` generados (`ask` -> `AskUserQuestion`) | `permission` generado (`ask` -> `question: allow` solo en `primary`/`all`) |
 | `skills` | sí | sí | `skills` con ids fuente, sin prefijo | preámbulo que solicita la carga nativa on-demand de `mefisto-<id>` |
 | `mcp` | sí | sí | matcher scoped por id lógico | en agentes, política `tools` cerrada por servidor; en comandos, se materializa mediante el agente delegado |
 | `agent` | no | sí | delegación al agente generado | `agent` + ejecución como subtask |
 | `arguments` | no | sí | `argument-hint` | hint equivalente si el runtime lo admite |
+
+### Effort en conversaciones
+
+- **OpenCode**: `variant` solo rige cuando el agente fija su propio `model`, y
+  los agentes publicados no lo fijan (cada usuario elige su proveedor). El
+  adaptador genera `dist/opencode/plugins/mefisto-efforts.js` (hook `config`,
+  autocontenido: lleva embebidos `{id, profile, effort}` de los agentes y la
+  tabla de nativos). Inyecta `model` + `variant` en `agent.<id>` **solo si**
+  `.mefisto/models.json` fija modelo para ese agente (`opencode.agents.<id>` u
+  `opencode.profiles.<perfil>`); sin modelo local el agente hereda el modelo
+  interactivo y el effort de fabrica no aplica en la conversacion. Respeta
+  `opencode.efforts.{agents,levels}`, no pisa un `model`/`variant` ya fijado
+  por el usuario y registra `efforts_config_conflict`, `efforts_level_invalid`
+  o `efforts_mapping_invalid` con `client.app.log`.
+- **Claude Code**: la conversacion usa el `effort` de fabrica del frontmatter.
+  El ajuste local de `.mefisto/models.json` rige solo en pipelines;
+  `CLAUDE_CODE_EFFORT_LEVEL` es la unica via en conversaciones y es global.
 
 Las capacidades son intenciones cerradas: `read`, `edit`, `shell`, `web`,
 `skill`, `task`. Este es el mapping que los adaptadores deben materializar;
