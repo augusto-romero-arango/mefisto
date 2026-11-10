@@ -25,7 +25,7 @@ for spec in 'infra-writer|balanced' 'infra-reviewer|deep'; do
     if bash "$REPO_ROOT/src/published/scripts/validate-published-artifacts.sh" "$source" >/dev/null; then pass "$agent valida contra el contrato"; else fail "$agent no valida contra el contrato"; fi
     metadata="$(frontmatter "$source")"
     if printf '%s' "$metadata" | jq -e --arg id "$agent" --arg profile "$expected_profile" \
-        '.kind == "agent" and .id == $id and .mode == "all" and .profile == $profile and .capabilities == ["read", "edit", "shell"]' >/dev/null; then
+        '.kind == "agent" and .id == $id and .mode == "all" and .profile == $profile and .capabilities == ["read", "edit", "shell", "skill"] and .skills == ["code-comments"]' >/dev/null; then
         pass "$agent declara kind/id/mode/profile/capabilities esperados"
     else
         fail "$agent no declara kind/id/mode/profile/capabilities esperados"

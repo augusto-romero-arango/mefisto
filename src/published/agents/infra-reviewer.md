@@ -6,7 +6,8 @@
   "mode": "all",
   "profile": "deep",
   "effort": "standard",
-  "capabilities": ["read", "edit", "shell"]
+  "capabilities": ["read", "edit", "shell", "skill"],
+  "skills": ["code-comments"]
 }
 ---
 
@@ -64,6 +65,8 @@ Busca activamente estos problemas:
 
   Si falta alguno de los trece namespaces, es un **hallazgo de arquitectura que nombra cada namespace faltante** (nunca un hallazgo generico "la lista esta incompleta"): el primer `apply` que intente crear un recurso de ese namespace falla con `409 MissingSubscriptionRegistration`, nombrandolo. La razon de fondo es el default de `resource_provider_registrations`: desde `azurerm` v5 es `none` (verificado en `internal/provider/provider.go`, tag `v5.0.1`, lineas 345-349) y no auto-registra ningun namespace. Se preciso al redactar el hallazgo, porque el `409` no siempre es de hoy: con el pin `~> 4.0` que el marco usa todavia, ese default cae a `legacy` por un override que la v5 mata (`internal/features/five_point_oh.go`, tag `v5.0.1`: `FivePointOh()` *"always returns true"*), y `legacy` cubre doce de los trece -- todos menos `Microsoft.App`, ausente de los cinco sets de `required.go`. Es decir, un entorno con la lista incompleta puede estar aplicando hoy sin error: los namespaces que le faltan estan encendidos por auto-registro implicito, no por declaracion, y el `409` llega el dia que el pin suba a v5 (o antes, si el que falta es `Microsoft.App`). Esa deuda latente es justamente lo que este chequeo hace visible -- el marco no depende de ningun modo de auto-registro (MEF-ADR-0021). Corrigelo dentro del bloque `provider "azurerm"`, en la misma forma que emite `infra-base-scaffolder` (Paso 2.1): agrega los namespaces faltantes a la lista existente **sin borrar ni reordenar** los que ya estan; si el argumento `resource_providers_to_register` no existe en absoluto, agregalo con los trece completos. **Nunca** propongas el recurso `azurerm_resource_provider_registration` como correccion: su `destroy` intenta desregistrar el namespace y falla si quedan recursos de ese namespace en la suscripcion, y su state -- a nivel de suscripcion, no de entorno -- quedaria compartido entre todos los entornos que la comparten (MEF-ADR-0034 seccion 8).
 
+**Comentarios (MEF-ADR-0044):** aplica el Skill `code-comments` en modo revision sobre los `.tf` del diff, sin salir de el. Marca hallazgos en los dos sentidos: acorta o borra lo que narra el bloque y agrega el porque o la precision que falta, sacados del HCL, del issue o de la doc oficial, nunca inventados. Un comentario falso se corrige o se borra. **No toques los blindados**: los comentarios de topologia de Service Bus que exige MEF-ADR-0027 y las notas de `validate-jwt` en `#` (nunca en `xml_content`) que exige MEF-ADR-0032. La revision es puramente textual; tras tocar comentarios, `terraform fmt -check` y `terraform validate -backend=false` (paso 4). Lo corregido va en el resumen del paso 5.
+
 ### 3. Corregir problemas encontrados
 
 Si hay problemas de seguridad o calidad, corrígelos directamente:
@@ -110,6 +113,7 @@ Escribe en `{{mefisto:state-path summaries/stage-2-infra-reviewer.md}}` (sin com
 REVISION ESTATICA -- fmt: <ok|corregido>, validate: <ok>, warnings nuevos: <N> remediados, <M> remanentes
 - Hallazgos de seguridad/calidad: <lista o "ninguno">
 - Correcciones aplicadas: <lista o "ninguna">
+- Correcciones de comentarios: <lista o "ninguna">
 - Recursos nuevos/modificados relevantes: <lista breve, ej. azurerm_service_plan.<dominio>>
 ```
 
