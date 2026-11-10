@@ -106,13 +106,19 @@ for id in mefisto-writer mefisto-reviewer; do
         fail "$id: adaptador OpenCode debe declarar mode: all"
     fi
     permission="$(sed -n 's/^permission: //p' "$out_file")"
-    for key in question task skill webfetch websearch external_directory; do
+    for key in question task webfetch websearch external_directory; do
         if [ "$(printf '%s' "$permission" | jq -r --arg key "$key" '.[$key] // empty')" = "deny" ]; then
             pass "$id: permission.$key permanece en deny"
         else
             fail "$id: permission.$key debe permanecer en deny"
         fi
     done
+    if [ "$(printf '%s' "$permission" | jq -r '.skill["*"] // empty')" = "deny" ] \
+        && [ "$(printf '%s' "$permission" | jq -r '.skill["code-comments"] // empty')" = "allow" ]; then
+        pass "$id: permission.skill acotado a code-comments (resto en deny)"
+    else
+        fail "$id: permission.skill debe permitir solo code-comments y denegar el resto"
+    fi
     for key in list glob grep lsp todowrite; do
         if [ "$(printf '%s' "$permission" | jq -r --arg key "$key" '.[$key] // empty')" = "allow" ]; then
             pass "$id: permission.$key permanece en allow por capability read"
