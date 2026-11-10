@@ -205,7 +205,7 @@ quedar completa:
 |---|---|---|
 | Comando y agentes tooling | `/mefisto:tooling`, `tooling-writer`, `tooling-reviewer` | `/mefisto:tooling`, `tooling-writer`, `tooling-reviewer` |
 | Clausura y permisos | clausura exacta enumerada abajo; solo `read`, `edit`, `shell` | misma clausura adaptada; solo `read`, `edit`, `shell` |
-| Skills | `projections`, `comment-cleanup` | `mefisto-projections`, `mefisto-comment-cleanup` |
+| Skills | `projections`, `code-comments` | `mefisto-projections`, `mefisto-code-comments` |
 | Observabilidad y MCP | hooks/plugin de observabilidad y `microsoft-learn` bundled | plugin de observabilidad y `microsoft-learn` bundled |
 | Externo | `terraform` identificado como dependencia externa | `terraform` identificado como dependencia externa |
 
@@ -351,8 +351,8 @@ claude.skills-mcp-agentes=<ausentes|presentes>
 opencode.skills-mcp-agentes=<ausentes|presentes>
 claude.clausura=<14/14 rutas de la lista anterior|faltantes>
 opencode.clausura=<14/14 rutas adaptadas de la lista anterior|faltantes>
-claude.skills=<projections,comment-cleanup|faltantes>
-opencode.skills=<mefisto-projections,mefisto-comment-cleanup|faltantes>
+claude.skills=<projections,code-comments|faltantes>
+opencode.skills=<mefisto-projections,mefisto-code-comments|faltantes>
 claude.observabilidad=<hooks/plugin presente|ausente>
 opencode.observabilidad=<plugin presente|ausente>
 claude.mcp=<microsoft-learn bundled|ausente>
@@ -656,8 +656,8 @@ nunca capture variables de entorno completas.
    que el estado del proyector no reporte capacidades ausentes. Registre en
    ambos `/mefisto:tooling`, `tooling-writer`, `tooling-reviewer`, la clausura
    exacta enumerada en la matriz y los permisos efectivos. Registre
-   `projections`/`comment-cleanup` en Claude frente a
-   `mefisto-projections`/`mefisto-comment-cleanup` en OpenCode, el adaptador de
+   `projections`/`code-comments` en Claude frente a
+   `mefisto-projections`/`mefisto-code-comments` en OpenCode, el adaptador de
    hooks, `microsoft-learn` y `terraform` como dependencia externa. Discovery
    prueba disponibilidad, no
    ejercita una tool MCP ni un hook ajeno al flujo. Si una version del runtime
@@ -719,7 +719,7 @@ nunca capture variables de entorno completas.
 
 Los agentes de tooling exponen solo lectura, edicion y shell: tienen Agent
 Skills y MCP denegados. Por ello `projections`,
-`comment-cleanup` y `microsoft-learn` se comprueban solo por discovery separado
+`code-comments` y `microsoft-learn` se comprueban solo por discovery separado
 y no se fuerzan dentro de los issues fixture. Los hooks se descubren y se
 observan en la sesion/pipeline que naturalmente los activa; no se llama un hook
 como script directo. Esta distincion evita certificar una capacidad por una via
