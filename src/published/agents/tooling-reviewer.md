@@ -5,6 +5,7 @@
   "description": "Audita y corrige la fase de revision de un issue de tooling en el repositorio consumidor, bajo la orquestacion del pipeline publicado.",
   "mode": "all",
   "profile": "deep",
+  "effort": "standard",
   "capabilities": ["read", "edit", "shell"]
 }
 ---

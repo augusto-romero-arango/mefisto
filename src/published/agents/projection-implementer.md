@@ -5,6 +5,7 @@
   "description": "Implementa proyecciones Marten (read models), el seam de registro read-side (Configurar{Dominio}) y las Functions HTTP GET de consulta. Nunca modifica tests.",
   "mode": "all",
   "profile": "balanced",
+  "effort": "standard",
   "capabilities": ["read", "edit", "shell", "skill"],
   "skills": ["projections"]
 }

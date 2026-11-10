@@ -5,6 +5,7 @@
   "description": "Orquesta la cadena greenfield completa (backend de Terraform, labels, CI hacia Azure, infraestructura base) y lanza el pipeline IaC. Usar cuando el backend de Terraform aun no existe en Azure o cuando se va a provisionar un nuevo ambiente por primera vez.",
   "mode": "all",
   "profile": "fast",
+  "effort": "light",
   "capabilities": ["shell"]
 }
 ---

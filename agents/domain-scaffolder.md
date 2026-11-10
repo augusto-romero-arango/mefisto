@@ -3,6 +3,7 @@ name: "domain-scaffolder"
 description: "Crea el scaffold completo para un nuevo dominio (Function App, tests, Terraform, GitHub Actions)."
 tools: "Read, Glob, Grep, Edit, Write, Bash"
 model: "sonnet"
+effort: "medium"
 ---
 <!-- GENERADO por src/published/scripts/generate-published-adapters.sh desde src/published/agents/domain-scaffolder.md. No editar a mano. -->
 ```bash

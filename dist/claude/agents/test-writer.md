@@ -3,6 +3,7 @@ name: "test-writer"
 description: "Escribe tests ES (fase roja TDD) con DSL Given/When/Then y stubs minimos de compilacion."
 tools: "Read, Glob, Grep, Edit, Write, Bash"
 model: "sonnet"
+effort: "medium"
 ---
 <!-- GENERADO por src/published/scripts/generate-published-adapters.sh desde src/published/agents/test-writer.md. No editar a mano. -->
 ```bash

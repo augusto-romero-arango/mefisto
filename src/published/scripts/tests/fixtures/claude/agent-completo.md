@@ -1,5 +1,5 @@
 ---
-{"kind":"agent","id":"agent-completo","description":"Lee: \"edita\".","mode":"subagent","profile":"balanced","capabilities":["read","edit","shell","web","skill","task"],"skills":["projections"],"mcp":["microsoft-learn","terraform"]}
+{"kind":"agent","effort":"light","id":"agent-completo","description":"Lee: \"edita\".","mode":"subagent","profile":"balanced","capabilities":["read","edit","shell","web","skill","task"],"skills":["projections"],"mcp":["microsoft-learn","terraform"]}
 ---
 {{mefisto:assert-consumer-repo}}
 Rutas: {{mefisto:config-path}}, {{mefisto:instructions-path}} y {{mefisto:package-root}}.

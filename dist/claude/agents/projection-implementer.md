@@ -4,6 +4,7 @@ description: "Implementa proyecciones Marten (read models), el seam de registro 
 tools: "Read, Glob, Grep, Edit, Write, Bash, Skill"
 skills: ["projections"]
 model: "sonnet"
+effort: "high"
 ---
 <!-- GENERADO por src/published/scripts/generate-published-adapters.sh desde src/published/agents/projection-implementer.md. No editar a mano. -->
 ```bash

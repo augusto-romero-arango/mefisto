@@ -4,6 +4,7 @@ description: "Escribe smoke tests black-box contra el entorno dev desplegado. As
 tools: "Read, Glob, Grep, Edit, Write, Bash, Skill"
 skills: ["projections"]
 model: "sonnet"
+effort: "medium"
 ---
 <!-- GENERADO por src/published/scripts/generate-published-adapters.sh desde src/published/agents/smoke-test-writer.md. No editar a mano. -->
 ```bash

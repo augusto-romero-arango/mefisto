@@ -5,6 +5,7 @@
   "description": "Agente de Knowledge Crunching y planificacion. Descubre el lenguaje del dominio a traves de eventos, y convierte ese conocimiento en issues accionables.",
   "mode": "all",
   "profile": "deep",
+  "effort": "thorough",
   "capabilities": ["read", "edit", "shell", "skill", "ask", "web"],
   "skills": ["projections"],
   "mcp": ["microsoft-learn"]

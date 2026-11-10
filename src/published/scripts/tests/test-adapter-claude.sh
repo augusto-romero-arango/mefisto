@@ -34,7 +34,7 @@ resolve_claude() {
     [ -z "$runtime_root" ] || code="${code//"$pat"/$runtime_root}"
     (cd "$cwd" && MEFISTO_TEST_TRACE="$trace" bash -c "$code"$'\n''printf "ROOT=%s\\n" "$MEFISTO_PACKAGE_ROOT"; "$MEFISTO_PACKAGE_ROOT/scripts/probe.sh"')
 }
-make_agent() { printf '%s\n' '---' "{\"kind\":\"agent\",\"id\":\"$1\",\"description\":\"Prueba.\",\"mode\":\"subagent\",\"capabilities\":$2${3:-}}" '---' '{{mefisto:assert-consumer-repo}}' > "$WORK/$1.md"; }
+make_agent() { printf '%s\n' '---' "{\"kind\":\"agent\",\"effort\":\"light\",\"id\":\"$1\",\"description\":\"Prueba.\",\"mode\":\"subagent\",\"capabilities\":$2${3:-}}" '---' '{{mefisto:assert-consumer-repo}}' > "$WORK/$1.md"; }
 render_fails_without_output() {
     local source="$1" expected="$2" label="$3" rc
     render "$source" > "$WORK/failure.stdout" 2> "$WORK/failure.stderr"; rc=$?
@@ -290,7 +290,7 @@ jq '(.oneOf[].properties.mcp.items.enum) += ["nuevo"]' "$REPO_ROOT/src/published
 printf '%s\n' '{"name":"mefisto","version":"1.2.3"}' > "$FAKE/.claude-plugin/plugin.json"
 printf '%s\n' '{"schemaVersion":1,"version":"1.2.3","commit":"0123456789abcdef0123456789abcdef01234567"}' > "$FAKE/src/published/release-identity.json"
 printf '%s\n' 'salida anterior' > "$FAKE/dist/claude/anterior.md"
-printf '%s\n' '---' '{"kind":"agent","id":"atomico","description":"Prueba.","mode":"subagent","mcp":["nuevo"]}' '---' '{{mefisto:assert-consumer-repo}}' > "$FAKE/src/published/agents/atomico.md"
+printf '%s\n' '---' '{"kind":"agent","effort":"light","id":"atomico","description":"Prueba.","mode":"subagent","mcp":["nuevo"]}' '---' '{{mefisto:assert-consumer-repo}}' > "$FAKE/src/published/agents/atomico.md"
 out="$(bash "$FAKE/src/published/scripts/generate-published-adapters.sh" 2>&1)"; rc=$?
 if [ "$rc" -ne 0 ] && [ "$(< "$FAKE/dist/claude/anterior.md")" = 'salida anterior' ] && [ ! -e "$FAKE/dist/claude/agents/atomico.md" ]; then
     contains "$out" "mcp: servidor MCP 'nuevo' sin matcher Claude" 'generador propaga el mapping fallido sin reemplazar dist'
@@ -329,9 +329,25 @@ out="$(bash "$VALIDATOR" "$WORK/rechazo-con-agent.md" 2>&1)"; rc=$?
 [ "$rc" -ne 0 ] && contains "$out" 'un comando con agent no puede usar launch-agent' 'rechaza launch-agent junto a agent' || fail 'launch-agent junto a agent debio fallar'
 
 printf '%s\n' '[ask] capacidad neutral ask'
-printf '%s\n' '---' '{"kind":"agent","id":"ask-agent","description":"Prueba.","mode":"subagent","capabilities":["read","ask"]}' '---' '{{mefisto:assert-consumer-repo}}' > "$WORK/ask-agent.md"
+printf '%s\n' '---' '{"kind":"agent","effort":"light","id":"ask-agent","description":"Prueba.","mode":"subagent","capabilities":["read","ask"]}' '---' '{{mefisto:assert-consumer-repo}}' > "$WORK/ask-agent.md"
 ask_out="$(render "$WORK/ask-agent.md")"
 contains "$ask_out" 'tools: "Read, Glob, Grep, AskUserQuestion"' 'ask se traduce a AskUserQuestion'
+
+printf '%s\n' '[effort] niveles neutrales a effort nativo'
+for pair in quick:low light:medium standard:high thorough:xhigh exhaustive:max; do
+    lvl="${pair%%:*}"; nat="${pair##*:}"
+    printf '%s\n' '---' "{\"kind\":\"agent\",\"id\":\"ef-$lvl\",\"description\":\"Prueba.\",\"mode\":\"subagent\",\"profile\":\"balanced\",\"effort\":\"$lvl\"}" '---' '{{mefisto:assert-consumer-repo}}' > "$WORK/ef-$lvl.md"
+    ef_out="$(render "$WORK/ef-$lvl.md")"
+    contains "$ef_out" "model: \"sonnet\""$'\n'"effort: \"$nat\""$'\n---' "effort $lvl se renderiza como $nat tras model"
+done
+printf '%s\n' '---' '{"kind":"agent","id":"ef-raro","description":"Prueba.","mode":"subagent","effort":"raro"}' '---' '{{mefisto:assert-consumer-repo}}' > "$WORK/ef-raro.md"
+render_fails_without_output "$WORK/ef-raro.md" "effort: nivel 'raro' sin mapping Claude" 'nivel de effort desconocido falla sin salida parcial'
+parity_out="$(bash -c '
+    source "$1/src/runtime/lib/runtime-claude.sh"; source "$1/src/published/scripts/lib/adapter-claude.sh"
+    for l in quick light standard thorough exhaustive; do
+        [ "$(published_claude_effort "$l")" = "$(runtime_claude_default_effort "$l")" ] || { echo "DIVERGE:$l"; exit 1; }
+    done; echo PARIDAD_OK' _ "$REPO_ROOT" 2>&1)"
+contains "$parity_out" PARIDAD_OK 'published_claude_effort coincide con runtime_claude_default_effort en los 5 niveles'
 
 printf 'RESULTADO: %s pasaron, %s fallaron\n' "$PASS" "$FAIL"
 exit "$FAIL"

@@ -3,13 +3,14 @@
   "oneOf": [
     {
       "type": "object",
-      "required": ["kind", "id", "description", "mode"],
+      "required": ["kind", "id", "description", "mode", "effort"],
       "properties": {
         "kind": { "type": "string", "enum": ["agent"] },
         "id": { "type": "string", "minLength": 1, "pattern": "^(?!mefisto-)[a-z0-9]+(-[a-z0-9]+)*$" },
         "description": { "type": "string", "minLength": 1 },
         "mode": { "type": "string", "enum": ["primary", "subagent", "all"] },
         "profile": { "type": "string", "enum": ["fast", "balanced", "deep"] },
+        "effort": { "type": "string", "enum": ["quick", "light", "standard", "thorough", "exhaustive"] },
         "capabilities": { "type": "array", "items": { "type": "string", "enum": ["read", "edit", "shell", "web", "skill", "task", "ask"] } },
         "skills": { "type": "array", "items": { "type": "string", "minLength": 1, "pattern": "^(?!mefisto-)[a-z0-9]+(-[a-z0-9]+)*$" } },
         "mcp": { "type": "array", "items": { "type": "string", "minLength": 1, "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$", "enum": ["microsoft-learn", "terraform"] } }

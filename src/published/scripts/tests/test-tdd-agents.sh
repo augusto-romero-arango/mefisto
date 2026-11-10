@@ -118,19 +118,19 @@ for index in "${!agents[@]}"; do
             expected_profile='deep'
             expected_capabilities='["read", "edit", "shell", "skill"]'
             expected_skills='["projections", "comment-cleanup"]'
-            expected_keys='["capabilities", "description", "id", "kind", "mode", "profile", "skills"]'
+            expected_keys='["capabilities", "description", "effort", "id", "kind", "mode", "profile", "skills"]'
             ;;
         smoke-test-writer|projection-test-writer|projection-implementer)
             expected_profile='balanced'
             expected_capabilities='["read", "edit", "shell", "skill"]'
             expected_skills='["projections"]'
-            expected_keys='["capabilities", "description", "id", "kind", "mode", "profile", "skills"]'
+            expected_keys='["capabilities", "description", "effort", "id", "kind", "mode", "profile", "skills"]'
             ;;
         *)
             expected_profile='balanced'
             expected_capabilities='["read", "edit", "shell"]'
             expected_skills='null'
-            expected_keys='["capabilities", "description", "id", "kind", "mode", "profile"]'
+            expected_keys='["capabilities", "description", "effort", "id", "kind", "mode", "profile"]'
             ;;
     esac
     if frontmatter "$source" | jq -e --arg id "$agent" --arg description "${descriptions[$index]}" --arg profile "$expected_profile" --argjson capabilities "$expected_capabilities" --argjson skills "$expected_skills" --argjson keys "$expected_keys" '

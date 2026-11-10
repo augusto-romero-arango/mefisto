@@ -3,6 +3,7 @@ name: "historiador"
 description: "Pone al dia la bitacora procesando todas las field notes pendientes, agrupadas por dia. Lee field notes, git log e issues; escribe en docs/bitacora/ una entrada por cada dia con notas pendientes."
 tools: "Read, Glob, Grep, Edit, Write, Bash"
 model: "sonnet"
+effort: "medium"
 ---
 <!-- GENERADO por src/published/scripts/generate-published-adapters.sh desde src/published/agents/historiador.md. No editar a mano. -->
 ```bash

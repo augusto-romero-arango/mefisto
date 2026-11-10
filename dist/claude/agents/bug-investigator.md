@@ -3,6 +3,7 @@ name: "bug-investigator"
 description: "Investigador conversacional de errores en el entorno desplegado. Usa App Insights, codigo fuente y fuentes externas para diagnosticar problemas y proponer acciones."
 tools: "Read, Glob, Grep, Edit, Write, Bash, WebFetch, WebSearch"
 model: "opus"
+effort: "xhigh"
 ---
 <!-- GENERADO por src/published/scripts/generate-published-adapters.sh desde src/published/agents/bug-investigator.md. No editar a mano. -->
 ```bash

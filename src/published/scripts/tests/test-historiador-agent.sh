@@ -18,7 +18,7 @@ absent() { case "$1" in *"$2"*) fail "$3" ;; *) pass "$3" ;; esac; }
 echo '[a] metadata y perfil'
 if bash "$REPO_ROOT/src/published/scripts/validate-published-artifacts.sh" "$SOURCE" >/dev/null; then pass 'la fuente valida'; else fail 'la fuente no valida'; fi
 metadata="$(awk 'NR == 1 { next } $0 == "---" { exit } { print }' "$SOURCE")"
-if printf '%s' "$metadata" | jq -e '.kind == "agent" and .id == "historiador" and .mode == "all" and .profile == "balanced" and .capabilities == ["read","edit","shell"] and (keys | sort) == ["capabilities","description","id","kind","mode","profile"]' >/dev/null; then
+if printf '%s' "$metadata" | jq -e '.kind == "agent" and .id == "historiador" and .mode == "all" and .profile == "balanced" and .capabilities == ["read","edit","shell"] and (keys | sort) == ["capabilities","description","effort","id","kind","mode","profile"]' >/dev/null; then
     pass 'metadata agent/historiador/all/balanced/read+edit+shell sin mcp'
 else
     fail 'metadata neutral invalida'

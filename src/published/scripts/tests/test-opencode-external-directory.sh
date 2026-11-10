@@ -13,7 +13,7 @@ PASS=0; FAIL=0
 pass() { printf '  PASS: %s\n' "$1"; PASS=$((PASS + 1)); }
 fail() { printf '  FAIL: %s\n' "$1"; FAIL=$((FAIL + 1)); }
 
-printf '%s\n' '---' '{"kind":"agent","id":"lector","description":"Prueba.","mode":"subagent","capabilities":["read","edit","shell"]}' '---' '{{mefisto:assert-consumer-repo}}' > "$WORK/lector.md"
+printf '%s\n' '---' '{"kind":"agent","effort":"light","id":"lector","description":"Prueba.","mode":"subagent","capabilities":["read","edit","shell"]}' '---' '{{mefisto:assert-consumer-repo}}' > "$WORK/lector.md"
 "$ADAPTER" render "$WORK/lector.md" '<!-- GENERADO por prueba. -->' | awk '/^permission: /{sub(/^permission: /,""); print; exit}' > "$WORK/permission.json"
 [ -s "$WORK/permission.json" ] || { fail 'no se pudo generar permission'; exit 1; }
 

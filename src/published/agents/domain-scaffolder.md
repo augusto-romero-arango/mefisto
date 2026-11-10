@@ -5,6 +5,7 @@
   "description": "Crea el scaffold completo para un nuevo dominio (Function App, tests, Terraform, GitHub Actions).",
   "mode": "all",
   "profile": "balanced",
+  "effort": "light",
   "capabilities": ["read", "edit", "shell"]
 }
 ---

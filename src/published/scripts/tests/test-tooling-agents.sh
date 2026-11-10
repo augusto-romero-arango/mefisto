@@ -63,7 +63,7 @@ for agent in tooling-writer tooling-reviewer; do
     metadata="$(frontmatter "$source")"
     expected_profile=balanced; [ "$agent" = tooling-reviewer ] && expected_profile=deep
     if printf '%s' "$metadata" | jq -e --arg id "$agent" --arg profile "$expected_profile" \
-        '.kind == "agent" and .id == $id and .mode == "all" and .profile == $profile and .capabilities == ["read", "edit", "shell"] and (keys | sort) == ["capabilities", "description", "id", "kind", "mode", "profile"]' >/dev/null; then
+        '.kind == "agent" and .id == $id and .mode == "all" and .profile == $profile and .capabilities == ["read", "edit", "shell"] and (keys | sort) == ["capabilities", "description", "effort", "id", "kind", "mode", "profile"]' >/dev/null; then
         pass "$agent declara solo el contrato neutral esperado"
     else
         fail "$agent no declara el contrato neutral esperado"

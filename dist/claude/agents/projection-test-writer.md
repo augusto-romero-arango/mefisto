@@ -4,6 +4,7 @@ description: "Escribe tests read-side (fase roja TDD) de proyecciones Marten -- 
 tools: "Read, Glob, Grep, Edit, Write, Bash, Skill"
 skills: ["projections"]
 model: "sonnet"
+effort: "medium"
 ---
 <!-- GENERADO por src/published/scripts/generate-published-adapters.sh desde src/published/agents/projection-test-writer.md. No editar a mano. -->
 ```bash

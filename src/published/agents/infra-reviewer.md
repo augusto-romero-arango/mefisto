@@ -5,6 +5,7 @@
   "description": "Revisa seguridad y calidad del HCL producido por infra-writer y valida el formato/sintaxis de forma estatica. Nunca ejecuta terraform plan ni apply.",
   "mode": "all",
   "profile": "deep",
+  "effort": "standard",
   "capabilities": ["read", "edit", "shell"]
 }
 ---

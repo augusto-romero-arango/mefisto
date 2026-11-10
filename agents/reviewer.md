@@ -4,6 +4,7 @@ description: "Revisa y refactoriza el código producido en las fases roja y verd
 tools: "Read, Glob, Grep, Edit, Write, Bash, Skill"
 skills: ["projections","comment-cleanup"]
 model: "opus"
+effort: "xhigh"
 ---
 <!-- GENERADO por src/published/scripts/generate-published-adapters.sh desde src/published/agents/reviewer.md. No editar a mano. -->
 ```bash

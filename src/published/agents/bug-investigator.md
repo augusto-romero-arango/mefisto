@@ -5,6 +5,7 @@
   "description": "Investigador conversacional de errores en el entorno desplegado. Usa App Insights, codigo fuente y fuentes externas para diagnosticar problemas y proponer acciones.",
   "mode": "all",
   "profile": "deep",
+  "effort": "thorough",
   "capabilities": ["read", "edit", "shell", "web"]
 }
 ---

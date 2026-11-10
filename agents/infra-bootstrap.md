@@ -3,6 +3,7 @@ name: "infra-bootstrap"
 description: "Orquesta la cadena greenfield completa (backend de Terraform, labels, CI hacia Azure, infraestructura base) y lanza el pipeline IaC. Usar cuando el backend de Terraform aun no existe en Azure o cuando se va a provisionar un nuevo ambiente por primera vez."
 tools: "Bash"
 model: "haiku"
+effort: "medium"
 ---
 <!-- GENERADO por src/published/scripts/generate-published-adapters.sh desde src/published/agents/infra-bootstrap.md. No editar a mano. -->
 ```bash

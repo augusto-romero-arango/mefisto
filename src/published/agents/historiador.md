@@ -5,6 +5,7 @@
   "description": "Pone al dia la bitacora procesando todas las field notes pendientes, agrupadas por dia. Lee field notes, git log e issues; escribe en docs/bitacora/ una entrada por cada dia con notas pendientes.",
   "mode": "all",
   "profile": "balanced",
+  "effort": "light",
   "capabilities": ["read", "edit", "shell"]
 }
 ---
