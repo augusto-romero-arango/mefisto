@@ -152,10 +152,30 @@ Las clases 2 y 3 comparten la misma condicion (`expected_sha == ''`) y la misma 
 previo al warmup, en `smoke-tests-dominio.yml`, que espera a que termine el **job** `deploy` (nunca el
 run completo -- ver la nota de deadlock mas abajo) de cualquier otro run de este mismo commit cuyo
 nombre de workflow empiece con `Deploy `. La condicion identifica la clase "no despliego el FA que
-pruebo" sin enumerar dominios ni workflows, asi que no crece al scaffoldear un dominio nuevo. Con esa
-guarda, "solo 200" vuelve a ser seguro: para cuando el warmup corre, o no hay ningun deploy ajeno
-tocando el FA, o ya termino -- la invariante que este ADR no nombraba queda restaurada por
-construccion en vez de asumida.
+pruebo" sin enumerar dominios ni workflows, asi que no crece al scaffoldear un dominio nuevo. La espera
+cierra la carrera con un deploy **en vuelo**, pero no basta por si sola: que el job `deploy` ajeno haya
+terminado no prueba que el host sirva ya el binario nuevo. `Azure/functions-action` termina al subir el
+zip, y el reinicio del host que dispara el deploy **[1]** ocurre despues; mientras tanto `/api/health` responde 200 con el binario viejo, el
+warmup de "solo 200" abre la compuerta y la suite corre contra la instancia vieja hasta que el
+reciclaje la corta a mitad de la corrida (issue #2468, consumidor `Bitakora.ControlAsistencia`: la
+traza `Application started` de la instancia nueva aparecio 33, 76 y 104 s despues de que la guarda
+liberara; el tiempo de reciclaje es evidencia empirica, no hay documentacion oficial que lo fije).
+
+**Promocion del gate por SHA (issue #2468).** Por eso, despues de esperar, la guarda revisa **todos**
+los runs `Deploy *` del commit -- no solo los que seguian en vuelo --, con las mismas exclusiones (el
+propio run y `deploy-projections.yml`). Si alguno tiene su job `deploy` con `conclusion == "success"` y
+su workflow despliega el Function App bajo prueba, la guarda publica el output `expected_sha=$SHA`
+(el step lleva un `id`), y el paso `Smoke tests` usa el `expected_sha` del input si llega o el
+promovido: el `ApiFixture` aplica entonces el gate por `/api/version` de las secciones 1-3 (420 s, que
+cubren los 104 s observados). El FA bajo prueba es el primer label del host de `inputs.base_url`
+(`https://<fa>.azurewebsites.net`); el workflow ajeno lo despliega si su archivo (`path` sin `@ref`,
+leido del checkout del mismo commit) contiene `app-name: <fa>`. Un `base_url` que no sea
+`*.azurewebsites.net` no promueve nada. Sin deploy ajeno exitoso del FA (sin runs, `skipped`,
+`failure`, otro FA) se conserva el fallback a "solo 200": un deploy ajeno que fallo no promueve,
+porque el FA puede seguir en el binario anterior y el gate fallaria por un motivo ajeno a la suite. La
+clase 1 no cambia. La promocion depende de que el `app-name:` de `deploy-{kebab}.yml` y el host del
+`base_url` deriven el mismo `func-{kebab}-{prefix_func}`; el bloque `[H]` de
+`scripts/tests/test-guards.sh` lo verifica.
 
 **Por que el job, nunca el run completo.** El run ajeno (p. ej. el propio `deploy-{kebab}.yml` del FA
 bajo prueba) corre su propio job de smoke tests **despues** de su `deploy`: esperar el run entero es
@@ -453,10 +473,11 @@ la causa.
   que no tiene.
 - **No modifica `/api/health`**: cero riesgo de romper un consumidor externo del liveness check
   existente.
-- **El fallback a "solo 200" ya no es una degradacion silenciosa (issue #604)**: cuando `expected_sha`
-  llega vacio, la guarda de deploys ajenos garantiza que ningun `deploy-{kebab}.yml` concurrente del
-  mismo commit siga tocando el FA bajo prueba antes de dejar correr el warmup -- la invariante que la
-  version original de este ADR no nombraba queda restaurada por construccion, no por suerte de timing.
+- **El fallback a "solo 200" ya no es una degradacion silenciosa (issues #604, #2468)**: cuando
+  `expected_sha` llega vacio, la guarda de deploys ajenos espera a que ningun `deploy-{kebab}.yml`
+  concurrente del mismo commit siga en vuelo sobre el FA bajo prueba y, si alguno lo desplego con
+  exito, promueve el gate por SHA -- el fallback solo queda para cuando ningun deploy ajeno exitoso
+  toco ese FA.
 - **Cierra el hueco de cobertura de la capa de datos (issue #671)**: el gate por SHA gana una tercera
   compuerta dedicada que ejercita el event store, ademas de las dos que ya ejercitaban el binario HTTP
   -- ninguna peticion de un test vuelve a ser la primera en tocar Postgres.
@@ -677,3 +698,12 @@ la causa.
   tiene job `deploy`), y la espera del job `publish` del worker del mismo commit pasa a ser un paso
   propio de `smoke-tests-dominio.yml`, sin condicion, para toda clase de invocador, con `::warning::`
   ante `failure`/`cancelled` y `::error::` tras 120 intentos de 5 s.
+- 2026-11-10: enmienda la seccion 4 (issue #2468). Terminar el job `deploy` de un run ajeno no prueba que
+  el host sirva el binario nuevo: `Azure/functions-action` termina al subir el zip y el host se recicla
+  despues, con `/api/health` respondiendo 200 desde el binario viejo. Se elimina del cuerpo la
+  afirmacion de que la espera basta y se agrega la promocion: tras esperar, la guarda revisa todos los
+  runs `Deploy *` del commit (excluidos el propio y `deploy-projections.yml`) y, si alguno tiene su job
+  `deploy` en `success` y su workflow contiene `app-name: <fa de base_url>`, publica `expected_sha`;
+  `Smoke tests` lo consume y el `ApiFixture` aplica el gate por `/api/version`. Sin deploy ajeno
+  exitoso del FA se conserva "solo 200". Evidencia: consumidor `Bitakora.ControlAsistencia`
+  (issue #1154), `Application started` 33 a 104 s despues de liberar la guarda.

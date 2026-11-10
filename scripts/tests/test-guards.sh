@@ -719,6 +719,35 @@ else
     fail "el paso de espera del worker no busca el path .github/workflows/deploy-projections.yml que genera projections-scaffolder"
 fi
 
+# Promocion del gate por SHA (issue #2468): la guarda publica el output expected_sha (con 'id' en el
+# step) y 'Smoke tests' lo consume. Sin ambos extremos, la promocion queda muerta en silencio.
+if grep -qF 'id: guarda_deploys_ajenos' "$DS" && grep -qF 'echo "expected_sha=$SHA" >> "$GITHUB_OUTPUT"' "$DS"; then
+    pass "la guarda publica el output expected_sha de la promocion (id + GITHUB_OUTPUT)"
+else
+    fail "la guarda perdio 'id: guarda_deploys_ajenos' o la escritura de 'expected_sha' a \$GITHUB_OUTPUT en agents/domain-scaffolder.md"
+fi
+# La funcion definida no basta: si se pierde su invocacion tras la espera, el output nunca se escribe.
+if grep -qE '^[[:space:]]+promover_gate_por_sha$' "$DS"; then
+    pass "la guarda invoca promover_gate_por_sha tras la espera"
+else
+    fail "la guarda define promover_gate_por_sha pero ya no la invoca en la rama 'ningun deploy ajeno en vuelo' de agents/domain-scaffolder.md"
+fi
+if grep -qF 'Api__ExpectedSha: ${{ inputs.expected_sha != '"''"' && inputs.expected_sha || steps.guarda_deploys_ajenos.outputs.expected_sha }}' "$DS"; then
+    pass "'Smoke tests' consume el expected_sha del input o el promovido por la guarda"
+else
+    fail "'Smoke tests' no consume steps.guarda_deploys_ajenos.outputs.expected_sha en Api__ExpectedSha"
+fi
+
+# La promocion reconoce el FA bajo prueba comparando el host de base_url con 'app-name:' del workflow
+# ajeno: ambos deben derivar el mismo nombre func-{kebab}-{prefix_func} en la plantilla del Paso 5.
+APP_NAME_DEPLOY=$(grep -E '^[[:space:]]+app-name: ' "$DS" | grep -F 'func-' | sed -E 's/^[[:space:]]+app-name: //' | sort -u)
+BASE_URL_DEPLOY=$(grep -E '^[[:space:]]+base_url: https://func-' "$DS" | sed -E 's#^[[:space:]]+base_url: https://([^/]+)\.azurewebsites\.net.*#\1#' | sort -u)
+if [ -n "$APP_NAME_DEPLOY" ] && [ "$APP_NAME_DEPLOY" = "func-{kebab}-{prefix_func}" ] && [ "$APP_NAME_DEPLOY" = "$BASE_URL_DEPLOY" ]; then
+    pass "el app-name: de deploy-{kebab}.yml y el host del base_url derivan el mismo FA (func-{kebab}-{prefix_func})"
+else
+    fail "el 'app-name:' ('$APP_NAME_DEPLOY') y el host del base_url ('$BASE_URL_DEPLOY') de deploy-{kebab}.yml ya no coinciden: la promocion del issue #2468 dejaria de reconocer el FA bajo prueba"
+fi
+
 # actions: read en el reutilizable y en los dos jobs invocadores que hacen el 'uses:' (CA-4/CA-5).
 # Sin la concesion el run muere en startup_failure SIN annotation: nada mas lo atraparia.
 ACTIONS_READ=$(grep -cE '^[[:space:]]+actions: read' "$DS" || true)
