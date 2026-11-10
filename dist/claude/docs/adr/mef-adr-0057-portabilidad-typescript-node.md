@@ -70,15 +70,13 @@ El modo de panes se porta. Para Windows cambia en dos puntos:
 
 ### 7. Runtime unico
 
-OpenCode sale del repo. El unico runtime soportado es Claude Code.
+OpenCode sale del repo. El unico runtime soportado es Claude Code y no hay un segundo runtime en los planes: el objetivo es que Mefisto funcione completo en macOS y Windows con Claude Code.
 
-Se conservan, para que sumar un segundo runtime siga siendo un adaptador y no una reescritura:
+Se conservan, porque retirarlos no es parte del port:
 
 - el contrato de eventos JSONL (MEF-ADR-0049);
 - la interfaz de runtime, con una sola implementacion;
 - la fuente neutral `src/internal/` y su generador.
-
-Un segundo runtime se evalua solo cuando la portabilidad este completa. Este ADR no elige cual.
 
 Las enmiendas a MEF-ADR-0049, MEF-ADR-0050, MEF-ADR-0053 y MEF-ADR-0055 van en los mismos PRs que borran el codigo, para que ADRs y codigo no se contradigan.
 
@@ -93,6 +91,7 @@ Las enmiendas a MEF-ADR-0049, MEF-ADR-0050, MEF-ADR-0053 y MEF-ADR-0055 van en l
 
 - Node >= 22.18 pasa a ser prerrequisito del consumidor desde el primer script publicado que se porte. `/onboard` lo comprueba.
 - Cuando no quede bash, `README.md` y `/onboard` dejan de pedir bash, `jq` y tmux.
+- El criterio de cierre es macOS y Windows. Linux se verifica en el workflow de la decision 8, pero no condiciona la declaracion de soporte.
 - Windows se declara soportado solo cuando se cumple la completitud de `docs/portabilidad/ESTADO.md`, que incluye una verificacion manual en una maquina Windows nativa. Ningun agente puede cerrar esa verificacion.
 - `src/internal/githooks/pre-push` se queda en shell POSIX. Si la verificacion manual muestra que Git for Windows no lo ejecuta, se porta.
 
@@ -175,3 +174,4 @@ Traen mejores utilidades de shell, pero estan menos instalados que Node. Es cono
 ## Control de cambios
 
 - 2026-11-10: creacion como `aceptado`. Fija TypeScript sobre Node >= 22.18 sin build, el port incremental sobre `main`, el retiro de tmux y de OpenCode, la conservacion de herdr y del contrato neutral de runtime, y el workflow de verificacion en tres sistemas.
+- 2026-11-10: enmienda de las decisiones 7 y 9. Sale la evaluacion de un segundo runtime: el objetivo es que Mefisto funcione completo en macOS y Windows solo con Claude Code; Linux se verifica en CI sin ser criterio de cierre.

@@ -116,7 +116,7 @@ Aprovechar la escritura de este ADR para instalar `csharp-ls` y el plugin `cshar
 - MEF-ADR-0049 (arquitectura neutral runtime/proveedor): precedente de mapeos por runtime en los adaptadores, que el punto 3 aplica a la separacion entre `read` y la navegacion semantica.
 - MEF-ADR-0019 (publicado vs interno): los follow-ups del punto 5 declaran explicitamente a que lado pertenece cada uno.
 - MEF-ADR-0030 (esquema de identificacion de ADRs): fija el numero `MEF-ADR-0052` (verificado libre: `docs/adr/` llegaba a `MEF-ADR-0051` antes de este ADR).
-- MEF-ADR-0057 (portabilidad con TypeScript sobre Node), decision 7: Claude Code es el unico runtime con adaptador; el conjunto de runtimes sigue abierto y un segundo se evalua cuando la portabilidad este completa.
+- MEF-ADR-0057 (portabilidad con TypeScript sobre Node), decision 7: Claude Code es el unico runtime con adaptador.
 
 ## Control de cambios
 
