@@ -40,9 +40,37 @@ done
 [ "$(workspace_slug 'Bitakora.ControlAsistencia')" = "bitakora-controlasis" ] \
     && pass "workspace_slug conserva su contrato" \
     || fail "workspace_slug cambio su contrato"
-[ "$(agent_name_for_role ejecucion eda-evsourcing-azure-harness opencode)" = "ejecucion-eda-evsourcin-opencode" ] \
-    && pass "agent_name_for_role conserva el tope de 32 caracteres" \
-    || fail "agent_name_for_role produjo un nombre inesperado"
+name=$(agent_name_for_role ejecucion eda-evsourcing-azure-harness opencode)
+[ "$name" = "ejecucion-eda-evso-48cc-opencode" ] && [ "${#name}" -le 32 ] \
+    && pass "agent_name_for_role recorta con hash y respeta el tope de 32 caracteres" \
+    || fail "agent_name_for_role produjo un nombre inesperado: $name"
+
+# Anti-colision (issue #2502)
+[ "$(agent_name_for_role ejecucion Cosmos.ControlPlane claude)" = "ejecucion-cosmos-con-a31e-claude" ] \
+    && [ "$(agent_name_for_role ejecucion Cosmos.ControlPlane opencode)" = "ejecucion-cosmos-c-a31e-opencode" ] \
+    && [ "$(agent_name_for_role ejecucion Cosmos.ControlPlane.Front claude)" = "ejecucion-cosmos-con-365f-claude" ] \
+    && [ "$(agent_name_for_role ejecucion Cosmos.ControlPlane.Front opencode)" = "ejecucion-cosmos-c-365f-opencode" ] \
+    && pass "CA-1: slug recortado agrega hash del label (nombres exactos)" \
+    || fail "CA-1: nombres con hash inesperados"
+collision_ok=1
+for rol in planner ejecucion; do
+    for kind in claude opencode; do
+        a=$(agent_name_for_role "$rol" Cosmos.ControlPlane "$kind")
+        b=$(agent_name_for_role "$rol" Cosmos.ControlPlane.Front "$kind")
+        a2=$(agent_name_for_role "$rol" Cosmos.ControlPlane "$kind")
+        [ "$a" != "$b" ] && [ "$a" = "$a2" ] || collision_ok=0
+        [[ "$a" =~ ^[a-z][a-z0-9_-]{0,31}$ ]] && [[ "$b" =~ ^[a-z][a-z0-9_-]{0,31}$ ]] || collision_ok=0
+    done
+done
+[ "$collision_ok" = 1 ] \
+    && pass "CA-2: labels con prefijo comun producen nombres distintos, validos y deterministas" \
+    || fail "CA-2: colision, no determinismo o nombre invalido"
+[ "$(agent_name_for_role ejecucion Bitakora claude)" = "ejecucion-bitakora-claude" ] \
+    && [ "$(agent_name_for_role ejecucion Bitakora opencode)" = "ejecucion-bitakora-opencode" ] \
+    && [ "$(agent_name_for_role planner Cosmos.ControlPlane.Front '')" = "planner-cosmos-controlplane" ] \
+    && [ "$(agent_name_for_role planner Bitakora '')" = "planner-bitakora" ] \
+    && pass "CA-3: label corto y formato legacy sin kind conservan su nombre" \
+    || fail "CA-3: nombre sin colision cambio"
 
 unset MEFISTO_RUNTIMES MEFISTO_RUNTIME
 [ "$(runtimes_for_repo mefisto-planner)" = $'claude\nopencode' ] \
@@ -235,15 +263,15 @@ herdr pane split --pane w1:p2 --direction right --cwd $FAKE_MEFISTO --no-focus -
 herdr pane rename w1:p1 planner [claude]
 herdr pane rename w1:p3 ejecucion [claude]
 herdr pane process-info --pane w1:p1
-herdr agent start planner-fake-mefisto-re-claude --kind claude --pane w1:p1 --timeout 90000 -- --agent mefisto-planner
+herdr agent start planner-fake-mefis-92c3-claude --kind claude --pane w1:p1 --timeout 90000 -- --agent mefisto-planner
 herdr pane process-info --pane w1:p3
-herdr agent start ejecucion-fake-mefisto-re-claude --kind claude --pane w1:p3 --timeout 90000
+herdr agent start ejecucion-fake-mefis-92c3-claude --kind claude --pane w1:p3 --timeout 90000
 herdr pane rename w1:p2 planner [opencode]
 herdr pane rename w1:p4 ejecucion [opencode]
 herdr pane process-info --pane w1:p2
-herdr agent start planner-fake-mefisto-opencode --kind opencode --pane w1:p2 --timeout 90000 -- --agent mefisto-planner
+herdr agent start planner-fake-mef-92c3-opencode --kind opencode --pane w1:p2 --timeout 90000 -- --agent mefisto-planner
 herdr pane process-info --pane w1:p4
-herdr agent start ejecucion-fake-mefisto-opencode --kind opencode --pane w1:p4 --timeout 90000
+herdr agent start ejecucion-fake-mef-92c3-opencode --kind opencode --pane w1:p4 --timeout 90000
 EOF
 )
 [ "$LAST_RC" -eq 0 ] && pass "B-1: monta dos filas sin abortar" || fail "B-1: rc=$LAST_RC, stderr=$LAST_STDERR"
@@ -265,9 +293,9 @@ herdr pane split --pane w1:p1 --direction right --cwd $FAKE_MEFISTO --no-focus -
 herdr pane rename w1:p1 planner [claude]
 herdr pane rename w1:p2 ejecucion [claude]
 herdr pane process-info --pane w1:p1
-herdr agent start planner-fake-mefisto-re-claude --kind claude --pane w1:p1 --timeout 90000 -- --agent mefisto-planner
+herdr agent start planner-fake-mefis-92c3-claude --kind claude --pane w1:p1 --timeout 90000 -- --agent mefisto-planner
 herdr pane process-info --pane w1:p2
-herdr agent start ejecucion-fake-mefisto-re-claude --kind claude --pane w1:p2 --timeout 90000
+herdr agent start ejecucion-fake-mefis-92c3-claude --kind claude --pane w1:p2 --timeout 90000
 EOF
 )
 [ "$(cat "$HERDR_STUB_LOG")" = "$EXPECTED" ] \
@@ -409,15 +437,15 @@ herdr pane split --pane w1:p2 --direction right --cwd $FAKE_CONSUMER --no-focus 
 herdr pane rename w1:p1 planner [claude]
 herdr pane rename w1:p3 ejecucion [claude]
 herdr pane process-info --pane w1:p1
-herdr agent start planner-fake-consumer-r-claude --kind claude --pane w1:p1 --timeout 90000 -- --agent mefisto:planner
+herdr agent start planner-fake-consu-ec20-claude --kind claude --pane w1:p1 --timeout 90000 -- --agent mefisto:planner
 herdr pane process-info --pane w1:p3
-herdr agent start ejecucion-fake-consumer-r-claude --kind claude --pane w1:p3 --timeout 90000
+herdr agent start ejecucion-fake-consu-ec20-claude --kind claude --pane w1:p3 --timeout 90000
 herdr pane rename w1:p2 planner [opencode]
 herdr pane rename w1:p4 ejecucion [opencode]
 herdr pane process-info --pane w1:p2
-herdr agent start planner-fake-consumer-opencode --kind opencode --pane w1:p2 --timeout 90000
+herdr agent start planner-fake-con-ec20-opencode --kind opencode --pane w1:p2 --timeout 90000
 herdr pane process-info --pane w1:p4
-herdr agent start ejecucion-fake-consumer-opencode --kind opencode --pane w1:p4 --timeout 90000
+herdr agent start ejecucion-fake-con-ec20-opencode --kind opencode --pane w1:p4 --timeout 90000
 EOF
 )
 [ "$LAST_RC" -eq 0 ] && [ "$(cat "$HERDR_STUB_LOG")" = "$EXPECTED" ] \
@@ -448,7 +476,7 @@ export HERDR_STUB_PANES='planner [claude]=w1:p1;ejecucion [claude]=w1:p3'
 run_workspace "$FAKE_CONSUMER"
 unset HERDR_STUB_EXISTING_LABEL HERDR_STUB_PANES
 grep -qxF "herdr pane split --pane w1:p1 --direction down --cwd $FAKE_CONSUMER --no-focus --env MEFISTO_RUNTIME=opencode" "$HERDR_STUB_LOG" \
-    && grep -qxF 'herdr agent start planner-fake-consumer-opencode --kind opencode --pane w1:p2 --timeout 90000' "$HERDR_STUB_LOG" \
+    && grep -qxF 'herdr agent start planner-fake-con-ec20-opencode --kind opencode --pane w1:p2 --timeout 90000' "$HERDR_STUB_LOG" \
     && pass "I-1: agrega OpenCode sin tocar Claude y sin --agent del planner" \
     || fail "I-1: agregado inesperado: $(cat "$HERDR_STUB_LOG")"
 assert_no_anchor_protocol I-3
@@ -551,24 +579,24 @@ printf 'planner\n' > "$FAKE_XDG/mefisto/active/agents/planner.md"
 export WORKSPACE_TARGET="$FAKE_PACKAGE/scripts/herdr-workspace.sh"
 run_workspace "$FAKE_CONSUMER"
 [ "$LAST_RC" -eq 0 ] \
-    && grep -qxF 'herdr agent start planner-fake-consumer-opencode --kind opencode --pane w1:p2 --timeout 90000 -- --agent planner' "$HERDR_STUB_LOG" \
-    && grep -qxF 'herdr agent start planner-fake-consumer-r-claude --kind claude --pane w1:p1 --timeout 90000 -- --agent mefisto:planner' "$HERDR_STUB_LOG" \
-    && grep -qxF 'herdr agent start ejecucion-fake-consumer-opencode --kind opencode --pane w1:p4 --timeout 90000' "$HERDR_STUB_LOG" \
+    && grep -qxF 'herdr agent start planner-fake-con-ec20-opencode --kind opencode --pane w1:p2 --timeout 90000 -- --agent planner' "$HERDR_STUB_LOG" \
+    && grep -qxF 'herdr agent start planner-fake-consu-ec20-claude --kind claude --pane w1:p1 --timeout 90000 -- --agent mefisto:planner' "$HERDR_STUB_LOG" \
+    && grep -qxF 'herdr agent start ejecucion-fake-con-ec20-opencode --kind opencode --pane w1:p4 --timeout 90000' "$HERDR_STUB_LOG" \
     && ! printf '%s\n%s\n' "$LAST_STDOUT" "$LAST_STDERR" | grep -q 'DEGRADACION VISIBLE: la release OpenCode' \
     && pass "M-1: consumidor, planner OpenCode con --agent planner y sin aviso" \
     || fail "M-1: planner OpenCode inesperado: $(cat "$HERDR_STUB_LOG") $LAST_STDOUT$LAST_STDERR"
 
 run_workspace "$FAKE_MEFISTO"
 [ "$LAST_RC" -eq 0 ] \
-    && grep -qxF 'herdr agent start planner-fake-mefisto-re-claude --kind claude --pane w1:p1 --timeout 90000 -- --agent mefisto-planner' "$HERDR_STUB_LOG" \
-    && grep -qxF 'herdr agent start planner-fake-mefisto-opencode --kind opencode --pane w1:p2 --timeout 90000 -- --agent mefisto-planner' "$HERDR_STUB_LOG" \
+    && grep -qxF 'herdr agent start planner-fake-mefis-92c3-claude --kind claude --pane w1:p1 --timeout 90000 -- --agent mefisto-planner' "$HERDR_STUB_LOG" \
+    && grep -qxF 'herdr agent start planner-fake-mef-92c3-opencode --kind opencode --pane w1:p2 --timeout 90000 -- --agent mefisto-planner' "$HERDR_STUB_LOG" \
     && pass "M-2: repo de Mefisto, ambas filas con el planner interno" \
     || fail "M-2: planner interno inesperado: $(cat "$HERDR_STUB_LOG")"
 
 rm -f "$FAKE_XDG/mefisto/active/agents/planner.md"
 run_workspace "$FAKE_CONSUMER"
 [ "$LAST_RC" -eq 0 ] \
-    && grep -qxF 'herdr agent start planner-fake-consumer-opencode --kind opencode --pane w1:p2 --timeout 90000' "$HERDR_STUB_LOG" \
+    && grep -qxF 'herdr agent start planner-fake-con-ec20-opencode --kind opencode --pane w1:p2 --timeout 90000' "$HERDR_STUB_LOG" \
     && printf '%s\n%s\n' "$LAST_STDOUT" "$LAST_STDERR" | grep -q 'DEGRADACION VISIBLE: la release OpenCode activa (1.2.3).*sin --agent.*/mefisto:upgrade' \
     && pass "M-3: sin planner proyectado arranca sin --agent con aviso y version" \
     || fail "M-3: degradacion inesperada: $(cat "$HERDR_STUB_LOG") $LAST_STDOUT$LAST_STDERR"
@@ -582,7 +610,7 @@ write_identity "$FAKE_DIST" claude 1.2.3 "$COMMIT_A"
 export WORKSPACE_TARGET="$FAKE_DIST/scripts/herdr-workspace.sh"
 run_workspace "$FAKE_CONSUMER"
 [ "$LAST_RC" -eq 0 ] \
-    && grep -qxF 'herdr agent start planner-fake-consumer-opencode --kind opencode --pane w1:p2 --timeout 90000 -- --agent planner' "$HERDR_STUB_LOG" \
+    && grep -qxF 'herdr agent start planner-fake-con-ec20-opencode --kind opencode --pane w1:p2 --timeout 90000 -- --agent planner' "$HERDR_STUB_LOG" \
     && pass "M-4: el script copiado a dist/opencode/scripts funciona igual" \
     || fail "M-4: copia de dist inesperada: $(cat "$HERDR_STUB_LOG") $LAST_STDOUT$LAST_STDERR"
 cmp -s "$REPO_ROOT/dist/opencode/scripts/herdr-workspace.sh" "$TARGET" \
@@ -616,10 +644,10 @@ grep -qxF 'herdr pane rename w1:p3 planner [claude]' "$HERDR_STUB_LOG" \
     && grep -qxF 'herdr pane rename w1:p4 ejecucion [claude]' "$HERDR_STUB_LOG" \
     && grep -qxF 'herdr pane rename w1:p2 planner [opencode]' "$HERDR_STUB_LOG" \
     && grep -qxF 'herdr pane rename w1:p5 ejecucion [opencode]' "$HERDR_STUB_LOG" \
-    && grep -qF 'herdr agent start planner-fake-consumer-r-claude --kind claude --pane w1:p3 --timeout 90000 -- --agent mefisto:planner' "$HERDR_STUB_LOG" \
-    && grep -qF 'herdr agent start ejecucion-fake-consumer-r-claude --kind claude --pane w1:p4 ' "$HERDR_STUB_LOG" \
-    && grep -qF 'herdr agent start planner-fake-consumer-opencode --kind opencode --pane w1:p2 ' "$HERDR_STUB_LOG" \
-    && grep -qF 'herdr agent start ejecucion-fake-consumer-opencode --kind opencode --pane w1:p5 ' "$HERDR_STUB_LOG" \
+    && grep -qF 'herdr agent start planner-fake-consu-ec20-claude --kind claude --pane w1:p3 --timeout 90000 -- --agent mefisto:planner' "$HERDR_STUB_LOG" \
+    && grep -qF 'herdr agent start ejecucion-fake-consu-ec20-claude --kind claude --pane w1:p4 ' "$HERDR_STUB_LOG" \
+    && grep -qF 'herdr agent start planner-fake-con-ec20-opencode --kind opencode --pane w1:p2 ' "$HERDR_STUB_LOG" \
+    && grep -qF 'herdr agent start ejecucion-fake-con-ec20-opencode --kind opencode --pane w1:p5 ' "$HERDR_STUB_LOG" \
     && [ "$(grep -c 'agent start' "$HERDR_STUB_LOG")" -eq 4 ] \
     && pass "N-3: etiqueta y arranca los cuatro panes nuevos" \
     || fail "N-3: labels o agentes inesperados: $(cat "$HERDR_STUB_LOG")"
@@ -643,7 +671,7 @@ run_workspace "$FAKE_MEFISTO"
     && grep -qxF "herdr pane split --pane w1:p1 --direction down --cwd $FAKE_MEFISTO --no-focus --env MEFISTO_RUNTIME=claude" "$HERDR_STUB_LOG" \
     && grep -qxF "herdr pane split --pane w1:p3 --direction right --cwd $FAKE_MEFISTO --no-focus --env MEFISTO_RUNTIME=claude" "$HERDR_STUB_LOG" \
     && grep -qxF "herdr pane split --pane w1:p2 --direction right --cwd $FAKE_MEFISTO --no-focus --env MEFISTO_RUNTIME=opencode" "$HERDR_STUB_LOG" \
-    && grep -qF 'herdr agent start planner-fake-mefisto-re-claude --kind claude --pane w1:p3 --timeout 90000 -- --agent mefisto-planner' "$HERDR_STUB_LOG" \
+    && grep -qF 'herdr agent start planner-fake-mefis-92c3-claude --kind claude --pane w1:p3 --timeout 90000 -- --agent mefisto-planner' "$HERDR_STUB_LOG" \
     && ! grep -qE 'pane rename w1:p1( |$)|--pane w1:p1 --timeout' "$HERDR_STUB_LOG" \
     && ! printf '%s\n%s\n' "$LAST_STDOUT" "$LAST_STDERR" | grep -Fq 'no contiene ningun planner' \
     && pass "N-7: repo de Mefisto, monta las filas de runtimes_for_repo bajo la raiz sin tocarla" \
