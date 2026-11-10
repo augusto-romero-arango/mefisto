@@ -3,11 +3,12 @@
 Objetivo: que Mefisto corra en macOS, Linux y Windows nativo. Este archivo es la única fuente del
 avance: cada goal lo lee al empezar y lo actualiza al terminar.
 
-**Portabilidad: en curso** (0 de 7 pasos hechos; verificación en Windows pendiente).
+**Portabilidad: en curso** (1 de 7 pasos hechos; verificación en Windows pendiente).
 
 ## Decisiones
 
-Tomadas el 2026-11-10. El paso 1 las pasa a un ADR; a partir de ahí manda el ADR.
+Tomadas el 2026-11-10 y fijadas en [MEF-ADR-0057](../adr/mef-adr-0057-portabilidad-typescript-node.md),
+que es la fuente de verdad. Resumen:
 
 1. Los scripts bash se portan a TypeScript sobre Node >= 22.18, ejecutado directo (`node x.ts`),
    sin build y sin dependencias npm en ejecución.
@@ -28,7 +29,9 @@ Tomadas el 2026-11-10. El paso 1 las pasa a un ADR; a partir de ahí manda el AD
   (`exec node x.ts "$@"`) solo mientras tenga llamadores en bash.
 - Tests con `node --test` y chequeo de tipos con `tsc --noEmit`.
 - Fragmentos de `changelog.d/`: como no hay issue, se nombran con el número del PR
-  (`<pr>.<categoria>.md`).
+  (`<pr>.<categoria>.md`). El consolidador de `/mefisto-release` solo exige un prefijo numérico.
+  Todo PR que toque algo distinto de `docs/bitacora/`, `README.md`, `AGENTS.md`, `CLAUDE.md` o
+  `.gitignore` lleva fragmento.
 - El PR que cierra una fila de este archivo actualiza esa fila (estado y PR) y vuelve a medir la
   tabla de métricas, en la rama del PR.
 
@@ -41,8 +44,9 @@ corre en la nightly y a mano. Por eso la verificación la hace el goal antes de 
 - PR que toca bash: los tests de lo tocado, en local. Al cerrar una fila, la suite completa en
   local con `src/internal/scripts/mefisto-test-suite.sh`.
 - PR que toca TypeScript (desde el paso 3): `tsc --noEmit` y `node --test` en local, y el workflow
-  de los tres sistemas lanzado a mano sobre la rama (`gh workflow run <workflow> --ref <rama>`)
-  en verde.
+  de los tres sistemas en verde. Ese workflow sí se dispara en los PRs que tocan TypeScript
+  (excepción acotada de MEF-ADR-0057, decisión 8); también se puede lanzar a mano con
+  `gh workflow run <workflow> --ref <rama>`.
 - Si una nightly queda en rojo por un PR del port, arreglarla va antes que el siguiente PR.
 
 ## Métricas
@@ -114,8 +118,8 @@ fuera de `dist/`, y la suite completa pasa en local.
 ### Paso 3: Base TypeScript
 
 Alcance: `tsconfig`; workflow con `tsc --noEmit` y `node --test` sobre macOS, Linux y Windows,
-lanzable a mano sobre una rama y dentro de la nightly (si además corre en cada PR lo decide el ADR
-del paso 1); registro en los gates de scope (`is_path_in_mefisto_scope`, `is_path_in_consumer_blocklist`) de
+que se dispara en los PRs que tocan TypeScript, en la nightly y a mano, sin ser check obligatorio
+del ruleset (MEF-ADR-0057, decisión 8); mecanismo que marca los módulos ES (decisión 1); registro en los gates de scope (`is_path_in_mefisto_scope`, `is_path_in_consumer_blocklist`) de
 toda ruta nueva, en un PR anterior al que la puebla (MEF-ADR-0019, sección E); chequeo de
 Node >= 22.18 en `/onboard` y en `README.md`.
 
