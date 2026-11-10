@@ -112,11 +112,11 @@ STUB
     chmod +x "$1"
 }
 
-# make_opencode_stub <path>
-# Solo necesita existir en PATH para que runtime_opencode_is_available (que
-# hace 'command -v opencode') resuelva el runtime; el runner real esta
+# make_claude_stub <path>
+# Solo necesita existir en PATH para que runtime_claude_is_available (que
+# hace 'command -v claude') resuelva el runtime; el runner real esta
 # reemplazado por completo via MEFISTO_RUN_AGENT_BIN.
-make_opencode_stub() {
+make_claude_stub() {
     cat > "$1" <<'STUB'
 #!/usr/bin/env bash
 exit 0
@@ -205,7 +205,7 @@ run_pipeline() {
     (
         cd "$workdir" || exit 99
         env -i HOME="$HOME" PATH="$bindir:$SAFE_SYSTEM_PATH" \
-            MEFISTO_RUNTIME=opencode MEFISTO_RUN_AGENT_BIN="$run_agent_bin" \
+            MEFISTO_RUNTIME=claude MEFISTO_RUN_AGENT_BIN="$run_agent_bin" \
             STUB_STATE_DIR="$state_dir" \
             "$@" \
             ./scripts/iac-pipeline.sh "$issue" --env dev
@@ -221,7 +221,7 @@ run_case() {
     mkdir -p "$bin" "$TMP_DIR/stub-state-$tag"
     make_gh_stub "$bin/gh" "$issue" "Issue de prueba $tag"
     make_terraform_stub "$bin/terraform"
-    make_opencode_stub "$bin/opencode"
+    make_claude_stub "$bin/claude"
     make_run_agent_stub "$TMP_DIR/run-agent-$tag.sh"
     run_pipeline "$work" "$bin" "$TMP_DIR/run-agent-$tag.sh" "$TMP_DIR/stub-state-$tag" "$issue" \
         GH_BODY_CAPTURE="$TMP_DIR/body-$tag.md" "$@" \

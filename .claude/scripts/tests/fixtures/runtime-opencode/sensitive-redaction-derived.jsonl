@@ -1,4 +1,0 @@
-{"type":"step_start","timestamp":1788861600000,"sessionID":"sess-redaction-opencode","part":{"type":"step-start"}}
-{"type":"tool_use","timestamp":1788861600100,"sessionID":"sess-redaction-opencode","part":{"type":"tool","tool":"bash","state":{"status":"completed","input":{"command":"COMMAND_SENTINEL --header HEADER_SENTINEL"},"output":"STDERR_SENTINEL AUTH_TOKEN_SENTINEL","time":{"start":1788861600010,"end":1788861600090}}}}
-{"type":"text","timestamp":1788861600200,"sessionID":"sess-redaction-opencode","part":{"type":"text","text":"PROMPT_SENTINEL ASSISTANT_SENTINEL AUTH_TOKEN_SENTINEL"}}
-{"type":"step_finish","timestamp":1788861600300,"sessionID":"sess-redaction-opencode","part":{"type":"step-finish","reason":"stop","tokens":{"input":13,"output":5},"cost":0.01}}

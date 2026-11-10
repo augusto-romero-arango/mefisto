@@ -89,14 +89,14 @@ git -C "$WT" commit -qm base
 # ejecutable del helper generalizado: evita que el wrapper de tooling siga
 # verde mientras la ruta pipeline=tdd pierde alguna dimension de correlacion.
 cat > "$TMP/enrich.events.jsonl" <<'EOF'
-{"type":"run.started","runtime":"opencode","model":"vendor/requested"}
-{"type":"run.completed","runtime":"opencode","model":"vendor/effective","session_id":"session-tdd","status":"success","error":null}
+{"type":"run.started","runtime":"fake","model":"vendor/requested"}
+{"type":"run.completed","runtime":"fake","model":"vendor/effective","session_id":"session-tdd","status":"success","error":null}
 EOF
 ENRICHED_TDD="$(bash -c 'source "$1"; enrich_stage_metrics tdd "$2" '\''{"tokens":{"input":7}}'\'' 1363 '\''"variante-a"'\'' 4b projection-test-writer balanced '\''{"harness_version":"1.2.3","harness_commit":"0123456789abcdef0123456789abcdef01234567","identity_state":"complete"}'\''' _ "$COMMON" "$TMP/enrich.events.jsonl")"
 if printf '%s' "$ENRICHED_TDD" | jq -e '
     .pipeline == "tdd" and .issue == "1363" and .variant == "variante-a"
     and .stage == "4b" and .agent == "projection-test-writer"
-    and .profile == "balanced" and .runtime == "opencode"
+    and .profile == "balanced" and .runtime == "fake"
     and .requested_model == "vendor/requested"
     and .effective_model == "vendor/effective"
     and .session_id == "session-tdd" and .result == "success"

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Contrato del agente infra-base-scaffolder neutral y sus proyecciones publicadas
+# Contrato del agente infra-base-scaffolder neutral y su proyeccion publicada
 # (issue #1649: migracion desde agents/infra-base-scaffolder.md hand-escrito Claude-only).
 set -uo pipefail
 export LC_ALL=C
@@ -7,7 +7,6 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
 REPO_ROOT="$(cd "$HERE/../../../.." && pwd -P)"
 SOURCE="$REPO_ROOT/src/published/agents/infra-base-scaffolder.md"
 CLAUDE="$REPO_ROOT/dist/claude/agents/infra-base-scaffolder.md"
-OPENCODE="$REPO_ROOT/dist/opencode/agents/infra-base-scaffolder.md"
 MIRROR="$REPO_ROOT/agents/infra-base-scaffolder.md"
 GENERATOR="$REPO_ROOT/src/published/scripts/generate-published-adapters.sh"
 PASS=0; FAIL=0
@@ -36,43 +35,21 @@ for pattern in 'source "$' 'source "${' '_pipeline-common.sh' '.plugin-root' 'pl
     absent "$body" "$pattern" "fuente no contiene '$pattern'"
 done
 
-echo '[salidas] adaptadores y mirror'
-for file in "$CLAUDE" "$OPENCODE"; do [ -f "$file" ] && pass "existe ${file#"$REPO_ROOT/"}" || fail "falta ${file#"$REPO_ROOT/"}"; done
+echo '[salidas] adaptador y mirror'
+[ -f "$CLAUDE" ] && pass "existe ${CLAUDE#"$REPO_ROOT/"}" || fail "falta ${CLAUDE#"$REPO_ROOT/"}"
 claude_body="$(< "$CLAUDE")"
-opencode_body="$(< "$OPENCODE")"
 contains "$claude_body" 'name: "infra-base-scaffolder"' 'Claude expone el id del agente'
 contains "$claude_body" 'model: "sonnet"' 'Claude materializa el perfil balanced como sonnet'
-absent "$opencode_body" 'model:' 'OpenCode no emite model'
-contains "$opencode_body" 'mode: "all"' 'OpenCode conserva mode all'
-contains "$opencode_body" '"microsoft-learn_*":false' 'OpenCode deniega las tools de microsoft-learn (sin mcp)'
-contains "$opencode_body" '"terraform_*":false' 'OpenCode deniega las tools de terraform'
-for text_var in claude_body opencode_body; do
-    text="${!text_var}"
-    absent "$text" 'source "${PLUGIN_ROOT' "$text_var no hace source del script comun"
-    absent "$text" '_pipeline-common.sh' "$text_var no referencia _pipeline-common.sh"
-    absent "$text" 'CONFIG="$REPO_ROOT' "$text_var no reconstruye la ruta del config a mano"
-done
+absent "$claude_body" 'source "${PLUGIN_ROOT' 'claude_body no hace source del script comun'
+absent "$claude_body" '_pipeline-common.sh' 'claude_body no referencia _pipeline-common.sh'
+absent "$claude_body" 'CONFIG="$REPO_ROOT' 'claude_body no reconstruye la ruta del config a mano'
 
 echo '[c] Paso 2b.0 invoca el script distribuido con el runtime de su adaptador'
 contains "$claude_body" 'MEFISTO_RUNTIME=claude "${MEFISTO_PACKAGE_ROOT}/scripts/register-harness-secret.sh" "marten-connection" "composite" "marten-connection"' 'Claude registra marten-connection como composite'
-contains "$opencode_body" 'MEFISTO_RUNTIME=opencode "${MEFISTO_PACKAGE_ROOT}/scripts/register-harness-secret.sh" "marten-connection" "composite" "marten-connection"' 'OpenCode registra marten-connection como composite'
-contains "$opencode_body" '"app-insights-connection" "output" "app_insights_connection_string"' 'se conserva app-insights-connection como output'
-contains "$opencode_body" '"github-secret" "SB_EXTERNAL_COSMOS_CONNECTION_STRING"' 'se conserva el registro por alias external como github-secret'
+contains "$claude_body" '"app-insights-connection" "output" "app_insights_connection_string"' 'se conserva app-insights-connection como output'
+contains "$claude_body" '"github-secret" "SB_EXTERNAL_COSMOS_CONNECTION_STRING"' 'se conserva el registro por alias external como github-secret'
 
-echo '[d] politica bash de OpenCode'
-permission="$(awk 'NR == 1 { next } /^permission: / { sub(/^permission: /, ""); print; exit }' "$OPENCODE")"
-for pattern in 'git *' 'jq *' 'test *' '[ *' 'echo *' 'printf *' 'grep *' 'mkdir *' 'terraform fmt*' 'terraform init -backend=false*' 'terraform validate*' '${MEFISTO_PACKAGE_ROOT}/scripts/*'; do
-    if printf '%s' "$permission" | jq -e --arg p "$pattern" '.bash[$p] == "allow"' >/dev/null 2>&1; then pass "bash permite '$pattern'"; else fail "bash no permite '$pattern'"; fi
-done
-for command in 'terraform plan' 'terraform apply' 'az group list' 'source x.sh'; do
-    if printf '%s' "$permission" | jq -e --arg c "$command" '.bash as $b | ($b | to_entries | map(select(.key != "*" and (.key | sub("\\*$"; "") as $pre | $c | startswith($pre))))) | length == 0 and $b["*"] == "deny"' >/dev/null 2>&1; then
-        pass "'$command' queda denegado por el catch-all"
-    else
-        fail "'$command' no queda denegado"
-    fi
-done
-
-echo '[e] nuget-audit.yml (issue #1760): gate greenfield y workflow generado'
+echo '[d] nuget-audit.yml (issue #1760): gate greenfield y workflow generado'
 contains "$body" 'NUGET_AUDIT_GREENFIELD=si' 'Paso 0 calcula el gate greenfield'
 gate_line="$(grep -n 'NUGET_AUDIT_GREENFIELD=si$' "$SOURCE" | head -n1 | cut -d: -f1)"
 first_write="$(grep -n '^## Paso 1 - Generar' "$SOURCE" | head -n1 | cut -d: -f1)"
@@ -149,13 +126,11 @@ contains "$out" 'exit=0' 'sin solucion no bloquea'
 echo '[mirror] agents/infra-base-scaffolder.md pasa a generado'
 if cmp -s "$MIRROR" "$CLAUDE"; then pass 'mirror Claude coincide byte a byte'; else fail 'mirror Claude diverge'; fi
 contains "$(< "$MIRROR")" '<!-- GENERADO por src/published/scripts/generate-published-adapters.sh desde src/published/agents/infra-base-scaffolder.md. No editar a mano. -->' 'mirror conserva marcador generado'
-for inventory in "$REPO_ROOT/dist/claude/.mefisto-generated-assets.json" "$REPO_ROOT/dist/opencode/.mefisto-generated-assets.json"; do
-    if jq -e '.assets[] | select(.destination == "agents/infra-base-scaffolder.md")' "$inventory" >/dev/null 2>&1; then
-        pass "$(basename "$(dirname "$inventory")") inventaria el agente"
-    else
-        fail "$(basename "$(dirname "$inventory")") no inventaria el agente"
-    fi
-done
+if jq -e '.assets[] | select(.destination == "agents/infra-base-scaffolder.md")' "$REPO_ROOT/dist/claude/.mefisto-generated-assets.json" >/dev/null 2>&1; then
+    pass 'claude inventaria el agente'
+else
+    fail 'claude no inventaria el agente'
+fi
 if "$GENERATOR" --check >/dev/null; then pass 'generate-published-adapters --check esta al dia'; else fail 'generate-published-adapters --check detecto divergencias'; fi
 
 printf 'RESULTADO: %s pasaron, %s fallaron\n' "$PASS" "$FAIL"

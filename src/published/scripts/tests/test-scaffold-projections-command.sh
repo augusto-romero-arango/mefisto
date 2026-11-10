@@ -1,12 +1,11 @@
 #!/usr/bin/env bash
-# Contrato del comando scaffold-projections neutral y sus proyecciones publicadas.
+# Contrato del comando scaffold-projections neutral y su proyeccion publicada.
 set -uo pipefail
 export LC_ALL=C
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
 REPO_ROOT="$(cd "$HERE/../../../.." && pwd -P)"
 SOURCE="$REPO_ROOT/src/published/commands/scaffold-projections.md"
 CLAUDE="$REPO_ROOT/dist/claude/commands/scaffold-projections.md"
-OPENCODE="$REPO_ROOT/dist/opencode/commands/mefisto:scaffold-projections.md"
 MIRROR="$REPO_ROOT/commands/scaffold-projections.md"
 GENERATOR="$REPO_ROOT/src/published/scripts/generate-published-adapters.sh"
 PASS=0; FAIL=0
@@ -42,31 +41,19 @@ contains "$body" '.mefisto/harness.config.json' 'ruta canonica del config'
 contains "$body" 'No generes nada tu mismo' 'regla: no generar'
 contains "$body" 'nunca registra un store de dominio' 'regla: nunca registra stores'
 contains "$body" 'idempotente' 'regla: idempotente'
-for forbidden in 'claude --agent' 'Claude' 'OpenCode' '.claude/' '.opencode/' '.plugin-root' 'CLAUDE_' 'plugins/cache' 'model:' 'allowed-tools:'; do absent "$body" "$forbidden" "fuente sin token prohibido: $forbidden"; done
+for forbidden in 'claude --agent' 'Claude' '.claude/' '.plugin-root' 'CLAUDE_' 'plugins/cache' 'model:' 'allowed-tools:'; do absent "$body" "$forbidden" "fuente sin token prohibido: $forbidden"; done
 
-echo '[salidas] adaptadores y mirror'
-for file in "$CLAUDE" "$OPENCODE"; do [ -f "$file" ] && pass "existe ${file#"$REPO_ROOT/"}" || fail "falta ${file#"$REPO_ROOT/"}"; done
+echo '[salidas] adaptador y mirror'
+[ -f "$CLAUDE" ] && pass "existe ${CLAUDE#"$REPO_ROOT/"}" || fail "falta ${CLAUDE#"$REPO_ROOT/"}"
 claude_body="$(< "$CLAUDE")"
-opencode_body="$(< "$OPENCODE")"
 contains "$claude_body" 'model: "haiku"' 'Claude materializa el perfil fast'
-absent "$opencode_body" 'model:' 'OpenCode no emite model'
-absent "$opencode_body" 'subtask' 'OpenCode no emite subtask'
-opencode_fm="$(awk 'NR == 1 { next } $0 == "---" { exit } { print }' "$OPENCODE")"
-absent "$opencode_fm" 'agent:' 'OpenCode no emite agent en el frontmatter'
 contains "$claude_body" 'agente `mefisto:projections-scaffolder`' 'Claude delega con la tool Task'
-contains "$opencode_body" 'tool `task` con el agente `projections-scaffolder`' 'OpenCode delega con la tool task'
 contains "$claude_body" '/mefisto:infra-base' 'Claude resuelve command infra-base'
-contains "$opencode_body" '/mefisto:onboard' 'OpenCode resuelve command onboard'
+contains "$claude_body" '/mefisto:onboard' 'Claude resuelve command onboard'
 absent "$claude_body" 'claude --agent' 'salida Claude sin claude --agent'
-absent "$opencode_body" 'claude --agent' 'salida OpenCode sin claude --agent'
-absent "$opencode_body" '.plugin-root' 'salida OpenCode sin marcador de plugin'
-absent "$opencode_body" 'plugins/cache' 'salida OpenCode sin cache de plugins'
 if cmp -s "$MIRROR" "$CLAUDE"; then pass 'mirror Claude coincide byte a byte'; else fail 'mirror Claude diverge'; fi
 contains "$(< "$MIRROR")" '<!-- GENERADO por src/published/scripts/generate-published-adapters.sh desde src/published/commands/scaffold-projections.md. No editar a mano. -->' 'mirror conserva marcador generado'
-for runtime in claude opencode; do
-    inventory="$REPO_ROOT/dist/$runtime/.mefisto-generated-assets.json"
-    if jq -e '.assets[] | select(.destination | test("commands/(mefisto:)?scaffold-projections\\.md$"))' "$inventory" >/dev/null 2>&1; then pass "inventariado en dist/$runtime"; else fail "ausente del inventario de dist/$runtime"; fi
-done
+if jq -e '.assets[] | select(.destination == "commands/scaffold-projections.md")' "$REPO_ROOT/dist/claude/.mefisto-generated-assets.json" >/dev/null 2>&1; then pass 'inventariado en dist/claude'; else fail 'ausente del inventario de dist/claude'; fi
 if "$GENERATOR" --check >/dev/null; then pass 'generate-published-adapters --check esta al dia'; else fail 'generate-published-adapters --check detecto divergencias'; fi
 
 printf 'RESULTADO: %s pasaron, %s fallaron\n' "$PASS" "$FAIL"

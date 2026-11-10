@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # runtime-fake.sh -- Adaptador de runtime FALSO (issue #858). Unico adaptador
-# que este issue entrega (Claude Code y OpenCode son #859/#860): existe para
+# que este issue entrega (Claude Code es #859): existe para
 # que mefisto-run-agent.sh y su contrato de eventos se puedan probar sin
 # invocar un CLI real, guionando escenarios (exito, fallo, cuelgue, protocolo
 # invalido) por variable de entorno.

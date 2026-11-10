@@ -82,7 +82,6 @@ TOOLING_CLOSURE_ASSETS=(
     'scripts/onboard-migrate-directives.sh|0755'
     'scripts/onboard-provision-appinsights.sh|0755'
     'scripts/onboard-activate-repo.sh|0755'
-    'src/published/opencode/mefisto-loader.js|0644'
     'scripts/_plugin-scopes.sh|0644'
     'scripts/update-plugin.sh|0755'
     'scripts/upgrade.sh|0755'
@@ -92,8 +91,6 @@ TOOLING_CLOSURE_ASSETS=(
     'src/runtime/lib/mefisto-process.sh|0755'
     'src/runtime/lib/runtime-claude.sh|0755'
     'src/runtime/lib/runtime-claude.jq|0644'
-    'src/runtime/lib/runtime-opencode.sh|0755'
-    'src/runtime/lib/runtime-opencode.jq|0644'
     'src/runtime/contract/models.validate.jq|0644'
 )
 # Conocimiento no ejecutable requerido por el flujo TDD. Los ADRs se descubren

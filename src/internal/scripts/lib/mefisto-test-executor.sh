@@ -13,8 +13,7 @@
 # del inventario (recibe las entradas ya resueltas, nunca las descubre por su
 # cuenta) -- MEF-ADR-0019 (paquete interno, opera solo sobre el propio
 # repo) y MEF-ADR-0049/MEF-ADR-0050 (biblioteca repo-only, neutral a
-# runtime/proveedor: solo bash + coreutils, ningun CLI de Claude Code u
-# OpenCode).
+# runtime/proveedor: solo bash + coreutils, ningun CLI de runtime).
 #
 # Uso: se `source`a por ruta relativa al archivo del caller, como el resto de
 # la libreria interna -- desde src/internal/scripts/:

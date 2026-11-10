@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # test-run-agent-stdin-prompt.sh -- Regresion ARG_MAX del canal de stdin del
-# runner neutral (issue #1447; incidente de #1407, 2026-09-16: el reviewer de
-# OpenCode 1.18.29 recibio un prompt de 3.237.916 bytes por argv y el kernel
+# runner neutral (issue #1447; incidente de #1407, 2026-09-16: el reviewer
+# recibio un prompt de 3.237.916 bytes por argv y el kernel
 # rechazo el `exec` antes de arrancar -- duration_ms: 0, session_id: null, sin
 # tokens; el writer si termino pero el reviewer nunca corrio).
 #

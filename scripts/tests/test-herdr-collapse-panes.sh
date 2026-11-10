@@ -152,8 +152,8 @@ mkdir -p "$(dirname "$LEGACY_STATE")"
 printf '%s\n' "w1:legacy" > "$LEGACY_STATE"
 LEGACY_BEFORE=$(shasum "$LEGACY_STATE")
 printf '%s\n' \
-    "w1:p1 claude" "w1:p2 claude" "w1:p3 claude" "w1:p4 opencode" \
-    "w1:p5 opencode" "w1:p6 opencode" "w1:p7 claude" "w2:p9 claude" > "$PANES_STATE"
+    "w1:p1 claude" "w1:p2 claude" "w1:p3 claude" "w1:p4 fake" \
+    "w1:p5 fake" "w1:p6 fake" "w1:p7 claude" "w2:p9 claude" > "$PANES_STATE"
 
 OUT=$(run_collapse \
     HERDR_ENV=1 HERDR_PANE_ID=w1:p0 HERDR_WORKSPACE_ID=w1 \
@@ -169,32 +169,32 @@ assert_eq "exactamente 1 pane close" "1" "$(grep -c "^herdr pane close" <<< "$ST
 assert_contains "cierra el libre sobrante w1:p2" "$STUB_CALLS" "pane close w1:p2"
 assert_not_contains "no cierra el primer libre w1:p1 (queda vivo)" "$STUB_CALLS" "pane close w1:p1"
 assert_not_contains "no cierra el ocupado w1:p3" "$STUB_CALLS" "pane close w1:p3"
-assert_not_contains "no cierra pane libre de OpenCode w1:p5" "$STUB_CALLS" "pane close w1:p5"
+assert_not_contains "no cierra pane libre de otro runtime w1:p5" "$STUB_CALLS" "pane close w1:p5"
 assert_not_contains "no toca el pane de otro workspace w2:p9" "$STUB_CALLS" "pane close w2:p9"
 assert_not_contains "no crea ningun pane (no despacha)" "$STUB_CALLS" "pane split"
 assert_not_contains "no corre ningun pane run (no despacha)" "$STUB_CALLS" "pane run"
 assert_contains "registro final conserva w1:p1 con runtime" "$FINAL_STATE" "w1:p1 claude"
 assert_contains "registro final conserva w1:p3 ocupado" "$FINAL_STATE" "w1:p3 claude"
-assert_contains "registro final conserva OpenCode" "$FINAL_STATE" "w1:p5 opencode"
+assert_contains "registro final conserva el otro runtime" "$FINAL_STATE" "w1:p5 fake"
 assert_contains "registro final conserva w2:p9 (otro workspace)" "$FINAL_STATE" "w2:p9 claude"
 assert_not_contains "registro final ya no tiene w1:p2 (cerrado)" "$FINAL_STATE" "w1:p2"
 assert_not_contains "registro final ya no tiene w1:p7 (muerto, podado)" "$FINAL_STATE" "w1:p7"
 assert_eq "pool legacy queda byte a byte intacto" "$LEGACY_BEFORE" "$LEGACY_AFTER"
 
 # La misma poda debe funcionar al invertir la fila activa: p4 queda como libre
-# reutilizable y p5/p6 convergen, sin cerrar panes Claude.
+# reutilizable y p5/p6 convergen, sin cerrar panes de claude.
 OUT=$(run_collapse \
     HERDR_ENV=1 HERDR_PANE_ID=w1:p0 HERDR_WORKSPACE_ID=w1 \
-    MEFISTO_RUNTIME=opencode)
+    MEFISTO_RUNTIME=fake)
 RC=$?
 STUB_CALLS=$(cat "$HERDR_STUB_LOG")
 FINAL_STATE=$(cat "$PANES_STATE")
-assert_eq "OpenCode: exit code 0" "0" "$RC"
-assert_eq "OpenCode: cierra sus dos libres sobrantes" "2" "$OUT"
-assert_contains "OpenCode: cierra w1:p5" "$STUB_CALLS" "pane close w1:p5"
-assert_contains "OpenCode: cierra w1:p6" "$STUB_CALLS" "pane close w1:p6"
-assert_not_contains "OpenCode: no cierra pane Claude" "$STUB_CALLS" "pane close w1:p1"
-assert_contains "OpenCode: conserva un libre propio" "$FINAL_STATE" "w1:p4 opencode"
+assert_eq "fake: exit code 0" "0" "$RC"
+assert_eq "fake: cierra sus dos libres sobrantes" "2" "$OUT"
+assert_contains "fake: cierra w1:p5" "$STUB_CALLS" "pane close w1:p5"
+assert_contains "fake: cierra w1:p6" "$STUB_CALLS" "pane close w1:p6"
+assert_not_contains "fake: no cierra pane de claude" "$STUB_CALLS" "pane close w1:p1"
+assert_contains "fake: conserva un libre propio" "$FINAL_STATE" "w1:p4 fake"
 
 # --- [B] No-op fuera de contexto (CA-2) ---
 echo "[B] --collapse-panes: no-op seguro sin HERDR_ENV=1 o sin PANES_STATE previo"

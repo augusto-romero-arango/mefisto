@@ -1,12 +1,11 @@
 #!/usr/bin/env bash
-# Contrato del comando tooling neutral y sus dos proyecciones publicadas.
+# Contrato del comando tooling neutral y su proyeccion publicada.
 set -uo pipefail
 export LC_ALL=C
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
 REPO_ROOT="$(cd "$HERE/../../../.." && pwd -P)"
 SOURCE="$REPO_ROOT/src/published/commands/tooling.md"
 CLAUDE="$REPO_ROOT/dist/claude/commands/tooling.md"
-OPENCODE="$REPO_ROOT/dist/opencode/commands/mefisto:tooling.md"
 MIRROR="$REPO_ROOT/commands/tooling.md"
 GENERATOR="$REPO_ROOT/src/published/scripts/generate-published-adapters.sh"
 PASS=0; FAIL=0
@@ -45,17 +44,12 @@ contains "$body" '{{mefisto:run tmux-pipeline.sh --tooling $ARGUMENTS}}' 'despac
 contains "$body" 'Herdr' 'documenta despacho Herdr'
 contains "$body" 'sesion tmux' 'documenta despacho tmux'
 contains "$body" '/mefisto:tooling' 'documenta el nombre canonico'
-for forbidden in 'Claude' 'OpenCode' '.claude/' '.opencode/' 'cache' 'model:' 'tools:' 'allowed-tools:' 'permission:' '/work-status'; do absent "$body" "$forbidden" "fuente no publica token prohibido: $forbidden"; done
+for forbidden in 'Claude' '.claude/' 'cache' 'model:' 'tools:' 'allowed-tools:' 'permission:' '/work-status'; do absent "$body" "$forbidden" "fuente no publica token prohibido: $forbidden"; done
 
-echo '[salidas] adaptadores y mirror'
-for file in "$CLAUDE" "$OPENCODE"; do [ -f "$file" ] && pass "existe ${file#"$REPO_ROOT/"}" || fail "falta ${file#"$REPO_ROOT/"}"; done
+echo '[salidas] adaptador y mirror'
+[ -f "$CLAUDE" ] && pass "existe ${CLAUDE#"$REPO_ROOT/"}" || fail "falta ${CLAUDE#"$REPO_ROOT/"}"
 contains "$(< "$CLAUDE")" 'model: "haiku"' 'Claude materializa el perfil fast'
 contains "$(< "$CLAUDE")" 'MEFISTO_RUNTIME=claude "${MEFISTO_PACKAGE_ROOT}/scripts/tmux-pipeline.sh" --tooling $ARGUMENTS' 'Claude cita package root con espacios y fija su runtime'
-absent "$(< "$CLAUDE")" 'MEFISTO_RUNTIME=opencode' 'Claude no fija el runtime OpenCode'
-contains "$(< "$OPENCODE")" 'description:' 'OpenCode materializa el comando'
-contains "$(< "$OPENCODE")" 'mefisto-opencode' 'OpenCode resuelve la release activa'
-contains "$(< "$OPENCODE")" 'MEFISTO_RUNTIME=opencode "${MEFISTO_PACKAGE_ROOT}/scripts/tmux-pipeline.sh" --tooling $ARGUMENTS' 'OpenCode cita package root con espacios y fija su runtime'
-absent "$(< "$OPENCODE")" 'MEFISTO_RUNTIME=claude' 'OpenCode no fija el runtime Claude'
 if cmp -s "$MIRROR" "$CLAUDE"; then pass 'mirror Claude coincide byte a byte'; else fail 'mirror Claude diverge'; fi
 contains "$(< "$MIRROR")" '<!-- GENERADO por src/published/scripts/generate-published-adapters.sh desde src/published/commands/tooling.md. No editar a mano. -->' 'mirror conserva marcador generado'
 if "$GENERATOR" --check >/dev/null; then pass 'generate-published-adapters --check esta al dia'; else fail 'generate-published-adapters --check detecto divergencias'; fi

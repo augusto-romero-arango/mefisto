@@ -10,7 +10,7 @@
 #   ./scripts/tdd-pipeline.sh 42 --from-stage 4   # Retomar desde Stage 4 (coverage gate)
 #   ./scripts/tdd-pipeline.sh 42 --models 'reviewer=opus,test-writer=sonnet'  # Modelo por stage (experimentos)
 #     El valor es pass-through: debe ser valido para el RUNTIME ACTIVO (alias como 'opus' bajo
-#     Claude Code; 'provider/model' bajo OpenCode). Sin --models manda el perfil neutral del
+#     Claude Code). Sin --models manda el perfil neutral del
 #     agente (fast|balanced|deep), que cada adaptador traduce (issue #1362, MEF-ADR-0049).
 #   ./scripts/tdd-pipeline.sh 42 --variant experimento-a  # Corrida paralela del mismo issue (sin PR, rama local)
 #   MEFISTO_HOLD_MAX_SECONDS=<s> / MEFISTO_HOLD_PROBE_SECONDS=<s> ./scripts/tdd-pipeline.sh 42  # Techo (default 21600 = 6h) y cadencia de sondeo (default 300) de la espera ante RATE_LIMIT/PROVIDER_UNAVAILABLE (issue #971, MEF-ADR-0051)
@@ -22,9 +22,9 @@
 # [tool]/[stage] (y [archivo] cuando el runner lo sintetiza) exclusivamente
 # via --events-log del runner neutral. Las lineas [test]/[terraform]/[archivo]
 # que emiten los hooks PUBLICADOS del plugin (hooks/hooks.json, PostToolUse en
-# Claude, sintesis por plugin en OpenCode) quedan en
+# Claude) quedan en
 # <worktree>/.mefisto/pipeline/events.log -- el events.log DEL WORKTREE, no el
-# de este pipeline -- en ambos runtimes.
+# de este pipeline.
 
 set -euo pipefail
 

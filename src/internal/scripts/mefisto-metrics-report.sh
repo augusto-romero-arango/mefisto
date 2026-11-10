@@ -170,7 +170,7 @@ def rv_norm: (.agents.reviewer.metrics | normalize_agent_metrics);
 # null_safe_sum(a; b) -- suma preservando null: null solo cuando AMBOS son
 # null (ningun agente dejo el dato), suma de los no-null en cualquier otro
 # caso. Evita que compute_metrics_report_json trate un `turns`/`cost_usd`/
-# `tokens` neutral en null (p. ej. OpenCode no reporta turnos) como un 0 real
+# `tokens` neutral en null (p. ej. un runtime que no reporta turnos) como un 0 real
 # al combinar writer+reviewer (CA-3): un `0` real (el costo de una corrida
 # bajo suscripcion) sigue sumando como 0 gracias al `// 0` de la rama no-null.
 def null_safe_sum(a; b): if (a == null and b == null) then null else ((a // 0) + (b // 0)) end;

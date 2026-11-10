@@ -2,7 +2,7 @@
 {
   "kind": "command",
   "id": "mefisto-invalid-permission-field",
-  "description": "Fixture invalido: declara 'permission', clave de permisos de OpenCode prohibida en la fuente neutral.",
+  "description": "Fixture invalido: declara 'permission', clave de permisos propia de un adaptador, prohibida en la fuente neutral.",
   "permission": { "bash": "allow" }
 }
 ---

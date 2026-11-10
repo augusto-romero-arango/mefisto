@@ -6,15 +6,13 @@
 # src/runtime/mefisto-run-agent.sh, pero solo lo cubrian los tests unitarios ajustados
 # (retry, stage-models, variant, state-paths). Esta suite corre el PIPELINE
 # REAL (src/internal/scripts/mefisto-tooling-pipeline.sh, via el shim
-# .claude/scripts/mefisto-tooling-pipeline.sh) de punta a punta, con CLIs
-# falsas de `claude` y `opencode` en PATH que reproducen tal cual el formato
-# crudo congelado de fixtures/runtime-{claude,opencode}/*.jsonl -- ningun CLI
-# real hace falta instalado.
+# .claude/scripts/mefisto-tooling-pipeline.sh) de punta a punta, con un CLI
+# falso de `claude` en PATH que reproduce tal cual el formato crudo congelado
+# de fixtures/runtime-claude/*.jsonl -- ningun CLI real hace falta instalado.
 #
 # Arnes (bloque [A], funcion setup_harness): mismo layout canonico que el
 # bloque [G] de test-tooling-state-paths.sh (origin bare + clon "fake-mefisto"
-# + stubs de PATH), extendido con runtime-opencode.sh/.jq y un stub `opencode`
-# ademas del `claude` -- y con `gh pr create`/`gh issue comment` respondiendo
+# + stubs de PATH), con `gh pr create`/`gh issue comment` respondiendo
 # (URL falsa) para que los escenarios de exito lleguen hasta la creacion del
 # PR, a diferencia del bloque [G] (que corta a proposito en el gate de
 # changelog.d/). No se comparte codigo con ese archivo -- los tests internos
@@ -24,14 +22,11 @@
 # Escenarios (CA-1), cada uno una corrida real distinta del pipeline sobre el
 # MISMO origin/clon (issue de mentira propio por escenario, para que las
 # ramas/worktrees no colisionen):
-#   (a) [B] MEFISTO_RUNTIME=claude,   exito de punta a punta.
-#   (b) [C] MEFISTO_RUNTIME=opencode, exito de punta a punta.
-#   (c) [D] MEFISTO_RUNTIME=opencode, fallo terminal del writer en Stage 1 --
-#       el CLI falso reproduce fixtures/runtime-opencode/empty-1.18.29.jsonl
-#       (stream vacio, fixture congelado) y sale con exit 1, sin resumen.
-#   (d) [E] Defaults: sin .mefisto/models.json ni --models, OpenCode recibe
-#       GPT-6 Sol para writer y reviewer; Claude conserva sonnet para
-#       writer y opus para reviewer deep.
+#   (a) [B] MEFISTO_RUNTIME=claude, exito de punta a punta.
+#   (c) [D] Fallo terminal del writer en Stage 1 -- el CLI falso no emite
+#       nada (stream vacio) y sale con exit 1, sin resumen.
+#   (d) [E] Defaults: sin .mefisto/models.json ni --models, Claude recibe
+#       sonnet para writer y opus para reviewer deep.
 #   (e) [F] Gate de neutralidad (issue #914): MEFISTO_RUNTIME=claude, el CLI
 #       falso del writer introduce ademas una fuga real -- un archivo nuevo
 #       src/internal/agents/fx-leak.md con `"model": "sonnet"` en el
@@ -63,13 +58,11 @@
 # termina en run.completed{status:"success"} con el runtime del escenario; el
 # archivo de metricas de cada stage lleva runtime/status; pipeline-history.jsonl
 # registra runtime a nivel de corrida y en agents.writer/agents.reviewer; en
-# (b) el CLI falso de cada stage fue invocado con `--agent mefisto-writer` /
-# `--agent mefisto-reviewer` (flag y valor ADYACENTES en el argv); en (c) el
-# pipeline aborta en Stage 1, `gh pr create` nunca se invoca, el status queda
+# (c) el pipeline aborta en Stage 1, `gh pr create` nunca se invoca, el status queda
 # failed y no hay entrada completed en el historial para ese issue.
 #
-# CA-3: toda la suite corre con CLIs falsas (sin red, sin claude/opencode
-# reales instalados -- los stubs preceden en PATH) y
+# CA-3: toda la suite corre con CLIs falsas (sin red, sin un claude real
+# instalado -- los stubs preceden en PATH) y
 # MEFISTO_AGENT_RETRY_BACKOFF_SECONDS=0; limpia sus temporales via trap (el
 # worktree que crea el pipeline nace como hermano del clon, o sea dentro de
 # $TMP). Bash 3.2 (sin arrays asociativos, sin mapfile) + jq 1.7 (baseline
@@ -96,7 +89,6 @@ SHIM_LIB="$REPO_ROOT/.claude/scripts/_mefisto-common.sh"
 SHIM_PIPE="$REPO_ROOT/.claude/scripts/mefisto-tooling-pipeline.sh"
 
 FIXTURES_CLAUDE_DIR="$REPO_ROOT/.claude/scripts/tests/fixtures/runtime-claude"
-FIXTURES_OPENCODE_DIR="$REPO_ROOT/.claude/scripts/tests/fixtures/runtime-opencode"
 
 TMP=$(mktemp -d)
 cleanup() { rm -rf "$TMP"; }
@@ -111,9 +103,7 @@ if ! command -v jq >/dev/null 2>&1 || ! command -v python3 >/dev/null 2>&1; then
 fi
 
 for f in "$CANON_LIB" "$CANON_PIPE" "$SHIM_LIB" "$SHIM_PIPE" \
-         "$FIXTURES_CLAUDE_DIR/success.jsonl" \
-         "$FIXTURES_OPENCODE_DIR/success-tool-1.18.29.jsonl" \
-         "$FIXTURES_OPENCODE_DIR/empty-1.18.29.jsonl"; do
+         "$FIXTURES_CLAUDE_DIR/success.jsonl"; do
     if [ ! -f "$f" ]; then
         echo "FAIL: archivo requerido ausente: $f"
         exit 1
@@ -130,15 +120,14 @@ fi
 for legacy in \
     "$REPO_ROOT/src/internal/scripts/mefisto-run-agent.sh" \
     "$REPO_ROOT/src/internal/scripts/lib/mefisto-models.sh" \
-    "$REPO_ROOT/src/internal/scripts/lib/runtime-claude.sh" \
-    "$REPO_ROOT/src/internal/scripts/lib/runtime-opencode.sh"; do
+    "$REPO_ROOT/src/internal/scripts/lib/runtime-claude.sh"; do
     if [ -e "$legacy" ]; then
         fail "A-0: queda una frontera temporal sin consumidor: $legacy"
     fi
 done
 
 # ============================================================================
-# [A] Arnes: origin bare + clon "fake-mefisto" + stubs de gh/claude/opencode
+# [A] Arnes: origin bare + clon "fake-mefisto" + stubs de gh/claude
 # ============================================================================
 
 echo "[A] Montando arnes: origin bare + clon fake-mefisto + stubs de PATH"
@@ -149,8 +138,7 @@ STATE_DIR="$FAKE_MEFISTO/.mefisto/pipeline"
 mkdir -p "$FAKE_BIN"
 
 # write_cli_stub <nombre> -- escribe en $FAKE_BIN un CLI falso llamado
-# <nombre> (claude u opencode: el cuerpo es el mismo, el stub se identifica
-# por basename "$0"). Reproduce tal cual (cat, sin editarlo) el fixture crudo
+# <nombre> (el stub se identifica por basename "$0"). Reproduce tal cual (cat, sin editarlo) el fixture crudo
 # congelado que indique MEFISTO_TEST_FIXTURE, captura su argv completo como
 # array JSON con jq --args (issue #863: el prompt puede traer saltos de
 # linea, un separador de texto no serviria) y, en modo "success", "leak" o
@@ -269,8 +257,8 @@ EOF
     # -- copias REALES (no un stub), byte-identicas al repo, para que el
     # escenario [F] ejercite el gate de verdad. La allowlist real trae las
     # excepciones (R1) de los propios adaptadores que setup_harness copia mas
-    # abajo (adapter-claude.sh, adapter-opencode.sh...), asi que los
-    # escenarios de exito ((a)/(b)) siguen pasando el gate en 0. No se copia
+    # abajo (adapter-claude.sh...), asi que el escenario de exito (a) sigue
+    # pasando el gate en 0. No se copia
     # generate-internal-adapters.sh: sin el, el gate salta adapters-check en
     # silencio (guarda `[ -f "$ADAPTERS_SCRIPT" ]`), y ningun escenario de esta
     # suite necesita ejercer esa verificacion estructural (ya cubierta por
@@ -316,17 +304,12 @@ exit 1
 STUB
     chmod +x "$FAKE_BIN/gh"
 
-    # --- Stubs de claude y opencode: mismo cuerpo (write_cli_stub), sobre las
-    # fixtures de su propio runtime. La diferencia observable esta en el argv
-    # que el runner les compone: opencode recibe --agent/--dir/-m como flags
-    # reales; claude recibe -p <prompt> y --model solo cuando hay modelo.
     write_cli_stub claude
-    write_cli_stub opencode
 }
 
 setup_harness
-if [ -x "$FAKE_MEFISTO/.claude/scripts/mefisto-tooling-pipeline.sh" ] && [ -x "$FAKE_BIN/claude" ] && [ -x "$FAKE_BIN/opencode" ] && [ -x "$FAKE_BIN/gh" ]; then
-    pass "A-1: arnes montado (clon fake-mefisto + stubs gh/claude/opencode ejecutables)"
+if [ -x "$FAKE_MEFISTO/.claude/scripts/mefisto-tooling-pipeline.sh" ] && [ -x "$FAKE_BIN/claude" ] && [ -x "$FAKE_BIN/gh" ]; then
+    pass "A-1: arnes montado (clon fake-mefisto + stubs gh/claude ejecutables)"
 else
     fail "A-1: el arnes no quedo montado correctamente"
 fi
@@ -457,7 +440,7 @@ assert_stage_artifacts() {
 }
 
 # assert_success_run <prefijo> <runtime> <issue> <capdir> -- aserciones CA-2
-# comunes a los escenarios de exito (a) y (b), sobre la ultima run_scenario:
+# comunes a los escenarios de exito, sobre la ultima run_scenario:
 #   -1 rc=0; -2/-3 por stage (assert_stage_artifacts); -4 runtime en el
 #   historial a nivel de corrida y por agente; -5 `gh pr create` exactamente
 #   una vez.
@@ -564,43 +547,15 @@ else
 fi
 
 # ============================================================================
-# [C] Escenario (b): MEFISTO_RUNTIME=opencode, exito de punta a punta
+# [D] Escenario (c): fallo terminal del writer en Stage 1 (stream vacio +
+# exit 1)
 # ============================================================================
 
 echo ""
-echo "[C] Escenario (b): MEFISTO_RUNTIME=opencode, exito de punta a punta (CA-1/CA-2)"
-
-B_ISSUE="912102"
-run_scenario opencode "$B_ISSUE" success "$FIXTURES_OPENCODE_DIR/success-tool-1.18.29.jsonl" 0
-B_CAP="$SCEN_CAP"
-assert_success_run C opencode "$B_ISSUE" "$B_CAP"
-
-# CA-2(b): el CLI falso de opencode fue invocado con `--agent mefisto-writer`
-# y `--agent mefisto-reviewer` -- flag y valor adyacentes en el argv, no
-# sueltos. Se ubica cada invocacion por CONTENIDO (no por orden de llamada).
-B_WRITER_CALL="$(_find_call "$B_CAP" opencode mefisto-writer || true)"
-B_REVIEWER_CALL="$(_find_call "$B_CAP" opencode mefisto-reviewer || true)"
-if [ -n "$B_WRITER_CALL" ] && _argv_has_flag_value "$B_WRITER_CALL" --agent mefisto-writer; then
-    pass "C-6: el CLI falso de opencode se invoco con '--agent mefisto-writer' (adyacentes) en Stage 1"
-else
-    fail "C-6: no se encontro una invocacion de opencode con '--agent mefisto-writer': ${B_WRITER_CALL:+$(cat "$B_WRITER_CALL")}"
-fi
-if [ -n "$B_REVIEWER_CALL" ] && _argv_has_flag_value "$B_REVIEWER_CALL" --agent mefisto-reviewer; then
-    pass "C-7: el CLI falso de opencode se invoco con '--agent mefisto-reviewer' (adyacentes) en Stage 2"
-else
-    fail "C-7: no se encontro una invocacion de opencode con '--agent mefisto-reviewer': ${B_REVIEWER_CALL:+$(cat "$B_REVIEWER_CALL")}"
-fi
-
-# ============================================================================
-# [D] Escenario (c): MEFISTO_RUNTIME=opencode, fallo terminal del writer en
-# Stage 1 (fixture congelado empty-1.18.29.jsonl: stream vacio + exit 1)
-# ============================================================================
-
-echo ""
-echo "[D] Escenario (c): MEFISTO_RUNTIME=opencode, fallo terminal del writer en Stage 1 (CA-2)"
+echo "[D] Escenario (c): fallo terminal del writer en Stage 1 (CA-2)"
 
 C_ISSUE="912103"
-run_scenario opencode "$C_ISSUE" fail "$FIXTURES_OPENCODE_DIR/empty-1.18.29.jsonl" 1
+run_scenario claude "$C_ISSUE" fail "" 1
 C_CAP="$SCEN_CAP"
 
 if [ "$SCEN_RC" -ne 0 ]; then
@@ -651,57 +606,36 @@ else
 fi
 
 # ============================================================================
-# [E] Escenario (d): sin mapping local ni --models se aplican las tablas de
-# cada adaptador. Claude deep usa opus; OpenCode usa GPT-6 Sol para ambos stages.
+# [E] Escenario (d): sin mapping local ni --models se aplica la tabla del
+# adaptador. Claude deep usa opus.
 # ============================================================================
 
 echo ""
 echo "[E] Escenario (d): defaults de modelo por runtime y perfil (CA-1)"
 
-if [ -n "$B_REVIEWER_CALL" ]; then
-    if _argv_has_flag_value "$B_REVIEWER_CALL" -m openai/gpt-6-sol; then
-        pass "E-1: opencode -- reviewer deep usa '-m openai/gpt-6-sol'"
-    else
-        fail "E-1: opencode -- reviewer deep no uso el default GPT-6 Sol: $(cat "$B_REVIEWER_CALL")"
-    fi
-else
-    fail "E-1: no se pudo localizar la invocacion del reviewer de la corrida (b)"
-fi
-
-if [ -n "$B_WRITER_CALL" ]; then
-    if _argv_has_flag_value "$B_WRITER_CALL" -m openai/gpt-6-sol; then
-        pass "E-2: opencode -- writer balanced usa '-m openai/gpt-6-sol'"
-    else
-        fail "E-2: opencode -- writer balanced no uso el default GPT-6 Sol: $(cat "$B_WRITER_CALL")"
-    fi
-else
-    fail "E-2: no se pudo localizar la invocacion del writer de la corrida (b)"
-fi
-
-# Cada stage se ubica por su `--agent <id>`, igual que en opencode (#1368):
-# el prompt -- que antes nombraba stage-1-writer.md / stage-2-reviewer.md
+# Cada stage se ubica por su `--agent <id>` (#1368): el prompt -- que antes nombraba stage-1-writer.md / stage-2-reviewer.md
 # dentro del argv -- ya no esta ahi, viaja por stdin (issue #1448).
 A_WRITER_CALL="$(_find_call "$A_CAP" claude mefisto-writer || true)"
 A_REVIEWER_CALL="$(_find_call "$A_CAP" claude mefisto-reviewer || true)"
 if [ -n "$A_REVIEWER_CALL" ]; then
     if _argv_has_flag_value "$A_REVIEWER_CALL" --model opus; then
-        pass "E-3: claude -- reviewer deep usa '--model opus'"
+        pass "E-1: claude -- reviewer deep usa '--model opus'"
     else
-        fail "E-3: claude -- la linea de comando del reviewer no trae '--model opus': $(cat "$A_REVIEWER_CALL")"
+        fail "E-1: claude -- la linea de comando del reviewer no trae '--model opus': $(cat "$A_REVIEWER_CALL")"
     fi
 else
-    fail "E-3: no se pudo localizar la invocacion del reviewer de la corrida (a)"
+    fail "E-1: no se pudo localizar la invocacion del reviewer de la corrida (a)"
 fi
 
 if [ -n "$A_WRITER_CALL" ]; then
     A_WR_MODEL="$(jq -r '(index("--model")) as $i | if $i == null then "" else .[$i+1] // "" end' "$A_WRITER_CALL" 2>/dev/null)"
     if [ -n "$A_WR_MODEL" ]; then
-        pass "E-4: control positivo -- claude writer (perfil balanced) SI recibe '--model $A_WR_MODEL'"
+        pass "E-2: control positivo -- claude writer (perfil balanced) SI recibe '--model $A_WR_MODEL'"
     else
-        fail "E-4: claude writer (perfil balanced) deberia recibir --model <no vacio>: $(cat "$A_WRITER_CALL")"
+        fail "E-2: claude writer (perfil balanced) deberia recibir --model <no vacio>: $(cat "$A_WRITER_CALL")"
     fi
 else
-    fail "E-4: no se pudo localizar la invocacion del writer de la corrida (a)"
+    fail "E-2: no se pudo localizar la invocacion del writer de la corrida (a)"
 fi
 
 

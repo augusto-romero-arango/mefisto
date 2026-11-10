@@ -1,12 +1,11 @@
 #!/usr/bin/env bash
-# Contrato del comando parallel neutral y sus dos proyecciones publicadas.
+# Contrato del comando parallel neutral y su proyeccion publicada.
 set -uo pipefail
 export LC_ALL=C
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
 REPO_ROOT="$(cd "$HERE/../../../.." && pwd -P)"
 SOURCE="$REPO_ROOT/src/published/commands/parallel.md"
 CLAUDE="$REPO_ROOT/dist/claude/commands/parallel.md"
-OPENCODE="$REPO_ROOT/dist/opencode/commands/mefisto:parallel.md"
 MIRROR="$REPO_ROOT/commands/parallel.md"
 GENERATOR="$REPO_ROOT/src/published/scripts/generate-published-adapters.sh"
 PASS=0; FAIL=0
@@ -45,35 +44,23 @@ contains "$body" 'No implementes nada tu mismo' 'regla: no implementar'
 contains "$body" 'NO se mergean' 'regla: PRs sin merge automatico'
 for forbidden in '.claude/' 'CLAUDE_' '.plugin-root' 'plugins/cache' 'model:' 'tools:' 'allowed-tools:' 'permission:'; do absent "$body" "$forbidden" "fuente no publica token prohibido: $forbidden"; done
 
-echo '[salidas] adaptadores y mirror'
-for file in "$CLAUDE" "$OPENCODE"; do [ -f "$file" ] && pass "existe ${file#"$REPO_ROOT/"}" || fail "falta ${file#"$REPO_ROOT/"}"; done
+echo '[salidas] adaptador y mirror'
+[ -f "$CLAUDE" ] && pass "existe ${CLAUDE#"$REPO_ROOT/"}" || fail "falta ${CLAUDE#"$REPO_ROOT/"}"
 claude_body="$(< "$CLAUDE")"
-opencode_body="$(< "$OPENCODE")"
 contains "$claude_body" 'MEFISTO_RUNTIME=claude "${MEFISTO_PACKAGE_ROOT}/scripts/tmux-pipeline.sh" --parallel $ARGUMENTS' 'Claude invoca tmux-pipeline.sh --parallel y fija su runtime'
-absent "$claude_body" 'MEFISTO_RUNTIME=opencode' 'Claude no fija el runtime OpenCode'
-contains "$opencode_body" 'MEFISTO_RUNTIME=opencode "${MEFISTO_PACKAGE_ROOT}/scripts/tmux-pipeline.sh" --parallel $ARGUMENTS' 'OpenCode invoca tmux-pipeline.sh --parallel y fija su runtime'
-absent "$opencode_body" 'MEFISTO_RUNTIME=claude' 'OpenCode no fija el runtime Claude'
 contains "$claude_body" 'model: "haiku"' 'Claude materializa el perfil fast'
-absent "$opencode_body" 'model:' 'OpenCode no emite model'
 for command in merge batch-stop; do
     contains "$claude_body" "/mefisto:$command" "Claude resuelve $command"
-    contains "$opencode_body" "/mefisto:$command" "OpenCode resuelve $command"
 done
 claude_invocation="$(printf '%s\n' "$claude_body" | grep -F 'scripts/tmux-pipeline.sh" --parallel')"
-opencode_invocation="$(printf '%s\n' "$opencode_body" | grep -F 'scripts/tmux-pipeline.sh" --parallel')"
 for forbidden_path in '.claude/pipeline/.plugin-root' 'plugins/cache'; do
     absent "$claude_invocation" "$forbidden_path" "invocacion Claude no reimplementa lookup legacy ($forbidden_path)"
-    absent "$opencode_invocation" "$forbidden_path" "invocacion OpenCode no reimplementa lookup legacy ($forbidden_path)"
 done
-absent "$opencode_body" '.claude/pipeline/.plugin-root' 'salida OpenCode completa sin marcador legacy'
-absent "$opencode_body" 'plugins/cache' 'salida OpenCode completa sin cache de plugins'
 if cmp -s "$MIRROR" "$CLAUDE"; then pass 'mirror Claude coincide byte a byte'; else fail 'mirror Claude diverge'; fi
 contains "$(< "$MIRROR")" '<!-- GENERADO por src/published/scripts/generate-published-adapters.sh desde src/published/commands/parallel.md. No editar a mano. -->' 'mirror conserva marcador generado'
-for runtime in claude opencode; do
-    asset="$REPO_ROOT/dist/$runtime/scripts/parallel-pipeline.sh"
-    [ -x "$asset" ] && pass "parallel-pipeline.sh empaquetado en dist/$runtime/scripts" || fail "falta dist/$runtime/scripts/parallel-pipeline.sh"
-    if cmp -s "$REPO_ROOT/scripts/parallel-pipeline.sh" "$asset"; then pass "parallel-pipeline.sh identico en dist/$runtime/scripts"; else fail "dist/$runtime/scripts/parallel-pipeline.sh diverge de la fuente"; fi
-done
+asset="$REPO_ROOT/dist/claude/scripts/parallel-pipeline.sh"
+[ -x "$asset" ] && pass "parallel-pipeline.sh empaquetado en dist/claude/scripts" || fail "falta dist/claude/scripts/parallel-pipeline.sh"
+if cmp -s "$REPO_ROOT/scripts/parallel-pipeline.sh" "$asset"; then pass "parallel-pipeline.sh identico en dist/claude/scripts"; else fail "dist/claude/scripts/parallel-pipeline.sh diverge de la fuente"; fi
 if "$GENERATOR" --check >/dev/null; then pass 'generate-published-adapters --check esta al dia'; else fail 'generate-published-adapters --check detecto divergencias'; fi
 
 printf 'RESULTADO: %s pasaron, %s fallaron\n' "$PASS" "$FAIL"

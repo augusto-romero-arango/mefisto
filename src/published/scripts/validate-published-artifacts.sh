@@ -75,7 +75,6 @@ EOF
             if (id == "domain-scaffolder" && (value == "${PR_NUM}" || value == "${REPO}" || value == "${RUN_SHA}" || value == "${TIMEOUT}" || value == "${archivo}")) return 1
             if (id == "projection-test-writer" && (value == "$PLUGIN_ROOT" || value == "$HOME" || value == "$2")) return 1
             if (id == "reviewer" && (value == "$PLUGIN_ROOT" || value == "$HOME")) return 1
-            if (id == "runtimes" && (value == "$MEFISTO_LIFECYCLE_LAUNCHER" || value == "$MEFISTO_LIFECYCLE_CONFIG_ROOT")) return 1
             if (id == "batch-stop" && value == "$REPO_ROOT") return 1
             if (id == "scaffold-mcp" && value ~ /^\$(\{)?(ROOT_NAMESPACE|SOLUTION_FILE|VERSION|PROPOSITO_PASCAL)(\})?$/) return 1
             if (id == "draft" && value == "$REPO_SLUG") return 1
@@ -112,12 +111,12 @@ EOF
         {
             line=NR; text=$0; lower=tolower(text); runtime_text=lower
             legacy=(id == "test-writer" || id == "reviewer" || id == "projection-test-writer" || id == "projection-implementer" || id == "domain-scaffolder" || id == "projections-scaffolder" || id == "historiador")
-            runtime_pattern="claude|opencode|\\.claude|\\.opencode|marketplace|(^|[/[:space:].])cache([/[:space:]]|$)|(^|[^[:alnum:]_-])(model|tools|allowed-tools|permission)[[:space:]]*:"
+            runtime_pattern="claude|\\.claude|marketplace|(^|[/[:space:].])cache([/[:space:]]|$)|(^|[^[:alnum:]_-])(model|tools|allowed-tools|permission)[[:space:]]*:"
             if (id == "domain-scaffolder") sub(/azure functions core tools:/, "azure functions core tools", runtime_text)
             if (id == "eraser-diagram") sub(/cache hit/, "hit", lower)
-            if (id == "onboard") { gsub(/claude\.md|adaptador claude|usa claude|with-claude-bridge|bajo opencode/, "", lower) }
+            if (id == "onboard") { gsub(/claude\.md|adaptador claude|usa claude|with-claude-bridge/, "", lower) }
             if (id == "bug") sub(/`\.claude\/`, /, "", lower)
-            if ((id == "runtimes" && lower ~ /\.claude|\.opencode|marketplace|(^|[\/[:space:].])cache([\/[:space:]]|$)|(^|[^[:alnum:]_-])(model|tools|allowed-tools|permission)[[:space:]]*:/) || (legacy && runtime_text ~ /opencode|\.opencode|(^|[^[:alnum:]_-])(model|tools|allowed-tools|permission)[[:space:]]*:/) || (!legacy && id != "runtimes" && lower ~ runtime_pattern)) {
+            if ((legacy && runtime_text ~ /(^|[^[:alnum:]_-])(model|tools|allowed-tools|permission)[[:space:]]*:/) || (!legacy && lower ~ runtime_pattern)) {
                 print rel ": body: linea " line " referencia un runtime, CLI, cache, directorio o metadata propia de runtime"
             }
             rest=text
@@ -139,7 +138,7 @@ EOF
                 while (match(rest, /\{\{mefisto:[^}]*\}\}/)) {
                     directive=substr(rest, RSTART, RLENGTH)
                     if (directive == "{{mefisto:assert-consumer-repo}}") guard=1
-                    else if (directive == "{{mefisto:package-root}}" || directive == "{{mefisto:config-path}}" || directive == "{{mefisto:instructions-path}}" || directive == "{{mefisto:lifecycle-launcher}}" || directive == "{{mefisto:loaded-root}}") {}
+                    else if (directive == "{{mefisto:package-root}}" || directive == "{{mefisto:config-path}}" || directive == "{{mefisto:instructions-path}}" || directive == "{{mefisto:loaded-root}}") {}
                     else if (directive ~ /^\{\{mefisto:command-doc /) {
                         if (directive !~ /^\{\{mefisto:command-doc [a-z0-9]+(-[a-z0-9]+)*\}\}$/) print rel ": body: linea " line " directiva mefisto mal formada: " directive
                         else {

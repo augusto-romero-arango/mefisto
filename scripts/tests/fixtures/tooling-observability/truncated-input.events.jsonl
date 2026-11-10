@@ -1,4 +1,4 @@
-{"v":1,"type":"run.started","ts":"2026-09-08T10:00:00Z","runtime":"opencode","agent":"tooling-writer","model":null,"cwd":"/tmp/proyecto"}
+{"v":1,"type":"run.started","ts":"2026-09-08T10:00:00Z","runtime":"fake","agent":"tooling-writer","model":null,"cwd":"/tmp/proyecto"}
 {"type":"message","text":"CENTINELA_MESSAGE_TEXT_NO_PERSISTIR"}
 {"v":1,"type":"tool.started","ts":"2026-09-08T10:00:01Z","tool":"write","input_summary":"CENTINELA_INPUT_SUMMARY_NO_PERSISTIR"}
 {"v":1,"type":"run.failed"

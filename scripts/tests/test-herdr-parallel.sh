@@ -239,21 +239,21 @@ assert_not_contains "pane propio ocupado: no se reutiliza" "$STUB_CALLS" "pane r
 assert_contains "pane propio ocupado permanece registrado" "$(cat "$PANES_STATE")" "w1:p9 claude"
 assert_contains "split adicional se registra con Claude" "$(cat "$PANES_STATE")" "w1:p1 claude"
 
-# El pool legacy nunca participa: la primera corrida OpenCode crea el canonico
+# El pool legacy nunca participa: la primera corrida de otro runtime crea el canonico
 # seguro y deja intactos los bytes legacy.
 rm -f "$PANES_STATE"
 LEGACY_STATE="$FAKE_CONSUMER/.claude/pipeline/herdr-report-panes.txt"
 mkdir -p "$(dirname "$LEGACY_STATE")"
 printf 'w1:legacy\n' > "$LEGACY_STATE"
 LEGACY_BEFORE=$(shasum "$LEGACY_STATE")
-OUT=$(HERDR_TEST_RUNTIME=opencode run_parallel --tooling 42)
+OUT=$(HERDR_TEST_RUNTIME=fake run_parallel --tooling 42)
 RC=$?
 STUB_CALLS=$(cat "$HERDR_STUB_LOG")
-assert_eq "OpenCode con solo pool legacy: exit 0" "0" "$RC"
-assert_contains "OpenCode crea pane nuevo, no reutiliza legacy" "$STUB_CALLS" "pane split --pane w1:p0 --direction right"
-assert_eq "pool canonico nuevo usa formato exacto" "w1:p1 opencode" "$(cat "$PANES_STATE")"
+assert_eq "otro runtime con solo pool legacy: exit 0" "0" "$RC"
+assert_contains "otro runtime crea pane nuevo, no reutiliza legacy" "$STUB_CALLS" "pane split --pane w1:p0 --direction right"
+assert_eq "pool canonico nuevo usa formato exacto" "w1:p1 fake" "$(cat "$PANES_STATE")"
 assert_eq "pool legacy queda byte a byte intacto" "$LEGACY_BEFORE" "$(shasum "$LEGACY_STATE")"
-assert_contains "runner OpenCode recibe runtime explicito" "$STUB_CALLS" "MEFISTO_RUNTIME=opencode"
+assert_contains "el runner recibe el runtime explicito" "$STUB_CALLS" "MEFISTO_RUNTIME=fake"
 
 # El runtime se resuelve antes de consultar o modificar el pool: uno invalido
 # aborta visible y no alcanza split/run/close.
@@ -361,11 +361,11 @@ assert_eq "--infra: exit 0" "0" "$RC"
 assert_contains "--infra: el runner corre iac-pipeline.sh" "$STUB_CALLS" "iac-pipeline.sh"
 assert_contains "--infra: runner recibe MEFISTO_RUNTIME=claude" "$STUB_CALLS" "MEFISTO_RUNTIME=claude"
 
-OUT=$(HERDR_TEST_RUNTIME=opencode run_parallel --infra 42)
+OUT=$(HERDR_TEST_RUNTIME=fake run_parallel --infra 42)
 RC=$?
 STUB_CALLS=$(cat "$HERDR_STUB_LOG")
-assert_eq "--infra (opencode): exit 0" "0" "$RC"
-assert_contains "--infra (opencode): runner recibe MEFISTO_RUNTIME=opencode" "$STUB_CALLS" "MEFISTO_RUNTIME=opencode"
+assert_eq "--infra (fake): exit 0" "0" "$RC"
+assert_contains "--infra (fake): runner recibe MEFISTO_RUNTIME=fake" "$STUB_CALLS" "MEFISTO_RUNTIME=fake"
 
 # --- Resumen ---
 echo ""

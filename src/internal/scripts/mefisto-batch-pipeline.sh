@@ -10,7 +10,7 @@
 #   src/internal/scripts/mefisto-batch-pipeline.sh 42 43 44
 #   src/internal/scripts/mefisto-batch-pipeline.sh 42 43 --stop-on-error
 #
-# El runtime activo (MEFISTO_RUNTIME=claude|opencode) lo hereda del entorno
+# El runtime activo (MEFISTO_RUNTIME) lo hereda del entorno
 # (lo antepone el comando generado, issue #867) -- este script no expone un
 # flag --runtime propio, solo verifica en la precondicion que el CLI del
 # runtime resuelto (lib/mefisto-runtime.sh) este instalado (issue #870).
@@ -617,12 +617,12 @@ fi
 # el binario existe.
 if ! BATCH_RUNTIME="$(mefisto_resolve_runtime)"; then
     echo -e "${RED}${BOLD}x No se pudo resolver el runtime activo: $MEFISTO_RUNTIME_ERROR${NC}"
-    echo -e "${YELLOW}Fija MEFISTO_RUNTIME=claude|opencode para desambiguar.${NC}"
+    echo -e "${YELLOW}Fija MEFISTO_RUNTIME para desambiguar.${NC}"
     exit 1
 fi
 if ! command -v "$BATCH_RUNTIME" >/dev/null 2>&1; then
     echo -e "${RED}${BOLD}x Falta el CLI del runtime resuelto ('$BATCH_RUNTIME').${NC}"
-    echo -e "${YELLOW}Fija MEFISTO_RUNTIME=claude|opencode con un runtime instalado.${NC}"
+    echo -e "${YELLOW}Fija MEFISTO_RUNTIME con un runtime instalado.${NC}"
     exit 1
 fi
 

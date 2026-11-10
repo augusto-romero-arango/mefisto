@@ -18,11 +18,6 @@
 #       produce la "ruta-o-resumen" de la linea `[tool]` pero NUNCA una linea
 #       `[archivo]` -- ese tag lo lee work-status-collect.sh como actividad de
 #       archivos.
-#   [C] CA-2: contra el fixture REAL de OpenCode
-#       (fixtures/runtime-opencode/success-tool-1.18.29.jsonl, tool `glob`
-#       sin mapeo de ruta) -- el runner completo (stub `opencode` en el PATH)
-#       produce la MISMA forma de linea `[tool]`/`[stage]` que Claude (B), con
-#       "-" como ruta-o-resumen (CA-2: campos ausentes nunca se inventan).
 #   [D] CA-3: `--events-log` bajo un directorio sin permisos de escritura
 #       degrada a un aviso en stderr, sin alterar el exit code del runner ni
 #       el evento terminal ya escrito en `--event-log`.
@@ -41,7 +36,6 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/../../.." && pwd)"
 RUNNER="$REPO_ROOT/src/runtime/mefisto-run-agent.sh"
 CLAUDE_FIXTURES="$SCRIPT_DIR/fixtures/runtime-claude"
-OPENCODE_FIXTURES="$SCRIPT_DIR/fixtures/runtime-opencode"
 
 PASS=0
 FAIL=0
@@ -215,45 +209,6 @@ fi
 
 # ============================================================================
 echo ""
-echo "[C] CA-2: fixture REAL de OpenCode (tool_use 'glob', sin mapeo de ruta) -- misma forma que Claude"
-
-C_STUB_BIN="$TMP/bin-opencode"
-mkdir -p "$C_STUB_BIN"
-cat > "$C_STUB_BIN/opencode" <<STUBEOF
-#!/bin/sh
-cat "$OPENCODE_FIXTURES/success-tool-1.18.29.jsonl"
-exit 0
-STUBEOF
-chmod +x "$C_STUB_BIN/opencode"
-
-EV_C_JSONL="$TMP/c-event.jsonl"
-EV_C_LOG="$TMP/c-events.log"
-PATH="$C_STUB_BIN:$ORIG_PATH"
-RC=$("$RUNNER" --runtime opencode --agent writer \
-    --cwd "$WORKDIR" --prompt-file "$PROMPT_FILE" --event-log "$EV_C_JSONL" \
-    --events-log "$EV_C_LOG" >/dev/null 2>&1; echo $?)
-PATH="$ORIG_PATH"
-
-if grep -Eq "$RE_TOOL" "$EV_C_LOG"; then
-    pass "C-1: OpenCode produce una linea [tool] con la MISMA forma que Claude (B-2)"
-else
-    fail "C-1: no se encontro una linea [tool] con el formato esperado. Contenido: $(cat "$EV_C_LOG" 2>/dev/null)"
-fi
-
-if grep -q '\[tool\] writer glob ok -' "$EV_C_LOG"; then
-    pass "C-2: 'glob' (sin mapeo de ruta) escribe '-' como ruta-o-resumen, nunca inventada"
-else
-    fail "C-2: no se encontro '... glob ok -'. Contenido: $(cat "$EV_C_LOG" 2>/dev/null)"
-fi
-
-if grep -Eq "$RE_STAGE" "$EV_C_LOG"; then
-    pass "C-3: linea [stage] final presente, misma forma que Claude (B-3)"
-else
-    fail "C-3: no se encontro la linea [stage]. Contenido: $(cat "$EV_C_LOG" 2>/dev/null)"
-fi
-
-# ============================================================================
-echo ""
 echo "[D] CA-3: --events-log bajo un directorio sin permisos degrada a un aviso, sin afectar exit/terminal"
 
 D_BADDIR="$TMP/readonly"
@@ -290,8 +245,7 @@ echo "[E] CA-6: el runner no lee contenido de archivos ni credenciales para la t
 
 # La telemetria solo puede derivarse de los campos del JSONL neutral (ts,
 # tool, input_summary, ok, status) -- nunca de una lectura de archivo, una
-# variable de credenciales o un auth store. Mismo criterio de grep que
-# test-runtime-opencode.sh [E] (CA-5 de #860), aplicado aqui al runner.
+# variable de credenciales o un auth store.
 FORBIDDEN_PATTERNS=(
     "ANTHROPIC_API_KEY"
     "OPENAI_API_KEY"

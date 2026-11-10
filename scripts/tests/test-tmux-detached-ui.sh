@@ -9,7 +9,7 @@
 # Cubre:
 #   CA-1  MEFISTO_RUNTIME=claude sin MEFISTO_UI: tdd/tooling/infra/scaffold/--batch
 #         corren desacoplados (cero herdr pane split|run, cero tmux new-session).
-#   CA-2  MEFISTO_RUNTIME=opencode dentro de herdr: split a la derecha de HERDR_PANE_ID.
+#   CA-2  Un runtime distinto de claude dentro de herdr: split a la derecha de HERDR_PANE_ID.
 #   CA-3  MEFISTO_UI explicito (herdr|tmux) gana; --parallel no cambia con claude.
 #   CA-4  HERDR_PANE_ID ajeno: aborta con el mensaje del guard, sin tocar panes.
 
@@ -108,8 +108,8 @@ for mode in "2285" "--pipeline tooling 2285" "--tooling 2285" "--infra 2285" "--
     fi
 done
 
-echo "[2] CA-2: runtime opencode dentro de herdr conserva el split a la derecha"
-run MEFISTO_RUNTIME=opencode -- --tooling 2285
+echo "[2] CA-2: un runtime distinto de claude dentro de herdr conserva el split a la derecha"
+run MEFISTO_RUNTIME=fake -- --tooling 2285
 if grep -qF "pane split --pane w1:p0 --direction right" "$STUB_LOG"; then pass "split a la derecha de w1:p0"; else fail "sin split -- log: $(cat "$STUB_LOG") err: $LAST_ERR"; fi
 
 echo "[3] CA-3: MEFISTO_UI explicito gana; --parallel no cambia"
@@ -119,8 +119,8 @@ run MEFISTO_RUNTIME=claude MEFISTO_UI=tmux -- --tooling 2285
 if grep -qF "tmux new-session" "$STUB_LOG" && no_panes; then pass "MEFISTO_UI=tmux gana"; else fail "no uso tmux: $(cat "$STUB_LOG") err: $LAST_ERR"; fi
 run MEFISTO_RUNTIME=claude MEFISTO_UI=herdr -- --parallel 2285 2286
 if grep -qE "pane (split|run)" "$STUB_LOG" && no_tmux_session; then pass "--parallel con MEFISTO_UI=herdr conserva panes"; else fail "--parallel herdr cambio: $(cat "$STUB_LOG") err: $LAST_ERR"; fi
-run MEFISTO_RUNTIME=opencode -- --parallel 2285 2286
-if grep -qE "pane (split|run)" "$STUB_LOG" && no_tmux_session; then pass "--parallel con opencode conserva panes"; else fail "--parallel opencode cambio: $(cat "$STUB_LOG") err: $LAST_ERR"; fi
+run MEFISTO_RUNTIME=fake -- --parallel 2285 2286
+if grep -qE "pane (split|run)" "$STUB_LOG" && no_tmux_session; then pass "--parallel con otro runtime conserva panes"; else fail "--parallel con otro runtime cambio: $(cat "$STUB_LOG") err: $LAST_ERR"; fi
 run MEFISTO_RUNTIME=claude MEFISTO_UI=tmux -- --parallel 2285 2286
 if grep -qF "tmux new-session" "$STUB_LOG" && no_panes; then pass "--parallel con MEFISTO_UI=tmux conserva tmux"; else fail "--parallel tmux cambio: $(cat "$STUB_LOG") err: $LAST_ERR"; fi
 
@@ -150,11 +150,11 @@ run MEFISTO_RUNTIME=claude -- --parallel 4 '5;x'
 if [ "$LAST_RC" -ne 0 ] && no_panes; then pass "issue no numerico aborta en modo desacoplado"; else fail "acepto issue invalido: rc=$LAST_RC"; fi
 run MEFISTO_RUNTIME=claude -- --parallel 6 7
 if [ "$LAST_RC" -eq 0 ]; then pass "dos tipo:projection no abortan en modo desacoplado"; else fail "abort con projections: $LAST_ERR"; fi
-run MEFISTO_RUNTIME=opencode -- --parallel 6 7
+run MEFISTO_RUNTIME=fake -- --parallel 6 7
 if [ "$LAST_RC" -ne 0 ]; then pass "dos tipo:projection abortan en modo pane"; else fail "no abortó en modo pane"; fi
 
 echo "[4] CA-4: HERDR_PANE_ID ajeno aborta sin tocar panes"
-STUB_OWNER_PID=999999 run MEFISTO_RUNTIME=opencode -- --tooling 2285
+STUB_OWNER_PID=999999 run MEFISTO_RUNTIME=fake -- --tooling 2285
 if [ "$LAST_RC" -ne 0 ]; then pass "exit != 0"; else fail "deberia abortar"; fi
 if printf '%s' "$LAST_ERR" | grep -q "heredado"; then pass "mensaje del guard"; else fail "mensaje inesperado: $LAST_ERR"; fi
 if no_panes; then pass "cero pane split|run|close"; else fail "toco panes: $(cat "$STUB_LOG")"; fi

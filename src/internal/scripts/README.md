@@ -68,11 +68,11 @@ el contrato de uso.
 Invocacion:
 
 ```bash
-MEFISTO_RUNTIME=opencode ./.claude/scripts/mefisto-test-suite.sh [--log-dir <dir>]
-MEFISTO_RUNTIME=opencode ./.claude/scripts/mefisto-test-suite.sh --help
+MEFISTO_RUNTIME=claude ./.claude/scripts/mefisto-test-suite.sh [--log-dir <dir>]
+MEFISTO_RUNTIME=claude ./.claude/scripts/mefisto-test-suite.sh --help
 ```
 
-`MEFISTO_RUNTIME=opencode` es la convencion `{{mefisto:run}}` del lado interno
+`MEFISTO_RUNTIME=<id>` es la convencion `{{mefisto:run}}` del lado interno
 para invocar un script neutral desde texto de doctrina (MEF-ADR-0049); no es
 una dependencia del runner con ese runtime en particular (MEF-ADR-0050) -- el
 runner solo usa bash, coreutils y git.

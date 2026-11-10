@@ -254,8 +254,8 @@ STUB
 chmod +x "$FAKE_BIN/claude"
 
 # Mismo criterio que test-batch-runtime.sh: esta maquina de dogfooding tiene
-# 'claude'/'opencode' reales instalados fuera de /usr/bin y /bin, asi que solo
-# el tramo de sistema queda detras de FAKE_BIN (ahi viven git/jq/coreutils).
+# un 'claude' real instalado fuera de /usr/bin y /bin, asi que solo el tramo
+# de sistema queda detras de FAKE_BIN (ahi viven git/jq/coreutils).
 SAFE_SYSTEM_PATH="/usr/bin:/bin:/usr/sbin:/sbin"
 
 # run_batch <dir> <publisher> <sha_dir> <args...>

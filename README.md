@@ -36,7 +36,7 @@ Los agentes de código improvisan arquitectura: cada sesión reinventa convencio
 
 ## Runtimes soportados
 
-Claude Code y OpenCode, ambos con adaptador en el repo y sin privilegiar a uno ([MEF-ADR-0049](docs/adr/mef-adr-0049-arquitectura-neutral-runtime-proveedor.md)).
+Claude Code, con adaptador en el repo. La doctrina es neutral a runtime y el conjunto de runtimes es abierto: "soportado" significa "tiene adaptador" ([MEF-ADR-0049](docs/adr/mef-adr-0049-arquitectura-neutral-runtime-proveedor.md), [MEF-ADR-0057](docs/adr/mef-adr-0057-portabilidad-typescript-node.md)).
 
 ## Requisitos
 
@@ -53,8 +53,6 @@ claude plugin disable mefisto@augusto-romero-arango-harness --scope user
 ```
 
 En cada repo consumidor, commitea el `.claude/settings.json` con `enabledPlugins` (ver la [guía del consumidor](docs/guia-del-consumidor.md#1-configurar-claudesettingsjson-del-repo-consumidor), paso 1). Los pipelines entregan a sus agentes la raíz de su propia versión, así que los worktrees no dependen de esta instalación.
-
-**OpenCode**: desde Claude Code, `/mefisto:upgrade` instala la release OpenCode por usuario; cada repo consumidor la activa commiteando `.opencode/plugins/mefisto.js`, que `/mefisto:onboard` escribe. El procedimiento directo está en la [guía del consumidor](docs/guia-del-consumidor.md#opencode-bootstrap-upgrade-y-rollback).
 
 ## Primer uso
 

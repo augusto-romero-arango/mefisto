@@ -1,12 +1,11 @@
 #!/usr/bin/env bash
-# Contrato del comando seed-secret neutral y sus dos proyecciones publicadas.
+# Contrato del comando seed-secret neutral y su proyeccion publicada.
 set -uo pipefail
 export LC_ALL=C
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
 REPO_ROOT="$(cd "$HERE/../../../.." && pwd -P)"
 SOURCE="$REPO_ROOT/src/published/commands/seed-secret.md"
 CLAUDE="$REPO_ROOT/dist/claude/commands/seed-secret.md"
-OPENCODE="$REPO_ROOT/dist/opencode/commands/mefisto:seed-secret.md"
 MIRROR="$REPO_ROOT/commands/seed-secret.md"
 GENERATOR="$REPO_ROOT/src/published/scripts/generate-published-adapters.sh"
 PASS=0; FAIL=0
@@ -42,44 +41,32 @@ edit_line="$(grep -nF 'git add' "$SOURCE" | cut -d: -f1)"
 [ -n "$guard_line" ] && [ -n "$confirm_line" ] && [ "$guard_line" -lt "$confirm_line" ] && pass 'guard precede la confirmacion' || fail 'guard no precede la confirmacion'
 [ -n "$confirm_line" ] && [ -n "$run_line" ] && [ "$confirm_line" -lt "$run_line" ] && [ "$run_line" -lt "$edit_line" ] && pass 'confirmacion precede a cualquier escritura' || fail 'confirmacion no precede las escrituras'
 
-echo '[salidas] adaptadores y mirror'
-for file in "$CLAUDE" "$OPENCODE"; do [ -f "$file" ] && pass "existe ${file#"$REPO_ROOT/"}" || fail "falta ${file#"$REPO_ROOT/"}"; done
+echo '[salidas] adaptador y mirror'
+[ -f "$CLAUDE" ] && pass "existe ${CLAUDE#"$REPO_ROOT/"}" || fail "falta ${CLAUDE#"$REPO_ROOT/"}"
 claude_body="$(< "$CLAUDE")"
-opencode_body="$(< "$OPENCODE")"
 contains "$claude_body" 'MEFISTO_RUNTIME=claude "${MEFISTO_PACKAGE_ROOT}/scripts/seed-secret.sh"' 'Claude invoca seed-secret.sh con su runtime'
-contains "$opencode_body" 'MEFISTO_RUNTIME=opencode "${MEFISTO_PACKAGE_ROOT}/scripts/seed-secret.sh"' 'OpenCode invoca seed-secret.sh con su runtime'
-absent "$claude_body" 'MEFISTO_RUNTIME=opencode' 'Claude no fija el runtime OpenCode'
-absent "$opencode_body" 'MEFISTO_RUNTIME=claude' 'OpenCode no fija el runtime Claude'
 contains "$claude_body" 'model: "sonnet"' 'Claude materializa el perfil balanced'
-absent "$opencode_body" 'model:' 'OpenCode no emite model'
 absent "$claude_body" 'plugins/cache' 'Claude sin plugins/cache'
-absent "$opencode_body" 'plugins/cache' 'OpenCode sin plugins/cache'
-absent "$opencode_body" '.plugin-root' 'OpenCode sin .plugin-root'
 claude_invocation="$(printf '%s\n' "$claude_body" | grep -F 'scripts/seed-secret.sh"')"
 absent "$claude_invocation" '.plugin-root' 'invocacion Claude sin lookup legacy .plugin-root'
 absent "$claude_invocation" 'PLUGIN_SCRIPTS' 'invocacion Claude sin PLUGIN_SCRIPTS'
 contains "$claude_body" '/mefisto:scaffold' 'Claude resuelve command scaffold'
-contains "$opencode_body" '/mefisto:scaffold' 'OpenCode resuelve command scaffold'
 if cmp -s "$MIRROR" "$CLAUDE"; then pass 'mirror Claude coincide byte a byte'; else fail 'mirror Claude diverge'; fi
 contains "$(< "$MIRROR")" '<!-- GENERADO por src/published/scripts/generate-published-adapters.sh desde src/published/commands/seed-secret.md. No editar a mano. -->' 'mirror conserva marcador generado'
-for f in "$CLAUDE" "$OPENCODE"; do
-    guard_l="$(grep -nF 'aborta si existe `src/internal/scripts/generate-internal-adapters.sh`' "$f" | head -1 | cut -d: -f1)"
-    run_l="$(grep -nF 'scripts/seed-secret.sh' "$f" | head -1 | cut -d: -f1)"
-    conf_l="$(grep -nF '¿Continuar? (s/n)' "$f" | head -1 | cut -d: -f1)"
-    [ -n "$guard_l" ] && [ -n "$conf_l" ] && [ "$guard_l" -lt "$conf_l" ] && pass "guard antes de la confirmacion en ${f#"$REPO_ROOT/"}" || fail "guard no precede la confirmacion en ${f#"$REPO_ROOT/"}"
-    [ -n "$conf_l" ] && [ -n "$run_l" ] && [ "$conf_l" -lt "$run_l" ] && pass "confirmacion antes del script en ${f#"$REPO_ROOT/"}" || fail "confirmacion no precede al script en ${f#"$REPO_ROOT/"}"
-done
+guard_l="$(grep -nF 'aborta si existe `src/internal/scripts/generate-internal-adapters.sh`' "$CLAUDE" | head -1 | cut -d: -f1)"
+run_l="$(grep -nF 'scripts/seed-secret.sh' "$CLAUDE" | head -1 | cut -d: -f1)"
+conf_l="$(grep -nF '¿Continuar? (s/n)' "$CLAUDE" | head -1 | cut -d: -f1)"
+[ -n "$guard_l" ] && [ -n "$conf_l" ] && [ "$guard_l" -lt "$conf_l" ] && pass "guard antes de la confirmacion en ${CLAUDE#"$REPO_ROOT/"}" || fail "guard no precede la confirmacion en ${CLAUDE#"$REPO_ROOT/"}"
+[ -n "$conf_l" ] && [ -n "$run_l" ] && [ "$conf_l" -lt "$run_l" ] && pass "confirmacion antes del script en ${CLAUDE#"$REPO_ROOT/"}" || fail "confirmacion no precede al script en ${CLAUDE#"$REPO_ROOT/"}"
 
 echo '[assets] seed-secret.sh empaquetado'
-for runtime in claude opencode; do
-    dist="$REPO_ROOT/dist/$runtime/scripts/seed-secret.sh"
-    if [ -x "$dist" ]; then pass "seed-secret.sh ejecutable en dist/$runtime"; else fail "falta seed-secret.sh ejecutable en dist/$runtime"; fi
-    if cmp -s "$REPO_ROOT/scripts/seed-secret.sh" "$dist"; then pass "dist/$runtime identico a la fuente"; else fail "dist/$runtime diverge de la fuente"; fi
-    if jq -e '.assets[] | select(.destination == "scripts/seed-secret.sh")' "$REPO_ROOT/dist/$runtime/.mefisto-generated-assets.json" >/dev/null 2>&1; then pass "inventario de dist/$runtime lo incluye"; else fail "inventario de dist/$runtime no lo incluye"; fi
-done
-[ -f "$REPO_ROOT/dist/opencode/scripts/_pipeline-common.sh" ] && pass '_pipeline-common.sh hermano presente' || fail '_pipeline-common.sh hermano ausente'
+dist="$REPO_ROOT/dist/claude/scripts/seed-secret.sh"
+if [ -x "$dist" ]; then pass "seed-secret.sh ejecutable en dist/claude"; else fail "falta seed-secret.sh ejecutable en dist/claude"; fi
+if cmp -s "$REPO_ROOT/scripts/seed-secret.sh" "$dist"; then pass "dist/claude identico a la fuente"; else fail "dist/claude diverge de la fuente"; fi
+if jq -e '.assets[] | select(.destination == "scripts/seed-secret.sh")' "$REPO_ROOT/dist/claude/.mefisto-generated-assets.json" >/dev/null 2>&1; then pass "inventario de dist/claude lo incluye"; else fail "inventario de dist/claude no lo incluye"; fi
+[ -f "$REPO_ROOT/dist/claude/scripts/_pipeline-common.sh" ] && pass '_pipeline-common.sh hermano presente' || fail '_pipeline-common.sh hermano ausente'
 smoke_dir="$(mktemp -d)"; git -C "$smoke_dir" init -q
-smoke="$(cd "$smoke_dir" && bash "$REPO_ROOT/dist/opencode/scripts/seed-secret.sh" 2>&1)"; smoke_rc=$?
+smoke="$(cd "$smoke_dir" && bash "$REPO_ROOT/dist/claude/scripts/seed-secret.sh" 2>&1)"; smoke_rc=$?
 rm -rf "$smoke_dir"
 case "$smoke" in
     *"No such file"*|*"command not found"*|*"unbound variable"*) fail 'seed-secret.sh distribuido no resuelve _pipeline-common.sh'; printf '%s\n' "$smoke" | head -3 ;;

@@ -18,11 +18,11 @@
 #   [D]   La precondicion de dependencias comprueba git, gh, jq y llama a
 #         mefisto_resolve_runtime -- ya no 'claude' a secas (CA-2).
 #   [E]   Corrida real de dos issues con stubs de gh y un tooling-pipeline
-#         falso, en los dos modos MEFISTO_RUNTIME=claude y =opencode (CA-6):
+#         falso, en los dos modos MEFISTO_RUNTIME=claude y =fake (CA-6):
 #         - el CLI exigido es el especifico del runtime resuelto (falta
-#           'claude' aborta en modo claude aunque 'opencode' este presente, y
-#           viceversa), el mensaje de abort indica 'MEFISTO_RUNTIME=claude|opencode'
-#           como remedio;
+#           'claude' aborta en modo claude aunque 'fake' este presente, y
+#           viceversa), el mensaje de abort indica fijar MEFISTO_RUNTIME como
+#           remedio;
 #         - con el CLI presente, el eslabon HEREDA MEFISTO_RUNTIME ya resuelto
 #           (CA-3) -- tanto cuando llega del entorno como cuando el batch lo
 #           AUTODETECTA -- y un fallo en el primer eslabon (--stop-on-error)
@@ -164,10 +164,10 @@ if grep -qF 'mefisto_resolve_runtime' "$CANON_BATCH" && grep -qF 'command -v "$B
 else
     fail "la precondicion no resuelve/verifica el CLI del runtime activo"
 fi
-if grep -qF 'MEFISTO_RUNTIME=claude|opencode' "$CANON_BATCH"; then
-    pass "el mensaje de remedio nombra 'MEFISTO_RUNTIME=claude|opencode'"
+if grep -qF 'Fija MEFISTO_RUNTIME con un runtime instalado.' "$CANON_BATCH"; then
+    pass "el mensaje de remedio pide fijar MEFISTO_RUNTIME con un runtime instalado"
 else
-    fail "el mensaje de remedio no nombra 'MEFISTO_RUNTIME=claude|opencode'"
+    fail "el mensaje de remedio no pide fijar MEFISTO_RUNTIME con un runtime instalado"
 fi
 if grep -qE '^\s*for dep in claude ' "$CANON_BATCH"; then
     fail "la precondicion todavia exige 'claude' a secas (deberia exigir el runtime resuelto)"
@@ -178,7 +178,7 @@ fi
 # -------- Bloque E: corrida real con stubs, dos modos de runtime (CA-6) --------
 
 echo ""
-echo "[E] Corrida real de dos issues con stubs (gh + tooling-pipeline falso), MEFISTO_RUNTIME=claude/opencode (CA-6)"
+echo "[E] Corrida real de dos issues con stubs (gh + tooling-pipeline falso), MEFISTO_RUNTIME=claude/fake (CA-6)"
 
 # setup_fake_repo <dir>
 #
@@ -248,12 +248,12 @@ STUB
 chmod +x "$FAKE_BIN/gh"
 
 # PATH restringido a proposito (NUNCA "$FAKE_BIN:$PATH"): esta maquina de
-# dogfooding tiene 'claude' Y 'opencode' realmente instalados (MEF-ADR-0049),
+# dogfooding tiene 'claude' realmente instalado (MEF-ADR-0049),
 # tipicamente fuera de /usr/bin y /bin -- con el PATH real de fondo, el
 # escenario "CLI ausente" nunca aborta porque 'command -v' sigue buscando mas
 # alla de FAKE_BIN y encuentra el binario real. Solo /usr/bin:/bin:/usr/sbin:/sbin
 # quedan detras de FAKE_BIN: ahi viven git/jq/coreutils (verificado en este
-# entorno), nunca claude/opencode/gh.
+# entorno), nunca claude/gh.
 SAFE_SYSTEM_PATH="/usr/bin:/bin:/usr/sbin:/sbin"
 
 # run_batch <dir> <runtime|""> <args...>
@@ -285,14 +285,14 @@ run_batch() {
 }
 
 # E-1/E-2: el CLI exigido es el ESPECIFICO del runtime resuelto (no "alguno").
-for pair in "claude:opencode" "opencode:claude"; do
+for pair in "claude:fake" "fake:claude"; do
     runtime="${pair%%:*}"
     other="${pair##*:}"
 
     DIR=$(mktemp -d)
     setup_fake_repo "$DIR"
     fake_tooling_pipeline "$DIR" "$TMP/call-log-missing-$runtime" "100"
-    rm -f "$FAKE_BIN/claude" "$FAKE_BIN/opencode"
+    rm -f "$FAKE_BIN/claude" "$FAKE_BIN/fake"
     cat > "$FAKE_BIN/$other" <<STUB
 #!/usr/bin/env bash
 exit 0
@@ -313,8 +313,8 @@ STUB
     else
         fail "E: el mensaje de abort no nombro '$runtime'. stdout: $LAST_STDOUT / stderr: $LAST_STDERR"
     fi
-    if printf '%s\n%s' "$LAST_STDOUT" "$LAST_STDERR" | grep -qF "MEFISTO_RUNTIME=claude|opencode"; then
-        pass "E: el mensaje de abort indica 'MEFISTO_RUNTIME=claude|opencode' como remedio"
+    if printf '%s\n%s' "$LAST_STDOUT" "$LAST_STDERR" | grep -qF "Fija MEFISTO_RUNTIME con un runtime instalado."; then
+        pass "E: el mensaje de abort indica fijar MEFISTO_RUNTIME como remedio"
     else
         fail "E: el mensaje de abort no indico el remedio. stdout: $LAST_STDOUT / stderr: $LAST_STDERR"
     fi
@@ -328,14 +328,14 @@ done
 
 # E-3/E-4: con el CLI presente, un fallo en el primer eslabon (--stop-on-error)
 # detiene la cadena antes del segundo.
-for runtime in claude opencode; do
+for runtime in claude fake; do
     DIR=$(mktemp -d)
     setup_fake_repo "$DIR"
     CALL_LOG="$TMP/call-log-stop-$runtime"
     : > "$CALL_LOG"
     fake_tooling_pipeline "$DIR" "$CALL_LOG" "100"
 
-    rm -f "$FAKE_BIN/claude" "$FAKE_BIN/opencode"
+    rm -f "$FAKE_BIN/claude" "$FAKE_BIN/fake"
     cat > "$FAKE_BIN/$runtime" <<STUB
 #!/usr/bin/env bash
 exit 0
@@ -369,11 +369,11 @@ STUB
     rm -rf "$DIR"
 done
 
-# E-5: MEFISTO_RUNTIME SIN FIJAR -- el batch autodetecta (un unico CLI en PATH)
-# y el eslabon debe recibir ESE runtime igual. Sin el re-export del valor ya
-# resuelto, el hijo volveria a autodetectar por su cuenta y el runtime que el
-# batch anuncia en su cabecera no seria el que ningun eslabon vio.
-for runtime in claude opencode; do
+# E-5: MEFISTO_RUNTIME SIN FIJAR -- el batch autodetecta (un unico runtime
+# disponible) y el eslabon debe recibir ESE runtime igual. Sin el re-export del
+# valor ya resuelto, el hijo volveria a autodetectar por su cuenta y el runtime
+# que el batch anuncia en su cabecera no seria el que ningun eslabon vio.
+for runtime in claude fake; do
     DIR=$(mktemp -d)
     setup_fake_repo "$DIR"
     CALL_LOG="$TMP/call-log-auto-$runtime"
@@ -383,14 +383,19 @@ for runtime in claude opencode; do
     # puede satisfacer.
     fake_tooling_pipeline "$DIR" "$CALL_LOG" "100"
 
-    rm -f "$FAKE_BIN/claude" "$FAKE_BIN/opencode"
+    rm -f "$FAKE_BIN/claude" "$FAKE_BIN/fake"
     cat > "$FAKE_BIN/$runtime" <<STUB
 #!/usr/bin/env bash
 exit 0
 STUB
     chmod +x "$FAKE_BIN/$runtime"
 
-    run_batch "$DIR" "" 100
+    # El adaptador fake solo se declara disponible con MEFISTO_FAKE_AVAILABLE=1.
+    if [ "$runtime" = "fake" ]; then
+        MEFISTO_FAKE_AVAILABLE=1 run_batch "$DIR" "" 100
+    else
+        run_batch "$DIR" "" 100
+    fi
     if grep -qF "100 MEFISTO_RUNTIME=$runtime" "$CALL_LOG"; then
         pass "E (autodeteccion): el eslabon heredo MEFISTO_RUNTIME=$runtime resuelto por el batch"
     else

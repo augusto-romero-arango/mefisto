@@ -323,11 +323,9 @@ STUB
         # corrida contra FAKE_MEFISTO heredaria MEFISTO_STATE_DIR/MEFISTO_REPO_ROOT
         # del proceso PADRE -- escribiendo el estado de esta prueba en el
         # .mefisto/pipeline/ del repo real en vez del clon temporal.
-        # MEFISTO_RUNTIME=claude fijo (issue #910): la autodeteccion de
-        # mefisto_resolve_runtime aborta ambigua si la maquina que corre esta
-        # suite tiene tanto `claude` como `opencode` instalados de verdad en
-        # el PATH real (detras de $FAKE_BIN) -- fijarlo hace la corrida
-        # deterministica sin importar el toolchain del host.
+        # MEFISTO_RUNTIME=claude fijo (issue #910): la corrida no depende de
+        # la autodeteccion de mefisto_resolve_runtime ni del toolchain del
+        # host.
         env -u MEFISTO_STATE_DIR -u MEFISTO_LEGACY_STATE_DIR -u MEFISTO_REPO_ROOT -u MEFISTO_LAUNCH_ROOT \
             -u MEFISTO_PROJECT_NAME -u MEFISTO_REPO_SLUG \
             PATH="$FAKE_BIN:$PATH" MEFISTO_RUNTIME=claude MEFISTO_AGENT_RETRY_BACKOFF_SECONDS=0 \

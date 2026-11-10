@@ -1,12 +1,11 @@
 #!/usr/bin/env bash
-# Contrato del agente historiador neutral y sus dos proyecciones publicadas.
+# Contrato del agente historiador neutral y su proyeccion publicada.
 set -uo pipefail
 export LC_ALL=C
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
 REPO_ROOT="$(cd "$HERE/../../../.." && pwd -P)"
 SOURCE="$REPO_ROOT/src/published/agents/historiador.md"
 CLAUDE="$REPO_ROOT/dist/claude/agents/historiador.md"
-OPENCODE="$REPO_ROOT/dist/opencode/agents/historiador.md"
 MIRROR="$REPO_ROOT/agents/historiador.md"
 GENERATOR="$REPO_ROOT/src/published/scripts/generate-published-adapters.sh"
 PASS=0; FAIL=0
@@ -28,11 +27,8 @@ contains "$body" '{{mefisto:assert-consumer-repo}}' 'guard consumidor presente'
 contains "$body" '{{mefisto:state-path pipeline-history.jsonl}}' 'historial canonico via state-path'
 contains "$body" '{{mefisto:instructions-path}}' 'politica de ramas remite a instructions-path'
 claude_body="$(< "$CLAUDE")"
-opencode_body="$(< "$OPENCODE")"
 contains "$claude_body" 'model: "sonnet"' 'Claude materializa balanced'
-absent "$opencode_body" 'model:' 'OpenCode no emite model'
 contains "$claude_body" 'name: "historiador"' 'Claude expone el id'
-contains "$opencode_body" 'mode: "all"' 'OpenCode conserva mode all'
 
 echo '[b] consolidacion del historial'
 extract_block() {
@@ -47,21 +43,22 @@ run_case() {
     (cd "$dir" && bash -c "$block") 2>/dev/null
     rm -rf "$dir"
 }
-for runtime_body in "$claude_body" "$opencode_body"; do
-    block="$(extract_block "$runtime_body")"
-    [ -n "$block" ] || { fail 'bloque de consolidacion no encontrado'; continue; }
+block="$(extract_block "$claude_body")"
+if [ -n "$block" ]; then
     out="$(run_case 1 1 1)"
     for row in canon legacy-nuevo legacy-viejo; do contains "$out" "\"$row\"" "consolida fila $row"; done
     [ "$(printf '%s\n' "$out" | grep -c '"dup"')" = 1 ] && pass 'fila identica contada una vez' || fail 'fila identica duplicada'
     out="$(run_case 1 0 0)"; contains "$out" '"canon"' 'solo canonico: se lee'
     out="$(run_case 0 1 0)"; contains "$out" '"legacy-nuevo"' 'solo legacy pipeline-history: se lee'
     out="$(run_case 0 0 1)"; contains "$out" '"legacy-viejo"' 'solo legacy history: se lee'
-done
+else
+    fail 'bloque de consolidacion no encontrado'
+fi
 contains "$body" 'HISTORIALES_LEGACY' 'legacy declarado en su propio bloque'
 
 echo '[c] sin CLAUDE.md literal ni tokens de runtime'
 absent "$body" 'CLAUDE.md' 'fuente sin CLAUDE.md literal'
-for forbidden in 'OpenCode' '.opencode/' 'model:' 'tools:' 'allowed-tools:' 'permission:' '.plugin-root' 'CLAUDE_'; do
+for forbidden in 'model:' 'tools:' 'allowed-tools:' 'permission:' '.plugin-root' 'CLAUDE_'; do
     absent "$body" "$forbidden" "fuente sin token de runtime: $forbidden"
 done
 
@@ -72,18 +69,7 @@ contains "$body" 'mergear el PR no es tu trabajo' 'prohibe mergear'
 contains "$body" 'git push -u origin HEAD' 'conserva push'
 contains "$body" 'gh pr create --base main' 'conserva gh pr create'
 
-echo '[e] permisos OpenCode'
-perm_line="$(printf '%s\n' "$opencode_body" | grep -m1 '^permission:')"
-perm_json="${perm_line#permission: }"
-for cmd in 'ls docs/bitacora/field-notes/x.md' 'sed -nE p' 'sort -u' 'gh issue list' 'git log --all' 'git mv a b' 'git symbolic-ref HEAD' 'tail -20 f' 'mkdir -p d' 'mv a b' 'date +%F'; do
-    if printf '%s' "$perm_json" | jq -e --arg c "$cmd" '.bash | to_entries | map(select(.value == "allow" and (.key | gsub("(?<c>[^A-Za-z0-9 *])"; "\\" + .c) | gsub("\\*"; ".*") | "^" + . + "$" | . as $re | $c | test($re)))) | length > 0' >/dev/null 2>&1; then
-        pass "allow para: $cmd"
-    else
-        fail "sin regla allow para: $cmd"
-    fi
-done
-
-echo '[f] mirror'
+echo '[e] mirror'
 if cmp -s "$MIRROR" "$CLAUDE"; then pass 'mirror Claude coincide byte a byte'; else fail 'mirror Claude diverge'; fi
 contains "$(< "$MIRROR")" '<!-- GENERADO por src/published/scripts/generate-published-adapters.sh desde src/published/agents/historiador.md. No editar a mano. -->' 'mirror conserva marcador generado'
 if "$GENERATOR" --check >/dev/null; then pass 'generate-published-adapters --check al dia'; else fail 'generate-published-adapters --check detecto divergencias'; fi

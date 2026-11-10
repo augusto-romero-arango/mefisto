@@ -1,6 +1,7 @@
 # Estado de la portabilidad de Mefisto
 
-Objetivo: que Mefisto corra en macOS, Linux y Windows nativo. Este archivo es la única fuente del
+Objetivo: que Mefisto funcione completo en macOS y Windows nativo, solo con Claude Code. Linux se
+verifica en CI pero no es criterio de cierre. Este archivo es la única fuente del
 avance: cada goal lo lee al empezar y lo actualiza al terminar.
 
 **Portabilidad: en curso** (1 de 7 pasos hechos; verificación en Windows pendiente).
@@ -17,7 +18,7 @@ que es la fuente de verdad. Resumen:
 4. OpenCode sale. Runtime único: Claude Code. Se conservan el contrato de eventos JSONL, la
    interfaz de runtime y la fuente neutral `src/internal/`.
 5. El port es incremental sobre `main`: bash y TypeScript conviven mientras dura.
-6. Un segundo runtime se evalúa solo cuando la portabilidad esté completa.
+6. No hay un segundo runtime en los planes.
 
 ## Reglas de trabajo
 
@@ -57,11 +58,11 @@ Se miden con git desde la raíz del repo. `dist/` queda fuera porque lo regenera
 
 | Id | Qué mide | Línea base (v0.56.0) | Actual | Meta |
 |---|---|---|---|---|
-| M1a | Archivos `.sh` | 408 | 408 | 0 |
-| M1b | Líneas en `.sh` | 104686 | 104686 | 0 |
-| M2 | Archivos `.jq` | 21 | 21 | 0 |
-| M3 | Archivos que mencionan tmux | 96 | 96 | 0 |
-| M4 | Archivos que mencionan OpenCode | 283 | 283 | 0 |
+| M1a | Archivos `.sh` | 408 | 364 | 0 |
+| M1b | Líneas en `.sh` | 104686 | 94501 | 0 |
+| M2 | Archivos `.jq` | 21 | 19 | 0 |
+| M3 | Archivos que mencionan tmux | 96 | 90 | 0 |
+| M4 | Archivos que mencionan OpenCode | 283 | 21 | 2 |
 | M5 | Comandos de `hooks/hooks.json` que no son `node` | 7 de 7 | 7 de 7 | 0 |
 
 ```bash
@@ -79,7 +80,10 @@ git grep -c '"command": "node ' -- hooks/hooks.json
 ```
 
 M3 y M4 admiten una excepción: la sección de control de cambios de un ADR puede nombrar tmux u
-OpenCode. Si al final queda un resto, se lista aquí archivo por archivo.
+OpenCode. Restos aceptados de M4, además de esas secciones:
+
+- `docs/adr/mef-adr-0057-portabilidad-typescript-node.md`: es el ADR que retira OpenCode.
+- `docs/adr/INDICE-TEMATICO.md`: filas históricas que solo consolida `/mefisto-release`.
 
 ## Pasos
 
@@ -88,7 +92,7 @@ Estados: `pendiente`, `en curso`, `hecho`.
 | Paso | Qué | Estado | PR |
 |---|---|---|---|
 | 1 | ADR de portabilidad | hecho | #2547 |
-| 2a | Retirar OpenCode | pendiente | |
+| 2a | Retirar OpenCode | en curso | #2551 (código y tests); falta el de ADRs y `docs/` |
 | 2b | Retirar tmux | pendiente | |
 | 3 | Base TypeScript | pendiente | |
 | 4 | Hooks | pendiente | |
@@ -144,6 +148,9 @@ Alcance: los scripts que no son pipeline ni librería de pipeline, con sus tests
 | 5a | `src/published/scripts/` (76 archivos, 9979 líneas antes de retirar OpenCode) | pendiente | |
 | 5b | `scripts/` que no son pipeline ni `_pipeline-common.sh` | pendiente | |
 | 5c | `src/internal/scripts/` que no son pipeline ni `lib/_mefisto-common.sh` | pendiente | |
+
+Al portar `generate-internal-adapters.sh` se enmienda MEF-ADR-0049, decisión 6 y alternativa a:
+hoy fijan bash + `jq` como toolchain del generador y descartan Node.
 
 Hecho cuando: en esas rutas solo quedan pipelines, sus librerías y shims.
 

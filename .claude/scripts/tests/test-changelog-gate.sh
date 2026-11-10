@@ -78,9 +78,9 @@ for exempt in "docs/bitacora/algo.md" "docs/bitacora/field-notes/2026-x.md" "REA
     fi
 done
 
-# src/internal/, .opencode/** y opencode.json estan en scope (issue #852) pero NO
-# son gobierno: cambiarlos es un cambio de comportamiento y exige fragmento.
-for notable in "commands/x.md" "agents/y.md" "scripts/z.sh" ".claude/scripts/w.sh" "docs/adr/mef-adr-0021-infraestructura-base.md" "hooks/hooks.json" "CHANGELOG.md" "src/internal/x.ts" ".opencode/agents/x.md" "opencode.json"; do
+# src/internal/ esta en scope (issue #852) pero NO es gobierno: cambiarlo es un
+# cambio de comportamiento y exige fragmento.
+for notable in "commands/x.md" "agents/y.md" "scripts/z.sh" ".claude/scripts/w.sh" "docs/adr/mef-adr-0021-infraestructura-base.md" "hooks/hooks.json" "CHANGELOG.md" "src/internal/x.ts"; do
     if is_path_changelog_exempt "$notable"; then
         fail "'$notable' deberia ser NOTABLE (exige fragmento)"
     else

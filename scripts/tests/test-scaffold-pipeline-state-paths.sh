@@ -57,7 +57,7 @@ case "$1 $2" in
 esac
 exit 0
 STUB
-    printf '#!/usr/bin/env bash\nexit 0\n' > "$bin/opencode"
+    printf '#!/usr/bin/env bash\nexit 0\n' > "$bin/claude"
     cat > "$base/run-agent.sh" <<'STUB'
 #!/usr/bin/env bash
 cwd="" event_log=""
@@ -76,14 +76,14 @@ printf 'estado del agente\n' > "$cwd/.mefisto/pipeline/summaries/stage-1.md"
 printf '%s\n' '{"type":"run.completed","status":"success","session_id":"s","denials":0,"error":null}' > "$event_log"
 exit 0
 STUB
-    chmod +x "$bin/gh" "$bin/opencode" "$base/run-agent.sh"
+    chmod +x "$bin/gh" "$bin/claude" "$base/run-agent.sh"
 }
 
 run_case() {
     local base="$1"; shift
     ( cd "$base/work" || exit 99
       env -i HOME="$HOME" PATH="$base/bin:$SAFE_SYSTEM_PATH" \
-          MEFISTO_RUNTIME=opencode MEFISTO_RUN_AGENT_BIN="$base/run-agent.sh" \
+          MEFISTO_RUNTIME=claude MEFISTO_RUN_AGENT_BIN="$base/run-agent.sh" \
           "$@" ./scripts/scaffold-pipeline.sh --domain prueba )
 }
 
@@ -96,7 +96,7 @@ ls "$C"/logs/scaffold-*.log >/dev/null 2>&1 && pass "log principal bajo .mefisto
 ls "$C"/logs/scaffold-agent-*.log >/dev/null 2>&1 && pass "log del agente bajo .mefisto/pipeline/logs/" || fail "falta log del agente"
 [ -f "$C/events.log" ] && pass "events.log bajo .mefisto/pipeline/" || fail "falta events.log"
 if [ -s "$C/pipeline-history.jsonl" ] \
-    && jq -e '.pipeline=="scaffold" and .domain=="prueba" and .runtime=="opencode" and .state=="completed" and (.pr|length>0)' "$C/pipeline-history.jsonl" >/dev/null 2>&1; then
+    && jq -e '.pipeline=="scaffold" and .domain=="prueba" and .runtime=="claude" and .state=="completed" and (.pr|length>0)' "$C/pipeline-history.jsonl" >/dev/null 2>&1; then
     pass "pipeline-history.jsonl con fila scaffold"
 else
     fail "historial ausente o invalido: $(cat "$C/pipeline-history.jsonl" 2>/dev/null)"

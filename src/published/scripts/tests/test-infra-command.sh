@@ -1,12 +1,11 @@
 #!/usr/bin/env bash
-# Contrato del comando infra neutral y sus dos proyecciones publicadas.
+# Contrato del comando infra neutral y su proyeccion publicada.
 set -uo pipefail
 export LC_ALL=C
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
 REPO_ROOT="$(cd "$HERE/../../../.." && pwd -P)"
 SOURCE="$REPO_ROOT/src/published/commands/infra.md"
 CLAUDE="$REPO_ROOT/dist/claude/commands/infra.md"
-OPENCODE="$REPO_ROOT/dist/opencode/commands/mefisto:infra.md"
 MIRROR="$REPO_ROOT/commands/infra.md"
 GENERATOR="$REPO_ROOT/src/published/scripts/generate-published-adapters.sh"
 PASS=0; FAIL=0
@@ -46,44 +45,27 @@ contains "$body" 'terraform plan' 'documenta que no se ejecuta terraform plan'
 contains "$body" 'No esperes a que termine' 'regla: no esperar'
 contains "$body" 'No implementes nada tu mismo' 'regla: no implementar'
 contains "$body" 'Si tmux no esta instalado' 'documenta deteccion de tmux ausente'
-for forbidden in 'Claude' 'OpenCode' '.claude/' '.opencode/' 'cache' 'model:' 'tools:' 'allowed-tools:' 'permission:' '.plugin-root' 'CLAUDE_' 'plugins/cache'; do absent "$body" "$forbidden" "fuente no publica token prohibido: $forbidden"; done
+for forbidden in 'Claude' '.claude/' 'cache' 'model:' 'tools:' 'allowed-tools:' 'permission:' '.plugin-root' 'CLAUDE_' 'plugins/cache'; do absent "$body" "$forbidden" "fuente no publica token prohibido: $forbidden"; done
 
-echo '[salidas] adaptadores y mirror'
-for file in "$CLAUDE" "$OPENCODE"; do [ -f "$file" ] && pass "existe ${file#"$REPO_ROOT/"}" || fail "falta ${file#"$REPO_ROOT/"}"; done
+echo '[salidas] adaptador y mirror'
+[ -f "$CLAUDE" ] && pass "existe ${CLAUDE#"$REPO_ROOT/"}" || fail "falta ${CLAUDE#"$REPO_ROOT/"}"
 claude_body="$(< "$CLAUDE")"
-opencode_body="$(< "$OPENCODE")"
 contains "$claude_body" 'MEFISTO_RUNTIME=claude "${MEFISTO_PACKAGE_ROOT}/scripts/tmux-pipeline.sh" --infra $ARGUMENTS' 'Claude invoca tmux-pipeline.sh --infra y fija su runtime'
-absent "$claude_body" 'MEFISTO_RUNTIME=opencode' 'Claude no fija el runtime OpenCode'
-contains "$opencode_body" 'MEFISTO_RUNTIME=opencode "${MEFISTO_PACKAGE_ROOT}/scripts/tmux-pipeline.sh" --infra $ARGUMENTS' 'OpenCode invoca tmux-pipeline.sh --infra y fija su runtime'
-absent "$opencode_body" 'MEFISTO_RUNTIME=claude' 'OpenCode no fija el runtime Claude'
 contains "$claude_body" 'model: "haiku"' 'Claude materializa el perfil fast'
-absent "$opencode_body" 'model:' 'OpenCode no emite model'
 absent "$claude_body" "work-status" "no remite a work-status"
-absent "$opencode_body" "work-status" "no remite a work-status"
 contains "$claude_body" '/mefisto:implement' 'Claude resuelve la directiva command a /mefisto:implement'
-contains "$opencode_body" '/mefisto:implement' 'OpenCode resuelve la directiva command a /mefisto:implement'
 contains "$claude_body" '/mefisto:tooling' 'Claude resuelve la directiva command a /mefisto:tooling'
-contains "$opencode_body" '/mefisto:tooling' 'OpenCode resuelve la directiva command a /mefisto:tooling'
 claude_invocation="$(printf '%s\n' "$claude_body" | grep -F 'scripts/tmux-pipeline.sh" --infra')"
-opencode_invocation="$(printf '%s\n' "$opencode_body" | grep -F 'scripts/tmux-pipeline.sh" --infra')"
 for forbidden_path in '.claude/pipeline/.plugin-root' 'plugins/cache'; do
     absent "$claude_invocation" "$forbidden_path" "invocacion Claude no reimplementa el lookup legacy ($forbidden_path)"
-    absent "$opencode_invocation" "$forbidden_path" "invocacion OpenCode no reimplementa el lookup legacy ($forbidden_path)"
 done
-absent "$opencode_body" '.claude/pipeline/.plugin-root' 'salida OpenCode completa sin marcador Claude'
-absent "$opencode_body" 'plugins/cache' 'salida OpenCode completa sin cache de plugins'
 if cmp -s "$MIRROR" "$CLAUDE"; then pass 'mirror Claude coincide byte a byte'; else fail 'mirror Claude diverge'; fi
 contains "$(< "$MIRROR")" '<!-- GENERADO por src/published/scripts/generate-published-adapters.sh desde src/published/commands/infra.md. No editar a mano. -->' 'mirror conserva marcador generado'
 
 echo '[assets] iac-pipeline.sh empaquetado'
 if [ -x "$REPO_ROOT/dist/claude/scripts/iac-pipeline.sh" ]; then pass 'iac-pipeline.sh empaquetado en dist/claude/scripts'; else fail 'falta dist/claude/scripts/iac-pipeline.sh'; fi
-if [ -x "$REPO_ROOT/dist/opencode/scripts/iac-pipeline.sh" ]; then pass 'iac-pipeline.sh empaquetado en dist/opencode/scripts'; else fail 'falta dist/opencode/scripts/iac-pipeline.sh'; fi
-if cmp -s "$REPO_ROOT/scripts/iac-pipeline.sh" "$REPO_ROOT/dist/opencode/scripts/iac-pipeline.sh"; then pass 'dist/opencode/scripts/iac-pipeline.sh identico a la fuente'; else fail 'dist/opencode/scripts/iac-pipeline.sh diverge de la fuente'; fi
 if cmp -s "$REPO_ROOT/scripts/iac-pipeline.sh" "$REPO_ROOT/dist/claude/scripts/iac-pipeline.sh"; then pass 'dist/claude/scripts/iac-pipeline.sh identico a la fuente'; else fail 'dist/claude/scripts/iac-pipeline.sh diverge de la fuente'; fi
-for runtime in claude opencode; do
-    inventory="$REPO_ROOT/dist/$runtime/.mefisto-generated-assets.json"
-    if jq -e '.assets[] | select(.destination == "scripts/iac-pipeline.sh")' "$inventory" >/dev/null 2>&1; then pass "scripts/iac-pipeline.sh en el inventario de dist/$runtime"; else fail "scripts/iac-pipeline.sh ausente del inventario de dist/$runtime"; fi
-done
+if jq -e '.assets[] | select(.destination == "scripts/iac-pipeline.sh")' "$REPO_ROOT/dist/claude/.mefisto-generated-assets.json" >/dev/null 2>&1; then pass 'scripts/iac-pipeline.sh en el inventario de dist/claude'; else fail 'scripts/iac-pipeline.sh ausente del inventario de dist/claude'; fi
 if "$GENERATOR" --check >/dev/null; then pass 'generate-published-adapters --check esta al dia'; else fail 'generate-published-adapters --check detecto divergencias'; fi
 
 printf 'RESULTADO: %s pasaron, %s fallaron\n' "$PASS" "$FAIL"

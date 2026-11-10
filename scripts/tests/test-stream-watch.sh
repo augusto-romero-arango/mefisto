@@ -47,7 +47,7 @@ render_file() {
     process_new_lines "$stream" >> "$out"
 }
 
-echo "[A] Protocolo neutral Claude/OpenCode y redaccion"
+echo "[A] Protocolo neutral y redaccion"
 CLAUDE="$MEFISTO_STATE_DIR/logs/tooling-stage-1-writer-20260908-100000-issue-1123.events.jsonl"
 cp "$SCRIPT_DIR/fixtures/stream-watch/neutral-claude.events.jsonl" "$CLAUDE"
 cat "$SCRIPT_DIR/fixtures/stream-watch/neutral-sensitive-unknown.events.jsonl" >> "$CLAUDE"
@@ -63,11 +63,11 @@ for secret in SECRETO-no-mostrar input_summary prompt Authorization Bearer token
 done
 [ "$TERMINAL_COUNT" -eq 1 ] && pass "cuenta exactamente un terminal" || fail "terminales=$TERMINAL_COUNT"
 
-OPEN="$MEFISTO_STATE_DIR/logs/tooling-stage-2-reviewer-20260908-110000-issue-1124.events.jsonl"
-cp "$SCRIPT_DIR/fixtures/stream-watch/neutral-opencode-failed.events.jsonl" "$OPEN"
-render_file "$OPEN" "$TMP/open.out"
-OUT=$(<"$TMP/open.out")
-assert_contains "$OUT" "runtime opencode | agente reviewer" "encabezado OpenCode neutral"
+FAILED="$MEFISTO_STATE_DIR/logs/tooling-stage-2-reviewer-20260908-110000-issue-1124.events.jsonl"
+cp "$SCRIPT_DIR/fixtures/stream-watch/neutral-failed.events.jsonl" "$FAILED"
+render_file "$FAILED" "$TMP/failed.out"
+OUT=$(<"$TMP/failed.out")
+assert_contains "$OUT" "runtime fake | agente reviewer" "encabezado neutral de otro runtime"
 assert_contains "$OUT" "resultado=failed" "renderiza terminal fallido"
 assert_contains "$OUT" "La corrida no termino con exito" "un fallo no aparenta exito"
 assert_absent "$OUT" "SECRETO-no-mostrar" "omite error.detail"
@@ -114,7 +114,7 @@ cp "$SCRIPT_DIR/fixtures/stream-watch/legacy-claude.stream.jsonl" "$LEGACY_NEW"
 touch -t 202609081200 "$LEGACY_NEW"
 touch -t 202609081000 "$CLAUDE"
 FOUND=$(discover_stream)
-[ "$FOUND" = "$OPEN" ] || [ "$FOUND" = "$CLAUDE" ] && pass "consulta root canonico antes que legacy" || fail "descubrio $FOUND"
+[ "$FOUND" = "$FAILED" ] || [ "$FOUND" = "$CLAUDE" ] && pass "consulta root canonico antes que legacy" || fail "descubrio $FOUND"
 
 # Sin canonico, un neutral legacy emparejado gana al Claude del mismo stem.
 rm "$MEFISTO_STATE_DIR/logs"/*.events.jsonl
@@ -146,7 +146,7 @@ assert_contains "$(<"$TMP/rotation.out")" "stream anterior quedo truncado" "rota
 
 echo "[D] Ruta manual, paths con espacios y solo lectura"
 MANUAL="$TMP/ruta manual con espacios.events.jsonl"
-cp "$SCRIPT_DIR/fixtures/stream-watch/neutral-opencode-failed.events.jsonl" "$MANUAL"
+cp "$SCRIPT_DIR/fixtures/stream-watch/neutral-failed.events.jsonl" "$MANUAL"
 BEFORE=$(shasum "$MANUAL" | cut -d' ' -f1)
 render_file "$MANUAL" "$TMP/manual.out"
 AFTER=$(shasum "$MANUAL" | cut -d' ' -f1)

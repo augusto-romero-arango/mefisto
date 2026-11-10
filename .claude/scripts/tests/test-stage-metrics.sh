@@ -5,7 +5,7 @@
 #
 # Contexto: con el puente del issue #906, `run_agent` ya escribe
 # `<log_base>.events.jsonl` traduciendo la traza cruda de cualquier runtime
-# (Claude Code, OpenCode) al vocabulario cerrado de
+# al vocabulario cerrado de
 # src/runtime/contract/run-events.schema.json, y la clasificacion de
 # fallos ya lee solo ese archivo. Este issue termina la migracion: las dos
 # funciones de METRICAS de _mefisto-common.sh dejan de nombrar nada propio
@@ -56,17 +56,14 @@
 #       `$stream_file` (la traza cruda); las dos entradas de historial
 #       (completed y la de abort) pasan por build_agents_history_json; las
 #       metricas se cosechan por stage y no por nombre de agente.
-#   [M] Paridad Claude/OpenCode -- exito con tool calls (CA-4): las metricas
-#       derivadas de `runtime_claude_translate` sobre
-#       fixtures/runtime-claude/success.jsonl y de
-#       `runtime_opencode_translate` sobre
-#       fixtures/runtime-opencode/success-tool-1.18.29.jsonl coinciden en
-#       `status` y en la forma de `tool_calls[].name/count` (nombres propios
-#       de cada runtime); las cifras exclusivas de Claude (ttft_ms, turns,
-#       api_duration_ms) salen null en OpenCode sin invalidar nada.
-#   [N] Paridad Claude/OpenCode -- fallo api_error y timeout (CA-4):
-#       terminales neutrales escritos inline conforme al schema, con
-#       runtime:"claude" y runtime:"opencode", producen el mismo
+#   [M] Exito con tool calls sobre el fixture real de Claude (CA-4): las
+#       metricas derivadas de `runtime_claude_translate` sobre
+#       fixtures/runtime-claude/success.jsonl traen `status`, la forma de
+#       `tool_calls[].name/count` y las cifras ttft_ms, turns y
+#       api_duration_ms.
+#   [N] Fallo api_error y timeout (CA-4): terminales neutrales escritos
+#       inline conforme al schema, con las cifras pobladas (runtime:"claude")
+#       y con todas en null (runtime:"fake"), producen el mismo
 #       status/error_kind.
 #   [O] Guarda de neutralidad (CA-1): el CUERPO de compute_stage_metrics no
 #       nombra el vocabulario de Claude Code. Los bloques A-N verifican el
@@ -85,7 +82,6 @@ REPO_ROOT="$(cd "$SCRIPT_DIR/../../.." && pwd)"
 LIB_DIR="$REPO_ROOT/src/internal/scripts/lib"
 RUNTIME_LIB_DIR="$REPO_ROOT/src/runtime/lib"
 FIXTURES_CLAUDE="$SCRIPT_DIR/fixtures/runtime-claude"
-FIXTURES_OPENCODE="$SCRIPT_DIR/fixtures/runtime-opencode"
 
 PASS=0
 FAIL=0
@@ -96,8 +92,6 @@ fail() { echo "  FAIL: $1"; FAIL=$((FAIL+1)); }
 source "$REPO_ROOT/.claude/scripts/_mefisto-common.sh" 2>/dev/null
 # shellcheck source=/dev/null
 source "$RUNTIME_LIB_DIR/runtime-claude.sh" 2>/dev/null
-# shellcheck source=/dev/null
-source "$RUNTIME_LIB_DIR/runtime-opencode.sh" 2>/dev/null
 
 TMP=$(mktemp -d)
 cleanup() { rm -rf "$TMP"; }
@@ -274,7 +268,7 @@ echo ""
 echo "[F] estimated_cost_usd:0 se preserva; cost_usd legacy no se rebautiza"
 
 cat > "$TMP/f-events.jsonl" <<'EOF'
-{"v":1,"type":"run.completed","ts":"2026-07-27T22:09:30.000Z","status":"success","runtime":"opencode","model":null,"session_id":null,"duration_ms":500,"tokens":{"input":10,"output":5,"cache_read":null,"cache_write":null,"reasoning":null},"estimated_cost_usd":0,"turns":null,"denials":null,"ttft_ms":null,"api_duration_ms":null,"error":null}
+{"v":1,"type":"run.completed","ts":"2026-07-27T22:09:30.000Z","status":"success","runtime":"fake","model":null,"session_id":null,"duration_ms":500,"tokens":{"input":10,"output":5,"cache_read":null,"cache_write":null,"reasoning":null},"estimated_cost_usd":0,"turns":null,"denials":null,"ttft_ms":null,"api_duration_ms":null,"error":null}
 EOF
 
 F_OUT=$(compute_stage_metrics "$TMP/f-events.jsonl")
@@ -286,7 +280,7 @@ else
 fi
 
 cat > "$TMP/f-legacy-events.jsonl" <<'EOF'
-{"v":1,"type":"run.completed","ts":"2026-07-27T22:09:30.000Z","status":"success","runtime":"opencode","model":null,"session_id":null,"duration_ms":500,"tokens":{"input":10,"output":5},"cost_usd":0,"turns":null,"denials":null,"ttft_ms":null,"api_duration_ms":null,"error":null}
+{"v":1,"type":"run.completed","ts":"2026-07-27T22:09:30.000Z","status":"success","runtime":"fake","model":null,"session_id":null,"duration_ms":500,"tokens":{"input":10,"output":5},"cost_usd":0,"turns":null,"denials":null,"ttft_ms":null,"api_duration_ms":null,"error":null}
 EOF
 
 F_LEGACY_OUT=$(compute_stage_metrics "$TMP/f-legacy-events.jsonl")
@@ -436,89 +430,70 @@ else
     fail "L-5: las metricas se cosechan por nombre de agente -- un merge fallido pisaria las del writer"
 fi
 
-# -------- Bloque M: paridad Claude/OpenCode -- exito con tool calls --------
+# -------- Bloque M: exito con tool calls sobre el fixture real de Claude --------
 
 echo ""
-echo "[M] Paridad Claude/OpenCode: exito con tools (CA-4)"
+echo "[M] Fixture real de Claude: exito con tools (CA-4)"
 
-for fn in runtime_claude_translate runtime_opencode_translate; do
-    if ! declare -F "$fn" >/dev/null; then
-        fail "M-pre: $fn NO definida (falta sourcear runtime-claude.sh/runtime-opencode.sh)"
-    fi
-done
+if ! declare -F runtime_claude_translate >/dev/null; then
+    fail "M-pre: runtime_claude_translate NO definida (falta sourcear runtime-claude.sh)"
+fi
 
 M_CLAUDE_EVENTS="$TMP/m-claude-events.jsonl"
 runtime_claude_translate "$FIXTURES_CLAUDE/success.jsonl" "claude" "claude-sonnet-5" "0" "" > "$M_CLAUDE_EVENTS"
 
-M_OPENCODE_EVENTS="$TMP/m-opencode-events.jsonl"
-runtime_opencode_translate "$FIXTURES_OPENCODE/success-tool-1.18.29.jsonl" "opencode" "opencode/some-model" "0" "" > "$M_OPENCODE_EVENTS"
-
 M_CLAUDE_OUT=$(compute_stage_metrics "$M_CLAUDE_EVENTS")
-M_OPENCODE_OUT=$(compute_stage_metrics "$M_OPENCODE_EVENTS")
 
-assert_field "M-1: status coincide entre runtimes (claude)" "success" "$(echo "$M_CLAUDE_OUT" | jq -r '.status')"
-assert_field "M-2: status coincide entre runtimes (opencode)" "success" "$(echo "$M_OPENCODE_OUT" | jq -r '.status')"
+assert_field "M-1: status success" "success" "$(echo "$M_CLAUDE_OUT" | jq -r '.status')"
+assert_field "M-2: tool_calls trae el nombre propio del runtime (Read)" "Read" "$(echo "$M_CLAUDE_OUT" | jq -r '.tool_calls[0].name')"
+assert_field "M-3: tool_calls[0].count" "1" "$(echo "$M_CLAUDE_OUT" | jq -r '.tool_calls[0].count')"
 
-assert_field "M-3: claude tool_calls trae el nombre propio de su runtime (Read)" "Read" "$(echo "$M_CLAUDE_OUT" | jq -r '.tool_calls[0].name')"
-assert_field "M-4: claude tool_calls[0].count" "1" "$(echo "$M_CLAUDE_OUT" | jq -r '.tool_calls[0].count')"
-assert_field "M-5: opencode tool_calls trae el nombre propio de su runtime (glob)" "glob" "$(echo "$M_OPENCODE_OUT" | jq -r '.tool_calls[0].name')"
-assert_field "M-6: opencode tool_calls[0].count" "1" "$(echo "$M_OPENCODE_OUT" | jq -r '.tool_calls[0].count')"
-
-if echo "$M_CLAUDE_OUT" | jq -e '.tool_calls[0] | has("name") and has("count") and has("duration_ms_sum") and has("duration_ms_median")' >/dev/null 2>&1 \
-   && echo "$M_OPENCODE_OUT" | jq -e '.tool_calls[0] | has("name") and has("count") and has("duration_ms_sum") and has("duration_ms_median")' >/dev/null 2>&1; then
-    pass "M-7: ambos tool_calls[0] tienen la misma forma (name/count/duration_ms_sum/duration_ms_median)"
+if echo "$M_CLAUDE_OUT" | jq -e '.tool_calls[0] | has("name") and has("count") and has("duration_ms_sum") and has("duration_ms_median")' >/dev/null 2>&1; then
+    pass "M-4: tool_calls[0] tiene la forma name/count/duration_ms_sum/duration_ms_median"
 else
-    fail "M-7: la forma de tool_calls difiere entre runtimes: claude=$M_CLAUDE_OUT opencode=$M_OPENCODE_OUT"
+    fail "M-4: forma inesperada de tool_calls: $M_CLAUDE_OUT"
 fi
 
-# Cifras exclusivas de Claude Code: presentes ahi, null en OpenCode (el wire
-# format de OpenCode 1.18.29 no las trae -- ver runtime-opencode.jq).
 if echo "$M_CLAUDE_OUT" | jq -e '.ttft_ms != null and .turns != null and .api_duration_ms != null' >/dev/null 2>&1; then
-    pass "M-8: claude preserva ttft_ms/turns/api_duration_ms (no null)"
+    pass "M-5: preserva ttft_ms/turns/api_duration_ms (no null)"
 else
-    fail "M-8: claude perdio ttft_ms/turns/api_duration_ms: $M_CLAUDE_OUT"
+    fail "M-5: se perdieron ttft_ms/turns/api_duration_ms: $M_CLAUDE_OUT"
 fi
 
-if echo "$M_OPENCODE_OUT" | jq -e '.ttft_ms == null and .turns == null and .api_duration_ms == null' >/dev/null 2>&1; then
-    pass "M-9: opencode deja ttft_ms/turns/api_duration_ms en null sin invalidar el resto"
-else
-    fail "M-9: opencode deberia dejar ttft_ms/turns/api_duration_ms en null: $M_OPENCODE_OUT"
-fi
-
-# -------- Bloque N: paridad Claude/OpenCode -- fallo api_error y timeout --------
+# -------- Bloque N: fallo api_error y timeout, cifras pobladas o en null --------
 
 echo ""
-echo "[N] Paridad Claude/OpenCode: fallo api_error y timeout (CA-4)"
+echo "[N] Fallo api_error y timeout: mismo status/error_kind con cifras pobladas o en null (CA-4)"
 
 cat > "$TMP/n-api-claude-events.jsonl" <<'EOF'
 {"v":1,"type":"run.failed","ts":"2026-09-06T10:00:00Z","status":"failed","runtime":"claude","model":"claude-sonnet-5","session_id":"sess-1","duration_ms":45000,"tokens":{"input":100,"output":20},"cost_usd":0.05,"turns":3,"denials":0,"ttft_ms":500,"api_duration_ms":40000,"error":{"kind":"api_error","detail":"API Error: 529"}}
 EOF
-cat > "$TMP/n-api-opencode-events.jsonl" <<'EOF'
-{"v":1,"type":"run.failed","ts":"2026-09-06T10:00:00Z","status":"failed","runtime":"opencode","model":null,"session_id":null,"duration_ms":12000,"tokens":{"input":null,"output":null},"cost_usd":null,"turns":null,"denials":null,"ttft_ms":null,"api_duration_ms":null,"error":{"kind":"api_error","detail":"el proceso de OpenCode termino con exit 1"}}
+cat > "$TMP/n-api-null-events.jsonl" <<'EOF'
+{"v":1,"type":"run.failed","ts":"2026-09-06T10:00:00Z","status":"failed","runtime":"fake","model":null,"session_id":null,"duration_ms":12000,"tokens":{"input":null,"output":null},"cost_usd":null,"turns":null,"denials":null,"ttft_ms":null,"api_duration_ms":null,"error":{"kind":"api_error","detail":"el proceso termino con exit 1"}}
 EOF
 
 N_API_CLAUDE_OUT=$(compute_stage_metrics "$TMP/n-api-claude-events.jsonl")
-N_API_OPENCODE_OUT=$(compute_stage_metrics "$TMP/n-api-opencode-events.jsonl")
+N_API_NULL_OUT=$(compute_stage_metrics "$TMP/n-api-null-events.jsonl")
 
-assert_field "N-1: status api_error coincide (claude)" "failed" "$(echo "$N_API_CLAUDE_OUT" | jq -r '.status')"
-assert_field "N-2: status api_error coincide (opencode)" "failed" "$(echo "$N_API_OPENCODE_OUT" | jq -r '.status')"
-assert_field "N-3: error_kind api_error coincide (claude)" "api_error" "$(echo "$N_API_CLAUDE_OUT" | jq -r '.error_kind')"
-assert_field "N-4: error_kind api_error coincide (opencode)" "api_error" "$(echo "$N_API_OPENCODE_OUT" | jq -r '.error_kind')"
+assert_field "N-1: status api_error (cifras pobladas)" "failed" "$(echo "$N_API_CLAUDE_OUT" | jq -r '.status')"
+assert_field "N-2: status api_error (cifras en null)" "failed" "$(echo "$N_API_NULL_OUT" | jq -r '.status')"
+assert_field "N-3: error_kind api_error (cifras pobladas)" "api_error" "$(echo "$N_API_CLAUDE_OUT" | jq -r '.error_kind')"
+assert_field "N-4: error_kind api_error (cifras en null)" "api_error" "$(echo "$N_API_NULL_OUT" | jq -r '.error_kind')"
 
 cat > "$TMP/n-timeout-claude-events.jsonl" <<'EOF'
 {"v":1,"type":"run.failed","ts":"2026-09-06T10:05:00Z","status":"timeout","runtime":"claude","model":"claude-sonnet-5","session_id":null,"duration_ms":1800000,"tokens":{"input":null,"output":null},"cost_usd":null,"turns":null,"denials":null,"ttft_ms":null,"api_duration_ms":null,"error":{"kind":"timeout","detail":"el watchdog mato el proceso tras superar 1800s"}}
 EOF
-cat > "$TMP/n-timeout-opencode-events.jsonl" <<'EOF'
-{"v":1,"type":"run.failed","ts":"2026-09-06T10:05:00Z","status":"timeout","runtime":"opencode","model":null,"session_id":null,"duration_ms":1800000,"tokens":{"input":null,"output":null},"cost_usd":null,"turns":null,"denials":null,"ttft_ms":null,"api_duration_ms":null,"error":{"kind":"timeout","detail":"el watchdog mato el proceso tras superar 1800s"}}
+cat > "$TMP/n-timeout-null-events.jsonl" <<'EOF'
+{"v":1,"type":"run.failed","ts":"2026-09-06T10:05:00Z","status":"timeout","runtime":"fake","model":null,"session_id":null,"duration_ms":1800000,"tokens":{"input":null,"output":null},"cost_usd":null,"turns":null,"denials":null,"ttft_ms":null,"api_duration_ms":null,"error":{"kind":"timeout","detail":"el watchdog mato el proceso tras superar 1800s"}}
 EOF
 
 N_TIMEOUT_CLAUDE_OUT=$(compute_stage_metrics "$TMP/n-timeout-claude-events.jsonl")
-N_TIMEOUT_OPENCODE_OUT=$(compute_stage_metrics "$TMP/n-timeout-opencode-events.jsonl")
+N_TIMEOUT_NULL_OUT=$(compute_stage_metrics "$TMP/n-timeout-null-events.jsonl")
 
-assert_field "N-5: status timeout coincide (claude)" "timeout" "$(echo "$N_TIMEOUT_CLAUDE_OUT" | jq -r '.status')"
-assert_field "N-6: status timeout coincide (opencode)" "timeout" "$(echo "$N_TIMEOUT_OPENCODE_OUT" | jq -r '.status')"
-assert_field "N-7: error_kind timeout coincide (claude)" "timeout" "$(echo "$N_TIMEOUT_CLAUDE_OUT" | jq -r '.error_kind')"
-assert_field "N-8: error_kind timeout coincide (opencode)" "timeout" "$(echo "$N_TIMEOUT_OPENCODE_OUT" | jq -r '.error_kind')"
+assert_field "N-5: status timeout (cifras pobladas)" "timeout" "$(echo "$N_TIMEOUT_CLAUDE_OUT" | jq -r '.status')"
+assert_field "N-6: status timeout (cifras en null)" "timeout" "$(echo "$N_TIMEOUT_NULL_OUT" | jq -r '.status')"
+assert_field "N-7: error_kind timeout (cifras pobladas)" "timeout" "$(echo "$N_TIMEOUT_CLAUDE_OUT" | jq -r '.error_kind')"
+assert_field "N-8: error_kind timeout (cifras en null)" "timeout" "$(echo "$N_TIMEOUT_NULL_OUT" | jq -r '.error_kind')"
 
 # -------- Bloque O: guarda de neutralidad del cuerpo de la funcion --------
 
