@@ -104,9 +104,11 @@ acotado al diff**, donde rige la frontera de la seccion 3.
 1. **Mide antes**: cuenta lineas de comentario por archivo para poder reportar el antes y el
    despues.
 2. **Aplica el criterio** de las secciones 1 y 3 comentario por comentario, sin borrar por patron.
-3. **Verifica con el parser del lenguaje que solo cambiaron comentarios**: compara el arbol
-   sintactico o la salida compilada antes y despues (p. ej. el build de C#, `bash -n`, el
-   `terraform validate`, el typecheck). Un cambio en algo que no sea comentario es un error.
+3. **Verifica con el parser del lenguaje que solo cambiaron comentarios**: el arbol sintactico
+   sin comentarios debe ser identico antes y despues (en C#, Roslyn modela los comentarios como
+   trivia). Donde no haya como comparar el arbol, el diff solo toca lineas de comentario y la
+   verificacion de la seccion 3 sigue en verde. Un cambio en algo que no sea comentario es un
+   error.
 4. **Haz una segunda pasada sobre lo borrado**, buscando lo que una poda apresurada pierde:
    unidades, formatos, el significado de `null`, avisos "si cambias...", URLs de API externa y
    marcas "sin verificar". Lo que aparezca se restaura, acortado.

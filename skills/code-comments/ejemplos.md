@@ -68,19 +68,16 @@ public class TenantResolverHibrido : ITenantContext
 
 ### Precision que la firma no da (se queda, en una frase)
 
-Unidad, formato, significado de `null` y limite inclusivo o exclusivo no se leen en el tipo.
+El significado de `null` y si un limite es inclusivo o exclusivo no se leen en el tipo. Una
+unidad que cabe en el nombre va en el nombre (ver el ejemplo siguiente).
 
 ```csharp
 // Mal
-public decimal Valor { get; init; }
 public DateTimeOffset? Hasta { get; init; }
 ```
 
 ```csharp
 // Bien
-/// <summary>Centavos de COP.</summary>
-public decimal Valor { get; init; }
-
 // null = vigencia sin fin; el limite es exclusivo.
 public DateTimeOffset? Hasta { get; init; }
 ```
@@ -152,17 +149,26 @@ using OpenTelemetry.Trace;
 
 ### Un porque de topologia (se queda)
 
-La topologia de enrutamiento vive en los comentarios HCL (MEF-ADR-0027), por eso es blindado y
-ademas lleva el porque que el recurso no muestra.
+Modulo `service-bus` de `agents/infra-base-scaffolder.md`. La topologia de enrutamiento vive en
+los comentarios HCL (MEF-ADR-0027), asi que el comentario es blindado y ademas lleva el porque que
+el recurso no muestra: sin el, un productor que deja la clave solo en el body nunca entrega.
 
 ```hcl
 # Bien
-# Un filtro por correlation_id y no por subject: el emisor solo conoce el id del destinatario,
-# y dos suscripciones del mismo topic no pueden compartir el filtro sin duplicar la entrega.
-resource "azurerm_servicebus_subscription_rule" "turnos" {
-  name            = "turnos"
-  subscription_id = azurerm_servicebus_subscription.turnos.id
+resource "azurerm_servicebus_subscription_rule" "correlation_filters" {
+  for_each = {
+    for k, v in local.subscriptions_map : k => v
+    if v.correlation_filter != null
+  }
+  name            = "correlation-filter"
+  subscription_id = azurerm_servicebus_subscription.subs[each.key].id
   filter_type     = "CorrelationFilter"
+
+  # El filtro no evalua el body: el productor estampa la clave de enrutamiento como application
+  # property al publicar (MEF-ADR-0027).
+  correlation_filter {
+    properties = each.value.correlation_filter
+  }
 }
 ```
 
@@ -187,7 +193,7 @@ resource "azurerm_resource_group" "dominio" {
 
 ## bash
 
-### Narracion de pasos (se borra) y porque de un orden (se queda)
+### Narracion de pasos (se borra) y un porque que la linea no dice (se queda)
 
 ```bash
 # Mal
@@ -210,11 +216,26 @@ rm -f "$TMP"
 set -o pipefail
 ```
 
-### Dependencia (se queda)
+### Comentario largo que se acorta (se queda lo no obvio)
+
+Basado en `scripts/setup-github-ci.sh`. El porque se queda y la URL tambien, porque el
+comportamiento de la API externa sorprende; la lista de que workflow usa cada credencial se lee
+en las llamadas de abajo.
 
 ```bash
-# Si cambias este patron, cambia tambien SKILL_ID_PATTERN en scripts/lib/skills.sh.
-readonly ID_PATTERN='^[a-z][a-z0-9-]{1,63}$'
+# Mal
+# 5. Federated credentials para GitHub Actions OIDC. Ahora creamos las dos credenciales que
+#    necesita el SP de CI. Primero la de main, que usan el deploy y el apply, y despues la de
+#    pull_request, que usa el plan. El subject debe coincidir EXACTO con el claim que GitHub
+#    pone en el token; el matching de patrones no esta soportado para ramas/tags.
+ensure_federated_credential() {
+```
+
+```bash
+# Bien
+# El subject debe coincidir exacto con el claim del token de GitHub: no admite patrones para
+# ramas ni tags. https://learn.microsoft.com/entra/workload-id/workload-identity-federation-create-trust
+ensure_federated_credential() {
 ```
 
 ## API externa no obvia, con URL
@@ -235,8 +256,10 @@ var mensaje = await receptor.ReceiveMessageAsync(timeout);
 var mensaje = await receptor.ReceiveMessageAsync(timeout);
 ```
 
+El "comentario gemelo" del wildcard de OpenTelemetry (MEF-ADR-0034 seccion 10) es el mismo caso
+sin URL: cita el archivo fuente que lo verifico. Es blindado, se queda tal cual.
+
 ```csharp
-// Bien: wildcard de OpenTelemetry (workaround externo, comentario gemelo de MEF-ADR-0034 seccion 10)
 // El "*" va SIN punto delante: OpenTelemetry ancla el patron escapado, asi que "X.*" queda como
 // ^X\..*$ y EXCLUYE la fuente nombrada exactamente "X". Sin error ni warning, los spans de esa
 // fuente nunca llegan a Application Insights. Verificado contra OpenTelemetry 1.13.1 en
