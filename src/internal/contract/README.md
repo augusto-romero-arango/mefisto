@@ -79,9 +79,11 @@ publicado (MEF-ADR-0019). Lee `<worktree>/.mefisto/models.json` al arrancar:
   agente (`opencode.agents.<id>`) o para su perfil (`opencode.profiles.<profile>`);
   sin modelo local el agente sigue heredando el modelo interactivo.
 - Nivel: `opencode.efforts.agents.<id>` > nivel de fabrica. Nativo:
-  `opencode.efforts.levels.<nivel>` > tabla por defecto.
+  `opencode.efforts.levels.<nivel>` > tabla por defecto. Un nivel fuera del
+  vocabulario omite ese agente (`efforts_level_invalid`).
 - Si la config del usuario ya fija `model` o `variant` para ese agente, no la
-  sobreescribe y registra el conflicto. Un mapping ilegible no inyecta nada y
+  sobreescribe y registra el conflicto (`efforts_config_conflict`). Un mapping
+  ilegible o de forma invalida no inyecta nada (`efforts_mapping_invalid`) y
   nunca rompe el arranque.
 
 `--check` lo trata como el resto de salidas: faltante, distinta, huerfana o sin
