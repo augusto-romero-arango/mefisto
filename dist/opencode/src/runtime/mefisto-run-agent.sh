@@ -102,11 +102,12 @@
 # traduce el raw log mira el terminal: si el adaptador traduce un terminal
 # `run.completed{status:"success"}`, anota el instante (una sola vez). Si el
 # proceso sigue vivo MEFISTO_RUN_AGENT_POST_RESULT_GRACE_S segundos despues
-# (entero >= 1; default 120; un valor invalido -- vacio, 0, no numerico -- cae
-# al default con un aviso en stderr), el runner deja un archivo de solicitud en
-# su directorio temporal y run_agent_with_watchdog (que lo atiende en cada
-# rebanada, ver MEFISTO_WATCHDOG_TERMINATE_FILE en lib/mefisto-process.sh) manda
-# SIGTERM al grupo, y SIGKILL si sigue vivo 10 s despues. Queda en --events-log
+# (entero >= 1; default 120; vacio equivale a no fijarla, y un `0` o un valor
+# no numerico cae al default con un aviso en stderr), el runner deja un archivo
+# de solicitud en su directorio temporal y run_agent_with_watchdog (que lo
+# atiende en cada rebanada, ver MEFISTO_WATCHDOG_TERMINATE_FILE en
+# lib/mefisto-process.sh) manda SIGTERM al grupo, y SIGKILL si sigue vivo 10 s
+# despues. Queda en --events-log
 # "POST-RESULT: <agente> seguia vivo <N>s despues de declarar exito -- SIGTERM".
 # La corrida cierra con el terminal de exito y exit 0 (el exito declarado manda
 # sobre el exit distinto de cero posterior). Si igual se llega al timeout del
@@ -116,7 +117,8 @@
 # conserva el comportamiento de siempre.
 #
 # Exit code (CA-5): 0 solo con un evento terminal run.completed{status:
-# "success"}; 124 si el watchdog mato el proceso por timeout; 65 si el
+# "success"}; 124 si el watchdog mato el proceso por timeout sin exito
+# declarado (con exito declarado gana el 0, ver arriba); 65 si el
 # protocolo resulto invalido (el adaptador emitio cero o mas de un evento
 # terminal -- el runner lo normaliza SIEMPRE a exactamente uno en
 # --event-log, descartando los que sobren); en cualquier otro caso, el exit

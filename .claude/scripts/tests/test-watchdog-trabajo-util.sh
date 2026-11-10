@@ -49,10 +49,10 @@
 #       sin importar cuan sucio este el worktree.
 #   [E] CA-5: para fallos recuperables, has_work exige ademas el resumen de
 #       stage no vacio -- fixtures de worktree sucio con y sin resumen.
-#   [H] CA-4 (issue #2472): MEFISTO_WATCHDOG_TERMINATE_FILE -> SIGTERM al grupo,
-#       SIGKILL a los 10 s si sigue vivo; sin el archivo nada cambia.
 #   [F] Paridad: run_agent en el pipeline real invoca las funciones nuevas y
 #       ya no contiene el patron viejo (kill encadenado con `&&`).
+#   [H] CA-4 (issue #2472): MEFISTO_WATCHDOG_TERMINATE_FILE -> SIGTERM al grupo,
+#       SIGKILL a los 10 s si sigue vivo; sin el archivo nada cambia.
 #
 # Uso: .claude/scripts/tests/test-watchdog-trabajo-util.sh
 # Exit code: 0 si todos los chequeos pasan, 1 si alguno falla.

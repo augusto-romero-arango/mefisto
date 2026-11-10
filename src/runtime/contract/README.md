@@ -127,8 +127,8 @@ estable `detalle redactado: <error.kind>`. Conserva el terminal, su `type`,
 `--stderr-log`: si se combinan, el runner avisa explícitamente que esos destinos
 no estan redactados. `--events-log` es opt-in:
 el nucleo no deriva rutas de estado. Sus exits son 0 (exito), 64 (uso), 65
-(protocolo invalido), 69 (runtime/dependencia), 124 (timeout), o el exit no
-cero del adaptador.
+(protocolo invalido), 69 (runtime/dependencia), 124 (timeout sin exito
+declarado, ver "Corte tras exito declarado"), o el exit no cero del adaptador.
 
 `--effort <opaco>` (issue #2496) es un effort ya traducido a nombre nativo:
 el runner lo trata como opaco, vacio o ausente significa heredar (no se agrega
@@ -213,8 +213,8 @@ timeout y el pipeline descartaria un resultado bueno. El bucle en vivo del
 runner mira el terminal que traduce el adaptador: si es
 `run.completed{status:"success"}`, anota el instante (una sola vez). Si el
 proceso sigue vivo `MEFISTO_RUN_AGENT_POST_RESULT_GRACE_S` segundos despues
-(default `120`, entero >= 1; un valor invalido -- vacio, `0`, no numerico --
-cae al default con un aviso en stderr), el runner deja un archivo de
+(default `120`, entero >= 1; vacio equivale a no fijarla, y un `0` o un valor
+no numerico cae al default con un aviso en stderr), el runner deja un archivo de
 solicitud en su directorio temporal y escribe en `--events-log`
 `POST-RESULT: <agente> seguia vivo <N>s despues de declarar exito -- SIGTERM`.
 
