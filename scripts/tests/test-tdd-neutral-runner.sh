@@ -236,6 +236,7 @@ resolve_stage_model(){ [ "${WITH_MODEL:-false}" = true ] && printf 'vendor/model
 resolve_declared_agent_model(){ :; }
 _tdd_agent_profile(){ printf 'balanced'; }
 resolve_tdd_model(){ RESOLVED_TDD_MODEL=""; [ "${WITH_MODEL:-false}" = true ] && RESOLVED_TDD_MODEL='vendor/model'; }
+resolve_tdd_effort(){ RESOLVED_TDD_EFFORT=""; }
 run_tests_projects(){ printf called > "$TMP/gate-called"; return 0; }
 dotnet(){ printf called > "$TMP/gate-called"; return 0; }
 AGENT_TW_RES=pending; AGENT_IM_RES=pending; AGENT_ST_RES=pending; AGENT_RV_RES=pending
@@ -445,6 +446,7 @@ classify_neutral_agent_failure(){ printf 'UNKNOWN'; }
 agent_failure_is_holdable(){ return 1; }
 _tdd_agent_profile(){ printf 'balanced'; }
 resolve_tdd_model(){ RESOLVED_TDD_MODEL=""; }
+resolve_tdd_effort(){ RESOLVED_TDD_EFFORT=""; }
 AGENT_TW_RES=pending; AGENT_IM_RES=pending; AGENT_ST_RES=pending; AGENT_RV_RES=pending
 AGENT_TW_METRICS_JSON=; AGENT_IM_METRICS_JSON=; AGENT_ST_METRICS_JSON=; AGENT_RV_METRICS_JSON=
 EOF
@@ -541,6 +543,7 @@ log(){ :; }
 success(){ :; }
 _tdd_agent_profile(){ printf 'balanced'; }
 resolve_tdd_model(){ RESOLVED_TDD_MODEL=""; }
+resolve_tdd_effort(){ RESOLVED_TDD_EFFORT=""; }
 derive_stage_log_from_stream(){ : > "$3"; }
 compute_stage_metrics(){ printf '{"tokens":{"input":1}}'; }
 HARNESS_IDENTITY_JSON='null'
@@ -591,6 +594,7 @@ PATCH_TW_PROMPT_FILE="$TMP/prompt"
 EVENTS_CG_TW="$TMP/remediation.events.jsonl"
 LOG_CG_TW="$TMP/remediation.log"
 PATCH_TW_MODEL_OVERRIDE=
+PATCH_TW_EFFORT_OVERRIDE=
 PATCH_TW_PROFILE=balanced
 LAST_AGENT_DURATION=0
 LAST_AGENT_METRICS_JSON=null
@@ -619,6 +623,160 @@ if printf '%s' "$remediation_output" | grep -Fq 'CONTINUA:El test-writer de reme
     pass 'remediacion 4b fallida registra evidencia y continua sin abortar ni reintentar'
 else
     fail 'remediacion 4b fallida no conservo advertir-y-continuar con evidencia'
+fi
+
+# --- Effort por agente (issue #2504) ----------------------------------------
+echo '[effort] resolucion y paso de --effort en los cuatro puntos de invocacion (issue #2504)'
+contains '[ -n "$AGENT_EFFORT_OVERRIDE" ] && args+=(--effort "$AGENT_EFFORT_OVERRIDE")' 'run_agent pasa --effort solo si el effort resuelto no es vacio (reintentos y reanudacion reenvian el mismo valor)'
+contains '[ -n "$effort" ] && args+=(--effort "$effort")' 'invoke_agent_once pasa --effort solo si el 6to argumento no es vacio'
+contains 'resolve_tdd_effort "domain-scaffolder" "domain-scaffolder"' 'Stage 0 resuelve el effort del domain-scaffolder'
+contains 'resolve_tdd_effort "patch-test-writer" "$STAGE1_AGENT"' '4b resuelve el effort del agente del Stage 1'
+contains 'resolve_tdd_effort "patch-implementer" "$STAGE2_AGENT"' '4c resuelve el effort del agente del Stage 2'
+contains '"$PATCH_TW_MODEL_OVERRIDE" "$PATCH_TW_EFFORT_OVERRIDE"' '4b reenvia el effort resuelto al helper'
+contains '"$PATCH_IM_MODEL_OVERRIDE" "$PATCH_IM_EFFORT_OVERRIDE"' '4c reenvia el effort resuelto al helper'
+contains '"$LOG_SCAFFOLD" "$RESOLVED_TDD_MODEL" "$RESOLVED_TDD_EFFORT"' 'Stage 0 reenvia el effort resuelto al helper'
+contains 'MEFISTO_EFFORTS_ERROR=${PIPELINE_EFFORT_ERROR:-motivo desconocido}' 'un mapping de effort invalido aborta citando el agente y MEFISTO_EFFORTS_ERROR'
+
+EFF_MODELS="$TMP/effort-models.json"
+EFF_MODELS_STD="$TMP/effort-models-std.json"
+EFF_MODELS_BAD="$TMP/effort-models-bad.json"
+printf '%s\n' '{"fake":{"efforts":{"levels":{"light":"n-light","standard":"n-standard","thorough":"n-thorough"}}}}' > "$EFF_MODELS"
+printf '%s\n' '{"fake":{"efforts":{"levels":{"light":"n-light","standard":"n-standard","thorough":"n-thorough"},"agents":{"test-writer":"standard","implementer":"light"}}}}' > "$EFF_MODELS_STD"
+printf '%s\n' '{"fake":{"efforts":{"levels":{"light":"n-light","standard":"n-standard"},"agents":{"test-writer":"bogus"}}}}' > "$EFF_MODELS_BAD"
+export EFF_MODELS EFF_MODELS_STD EFF_MODELS_BAD
+
+# Definiciones reales (no stubs): nivel de fabrica, helper comun y wrapper TDD.
+{
+    printf 'source "%s/src/runtime/lib/mefisto-models.sh"\n' "$ROOT"
+    awk '/^pipeline_agent_effort_level\(\) \{/{p=1} p{print} p && /^}/{p=0}' "$COMMON"
+    awk '/^resolve_pipeline_agent_effort\(\) \{/{p=1} p{print} p && /^}/{p=0}' "$COMMON"
+    awk '/^resolve_tdd_effort\(\) \{/{p=1} p{print} p && /^}/{p=0}' "$PIPELINE"
+    printf 'RESOLVED_TDD_EFFORT=""; RESOLVED_PIPELINE_EFFORT=""; PIPELINE_EFFORT_ERROR=""\n'
+    printf 'CONSUMER_MODELS_FILE="${EFF_MODELS_FILE:-$EFF_MODELS}"\n'
+} > "$TMP/effort-real.sh"
+# Variantes de los casos existentes con la resolucion real en lugar del stub.
+real_effort_case() {
+    awk -v real="source \"$TMP/effort-real.sh\"" '/^resolve_tdd_effort\(\)/{print real; next} {print}' "$1" > "$2"
+}
+real_effort_case "$TMP/case.sh" "$TMP/case-effort.sh"
+real_effort_case "$TMP/stage-zero-case.sh" "$TMP/stage-zero-effort.sh"
+
+# remediaciones 4b/4c: desde la resolucion hasta la invocacion real del helper
+remediation_effort_body() {
+    awk -v start="$1" -v stop="$2" 'index($0, start){p=1} p{print} p && index($0, stop){exit}' "$PIPELINE"
+}
+{
+    printf '%s\n' 'set -uo pipefail'
+    invoke_agent_once_body
+    cat <<'EOF'
+source "$TMP/effort-real.sh"
+PIPELINE_TMP_DIR="$TMP/pipeline-eff-rem"
+MEFISTO_RUNTIME_RESUELTO=fake
+MEFISTO_AGENT_TIMEOUT_SECONDS=60
+WORKTREE_PATH="$WT"
+RUN_AGENT_BIN="$TMP/runner"
+EVENTS_LOG_ABS="$TMP/events-eff-rem"
+LOG_DIR_ABS="$TMP/logs-eff-rem"
+TIMESTAMP=20260914-120000
+STAGE1_AGENT=test-writer
+STAGE2_AGENT=implementer
+PATCH_TW_PROMPT=p
+PATCH_IM_PROMPT=p
+LOG_CG_IM="$TMP/rem-im.log"; EVENTS_CG_IM="$TMP/rem-im.events.jsonl"
+PATCH_IM_PROMPT_FILE="$TMP/rem-im.prompt"
+LAST_AGENT_DURATION=0; LAST_AGENT_METRICS_JSON=null
+mkdir -p "$PIPELINE_TMP_DIR" "$LOG_DIR_ABS"
+log(){ :; }
+derive_stage_log_from_stream(){ : > "$3"; }
+compute_stage_metrics(){ printf '{}'; }
+abort(){ printf 'ABORT:%s\n' "$1" > "$TMP/abort"; exit 99; }
+_tdd_agent_profile(){ printf 'balanced'; }
+resolve_tdd_model(){ RESOLVED_TDD_MODEL=""; }
+PATCH_TW_PROFILE=balanced; PATCH_IM_PROFILE=balanced
+EOF
+    remediation_effort_body 'resolve_tdd_model "patch-test-writer"' 'invoke_agent_once "$STAGE1_AGENT"'
+    remediation_effort_body 'resolve_tdd_model "patch-implementer"' 'invoke_agent_once "$STAGE2_AGENT"'
+} > "$TMP/remediation-effort.sh"
+
+eff_arg_of() { awk 'f{print; exit} $0=="--effort"{f=1}' "$1" 2>/dev/null; }
+eff_reset() { reset_case; rm -f "$TMP/events" "$TMP/events-stage-zero" "$TMP/events-eff-rem"; }
+
+# CA-3: sin mapping de agente, el test-writer recibe el nativo de light y el implementer el de standard
+eff_reset
+if EFF_MODELS_FILE="$EFF_MODELS" SCENARIO=success STAGE=1 AGENT=test-writer bash "$TMP/case-effort.sh" \
+    && [ "$(eff_arg_of "$TMP/call-1.args")" = n-light ] \
+    && grep -Fq 'EFFORTS: test-writer -> n-light (nivel light)' "$TMP/events"; then
+    pass 'CA-3: test-writer sin mapping recibe el nativo de light y queda en events.log'
+else
+    fail "CA-3: test-writer sin mapping: $(tr '\n' ' ' < "$TMP/call-1.args" 2>/dev/null)"
+fi
+eff_reset
+if EFF_MODELS_FILE="$EFF_MODELS" SCENARIO=success STAGE=2 AGENT=implementer bash "$TMP/case-effort.sh" \
+    && [ "$(eff_arg_of "$TMP/call-1.args")" = n-standard ] \
+    && grep -Fq 'EFFORTS: implementer -> n-standard (nivel standard)' "$TMP/events"; then
+    pass 'CA-3: implementer sin mapping recibe el nativo de standard'
+else
+    fail "CA-3: implementer sin mapping: $(tr '\n' ' ' < "$TMP/call-1.args" 2>/dev/null)"
+fi
+# CA-3: efforts.agents.test-writer = standard
+eff_reset
+if EFF_MODELS_FILE="$EFF_MODELS_STD" SCENARIO=success STAGE=1 AGENT=test-writer bash "$TMP/case-effort.sh" \
+    && [ "$(eff_arg_of "$TMP/call-1.args")" = n-standard ]; then
+    pass 'CA-3: efforts.agents.test-writer=standard hace que el test-writer reciba el nativo de standard'
+else
+    fail "CA-3: test-writer con mapping: $(tr '\n' ' ' < "$TMP/call-1.args" 2>/dev/null)"
+fi
+# CA-1: reintento y reanudacion reenvian el mismo effort
+eff_reset
+if EFF_MODELS_FILE="$EFF_MODELS" SCENARIO=denials STAGE=1 AGENT=test-writer bash "$TMP/case-effort.sh" \
+    && [ "$(cat "$TMP/calls")" = 2 ] \
+    && [ "$(eff_arg_of "$TMP/call-1.args")" = n-light ] && [ "$(eff_arg_of "$TMP/call-2.args")" = n-light ]; then
+    pass 'CA-1: el reintento de run_agent reenvia el mismo effort'
+else
+    fail 'CA-1: el reintento no reenvio el effort'
+fi
+eff_reset
+if EFF_MODELS_FILE="$EFF_MODELS" SCENARIO=hold STAGE=1 AGENT=test-writer bash "$TMP/case-effort.sh" \
+    && [ "$(cat "$TMP/calls")" = 2 ] && grep -Fxq -- '--resume-session' "$TMP/call-2.args" \
+    && [ "$(eff_arg_of "$TMP/call-2.args")" = n-light ]; then
+    pass 'CA-1: la reanudacion de run_agent reenvia el mismo effort'
+else
+    fail 'CA-1: la reanudacion no reenvio el effort'
+fi
+# CA-4: mapping invalido
+eff_reset
+rm -f "$TMP/abort"; bad_rc=0
+EFF_MODELS_FILE="$EFF_MODELS_BAD" SCENARIO=success STAGE=1 AGENT=test-writer bash "$TMP/case-effort.sh" || bad_rc=$?
+if [ "$bad_rc" -eq 99 ] && grep -Fq 'test-writer' "$TMP/abort" && grep -Fq 'MEFISTO_EFFORTS_ERROR' "$TMP/abort" && [ ! -f "$TMP/calls" ]; then
+    pass 'CA-4: un mapping invalido aborta el stage citando el agente y MEFISTO_EFFORTS_ERROR, sin lanzar el runner'
+else
+    fail "CA-4: mapping invalido no aborto como esperado (rc=$bad_rc): $(cat "$TMP/abort" 2>/dev/null)"
+fi
+
+# Stage 0: domain-scaffolder (nivel light)
+eff_reset
+rm -rf "$WT/src/Test.Catalogo" "$TMP/state-stage-zero" "$TMP/logs-stage-zero" "$TMP/pipeline-stage-zero"
+mkdir -p "$WT/src/Test.Catalogo"
+if EFF_MODELS_FILE="$EFF_MODELS" SCENARIO=success bash "$TMP/stage-zero-effort.sh" \
+    && [ "$(eff_arg_of "$TMP/call-1.args")" = n-light ] \
+    && grep -Fq 'EFFORTS: domain-scaffolder -> n-light (nivel light)' "$TMP/events-stage-zero"; then
+    pass 'CA-1/CA-2: Stage 0 pasa --effort del domain-scaffolder y lo registra'
+else
+    fail "CA-1/CA-2: Stage 0 sin effort: $(tr '\n' ' ' < "$TMP/call-1.args" 2>/dev/null)"
+fi
+
+# Remediaciones: effort del agente relanzado, clave patch-* solo en el log
+eff_reset
+rm -rf "$TMP/pipeline-eff-rem" "$TMP/logs-eff-rem"
+if EFF_MODELS_FILE="$EFF_MODELS_STD" SCENARIO=success bash "$TMP/remediation-effort.sh" \
+    && [ "$(cat "$TMP/calls")" = 2 ] \
+    && [ "$(eff_arg_of "$TMP/call-1.args")" = n-standard ] \
+    && [ "$(eff_arg_of "$TMP/call-2.args")" = n-light ] \
+    && grep -Fq 'EFFORTS: patch-test-writer -> n-standard (nivel light)' "$TMP/events-eff-rem" \
+    && grep -Fq 'EFFORTS: patch-implementer -> n-light (nivel standard)' "$TMP/events-eff-rem"; then
+    pass 'CA-1/CA-2/CA-3: 4b y 4c usan el effort del agente relanzado (con mapping) y registran su clave patch-*'
+else
+    fail "remediaciones: $(cat "$TMP/call-1.args" "$TMP/call-2.args" 2>/dev/null | tr '\n' ' ')"
 fi
 
 printf '\nResultado: %s PASS, %s FAIL\n' "$PASS" "$FAIL"

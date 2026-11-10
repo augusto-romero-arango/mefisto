@@ -510,6 +510,24 @@ resolve_tdd_model() {
     echo "[$(date +%H:%M:%S)] MODELS: $key runtime=$MEFISTO_RUNTIME_RESUELTO perfil=$profile solicitado=<automatico> resuelto='${RESOLVED_TDD_MODEL:-<heredado>}'" >> "$EVENTS_LOG_ABS"
 }
 
+# resolve_tdd_effort <clave> <agent_id>
+#
+# Effort por agente (issue #2504), en el mismo punto donde se resuelve el
+# modelo: delega en resolve_pipeline_agent_effort (nivel de fabrica + mapping
+# opcional efforts de .mefisto/models.json) y deja el nativo en
+# RESOLVED_TDD_EFFORT (vacio = heredar, no se pasa --effort al runner). La
+# clave solo etiqueta la linea EFFORTS de events.log; las remediaciones
+# (patch-test-writer/patch-implementer) resuelven con el agente que relanzan.
+# Un mapping invalido aborta el stage citando el agente y MEFISTO_EFFORTS_ERROR.
+RESOLVED_TDD_EFFORT=""
+resolve_tdd_effort() {
+    local key="$1" agent_id="$2"
+    RESOLVED_TDD_EFFORT=""
+    resolve_pipeline_agent_effort "$key" "$agent_id" \
+        || abort "No se pudo resolver el effort de $agent_id: MEFISTO_EFFORTS_ERROR=${PIPELINE_EFFORT_ERROR:-motivo desconocido}"
+    RESOLVED_TDD_EFFORT="$RESOLVED_PIPELINE_EFFORT"
+}
+
 # --- Anunciar el modo variante (issue #713) -------------------------------
 # El label ya se valido y ya derivo los nombres de archivo arriba, junto al
 # parseo de argumentos; aqui solo se anuncia, que es lo primero que se puede
@@ -526,15 +544,16 @@ trap 'rm -rf "${PIPELINE_TMP_DIR:-}"' EXIT
 # ─── Invocacion neutral unica para stages sin politicas de run_agent ──────────
 # Debe declararse antes de Stage 0: Bash solo conoce una funcion despues de
 # evaluar su definicion, y el scaffold se ejecuta durante el flujo superior.
-# invoke_agent_once <agent_id> <prompt_file> <events_file> <log_file> [model]
+# invoke_agent_once <agent_id> <prompt_file> <events_file> <log_file> [model] [effort]
 invoke_agent_once() {
-    local agent="$1" prompt_file="$2" events_file="$3" log_file="$4" model="${5:-}"
+    local agent="$1" prompt_file="$2" events_file="$3" log_file="$4" model="${5:-}" effort="${6:-}"
     local system_file="$PIPELINE_TMP_DIR/noninteractive.system.md"
     local runner_file="${events_file%.events.jsonl}.runner.log" start_ts run_exit=0
     [ -f "$system_file" ] || printf '%s\n' 'You are running in non-interactive print mode. There is no human to approve anything. Use editing tools directly; never ask for permission. Do not push or create pull requests.' > "$system_file"
     start_ts=$(date +%s)
     local args=(--runtime "$MEFISTO_RUNTIME_RESUELTO" --agent "$agent" --cwd "$WORKTREE_PATH" --prompt-file "$prompt_file" --system-file "$system_file" --event-log "$events_file" --events-log "$EVENTS_LOG_ABS" --redact-observability --timeout "$MEFISTO_AGENT_TIMEOUT_SECONDS")
     [ -n "$model" ] && args+=(--model "$model")
+    [ -n "$effort" ] && args+=(--effort "$effort")
     if "$RUN_AGENT_BIN" "${args[@]}" >"$runner_file" 2>&1; then run_exit=0; else run_exit=$?; fi
     derive_stage_log_from_stream "$events_file" "" "$log_file"
     LAST_AGENT_METRICS_JSON=$(compute_stage_metrics "$events_file")
@@ -677,9 +696,10 @@ else
 PROHIBIDO hacer 'git push' o 'gh pr create' (ni ninguna operacion de publicacion de rama/PR): eso es responsabilidad exclusiva del pipeline, nunca tuya."
         printf '%s' "$SCAFFOLD_PROMPT" > "$SCAFFOLD_PROMPT_FILE"
         resolve_tdd_model "domain-scaffolder" "domain-scaffolder" "$(_tdd_agent_profile "domain-scaffolder")"
+        resolve_tdd_effort "domain-scaffolder" "domain-scaffolder"
         log "Invocando domain-scaffolder (modelo: ${RESOLVED_TDD_MODEL:-<heredado>})..."
         SCAFFOLD_EXIT=0
-        invoke_agent_once "domain-scaffolder" "$SCAFFOLD_PROMPT_FILE" "$EVENTS_SCAFFOLD" "$LOG_SCAFFOLD" "$RESOLVED_TDD_MODEL" || SCAFFOLD_EXIT=$?
+        invoke_agent_once "domain-scaffolder" "$SCAFFOLD_PROMPT_FILE" "$EVENTS_SCAFFOLD" "$LOG_SCAFFOLD" "$RESOLVED_TDD_MODEL" "$RESOLVED_TDD_EFFORT" || SCAFFOLD_EXIT=$?
         SCAFFOLD_ELAPSED=$LAST_AGENT_DURATION
         AGENT_SCAFFOLD_DUR=$SCAFFOLD_ELAPSED
         # CA-2 (issue #1363): enriquecida con pipeline/issue/variant/stage/
@@ -788,10 +808,12 @@ Al cerrar este stage, deja tu resumen en: $summary_path"
     [ -z "$legacy_summary_file" ] || rm -f "$legacy_summary_file"
     echo "[$(date +%H:%M:%S)] === STAGE $stage: $agent ===" >> "$EVENTS_LOG_ABS"
     case "$agent" in test-writer|projection-test-writer) AGENT_TW_RES="running" ;; implementer|projection-implementer) AGENT_IM_RES="running" ;; reviewer) AGENT_RV_RES="running" ;; esac
-    local AGENT_MODEL_OVERRIDE agent_profile
+    local AGENT_MODEL_OVERRIDE AGENT_EFFORT_OVERRIDE agent_profile
     agent_profile="$(_tdd_agent_profile "$agent")" || abort "Agente '$agent' fuera de la tabla de perfiles TDD (CA-1, issue #1362)"
     resolve_tdd_model "$agent" "$agent" "$agent_profile"
     AGENT_MODEL_OVERRIDE="$RESOLVED_TDD_MODEL"
+    resolve_tdd_effort "$agent" "$agent"
+    AGENT_EFFORT_OVERRIDE="$RESOLVED_TDD_EFFORT"
     update_status "$stage-$agent" "running"
     log "Invocando $agent (modelo: ${AGENT_MODEL_OVERRIDE:-<heredado>})..."
     start_ts=$(date +%s)
@@ -806,6 +828,7 @@ Al cerrar este stage, deja tu resumen en: $summary_path"
         fi
         local args=(--runtime "$MEFISTO_RUNTIME_RESUELTO" --agent "$agent" --cwd "$WORKTREE_PATH" --prompt-file "$attempt_prompt" --system-file "$system_file" --event-log "$events_file" --events-log "$EVENTS_LOG_ABS" --redact-observability --timeout "$MEFISTO_AGENT_TIMEOUT_SECONDS")
         [ -n "$AGENT_MODEL_OVERRIDE" ] && args+=(--model "$AGENT_MODEL_OVERRIDE")
+        [ -n "$AGENT_EFFORT_OVERRIDE" ] && args+=(--effort "$AGENT_EFFORT_OVERRIDE")
         [ -n "$resume_session" ] && args+=(--resume-session "$resume_session")
         if "$RUN_AGENT_BIN" "${args[@]}" >"$runner_file" 2>&1; then run_exit=0; else run_exit=$?; fi
         [ "$attempt_prompt" = "$prompt_file" ] || rm -f "$attempt_prompt"
@@ -2052,6 +2075,8 @@ IMPORTANTE:
             || abort "Agente '$STAGE1_AGENT' fuera de la tabla de perfiles TDD (CA-1, issue #1362)"
         resolve_tdd_model "patch-test-writer" "$STAGE1_AGENT" "$PATCH_TW_PROFILE"
         PATCH_TW_MODEL_OVERRIDE="$RESOLVED_TDD_MODEL"
+        resolve_tdd_effort "patch-test-writer" "$STAGE1_AGENT"
+        PATCH_TW_EFFORT_OVERRIDE="$RESOLVED_TDD_EFFORT"
 
         log "Invocando $STAGE1_AGENT (modelo: ${PATCH_TW_MODEL_OVERRIDE:-<heredado>})..."
         log "Relanzando $STAGE1_AGENT para remediacion..."
@@ -2061,7 +2086,7 @@ IMPORTANTE:
         printf '%s' "$PATCH_TW_PROMPT" > "$PATCH_TW_PROMPT_FILE"
         echo "[$(date +%H:%M:%S)] REMEDIATION: relanzando $STAGE1_AGENT" >> "$EVENTS_LOG_ABS"
         CG_TW_EXIT=0
-        invoke_agent_once "$STAGE1_AGENT" "$PATCH_TW_PROMPT_FILE" "$EVENTS_CG_TW" "$LOG_CG_TW" "$PATCH_TW_MODEL_OVERRIDE" || CG_TW_EXIT=$?
+        invoke_agent_once "$STAGE1_AGENT" "$PATCH_TW_PROMPT_FILE" "$EVENTS_CG_TW" "$LOG_CG_TW" "$PATCH_TW_MODEL_OVERRIDE" "$PATCH_TW_EFFORT_OVERRIDE" || CG_TW_EXIT=$?
         AGENT_PATCH_TW_DUR=$LAST_AGENT_DURATION
         # CA-2 (issue #1363): misma forma enriquecida que Stage 1/run_agent.
         AGENT_PATCH_TW_METRICS_JSON="$(enrich_stage_metrics "tdd" "$EVENTS_CG_TW" "$LAST_AGENT_METRICS_JSON" "${ISSUE_NUM:-}" "${VARIANT_LABEL_JSON:-null}" "4b" "$STAGE1_AGENT" "$PATCH_TW_PROFILE" "$HARNESS_IDENTITY_JSON")"
@@ -2109,10 +2134,12 @@ PROHIBIDO hacer 'git push' o 'gh pr create' (ni ninguna operacion de publicacion
                     || abort "Agente '$STAGE2_AGENT' fuera de la tabla de perfiles TDD (CA-1, issue #1362)"
                 resolve_tdd_model "patch-implementer" "$STAGE2_AGENT" "$PATCH_IM_PROFILE"
                 PATCH_IM_MODEL_OVERRIDE="$RESOLVED_TDD_MODEL"
+                resolve_tdd_effort "patch-implementer" "$STAGE2_AGENT"
+                PATCH_IM_EFFORT_OVERRIDE="$RESOLVED_TDD_EFFORT"
 
                 log "Invocando $STAGE2_AGENT (modelo: ${PATCH_IM_MODEL_OVERRIDE:-<heredado>})..."
                 CG_IM_EXIT=0
-                invoke_agent_once "$STAGE2_AGENT" "$PATCH_IM_PROMPT_FILE" "$EVENTS_CG_IM" "$LOG_CG_IM" "$PATCH_IM_MODEL_OVERRIDE" || CG_IM_EXIT=$?
+                invoke_agent_once "$STAGE2_AGENT" "$PATCH_IM_PROMPT_FILE" "$EVENTS_CG_IM" "$LOG_CG_IM" "$PATCH_IM_MODEL_OVERRIDE" "$PATCH_IM_EFFORT_OVERRIDE" || CG_IM_EXIT=$?
                 AGENT_PATCH_IM_DUR=$LAST_AGENT_DURATION
                 # CA-2 (issue #1363): misma forma enriquecida que Stage 2/run_agent.
                 AGENT_PATCH_IM_METRICS_JSON="$(enrich_stage_metrics "tdd" "$EVENTS_CG_IM" "$LAST_AGENT_METRICS_JSON" "${ISSUE_NUM:-}" "${VARIANT_LABEL_JSON:-null}" "4c" "$STAGE2_AGENT" "$PATCH_IM_PROFILE" "$HARNESS_IDENTITY_JSON")"
