@@ -196,8 +196,9 @@ MEF-ADR-0031.
 
 `models.validate.jq` valida el mapping abierto que entrega cada caller al
 resolutor `lib/mefisto-models.sh`. La forma es `<runtime-id> -> {profiles,
-agents}`; `profiles` solo admite `fast`, `balanced` y `deep`, y cada modelo es
-un string no vacio (se preservan espacios). `models.example.json` usa
+agents, efforts}` (las tres claves opcionales); `profiles` solo admite `fast`,
+`balanced` y `deep`, y cada modelo es un string no vacio (se preservan
+espacios). `models.example.json` usa
 placeholders y no declara un conjunto cerrado de runtimes.
 El placeholder `<runtime-id>` debe sustituirse por un id valido antes de pasar
 la plantilla al validador.

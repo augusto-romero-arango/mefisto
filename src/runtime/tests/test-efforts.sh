@@ -28,8 +28,6 @@ case "$MEFISTO_EFFORTS_ERROR" in *bogus*) PASS=$((PASS+1));; *) FAIL=$((FAIL+1))
 run claude other ""; check "nivel vacio rc" 1 "$RC"
 
 # adaptador sin default hereda aunque se haya cargado otra funcion antes
-cp "$HERE/../lib/runtime-fake.sh" "$TMP/runtime-nodef.sh"
-sed -i.bak '/^runtime_fake_default_effort() {/,/^}/d' "$TMP/runtime-nodef.sh"
 printf '%s\n' 'runtime_nodef2_default_effort() { printf nodef; }' >"$TMP/runtime-nodef2.sh"
 printf '%s\n' ':' >"$TMP/runtime-vacio.sh"
 run claude a quick; check "claude previo" low "$OUT"
@@ -47,7 +45,9 @@ vr() { printf '%s' "$1" >"$TMP/v.json"; run claude a quick "$TMP/v.json"; }
 vr '{"claude":{"efforts":{"levels":{"alto":"high"}}}}'; check "nivel desconocido rc" 1 "$RC"
 case "$MEFISTO_EFFORTS_ERROR" in *"claude.efforts.levels.alto: nivel desconocido"*) PASS=$((PASS+1));; *) FAIL=$((FAIL+1)); echo "FAIL: msg nivel: $MEFISTO_EFFORTS_ERROR";; esac
 vr '{"claude":{"efforts":{"levels":{"quick":""}}}}'; check "valor vacio rc" 1 "$RC"
+case "$MEFISTO_EFFORTS_ERROR" in *"claude.efforts.levels.quick: se esperaba un string no vacio"*) PASS=$((PASS+1));; *) FAIL=$((FAIL+1)); echo "FAIL: msg valor vacio: $MEFISTO_EFFORTS_ERROR";; esac
 vr '{"claude":{"efforts":{"agents":{"x":"alto"}}}}'; check "agente nivel invalido rc" 1 "$RC"
+case "$MEFISTO_EFFORTS_ERROR" in *"claude.efforts.agents.x: nivel desconocido"*) PASS=$((PASS+1));; *) FAIL=$((FAIL+1)); echo "FAIL: msg agente: $MEFISTO_EFFORTS_ERROR";; esac
 vr '{"claude":{"efforts":{"otro":{}}}}'; check "campo desconocido rc" 1 "$RC"
 case "$MEFISTO_EFFORTS_ERROR" in *"claude.efforts.otro: campo desconocido"*) PASS=$((PASS+1));; *) FAIL=$((FAIL+1)); echo "FAIL: msg campo";; esac
 vr '{"claude":{"efforts":{"agents":{"x":"deep"}}}}' ; check "perfil no es nivel" 1 "$RC"
