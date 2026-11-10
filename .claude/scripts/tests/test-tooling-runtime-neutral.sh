@@ -212,13 +212,13 @@ fi
 
 if [ "${MEFISTO_TEST_MODE:-success}" = "leak" ]; then
     mkdir -p src/internal/agents
-    printf -- '---\n{"id": "fx-leak", "kind": "agent", "model": "sonnet"}\n---\n\nFuga de neutralidad de runtime para el escenario negativo (issue #914): el campo `model` no debe aparecer en la fuente neutral src/internal/**.\n' > src/internal/agents/fx-leak.md
+    printf -- '---\n{"id": "fx-leak", "kind": "agent", "effort": "standard", "model": "sonnet"}\n---\n\nFuga de neutralidad de runtime para el escenario negativo (issue #914): el campo `model` no debe aparecer en la fuente neutral src/internal/**.\n' > src/internal/agents/fx-leak.md
 fi
 
 if [ "${MEFISTO_TEST_MODE:-success}" = "leak-then-fix" ]; then
     if [ "$N" = "1" ]; then
         mkdir -p src/internal/agents
-        printf -- '---\n{"id": "fx-leak", "kind": "agent", "model": "sonnet"}\n---\n\nFuga de neutralidad de runtime para el escenario de correccion (issue #1473): el campo `model` no debe aparecer en la fuente neutral src/internal/**.\n' > src/internal/agents/fx-leak.md
+        printf -- '---\n{"id": "fx-leak", "kind": "agent", "effort": "standard", "model": "sonnet"}\n---\n\nFuga de neutralidad de runtime para el escenario de correccion (issue #1473): el campo `model` no debe aparecer en la fuente neutral src/internal/**.\n' > src/internal/agents/fx-leak.md
     else
         rm -f src/internal/agents/fx-leak.md
     fi
