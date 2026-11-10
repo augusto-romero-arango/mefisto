@@ -46,17 +46,6 @@ export function batchIssuesOf(command: string): string[] | null {
   return m?.[1] ? (m[1].match(/\d+/g) ?? []) : null
 }
 
-/**
- * Pone MEFISTO_UI=mod justo delante de cada invocacion del wrapper: corre el pipeline sin pane y este mod es el
- * visor (MEF-ADR-0055). Al inicio del comando no basta: /mefisto-sequential lanza un comando compuesto
- * (`validador ...; ... && MEFISTO_RUNTIME=claude ./mefisto-tmux-pipeline.sh --batch ...`) y la asignacion solo
- * llegaria al primer comando.
- */
-export function withModUi(command: string): string {
-  if (/(^|\s)MEFISTO_UI=/.test(command)) return command
-  return command.replace(new RegExp(`(${AT_COMMAND})(${WRAPPER})`, 'g'), '$1MEFISTO_UI=mod $2')
-}
-
 export function stampToMs(stamp: string): number {
   const m = /^(\d{4})(\d{2})(\d{2})-(\d{2})(\d{2})(\d{2})$/.exec(stamp)
   if (!m) return 0

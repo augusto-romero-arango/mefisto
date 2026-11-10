@@ -89,7 +89,7 @@ Con `MEFISTO_UI=mod`, `mefisto-tmux-pipeline.sh --tooling` no abre sesion tmux n
 
 El hijo arranca sin `HERDR_*` ni `MEFISTO_UI`, para que los gates que corren tests del repo no hereden el modo, y conserva `MEFISTO_RUNTIME`. La corrida sobrevive al cierre de la sesion de Claude Code, y otra sesion con el mod la retoma desde los archivos.
 
-El mod activa el modo: su hook `tool.call` antepone `MEFISTO_UI=mod` al comando del skill, salvo que ya traiga un `MEFISTO_UI` explicito. Por eso `/mefisto-tooling` no cambia, y sin el mod el comando llega intacto. Con el modo activo, la fila de herdr baja de tres panes a dos: planner y ejecucion.
+En el lado interno el modo sin pane lo decide el runtime resuelto, igual que en el publicado: el adaptador Claude renderiza el lanzamiento con `MEFISTO_RUNTIME=claude`, y sin `MEFISTO_UI` el wrapper corre desacoplado (#2284). El mod solo observa el lanzamiento y no modifica el comando del skill: `/mefisto-tooling` no cambia, y un `MEFISTO_UI` explicito sigue ganando. Con el modo activo, la fila de herdr baja de tres panes a dos: planner y ejecucion.
 
 En el lado publicado el modo lo decide el runtime resuelto (#2285): con el runtime claude y sin `MEFISTO_UI`, o con `MEFISTO_UI=mod`, `tmux-pipeline.sh` corre desacoplado y la consola `fausto-blood-pact` sigue la corrida. Incluye `--parallel`: delega en `parallel-pipeline.sh` (con `--pipeline` y `--max-parallel` si vienen), cuyo scheduler serializa los `tipo:projection` (MEF-ADR-0034), por lo que un lote con dos o mas ya no aborta; el report queda en `logs/parallel-run-<ts>.report.log`. Ese scheduler espera 30 s entre lanzamientos (`--stagger <s>`, `0` lo apaga). Un `MEFISTO_UI=tmux|herdr` explicito y el runtime opencode conservan los panes, y ahi el abort de proyecciones se mantiene.
 
@@ -194,6 +194,7 @@ Los mods de ambos lados no comparten codigo (MEF-ADR-0019), pero no deben diverg
 
 ## Control de cambios
 
+- 2026-11-10: decision 6: en el lado interno el modo sin pane lo decide el runtime resuelto (`MEFISTO_RUNTIME=claude` sin `MEFISTO_UI`, #2284) y el hook `tool.call` del mod solo observa el lanzamiento, sin reescribir el comando; evita que el clasificador de auto mode quede sin veredicto (issue #2506).
 - 2026-10-16: decision 6 cubre los dos lados: el modo sin pane del consumidor lo decide el runtime resuelto e incluye `--parallel` (delega en `parallel-pipeline.sh`, con escalonado `--stagger`); se retira de "Aplica a" y de "Que queda fuera" el modo sin pane en el consumidor (issue #2448).
 - 2026-10-14: "Que queda fuera de este ADR": se retira el punto de la lista de issues que el reviewer creaba por tests ajustados; el pipeline TDD ya no crea ese issue y la senal pasa a una seccion del body del PR (issue #2438).
 - 2026-10-11: decision 11: la referencia del par se precisa por dimension de experiencia (ubicacion, lo que ve el usuario, como se pide input, teclas, mascota) y se anade el deber de estudiar el par antes de proponer (issue #2322).

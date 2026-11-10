@@ -70,7 +70,6 @@ import {
   steps,
   toolingIssueOf,
   usedColumns,
-  withModUi,
   historianFrom,
   isAgentActive,
   bitacoraPrOf,
@@ -991,13 +990,13 @@ export const register: Register = on => {
     const launchedMs = Date.now() - 5_000
     const batchIssues = isInteractive ? batchIssuesOf(e.command) : null
     if (batchIssues && batchIssues.length > 0) {
-      const ran = await next({ ...e, command: withModUi(e.command) })
+      const ran = await next(e)
       if (ran.deny === undefined && ran.isError !== true) await watchBatch($, batchIssues, launchedMs)
       return ran
     }
     const issue = isInteractive ? toolingIssueOf(e.command) : null
     if (!issue) return next(e)
-    const ran = await next({ ...e, command: withModUi(e.command) })
+    const ran = await next(e)
     if (ran.deny === undefined && ran.isError !== true) {
       await watch($, issue, launchedMs)
     }
