@@ -389,6 +389,54 @@ else
     fail "A-12: resume_session_id vacio pero el argv trae --session: ${MEFISTO_RUNTIME_CMD[*]}"
 fi
 
+# --- Effort (issue #2496) ---
+
+MEFISTO_RUNTIME_CMD=()
+runtime_opencode_build_cmd "writer" "$TMP" "$PROMPT_PLAIN" "" "" "" "high"
+if contains_pair "--variant" "high"; then
+    pass "A-14: effort high -> --variant high en el argv"
+else
+    fail "A-14: falta --variant high: ${MEFISTO_RUNTIME_CMD[*]}"
+fi
+
+for _eff_case in "empty" "absent"; do
+    MEFISTO_RUNTIME_CMD=()
+    if [ "$_eff_case" = "empty" ]; then
+        runtime_opencode_build_cmd "writer" "$TMP" "$PROMPT_PLAIN" "" "" "" ""
+    else
+        runtime_opencode_build_cmd "writer" "$TMP" "$PROMPT_PLAIN" "" "" ""
+    fi
+    if ! contains_elem "--variant"; then
+        pass "A-15 ($_eff_case): effort vacio/ausente -> ningun --variant en el argv"
+    else
+        fail "A-15 ($_eff_case): el argv trae --variant sin effort: ${MEFISTO_RUNTIME_CMD[*]}"
+    fi
+done
+
+MEFISTO_RUNTIME_CMD=()
+MEFISTO_AGENT_PACKAGE_ROOT_SAVED="${MEFISTO_AGENT_PACKAGE_ROOT:-}"
+_eff_pkg="$TMP/eff-pkg"
+mkdir -p "$_eff_pkg/agents"
+echo '{}' > "$_eff_pkg/mefisto-manifest.json"
+(
+    unset OPENCODE_CONFIG_DIR
+    export MEFISTO_AGENT_PACKAGE_ROOT="$_eff_pkg" XDG_CONFIG_HOME="$TMP/eff-xdg"
+    runtime_opencode_build_cmd "writer" "$TMP" "$PROMPT_PLAIN" "" "" "" "high"
+    if [ "${MEFISTO_RUNTIME_CMD[0]:-}" = "env" ] && printf '%s\n' "${MEFISTO_RUNTIME_CMD[@]}" | grep -qxF -- "--variant"; then
+        echo "EFF_ENV_OK"
+    fi
+    MEFISTO_RUNTIME_CMD=()
+    runtime_opencode_build_cmd "writer" "$TMP" "$PROMPT_PLAIN" "" "" "" ""
+    if [ "${MEFISTO_RUNTIME_CMD[0]:-}" = "env" ] && ! printf '%s\n' "${MEFISTO_RUNTIME_CMD[@]}" | grep -qxF -- "--variant"; then
+        echo "EFF_ENV_EMPTY_OK"
+    fi
+) > "$TMP/eff-env.out" 2>/dev/null
+if grep -qx "EFF_ENV_OK" "$TMP/eff-env.out" && grep -qx "EFF_ENV_EMPTY_OK" "$TMP/eff-env.out"; then
+    pass "A-16: con el prefijo env OPENCODE_CONFIG_DIR, --variant solo aparece con effort no vacio"
+else
+    fail "A-16: combinacion env + --variant incorrecta: $(cat "$TMP/eff-env.out" 2>/dev/null)"
+fi
+
 if runtime_opencode_supports_resume; then
     pass "A-13: runtime_opencode_supports_resume retorna 0 (OpenCode soporta reanudacion)"
 else

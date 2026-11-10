@@ -595,9 +595,9 @@ if [ "$J_RC" = "0" ] && redaction_has_no_sentinels "$J_SUCCESS" \
     && ! jq -e 'select(.type == "message")' "$J_SUCCESS" >/dev/null 2>&1 \
     && jq -e 'select(.type == "tool.started") | .input_summary == null' "$J_SUCCESS" >/dev/null 2>&1 \
     && jq -e 'select(.type == "run.completed") | .runtime == "fake" and .model == "runtime-model-allowed"' "$J_SUCCESS" >/dev/null 2>&1; then
-    pass "J-1: exito redactado omite mensajes/inputs y conserva runtime/modelo/terminal sin centinelas"
+    pass "L-1: exito redactado omite mensajes/inputs y conserva runtime/modelo/terminal sin centinelas"
 else
-    fail "J-1: el exito redactado filtro mal contenidos o cambio el desenlace"
+    fail "L-1: el exito redactado filtro mal contenidos o cambio el desenlace"
 fi
 check_scenario "J-1 exito redactado" "$J_SUCCESS" 0 "success" "" "$J_RC"
 J_FIRST_TYPE="$(jq -r '.type' "$J_SUCCESS" 2>/dev/null | sed -n '1p')"
@@ -625,9 +625,9 @@ MEFISTO_FAKE_SCRIPT=sensitive-fail MEFISTO_FAKE_EXIT_CODE=7 "$RUNNER" --runtime 
 J_FAIL_RC=$?
 if [ "$J_FAIL_RC" = "7" ] && redaction_has_no_sentinels "$J_FAIL" \
     && jq -e 'select(.type == "run.failed") | .status == "failed" and .error.kind == "api_error" and .error.detail == "detalle redactado: api_error"' "$J_FAIL" >/dev/null 2>&1; then
-    pass "J-2: fallo redactado conserva status/kind/exit y sustituye detail"
+    pass "L-2: fallo redactado conserva status/kind/exit y sustituye detail"
 else
-    fail "J-2: el fallo redactado filtro mal detail o cambio el desenlace"
+    fail "L-2: el fallo redactado filtro mal detail o cambio el desenlace"
 fi
 check_scenario "J-2 fallo redactado" "$J_FAIL" 7 "failed" "api_error" "$J_FAIL_RC"
 J_FAIL_BASE="$TMP/j-sensitive-fail-baseline.jsonl"
@@ -684,9 +684,9 @@ while [ "$J_LIVE_WAIT" -lt 24 ]; do
     J_LIVE_WAIT=$((J_LIVE_WAIT + 1))
 done
 if [ "$J_LIVE_SEEN" = true ]; then
-    pass "J-4: el anexo en vivo usa el mismo filtro redactado"
+    pass "L-4: el anexo en vivo usa el mismo filtro redactado"
 else
-    fail "J-4: el anexo en vivo expuso mensaje o input_summary"
+    fail "L-4: el anexo en vivo expuso mensaje o input_summary"
 fi
 wait "$J_LIVE_PID" 2>/dev/null
 check_scenario "J-4 vivo redactado" "$J_LIVE" 0 "success" "" "$(cat "$J_LIVE_RC")"
@@ -889,6 +889,48 @@ if [ -f "$ARGS_FILE" ] && ! grep -qxF -- "--fake-resume" "$ARGS_FILE"; then
     pass "I-3: sin --resume-session, ningun --fake-resume llega al adaptador (byte a byte igual a antes de #968, CA-1)"
 else
     fail "I-3: --fake-resume aparecio sin que --resume-session se pasara: $(cat "$ARGS_FILE" 2>/dev/null)"
+fi
+
+echo ""
+echo "[L] CA-3/CA-5 (issue #2496): --effort se reenvia al adaptador y queda en run.started"
+
+EV="$TMP/j-effort.jsonl"
+ARGS_FILE="$TMP/j-effort.args"
+L_RAW="$TMP/l-effort.raw"
+RC=$(MEFISTO_FAKE_ARGS_FILE="$ARGS_FILE" MEFISTO_FAKE_SCRIPT=success run_fake_scenario "$EV" --effort "high" --raw-log "$L_RAW")
+if [ "$RC" = "0" ] && grep -A1 -xF -- "--fake-effort" "$ARGS_FILE" | tail -n1 | grep -qxF "high"; then
+    pass "L-1: --effort high llega al adaptador (--fake-effort high en el argv capturado)"
+else
+    fail "L-1: --effort no llego al adaptador (exit $RC): $(cat "$ARGS_FILE" 2>/dev/null)"
+fi
+if [ "$(head -n1 "$EV" | jq -c '.effort')" = '"high"' ] \
+    && [ "$(grep -F '"fake":"terminal"' "$L_RAW" 2>/dev/null | jq -c '.effort')" = '"high"' ]; then
+    pass "L-2: run.started trae effort high y el CLI fake lo registra en su terminal"
+else
+    fail "L-2: effort high ausente de run.started/terminal: $(cat "$EV" "$L_RAW" 2>/dev/null)"
+fi
+
+for _eff_case in omitido vacio; do
+    EV="$TMP/j-effort-$_eff_case.jsonl"
+    ARGS_FILE="$TMP/j-effort-$_eff_case.args"
+    if [ "$_eff_case" = "omitido" ]; then
+        RC=$(MEFISTO_FAKE_ARGS_FILE="$ARGS_FILE" MEFISTO_FAKE_SCRIPT=success run_fake_scenario "$EV")
+    else
+        RC=$(MEFISTO_FAKE_ARGS_FILE="$ARGS_FILE" MEFISTO_FAKE_SCRIPT=success run_fake_scenario "$EV" --effort "")
+    fi
+    if [ "$RC" = "0" ] && ! grep -qxF -- "--fake-effort" "$ARGS_FILE" && [ "$(head -n1 "$EV" | jq -c '.effort')" = "null" ]; then
+        pass "L-3 ($_eff_case): sin effort no llega nada al adaptador y run.started trae effort null"
+    else
+        fail "L-3 ($_eff_case): comportamiento inesperado sin effort (exit $RC): $(cat "$ARGS_FILE" 2>/dev/null)"
+    fi
+done
+
+EV="$TMP/j-effort-noval.jsonl"
+RC=$(MEFISTO_FAKE_SCRIPT=success run_fake_scenario "$EV" --effort 2>/dev/null)
+if [ "$RC" = "64" ]; then
+    pass "L-4: --effort sin valor aborta con exit 64 (mismo error de uso que --model sin valor)"
+else
+    fail "L-4: --effort sin valor devolvio exit $RC (se esperaba 64)"
 fi
 
 

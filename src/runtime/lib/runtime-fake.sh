@@ -8,7 +8,7 @@
 # Implementa la interfaz de funciones que todo adaptador de runtime debe
 # exponer (ver src/runtime/contract/README.md, "Interfaz de adaptador"):
 #   runtime_fake_build_cmd <agent> <cwd> <prompt_file> <model> <system_file>
-#                          [<resume_session_id>]
+#                          [<resume_session_id>] [<effort>]
 #     Rellena el array global MEFISTO_RUNTIME_CMD con el argv a invocar via
 #     run_agent_with_watchdog (sin `eval`). <model> puede llegar vacio
 #     (heredar, CA-1): en ese caso NO se agrega ningun flag de modelo al argv
@@ -142,7 +142,7 @@ runtime_fake_default_effort() {
 # --- runtime_fake_build_cmd ---------------------------------------------
 
 runtime_fake_build_cmd() {
-    local agent="$1" cwd="$2" prompt_file="$3" model="$4" system_file="$5" resume_session_id="${6:-}"
+    local agent="$1" cwd="$2" prompt_file="$3" model="$4" system_file="$5" resume_session_id="${6:-}" effort="${7:-}"
     # Resuelto contra el propio BASH_SOURCE (no MEFISTO_RUNTIME_LIB_DIR): esta
     # funcion debe encontrar su propio "CLI fake" aunque quien la invoque haya
     # sourceado este archivo desde un directorio de prueba distinto al
@@ -154,6 +154,9 @@ runtime_fake_build_cmd() {
     MEFISTO_RUNTIME_CMD=(bash "$self" __mefisto-fake-emit "$agent" "$prompt_file" "$system_file")
     if [ -n "$model" ]; then
         MEFISTO_RUNTIME_CMD+=(--fake-model "$model")
+    fi
+    if [ -n "$effort" ]; then
+        MEFISTO_RUNTIME_CMD+=(--fake-effort "$effort")
     fi
     if [ -n "$resume_session_id" ]; then
         MEFISTO_RUNTIME_CMD+=(--fake-resume "$resume_session_id")
@@ -250,10 +253,11 @@ _runtime_fake_emit_main() {
     shift || true # prompt_file
     shift || true # system_file
 
-    local fake_model=""
+    local fake_model="" fake_effort=""
     while [ $# -gt 0 ]; do
         case "$1" in
             --fake-model) fake_model="${2:-}"; shift 2 ;;
+            --fake-effort) fake_effort="${2:-}"; shift 2 ;;
             # --fake-resume se CONSUME sin guardarse: ningun guion del fake
             # cambia por reanudar (no modela una sesion con memoria), y lo
             # unico que un test comprueba de el es que llego al argv -- eso
@@ -263,15 +267,16 @@ _runtime_fake_emit_main() {
         esac
     done
 
-    local model_json="null"
+    local model_json="null" effort_json="null"
     [ -n "$fake_model" ] && model_json="$(printf '%s' "$fake_model" | jq -Rr '@json' 2>/dev/null)"
+    [ -n "$fake_effort" ] && effort_json="$(printf '%s' "$fake_effort" | jq -Rr '@json' 2>/dev/null)"
 
     case "${MEFISTO_FAKE_SCRIPT:-success}" in
         success)
             echo '{"fake":"message","text":"hola desde el guion fake"}'
             echo '{"fake":"tool_start","tool":"demo"}'
             echo '{"fake":"tool_end","tool":"demo","ok":true,"duration_ms":5}'
-            printf '{"fake":"terminal","status":"success","model":%s}\n' "$model_json"
+            printf '{"fake":"terminal","status":"success","model":%s,"effort":%s}\n' "$model_json" "$effort_json"
             exit 0
             ;;
         slow-success)
@@ -282,11 +287,11 @@ _runtime_fake_emit_main() {
             sleep "$step_delay"
             echo '{"fake":"tool_end","tool":"demo","ok":true,"duration_ms":5}'
             sleep "$step_delay"
-            printf '{"fake":"terminal","status":"success","model":%s}\n' "$model_json"
+            printf '{"fake":"terminal","status":"success","model":%s,"effort":%s}\n' "$model_json" "$effort_json"
             exit 0
             ;;
         fail)
-            printf '{"fake":"terminal","status":"failed","model":%s,"error_kind":"nonzero_exit","error_detail":"guion fail"}\n' "$model_json"
+            printf '{"fake":"terminal","status":"failed","model":%s,"effort":%s,"error_kind":"nonzero_exit","error_detail":"guion fail"}\n' "$model_json" "$effort_json"
             exit "${MEFISTO_FAKE_EXIT_CODE:-3}"
             ;;
         hang)
@@ -298,8 +303,8 @@ _runtime_fake_emit_main() {
             exit 0
             ;;
         two-terminals)
-            printf '{"fake":"terminal","status":"success","model":%s}\n' "$model_json"
-            printf '{"fake":"terminal","status":"failed","model":%s,"error_kind":"nonzero_exit","error_detail":"segundo terminal"}\n' "$model_json"
+            printf '{"fake":"terminal","status":"success","model":%s,"effort":%s}\n' "$model_json" "$effort_json"
+            printf '{"fake":"terminal","status":"failed","model":%s,"effort":%s,"error_kind":"nonzero_exit","error_detail":"segundo terminal"}\n' "$model_json" "$effort_json"
             exit 0
             ;;
         malformed)
@@ -311,12 +316,12 @@ _runtime_fake_emit_main() {
             echo '{"fake":"message","text":"PROMPT_SENTINEL ASSISTANT_SENTINEL AUTH_TOKEN_SENTINEL HEADER_SENTINEL"}'
             echo '{"fake":"tool_start","tool":"Bash","input_summary":"COMMAND_SENTINEL input"}'
             echo '{"fake":"tool_end","tool":"Bash","ok":true,"duration_ms":5}'
-            printf '{"fake":"terminal","status":"success","model":%s}\n' "$model_json"
+            printf '{"fake":"terminal","status":"success","model":%s,"effort":%s}\n' "$model_json" "$effort_json"
             exit 0
             ;;
         sensitive-fail)
             echo '{"fake":"message","text":"ASSISTANT_SENTINEL"}'
-            printf '{"fake":"terminal","status":"failed","model":%s,"error_kind":"api_error","error_detail":"STDERR_SENTINEL AUTH_TOKEN_SENTINEL"}\n' "$model_json"
+            printf '{"fake":"terminal","status":"failed","model":%s,"effort":%s,"error_kind":"api_error","error_detail":"STDERR_SENTINEL AUTH_TOKEN_SENTINEL"}\n' "$model_json" "$effort_json"
             echo 'STDERR_SENTINEL HEADER_SENTINEL AUTH_TOKEN_SENTINEL' >&2
             exit "${MEFISTO_FAKE_EXIT_CODE:-3}"
             ;;
@@ -325,13 +330,13 @@ _runtime_fake_emit_main() {
             read -r _touch_tty_x </dev/tty
             stty -echo
             read -r _touch_tty_y
-            printf '{"fake":"terminal","status":"success","model":%s}\n' "$model_json"
+            printf '{"fake":"terminal","status":"success","model":%s,"effort":%s}\n' "$model_json" "$effort_json"
             exit 0
             ;;
         self-stop)
             echo '{"fake":"message","text":"a punto de auto-detenerme con SIGSTOP"}'
             kill -STOP $$
-            printf '{"fake":"terminal","status":"success","model":%s}\n' "$model_json"
+            printf '{"fake":"terminal","status":"success","model":%s,"effort":%s}\n' "$model_json" "$effort_json"
             exit 0
             ;;
         dump-stdin)
@@ -351,7 +356,7 @@ _runtime_fake_emit_main() {
             else
                 cat > /dev/null
             fi
-            printf '{"fake":"terminal","status":"success","model":%s}\n' "$model_json"
+            printf '{"fake":"terminal","status":"success","model":%s,"effort":%s}\n' "$model_json" "$effort_json"
             exit 0
             ;;
         *)

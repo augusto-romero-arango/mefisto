@@ -12,6 +12,7 @@
         "runtime": { "type": "string", "minLength": 1 },
         "agent": { "type": "string", "minLength": 1 },
         "model": { "$comment": "string o null -- null cuando --model llega vacio/ausente (heredar)" },
+        "effort": { "$comment": "string o null (issue #2496) -- effort nativo que el runner entrego al adaptador; null cuando --effort llega vacio/ausente (heredar). Campo OPCIONAL a proposito (fuera de 'required'): los logs de corridas anteriores y los fixtures ajenos al contrato siguen siendo validos sin tocarlos." },
         "cwd": { "type": "string", "minLength": 1 }
       },
       "additionalProperties": false

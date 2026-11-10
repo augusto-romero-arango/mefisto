@@ -1,3 +1,3 @@
-{"v":1,"type":"run.started","ts":"2026-09-05T10:05:00Z","runtime":"fake","agent":"mefisto-reviewer","model":null,"cwd":"/tmp/worktree"}
+{"v":1,"type":"run.started","ts":"2026-09-05T10:05:00Z","runtime":"fake","agent":"mefisto-reviewer","model":null,"effort":null,"cwd":"/tmp/worktree"}
 {"v":1,"type":"message","ts":"2026-09-05T10:05:01Z","role":"assistant","text":"Revisando el diff..."}
 {"v":1,"type":"run.failed","ts":"2026-09-05T10:05:05Z","status":"failed","runtime":"fake","model":null,"session_id":null,"duration_ms":5000,"tokens":{"input":800,"output":null,"cache_read":null,"cache_write":null,"reasoning":null},"estimated_cost_usd":null,"turns":null,"denials":null,"ttft_ms":null,"api_duration_ms":null,"error":{"kind":"api_error","detail":"API Error: 529 overloaded"}}

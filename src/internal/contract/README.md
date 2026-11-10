@@ -165,7 +165,7 @@ Cada `src/runtime/lib/runtime-<id>.sh` implementa:
 | Funcion | Contrato interno |
 |---|---|
 | `runtime_<id>_is_available` | Probe local usado solo en autodeteccion; no lee credenciales ni configuracion del proveedor |
-| `runtime_<id>_build_cmd <agent> <cwd> <prompt_file> <model> <system_file> [<resume_session_id>]` | Rellena el array global `MEFISTO_RUNTIME_CMD` sin `eval`; traduce opciones y omite las vacias |
+| `runtime_<id>_build_cmd <agent> <cwd> <prompt_file> <model> <system_file> [<resume_session_id>] [<effort>]` | Rellena el array global `MEFISTO_RUNTIME_CMD` sin `eval`; traduce opciones y omite las vacias. `<effort>` (issue #2496) llega ya en nombre nativo y opaco para el runner, que siempre lo pasa (vacio = heredar); cada adaptador lo aplica con su mecanismo nativo |
 | `runtime_<id>_translate <raw_file> <runtime_id> <model> [<exit_code>] [<stderr_file>]` | Emite por stdout el JSONL comun derivado del wire format; nunca emite `run.started` |
 | `runtime_<id>_supports_resume` | Devuelve 0 si soporta reanudacion y 1 en otro caso; ausente equivale a no soportada |
 

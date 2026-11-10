@@ -340,6 +340,30 @@ else
     fail "A-12: resume_session_id vacio pero el argv trae --resume: ${MEFISTO_RUNTIME_CMD[*]}"
 fi
 
+# --- Effort (issue #2496) ---
+
+MEFISTO_RUNTIME_CMD=()
+runtime_claude_build_cmd "writer" "$TMP" "$PROMPT_PLAIN" "" "" "" "high"
+if [ "${MEFISTO_RUNTIME_CMD[0]:-}" = "env" ] && [ "${MEFISTO_RUNTIME_CMD[1]:-}" = "CLAUDE_CODE_EFFORT_LEVEL=high" ] && [ "${MEFISTO_RUNTIME_CMD[2]:-}" = "claude" ] && [ "${MEFISTO_RUNTIME_CMD[3]:-}" = "-p" ] && ! contains_elem "--effort"; then
+    pass "A-14: effort high -> argv empieza por env CLAUDE_CODE_EFFORT_LEVEL=high claude -p y no trae --effort"
+else
+    fail "A-14: argv inesperado con effort high: ${MEFISTO_RUNTIME_CMD[*]}"
+fi
+
+for _eff_case in "empty" "absent"; do
+    MEFISTO_RUNTIME_CMD=()
+    if [ "$_eff_case" = "empty" ]; then
+        runtime_claude_build_cmd "writer" "$TMP" "$PROMPT_PLAIN" "" "" "" ""
+    else
+        runtime_claude_build_cmd "writer" "$TMP" "$PROMPT_PLAIN" "" "" ""
+    fi
+    if [ "${MEFISTO_RUNTIME_CMD[0]:-}" = "claude" ] && [ "${MEFISTO_RUNTIME_CMD[1]:-}" = "-p" ] && ! contains_elem "env" && ! contains_elem "--effort"; then
+        pass "A-15 ($_eff_case): effort vacio/ausente -> argv empieza por claude -p, sin env ni --effort"
+    else
+        fail "A-15 ($_eff_case): argv inesperado sin effort: ${MEFISTO_RUNTIME_CMD[*]}"
+    fi
+done
+
 if runtime_claude_supports_resume; then
     pass "A-13: runtime_claude_supports_resume retorna 0 (Claude Code soporta reanudacion)"
 else

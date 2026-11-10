@@ -118,7 +118,7 @@ mantener una segunda copia del contrato.
 
 `src/runtime/mefisto-run-agent.sh` recibe `--agent`, `--cwd`, `--prompt-file`
 y `--event-log`; acepta `--runtime`, modelo opaco, system prompt, timeout,
-raw/stderr logs, `--events-log`, `--resume-session` y
+raw/stderr logs, `--events-log`, `--resume-session`, `--effort` y
 `--redact-observability`. Este ultimo es opt-in y transforma por igual los
 anexos en vivo y el stream final: omite `message`, deja
 `tool.started.input_summary` en `null` y reemplaza `error.detail` por el texto
@@ -129,6 +129,19 @@ no estan redactados. `--events-log` es opt-in:
 el nucleo no deriva rutas de estado. Sus exits son 0 (exito), 64 (uso), 65
 (protocolo invalido), 69 (runtime/dependencia), 124 (timeout), o el exit no
 cero del adaptador.
+
+`--effort <opaco>` (issue #2496) es un effort ya traducido a nombre nativo:
+el runner lo trata como opaco, vacio o ausente significa heredar (no se agrega
+nada al argv ni al entorno) y, no vacio, se registra en `run.started.effort`
+(string o `null`; campo opcional en el schema). Viaja siempre como 7mo
+posicional de `build_cmd`:
+`runtime_<id>_build_cmd <agent> <cwd> <prompt_file> <model> <system_file>
+[<resume_session_id>] [<effort>]` (vacio si no hubo `--effort`; un adaptador
+que no lo lea sigue siendo valido). Cada adaptador lo aplica a su manera: el de
+Claude Code antepone `env CLAUDE_CODE_EFFORT_LEVEL=<valor>` al argv (la variable
+prevalece sobre el campo `effort` del frontmatter del agente, que el flag no
+logra), el de OpenCode agrega `--variant <valor>` y el fake agrega
+`--fake-effort <valor>`.
 
 `src/runtime/mefisto-run-agent.sh` crea un directorio de trabajo por corrida
 (`mktemp -d`) y lo expone en la variable global `MEFISTO_RUNTIME_WORK_DIR`
