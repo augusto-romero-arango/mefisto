@@ -21,6 +21,16 @@ run_agent_with_watchdog() {
 
     rm -f "$signal_file"
 
+    # MEFISTO_WATCHDOG_TERMINATE_FILE (issue #2472): variable global opcional,
+    # mismo patron que MEFISTO_RUNTIME_STDIN_FILE (la firma de 7 posicionales no
+    # cambia). Si apunta a un archivo que EXISTE en una rebanada del watchdog,
+    # alguien pidio terminar el proceso porque ya declaro exito pero no sale:
+    # SIGTERM al grupo y, si sigue vivo 10 s despues, SIGKILL. No es un timeout:
+    # no deja <signal_file> ni toca el reloj. Sin la variable (o sin el archivo)
+    # el comportamiento es el de siempre. Se lee una vez, aqui, para que el
+    # subshell del watchdog herede un valor estable.
+    local terminate_file="${MEFISTO_WATCHDOG_TERMINATE_FILE:-}"
+
     local pid
     if command -v setsid >/dev/null 2>&1; then
         ( cd "$workdir" && exec setsid "$@" ) <"${MEFISTO_RUNTIME_STDIN_FILE:-/dev/null}" >"$stdout_file" 2>"$stderr_file" &
@@ -62,6 +72,23 @@ run_agent_with_watchdog() {
             [ "$slice" -gt "$remaining" ] && slice="$remaining"
             sleep "$slice"
             elapsed=$((elapsed + slice))
+
+            # Solicitud de terminacion (#2472). La linea de evento va ANTES de
+            # las senales, por la misma razon que STOPPED: apenas el grupo
+            # muere, el caller cancela este watchdog con un SIGKILL. CONT tras
+            # TERM porque un grupo detenido no entrega TERM hasta reanudarse.
+            if [ -n "$terminate_file" ] && [ -f "$terminate_file" ]; then
+                echo "[$(date +%H:%M:%S)] TERMINATE: $label -- SIGTERM al grupo por solicitud" >> "$events_log"
+                kill -TERM -"$pid" 2>/dev/null
+                kill -CONT -"$pid" 2>/dev/null
+                term_waited=0
+                while [ "$term_waited" -lt 10 ] && kill -0 -"$pid" 2>/dev/null; do
+                    sleep 1
+                    term_waited=$((term_waited + 1))
+                done
+                kill -0 -"$pid" 2>/dev/null && kill -9 -"$pid" 2>/dev/null
+                exit 0
+            fi
 
             # CA-2 (#945): STAT empieza por T/t cuando el proceso esta detenido
             # (SIGSTOP/SIGTSTP/SIGTTIN/SIGTTOU). `ps -eo pid=,pgid=,stat=`

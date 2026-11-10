@@ -52,6 +52,11 @@
 #       aborte con exit 69, un mensaje que nombra la variable, y SIN lanzar
 #       el proceso del adaptador (se verifica con un marcador que solo se
 #       crearia si el comando llegara a ejecutarse).
+#   [M] CA-1/CA-2/CA-3/CA-5 (issue #2472): con el guion success-then-hang, la
+#       gracia MEFISTO_RUN_AGENT_POST_RESULT_GRACE_S corta al proceso que ya
+#       declaro exito (exit 0, POST-RESULT en --events-log); con gracia mayor
+#       que --timeout gana el timeout pero se conserva el exito; sin exito
+#       sigue siendo timeout 124; gracia invalida cae al default 120.
 #   [G] El runner resuelve sus propias libs por su UBICACION, no por el cwd
 #       del caller: invocado desde un cwd fuera de todo repo git sigue
 #       corriendo (regresion de la resolucion via `git rev-parse`).
@@ -933,6 +938,107 @@ else
     fail "L-4: --effort sin valor devolvio exit $RC (se esperaba 64)"
 fi
 
+
+echo ""
+echo "[M] CA-1/CA-2/CA-3/CA-5 (issue #2472): corte tras exito declarado y gracia"
+
+# run_post_result <tag> <script> <grace|__unset__> <timeout> -- deja
+# $TMP/m-<tag>.{jsonl,events,stderr}, y fija M_RC y M_ELAPSED.
+run_post_result() {
+    local tag="$1" script="$2" grace="$3" tmo="$4" t0 t1
+    rm -f "$TMP/m-$tag.events"
+    t0=$(date +%s)
+    if [ "$grace" = "__unset__" ]; then
+        MEFISTO_FAKE_SCRIPT="$script" MEFISTO_RUN_AGENT_LIVE_INTERVAL=1 MEFISTO_WATCHDOG_POLL_S=1 \
+            "$RUNNER" --runtime fake --agent test-agent --cwd "$WORKDIR" --prompt-file "$PROMPT_FILE" \
+            --event-log "$TMP/m-$tag.jsonl" --events-log "$TMP/m-$tag.events" --timeout "$tmo" >/dev/null 2>"$TMP/m-$tag.stderr"
+    else
+        MEFISTO_FAKE_SCRIPT="$script" MEFISTO_RUN_AGENT_LIVE_INTERVAL=1 MEFISTO_WATCHDOG_POLL_S=1 \
+            MEFISTO_RUN_AGENT_POST_RESULT_GRACE_S="$grace" \
+            "$RUNNER" --runtime fake --agent test-agent --cwd "$WORKDIR" --prompt-file "$PROMPT_FILE" \
+            --event-log "$TMP/m-$tag.jsonl" --events-log "$TMP/m-$tag.events" --timeout "$tmo" >/dev/null 2>"$TMP/m-$tag.stderr"
+    fi
+    M_RC=$?
+    t1=$(date +%s)
+    M_ELAPSED=$((t1 - t0))
+}
+
+last_terminal_field() { jq -r --arg f "$2" 'select(.type == "run.completed" or .type == "run.failed") | .[$f]' "$1" 2>/dev/null | tail -n1; }
+
+# CA-1: exito declarado + proceso vivo + gracia corta -> corte antes del timeout.
+run_post_result m1 success-then-hang 1 40
+if [ "$M_RC" = "0" ] && [ "$M_ELAPSED" -lt 30 ]; then
+    pass "M-1: corte por gracia antes del --timeout, exit 0 (${M_ELAPSED}s de 40s)"
+else
+    fail "M-1: exit $M_RC en ${M_ELAPSED}s (esperaba 0 antes de 30s)"
+fi
+if [ "$(count_terminals "$TMP/m-m1.jsonl")" = "1" ] \
+    && [ "$(tail -n1 "$TMP/m-m1.jsonl" | jq -r '.type + ":" + .status')" = "run.completed:success" ]; then
+    pass "M-2: --event-log cierra con exactamente un run.completed{status:success}"
+else
+    fail "M-2: terminal inesperado: $(tail -n1 "$TMP/m-m1.jsonl" 2>/dev/null)"
+fi
+if grep -q 'POST-RESULT: test-agent seguia vivo [0-9]*s despues de declarar exito -- SIGTERM' "$TMP/m-m1.events" 2>/dev/null; then
+    pass "M-3: --events-log registra la linea POST-RESULT"
+else
+    fail "M-3: falta POST-RESULT en --events-log: $(cat "$TMP/m-m1.events" 2>/dev/null)"
+fi
+
+# CA-2: gracia mayor que el timeout -> el watchdog mata, pero se respeta el exito.
+run_post_result m2 success-then-hang 60 3
+if [ "$M_RC" = "0" ] && [ "$(tail -n1 "$TMP/m-m2.jsonl" | jq -r '.type + ":" + .status')" = "run.completed:success" ]; then
+    pass "M-4: timeout tras exito declarado -> exit 0 con el terminal de exito"
+else
+    fail "M-4: exit $M_RC, terminal: $(tail -n1 "$TMP/m-m2.jsonl" 2>/dev/null)"
+fi
+if grep -q 'TIMEOUT tras exito declarado: test-agent' "$TMP/m-m2.events" 2>/dev/null \
+    && ! grep -q 'POST-RESULT:' "$TMP/m-m2.events" 2>/dev/null; then
+    pass "M-5: --events-log registra 'TIMEOUT tras exito declarado' y no POST-RESULT"
+else
+    fail "M-5: --events-log inesperado: $(cat "$TMP/m-m2.events" 2>/dev/null)"
+fi
+
+# CA-3: sin exito declarado el timeout sigue siendo timeout; y un agente que
+# declara exito y sale solo no recibe senal.
+run_post_result m3 hang 1 3
+if [ "$M_RC" = "124" ] && [ "$(last_terminal_field "$TMP/m-m3.jsonl" status)" = "timeout" ] \
+    && ! grep -q 'POST-RESULT:\|TIMEOUT tras exito' "$TMP/m-m3.events" 2>/dev/null; then
+    pass "M-6: un guion colgado sin exito termina en run.failed{timeout} con exit 124"
+else
+    fail "M-6: exit $M_RC, terminal: $(tail -n1 "$TMP/m-m3.jsonl" 2>/dev/null), events: $(cat "$TMP/m-m3.events" 2>/dev/null)"
+fi
+run_post_result m4 success 1 30
+if [ "$M_RC" = "0" ] && ! grep -q 'POST-RESULT:\|TIMEOUT tras exito' "$TMP/m-m4.events" 2>/dev/null; then
+    pass "M-7: exito que sale solo no recibe senal ni linea POST-RESULT"
+else
+    fail "M-7: exit $M_RC, events: $(cat "$TMP/m-m4.events" 2>/dev/null)"
+fi
+
+# CA-5: gracia invalida (vacia, 0, no numerica) cae al default 120: con
+# --timeout 3 el corte por gracia no llega y gana el timeout tras exito.
+for _g in "" 0 abc; do
+    _tag="m5-${_g:-vacio}"
+    run_post_result "$_tag" success-then-hang "$_g" 3
+    if [ "$M_RC" = "0" ] && grep -q 'TIMEOUT tras exito declarado' "$TMP/m-$_tag.events" 2>/dev/null \
+        && ! grep -q 'POST-RESULT:' "$TMP/m-$_tag.events" 2>/dev/null; then
+        pass "M-8 (gracia '${_g}'): cae al default 120 (sin corte por gracia dentro de 3s)"
+    else
+        fail "M-8 (gracia '${_g}'): exit $M_RC, events: $(cat "$TMP/m-$_tag.events" 2>/dev/null)"
+    fi
+done
+if grep -q 'MEFISTO_RUN_AGENT_POST_RESULT_GRACE_S' "$TMP/m-m5-abc.stderr" 2>/dev/null; then
+    pass "M-9: una gracia invalida avisa por stderr"
+else
+    fail "M-9: no hubo aviso por stderr para la gracia invalida"
+fi
+
+for _doc in "$RUNNER" "$CONTRACT_DIR/README.md"; do
+    if grep -q 'MEFISTO_RUN_AGENT_POST_RESULT_GRACE_S' "$_doc" && grep -q 'POST-RESULT' "$_doc"; then
+        pass "M-10: ${_doc#"$REPO_ROOT"/} documenta la gracia y el corte"
+    else
+        fail "M-10: ${_doc#"$REPO_ROOT"/} no documenta la gracia y el corte"
+    fi
+done
 
 echo ""
 echo "[G] El runner no depende del cwd del caller para encontrar sus propias libs"
