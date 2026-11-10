@@ -176,3 +176,4 @@ no necesita estar residente en cada sesión, solo cuando se busca en qué ADR vi
 | Retry en el bus de los fallos del handler en endpoints de Service Bus (abandono; dead letter solo para el mensaje ilegible) | MEF-ADR-0004, MEF-ADR-0026 |
 | Poll de la revision lista del worker de proyecciones con la imagen del SHA publicado | MEF-ADR-0031 |
 | Modo sin pane del lado interno decidido por el runtime resuelto; el hook del mod solo observa el lanzamiento | MEF-ADR-0055 |
+| Heuristica de comentarios no obvios (porque, precision, dependencias, API externa, interfaz, lo truculento), comentario falso corregido o borrado, revision en los dos sentidos y alcance a C#/HCL/bash/TypeScript/YAML del consumidor y del plugin | MEF-ADR-0044 |
