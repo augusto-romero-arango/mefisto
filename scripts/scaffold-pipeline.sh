@@ -264,6 +264,13 @@ if git -C "$REPO_ROOT" show-ref --verify --quiet "refs/heads/$BRANCH_NAME" 2>/de
 fi
 
 mkdir -p "$(dirname "$WORKTREE_PATH")"
+# Effort neutral por agente (issue #2500): nivel de fabrica + mapping opcional
+# del consumidor, resuelto antes de crear el worktree; vacio = heredar.
+CONSUMER_MODELS_FILE="$REPO_ROOT/.mefisto/models.json"
+resolve_pipeline_agent_effort domain-scaffolder domain-scaffolder \
+    || abort "No se pudo resolver el effort de domain-scaffolder: MEFISTO_EFFORTS_ERROR=${PIPELINE_EFFORT_ERROR:-motivo desconocido}"
+SCAFFOLD_AGENT_EFFORT="$RESOLVED_PIPELINE_EFFORT"
+
 log "Creando worktree: $WORKTREE_PATH (base: origin/main)"
 git -C "$REPO_ROOT" worktree add "$WORKTREE_PATH" -b "$BRANCH_NAME" origin/main >>"$LOG_FILE" 2>&1 \
     || abort "No se pudo crear el worktree desde origin/main"
@@ -275,7 +282,6 @@ success "Worktree creado: $WORKTREE_PATH"
 # sin override el adaptador decide su default por perfil, o se hereda. Mismo
 # helper que iac-pipeline.sh/tooling-pipeline.sh, sin --models (este pipeline
 # nunca lo soporto tampoco del lado Claude).
-CONSUMER_MODELS_FILE="$REPO_ROOT/.mefisto/models.json"
 _SCAFFOLD_MODEL_OUTPUT="$(mktemp)"
 if ! mefisto_resolve_model "$MEFISTO_RUNTIME_RESUELTO" "domain-scaffolder" "balanced" "" "$CONSUMER_MODELS_FILE" > "$_SCAFFOLD_MODEL_OUTPUT"; then
     rm -f "$_SCAFFOLD_MODEL_OUTPUT"
@@ -326,6 +332,7 @@ run_scaffold_agent() {
         fi
         local args=(--runtime "$MEFISTO_RUNTIME_RESUELTO" --agent domain-scaffolder --cwd "$WORKTREE_PATH" --prompt-file "$attempt_prompt" --system-file "$system_file" --event-log "$events_file" --events-log "$EVENTS_LOG" --redact-observability --timeout "$SCAFFOLD_TIMEOUT")
         [ -n "$SCAFFOLD_AGENT_MODEL" ] && args+=(--model "$SCAFFOLD_AGENT_MODEL")
+        [ -n "$SCAFFOLD_AGENT_EFFORT" ] && args+=(--effort "$SCAFFOLD_AGENT_EFFORT")
         [ -n "$resume_session" ] && args+=(--resume-session "$resume_session")
         if "$RUN_AGENT_BIN" "${args[@]}" >"$runner_file" 2>&1; then run_exit=0; else run_exit=$?; fi
         [ "$attempt_prompt" = "$prompt_file" ] || rm -f "$attempt_prompt"

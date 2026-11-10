@@ -113,6 +113,8 @@ TIMESTAMP="ts"
 RUN_AGENT_BIN="$bin_dir/mefisto-run-agent-stub.sh"
 MEFISTO_RUNTIME_RESUELTO="fake-runtime"
 IMPLEMENTER_MODEL=""
+IMPLEMENTER_EFFORT=""
+${EFFORT_SETUP:-}
 LOG_FILE_ABS="$TMP_DIR/log.txt"
 RED='' NC=''
 log() { printf '%s\n' "\$1" >> "$TMP_DIR/log.txt"; }
@@ -176,6 +178,42 @@ if [ "$RC" -eq 0 ] && ! echo "$OUTPUT" | grep -q 'RESULT=0'; then
     pass "N-4b: run_agent retorna != 0 con JSONL sin terminal"
 else
     fail "N-4b: se esperaba RESULT != 0. Salida: $OUTPUT"
+fi
+
+echo "[N-5] effort del implementer con el adaptador fake (issue #2500)"
+if grep -Fq 'resolve_pipeline_agent_effort implementer implementer' "$PR_SYNC" \
+    && grep -Fq '[ -n "$IMPLEMENTER_EFFORT" ] && args+=(--effort "$IMPLEMENTER_EFFORT")' "$PR_SYNC" \
+    && grep -Fq 'MEFISTO_EFFORTS_ERROR' "$PR_SYNC"; then
+    pass "N-5: pr-sync.sh resuelve el effort antes del bucle de PRs y pasa --effort condicional"
+else
+    fail "N-5: pr-sync.sh no resuelve/pasa el effort del implementer"
+fi
+cat > "$TMP_DIR/models-effort.json" <<'EOF'
+{"fake":{"efforts":{"levels":{"light":"n-light","standard":"n-standard","thorough":"n-thorough"},"agents":{"implementer":"thorough"}}}}
+EOF
+cat > "$TMP_DIR/models-levels.json" <<'EOF'
+{"fake":{"efforts":{"levels":{"light":"n-light","standard":"n-standard","thorough":"n-thorough"}}}}
+EOF
+effort_setup() {
+    printf 'source "%s/src/runtime/lib/mefisto-models.sh"\nMEFISTO_RUNTIME_RESUELTO="fake"\nCONSUMER_MODELS_FILE="%s"\nresolve_pipeline_agent_effort implementer implementer || exit 9\nIMPLEMENTER_EFFORT="$RESOLVED_PIPELINE_EFFORT"' "$REPO_ROOT" "$1"
+}
+EFFORT_SETUP="$(effort_setup "$TMP_DIR/ausente.json")" run_case eff-none 0 success
+if [ "$RC" -eq 0 ] && echo "$OUTPUT" | grep -q 'RESULT=0' && ! grep -qx -- '--effort' "$TMP_DIR/stub-args.txt"; then
+    pass "N-5: sin mapping ni default el implementer no recibe --effort (hereda)"
+else
+    fail "N-5: sin mapping no debia pasarse --effort. Salida: $OUTPUT"
+fi
+EFFORT_SETUP="$(effort_setup "$TMP_DIR/models-levels.json")" run_case eff-level 0 success
+if grep -qx -- '--effort' "$TMP_DIR/stub-args.txt" && grep -qx 'n-standard' "$TMP_DIR/stub-args.txt"; then
+    pass "N-5: sin override el implementer recibe el nativo de su nivel de fabrica (standard)"
+else
+    fail "N-5: se esperaba --effort n-standard: $(tr '\n' ' ' < "$TMP_DIR/stub-args.txt")"
+fi
+EFFORT_SETUP="$(effort_setup "$TMP_DIR/models-effort.json")" run_case eff-agent 0 success
+if grep -qx -- '--effort' "$TMP_DIR/stub-args.txt" && grep -qx 'n-thorough' "$TMP_DIR/stub-args.txt"; then
+    pass "N-5: efforts.agents.implementer gana sobre el nivel de fabrica (n-thorough)"
+else
+    fail "N-5: se esperaba --effort n-thorough: $(tr '\n' ' ' < "$TMP_DIR/stub-args.txt")"
 fi
 
 echo ""

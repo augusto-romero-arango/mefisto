@@ -636,6 +636,70 @@ resolve_declared_agent_model() {
     return 0
 }
 
+# --- Effort por agente (issue #2500) -----------------------------------------
+#
+# Tabla unica del nivel neutral de effort de fabrica de los 22 agentes
+# publicados. Duplica deliberadamente el campo `effort` de src/published/agents/
+# (el consumidor recibe dist/<runtime>, sin las fuentes, y el frontmatter
+# renderizado solo trae el nativo de un runtime): scripts/tests/
+# test-pipeline-agent-efforts.sh compara ambos lados y falla si derivan.
+
+# pipeline_agent_effort_level <agent-id>
+#
+# Imprime el nivel neutral de fabrica del agente. Un agente fuera de la tabla
+# retorna 1 sin imprimir nada.
+pipeline_agent_effort_level() {
+    case "${1:-}" in
+        bug-investigator|planner|reviewer|tooling-investigator)
+            printf '%s\n' thorough ;;
+        implementer|infra-reviewer|projection-implementer|tooling-reviewer)
+            printf '%s\n' standard ;;
+        apim-gateway-scaffolder|domain-scaffolder|historiador|infra-base-scaffolder|\
+        infra-bootstrap|infra-writer|mcp-scaffolder|pr-sync|projection-test-writer|\
+        projections-scaffolder|smoke-test-writer|test-writer|tooling-writer|\
+        workos-identity-scaffolder)
+            printf '%s\n' light ;;
+        *) return 1 ;;
+    esac
+}
+
+RESOLVED_PIPELINE_EFFORT=""
+PIPELINE_EFFORT_ERROR=""
+
+# resolve_pipeline_agent_effort <clave-de-stage> <agent-id>
+#
+# Toma el nivel de pipeline_agent_effort_level, lo resuelve con
+# mefisto_resolve_effort contra el runtime activo y el mapping opcional del
+# consumidor, y deja el nombre nativo en RESOLVED_PIPELINE_EFFORT (vacio =
+# heredar, no se pasa --effort al runner). Anota en events.log la linea
+# 'EFFORTS: <clave> -> <nativo|<heredado>> (nivel <neutral>)'. Ante un fallo
+# retorna 1 con el motivo en PIPELINE_EFFORT_ERROR y cada pipeline aborta a su
+# estilo. Requiere MEFISTO_RUNTIME_RESUELTO y CONSUMER_MODELS_FILE (opcional).
+# Se captura con redirect a archivo, nunca con $(...): una subshell perderia
+# MEFISTO_EFFORTS_ERROR.
+resolve_pipeline_agent_effort() {
+    local key="$1" agent_id="$2" level output log_file
+    RESOLVED_PIPELINE_EFFORT=""
+    PIPELINE_EFFORT_ERROR=""
+    if ! level="$(pipeline_agent_effort_level "$agent_id")"; then
+        MEFISTO_EFFORTS_ERROR="agente '$agent_id' sin nivel de effort de fabrica en pipeline_agent_effort_level"
+        PIPELINE_EFFORT_ERROR="$MEFISTO_EFFORTS_ERROR"
+        return 1
+    fi
+    output="$(mktemp)"
+    if ! mefisto_resolve_effort "${MEFISTO_RUNTIME_RESUELTO:-}" "$agent_id" "$level" "${CONSUMER_MODELS_FILE:-}" > "$output"; then
+        rm -f "$output"
+        PIPELINE_EFFORT_ERROR="${MEFISTO_EFFORTS_ERROR:-motivo desconocido}"
+        return 1
+    fi
+    RESOLVED_PIPELINE_EFFORT="$(cat "$output")"; rm -f "$output"
+    log_file="${EVENTS_LOG_ABS:-${EVENTS_LOG:-}}"
+    if [ -n "$log_file" ]; then
+        echo "[$(date +%H:%M:%S)] EFFORTS: $key -> ${RESOLVED_PIPELINE_EFFORT:-<heredado>} (nivel $level)" >> "$log_file"
+    fi
+    return 0
+}
+
 # --- Asignacion de modelo por stage (--models, issue #708) -------------------
 #
 # Mecanismo de experimentos A/B de desempeno del harness (calidad/velocidad/costo
@@ -1406,6 +1470,7 @@ enrich_stage_metrics() {
             runtime: ($terminal.runtime // $started.runtime // null),
             profile: $profile,
             requested_model: ($started.model // null),
+            requested_effort: ($started.effort // null),
             effective_model: ($terminal.model // null),
             inherited: (($started.model // null) == null),
             session_id: ($terminal.session_id // null),

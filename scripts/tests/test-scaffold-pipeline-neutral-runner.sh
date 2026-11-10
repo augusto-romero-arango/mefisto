@@ -68,6 +68,7 @@ RUN_AGENT_BIN="$stub"
 MEFISTO_RUNTIME_RESUELTO='fake'
 MEFISTO_RUNTIME_LIB_DIR="$ROOT/src/runtime/lib"
 SCAFFOLD_AGENT_MODEL=''
+SCAFFOLD_AGENT_EFFORT=''
 SCAFFOLD_TIMEOUT=5
 EVENTS_LOG="$tmp/events.log"
 RED=''
@@ -186,6 +187,59 @@ else
     fail '(e) stream_cut no fallo como esperado, o dejo una linea [hold]'
 fi
 rm -rf "$E_TMP"
+
+# --- (f): effort del domain-scaffolder con el adaptador fake (issue #2500) ---
+echo '[effort] --effort recibido por domain-scaffolder'
+contains '[ -n "$SCAFFOLD_AGENT_EFFORT" ] && args+=(--effort "$SCAFFOLD_AGENT_EFFORT")' 'pasa --effort solo si el effort resuelto no es vacio'
+contains 'resolve_pipeline_agent_effort domain-scaffolder domain-scaffolder' 'resuelve el effort antes del worktree'
+contains 'MEFISTO_EFFORTS_ERROR' 'un mapping de effort invalido aborta citando MEFISTO_EFFORTS_ERROR'
+
+F_TMP="$(mktemp -d -t mefisto-scaffold-f)"
+cat > "$F_TMP/stub" <<EOF
+#!/usr/bin/env bash
+printf '%s\n' "\$@" > "$F_TMP/args"
+event_log=""
+while [ "\$#" -gt 0 ]; do
+    case "\$1" in --event-log) event_log="\$2"; shift 2 ;; *) shift ;; esac
+done
+printf '%s\n' '{"type":"run.completed","status":"success","session_id":"sess-f","denials":0,"error":null}' > "\$event_log"
+exit 0
+EOF
+chmod +x "$F_TMP/stub"
+cat > "$F_TMP/models.json" <<'EOF'
+{"fake":{"efforts":{"levels":{"light":"n-light","standard":"n-standard"},"agents":{"domain-scaffolder":"standard"}}}}
+EOF
+# eff_args <models-file>: deja el argv en $F_TMP/args
+eff_args() {
+    {
+        printf 'source "%s"\n' "$ROOT/src/runtime/lib/mefisto-models.sh"
+        printf 'CONSUMER_MODELS_FILE="%s"\n' "$1"
+        printf '%s\n' 'resolve_pipeline_agent_effort domain-scaffolder domain-scaffolder'
+        printf '%s\n' 'SCAFFOLD_AGENT_EFFORT="$RESOLVED_PIPELINE_EFFORT"'
+    } > "$F_TMP/extra-env"
+    rm -f "$F_TMP/args"
+    build_case "$F_TMP" "$F_TMP/stub" "$F_TMP/extra-env"
+    bash "$F_TMP/case.sh"
+}
+if eff_args "$F_TMP/ausente.json" && ! grep -qx -- '--effort' "$F_TMP/args"; then
+    pass '(f) sin mapping ni default: no se pasa --effort (hereda)'
+else
+    fail '(f) sin mapping no debia pasarse --effort'
+fi
+if eff_args "$F_TMP/models.json" && grep -qx -- '--effort' "$F_TMP/args" && grep -qx 'n-standard' "$F_TMP/args"; then
+    pass '(f) domain-scaffolder con efforts.agents recibe n-standard'
+else
+    fail "(f) domain-scaffolder: $(tr '\n' ' ' < "$F_TMP/args" 2>/dev/null)"
+fi
+cat > "$F_TMP/levels.json" <<'EOF'
+{"fake":{"efforts":{"levels":{"light":"n-light","standard":"n-standard"}}}}
+EOF
+if eff_args "$F_TMP/levels.json" && grep -qx -- '--effort' "$F_TMP/args" && grep -qx 'n-light' "$F_TMP/args"; then
+    pass '(f) sin override domain-scaffolder recibe el nativo de su nivel de fabrica (light)'
+else
+    fail "(f) domain-scaffolder sin override: $(tr '\n' ' ' < "$F_TMP/args" 2>/dev/null)"
+fi
+rm -rf "$F_TMP"
 
 printf '\nResultado: %s PASS, %s FAIL\n' "$PASS" "$FAIL"
 [ "$FAIL" -eq 0 ]

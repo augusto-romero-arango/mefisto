@@ -44,7 +44,11 @@ absent 'kill -9' 'no conserva watchdog propio'
 contains 'if "$RUN_AGENT_BIN" "${args[@]}"' 'invoca el runner con un array, sin eval'
 contains 'log_agent_model_invocation "$agent" "$model"' 'anuncia el modelo resuelto antes de invocar writer, reviewer o merge'
 contains '[ -n "$model" ] && args+=(--model "$model")' 'conserva intacto el argv condicional del runner'
-contains 'case "$agent" in reviewer) agent_id="tooling-reviewer"; profile="deep"; model="$MODEL_REVIEWER" ;; *) agent_id="tooling-writer"; profile="balanced"; model="$MODEL_WRITER" ;; esac' 'el anuncio usa el modelo ya resuelto por rol'
+contains '[ -n "$effort" ] && args+=(--effort "$effort")' 'pasa --effort solo si el effort resuelto no es vacio'
+contains 'resolve_pipeline_agent_effort writer tooling-writer' 'resuelve el effort del writer antes del worktree'
+contains 'resolve_pipeline_agent_effort reviewer tooling-reviewer' 'resuelve el effort del reviewer antes del worktree'
+contains 'MEFISTO_EFFORTS_ERROR' 'un mapping de effort invalido aborta citando MEFISTO_EFFORTS_ERROR'
+contains 'case "$agent" in reviewer) agent_id="tooling-reviewer"; profile="deep"; model="$MODEL_REVIEWER"; effort="$EFFORT_REVIEWER" ;; *) agent_id="tooling-writer"; profile="balanced"; model="$MODEL_WRITER"; effort="$EFFORT_WRITER" ;; esac' 'el anuncio usa el modelo y el effort ya resueltos por rol'
 contains 'agent_events_completed_successfully' 'exige terminal neutral de exito'
 contains 'mefisto_state_path "summaries/stage-${stage}-${agent}.md" "$WORKTREE_PATH"' 'escribe summaries en el estado canonico del worktree'
 contains '--redact-observability' 'pide persistencia redactada al runner'
@@ -113,6 +117,8 @@ VARIANT_LABEL_JSON='null'
 HARNESS_IDENTITY_JSON='{}'
 MODEL_WRITER=''
 MODEL_REVIEWER=''
+EFFORT_WRITER=''
+EFFORT_REVIEWER=''
 PIPELINE_OWN_WRITES=(':!.mefisto/pipeline')
 mkdir -p "$LOG_DIR_ABS" "$PIPELINE_TMP_DIR"
 log() { :; }
@@ -163,6 +169,76 @@ for REGRESSION_BASH in "$DEFAULT_BASH" /bin/bash; do
     [ "$REGRESSION_BASH" != /bin/bash ] || break
 done
 rm -rf "$REGRESSION_TMP"
+
+echo '[effort] resolucion con el adaptador fake y --effort recibido por cada agente (issue #2500)'
+EFF_TMP="$(mktemp -d -t mefisto-tooling-effort)"
+cat > "$EFF_TMP/run-agent-double" <<'EOF'
+#!/usr/bin/env bash
+printf '%s\n' "$@" > "$EFF_TMP/args.$EFF_AGENT_TAG"
+while [ "$#" -gt 0 ]; do
+    case "$1" in
+        --event-log) printf '%s\n' '{"type":"run.completed","status":"success","session_id":null,"denials":0,"error":null}' > "$2"; shift 2 ;;
+        *) shift ;;
+    esac
+done
+EOF
+chmod +x "$EFF_TMP/run-agent-double"
+cat > "$EFF_TMP/models.json" <<'EOF'
+{"fake":{"efforts":{"levels":{"light":"n-light","standard":"n-standard","thorough":"n-thorough"},"agents":{"tooling-reviewer":"thorough"}}}}
+EOF
+export EFF_TMP
+# eff_case <models-file> <writer|reviewer>: resuelve el effort con el helper
+# comun y ejecuta run_agent real; deja el argv del runner en args.<rol>.
+eff_case() {
+    local models="$1" role="$2" agent_id
+    case "$role" in reviewer) agent_id=tooling-reviewer ;; *) agent_id=tooling-writer ;; esac
+    {
+        printf '%s\n' 'set -eu'
+        awk '/^run_agent\(\) \{/{p=1} p{print} p && /^}/{p=0}' "$PIPELINE"
+        cat <<'EOS'
+source "$ROOT/scripts/_pipeline-common.sh"
+source "$ROOT/src/runtime/lib/mefisto-models.sh"
+LOG_DIR_ABS="$EFF_TMP/logs"; TIMESTAMP='20261110-000000'; ISSUE_LOG_TAG='2500'
+PIPELINE_TMP_DIR="$EFF_TMP/pipeline"; WORKTREE_PATH="$ROOT"
+RUN_AGENT_BIN="$EFF_TMP/run-agent-double"
+MEFISTO_RUNTIME_RESUELTO='fake'; MEFISTO_AGENT_TIMEOUT_SECONDS=60
+EVENTS_LOG_ABS="$EFF_TMP/events.log"; ISSUE_NUM=2500; VARIANT_LABEL_JSON='null'; HARNESS_IDENTITY_JSON='{}'
+MODEL_WRITER=''; MODEL_REVIEWER=''
+PIPELINE_OWN_WRITES=(':!.mefisto/pipeline')
+mkdir -p "$LOG_DIR_ABS" "$PIPELINE_TMP_DIR"
+log() { :; }; warn() { :; }; abort() { return 1; }; update_status() { :; }; log_agent_model_invocation() { :; }
+mefisto_state_path() { mkdir -p "$EFF_TMP/state/$(dirname "$1")"; printf '%s\n' "$EFF_TMP/state/$1"; }
+derive_stage_log_from_stream() { :; }; compute_stage_metrics() { printf '{}'; }
+enrich_tooling_stage_metrics() { printf '%s' "$2"; }; agent_events_denials() { printf '0'; }
+agent_events_completed_successfully() { return 0; }; classify_neutral_agent_failure() { printf 'UNKNOWN'; }
+agent_failure_is_holdable() { return 1; }
+EFFORT_WRITER=''; EFFORT_REVIEWER=''
+EOS
+        printf 'CONSUMER_MODELS_FILE=%q\n' "$models"
+        printf 'resolve_pipeline_agent_effort %q %q\n' "$role" "$agent_id"
+        if [ "$role" = reviewer ]; then
+            printf '%s\n' 'EFFORT_REVIEWER="$RESOLVED_PIPELINE_EFFORT"'
+        else
+            printf '%s\n' 'EFFORT_WRITER="$RESOLVED_PIPELINE_EFFORT"'
+        fi
+        printf '%s\n' "run_agent '1' '$role' 'prompt effort'"
+    } > "$EFF_TMP/case-$role.sh"
+    ROOT="$ROOT" EFF_AGENT_TAG="$role" bash "$EFF_TMP/case-$role.sh"
+}
+if eff_case "$EFF_TMP/ausente.json" writer && eff_case "$EFF_TMP/ausente.json" reviewer \
+    && ! grep -qx -- '--effort' "$EFF_TMP/args.writer" && ! grep -qx -- '--effort' "$EFF_TMP/args.reviewer"; then
+    pass 'sin mapping ni default: writer y reviewer no reciben --effort (heredan)'
+else
+    fail 'sin mapping no debia pasarse --effort'
+fi
+if eff_case "$EFF_TMP/models.json" writer && eff_case "$EFF_TMP/models.json" reviewer \
+    && grep -qx -- '--effort' "$EFF_TMP/args.writer" && grep -qx 'n-light' "$EFF_TMP/args.writer" \
+    && grep -qx 'n-thorough' "$EFF_TMP/args.reviewer"; then
+    pass 'con mapping: writer recibe n-light (de fabrica) y reviewer n-thorough (efforts.agents)'
+else
+    fail "con mapping: writer=$(tr '\n' ' ' < "$EFF_TMP/args.writer" 2>/dev/null) reviewer=$(tr '\n' ' ' < "$EFF_TMP/args.reviewer" 2>/dev/null)"
+fi
+rm -rf "$EFF_TMP"
 
 echo '[regresion] contexto acotado del reviewer (issue #1450)'
 CTX_TMP="$(mktemp -d -t mefisto-tooling-reviewer-ctx)"
@@ -223,6 +299,8 @@ HARNESS_PROJECT_NAME='proyecto-consumidor-test'
 ISSUE_CONTEXT='# Issue de prueba con contexto minimo'
 MODEL_WRITER=''
 MODEL_REVIEWER=''
+EFFORT_WRITER=''
+EFFORT_REVIEWER=''
 PIPELINE_OWN_WRITES=(':!.mefisto/pipeline')
 mkdir -p "$LOG_DIR_ABS" "$PIPELINE_TMP_DIR"
 log() { :; }

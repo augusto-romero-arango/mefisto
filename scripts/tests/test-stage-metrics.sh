@@ -117,6 +117,15 @@ else
     fail "pre-4: metricas neutrales incompletas: $N_OUT"
 fi
 
+cat > "$TMP/effort.events.jsonl" <<'EOF'
+{"v":1,"type":"run.started","runtime":"claude","agent":"tooling-writer","model":null,"effort":"low"}
+{"v":1,"type":"run.completed","status":"success","runtime":"claude","model":"m","session_id":"ses-e","duration_ms":900,"turns":1,"denials":0,"error":null}
+EOF
+E_BASE="$(compute_stage_metrics "$TMP/effort.events.jsonl")"
+E_OUT="$(enrich_tooling_stage_metrics "$TMP/effort.events.jsonl" "$E_BASE" 2500 'null' 1 tooling-writer balanced '{}')"
+assert_field "pre-5: requested_effort sale de run.started.effort" "low" "$(printf '%s' "$E_OUT" | jq -r '.requested_effort')"
+assert_field "pre-6: sin effort en run.started, requested_effort es null (clave presente)" "true" "$(printf '%s' "$N_OUT" | jq -r 'has("requested_effort") and .requested_effort == null')"
+
 # -------- Bloque A: terminal neutral nuevo completo --------
 
 echo ""

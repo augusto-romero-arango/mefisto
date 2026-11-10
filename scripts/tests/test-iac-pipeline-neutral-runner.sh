@@ -66,6 +66,8 @@ MEFISTO_RUNTIME_RESUELTO='fake'
 MEFISTO_RUNTIME_LIB_DIR="$ROOT/src/runtime/lib"
 MODEL_WRITER=''
 MODEL_REVIEWER=''
+EFFORT_WRITER=''
+EFFORT_REVIEWER=''
 EVENTS_LOG_ABS="$tmp/events.log"
 RED=''
 NC=''
@@ -184,6 +186,62 @@ else
     fail '(e) stream_cut no fallo como esperado, o dejo una linea [hold]'
 fi
 rm -rf "$E_TMP"
+
+# --- (f): effort por agente con el adaptador fake (issue #2500) --------------
+echo '[effort] --effort recibido por infra-writer e infra-reviewer'
+contains '[ -n "$effort" ] && args+=(--effort "$effort")' 'pasa --effort solo si el effort resuelto no es vacio'
+contains 'resolve_pipeline_agent_effort infra-writer infra-writer' 'resuelve el effort del writer antes del worktree'
+contains 'resolve_pipeline_agent_effort infra-reviewer infra-reviewer' 'resuelve el effort del reviewer antes del worktree'
+contains 'MEFISTO_EFFORTS_ERROR' 'un mapping de effort invalido aborta citando MEFISTO_EFFORTS_ERROR'
+
+F_TMP="$(mktemp -d -t mefisto-iac-f)"
+cat > "$F_TMP/stub" <<EOF
+#!/usr/bin/env bash
+printf '%s\n' "\$@" > "$F_TMP/args"
+event_log=""
+while [ "\$#" -gt 0 ]; do
+    case "\$1" in --event-log) event_log="\$2"; shift 2 ;; *) shift ;; esac
+done
+printf '%s\n' '{"type":"run.completed","status":"success","session_id":"sess-f","denials":0,"error":null}' > "\$event_log"
+exit 0
+EOF
+chmod +x "$F_TMP/stub"
+cat > "$F_TMP/models.json" <<'EOF'
+{"fake":{"efforts":{"levels":{"light":"n-light","standard":"n-standard"},"agents":{"infra-writer":"standard"}}}}
+EOF
+# eff_args <infra-writer|infra-reviewer> <models-file>: deja el argv en $F_TMP/args
+eff_args() {
+    local agent="$1" models="$2" role=WRITER
+    [ "$agent" = infra-reviewer ] && role=REVIEWER
+    : > "$F_TMP/extra-env"
+    {
+        printf 'source "%s"\n' "$ROOT/src/runtime/lib/mefisto-models.sh"
+        printf 'CONSUMER_MODELS_FILE="%s"\n' "$models"
+        printf 'resolve_pipeline_agent_effort %s %s\n' "$agent" "$agent"
+        printf 'EFFORT_%s="$RESOLVED_PIPELINE_EFFORT"\n' "$role"
+    } > "$F_TMP/extra-env"
+    rm -f "$F_TMP/args"
+    build_case "$F_TMP" "$F_TMP/stub" "$F_TMP/extra-env"
+    sed -i.bak "s/run_agent '1' 'infra-writer'/run_agent '1' '$agent'/" "$F_TMP/case.sh"
+    bash "$F_TMP/case.sh"
+}
+if eff_args infra-writer "$F_TMP/ausente.json" && ! grep -qx -- '--effort' "$F_TMP/args" \
+    && eff_args infra-reviewer "$F_TMP/ausente.json" && ! grep -qx -- '--effort' "$F_TMP/args"; then
+    pass '(f) sin mapping ni default: no se pasa --effort (hereda)'
+else
+    fail '(f) sin mapping no debia pasarse --effort'
+fi
+if eff_args infra-writer "$F_TMP/models.json" && grep -qx -- '--effort' "$F_TMP/args" && grep -qx 'n-standard' "$F_TMP/args"; then
+    pass '(f) infra-writer con efforts.agents recibe n-standard'
+else
+    fail "(f) infra-writer: $(tr '\n' ' ' < "$F_TMP/args" 2>/dev/null)"
+fi
+if eff_args infra-reviewer "$F_TMP/models.json" && grep -qx 'n-standard' "$F_TMP/args"; then
+    pass '(f) infra-reviewer sin override recibe el nativo de su nivel de fabrica (standard)'
+else
+    fail "(f) infra-reviewer: $(tr '\n' ' ' < "$F_TMP/args" 2>/dev/null)"
+fi
+rm -rf "$F_TMP"
 
 printf '\nResultado: %s PASS, %s FAIL\n' "$PASS" "$FAIL"
 [ "$FAIL" -eq 0 ]

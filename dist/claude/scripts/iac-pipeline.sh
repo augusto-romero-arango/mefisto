@@ -261,6 +261,14 @@ resolve_infra_model infra-writer balanced
 MODEL_WRITER="$RESOLVED_INFRA_MODEL"
 resolve_infra_model infra-reviewer deep
 MODEL_REVIEWER="$RESOLVED_INFRA_MODEL"
+# Effort por agente (issue #2500): nivel de fabrica + mapping del consumidor,
+# resuelto antes de crear el worktree; vacio = heredar (sin --effort).
+resolve_pipeline_agent_effort infra-writer infra-writer \
+    || abort "No se pudo resolver el effort de infra-writer: MEFISTO_EFFORTS_ERROR=${PIPELINE_EFFORT_ERROR:-motivo desconocido}"
+EFFORT_WRITER="$RESOLVED_PIPELINE_EFFORT"
+resolve_pipeline_agent_effort infra-reviewer infra-reviewer \
+    || abort "No se pudo resolver el effort de infra-reviewer: MEFISTO_EFFORTS_ERROR=${PIPELINE_EFFORT_ERROR:-motivo desconocido}"
+EFFORT_REVIEWER="$RESOLVED_PIPELINE_EFFORT"
 
 # --- Obtener issue ---
 header "Preparando contexto"
@@ -467,10 +475,10 @@ run_agent() {
         infra-reviewer) AGENT_RV_RES="running" ;;
     esac
 
-    local model=""
+    local model="" effort=""
     case "$agent" in
-        infra-writer)   model="$MODEL_WRITER" ;;
-        infra-reviewer) model="$MODEL_REVIEWER" ;;
+        infra-writer)   model="$MODEL_WRITER"; effort="$EFFORT_WRITER" ;;
+        infra-reviewer) model="$MODEL_REVIEWER"; effort="$EFFORT_REVIEWER" ;;
     esac
 
     update_status "$stage-$agent" "running"
@@ -493,6 +501,7 @@ run_agent() {
         fi
         local args=(--runtime "$MEFISTO_RUNTIME_RESUELTO" --agent "$agent" --cwd "$WORKTREE_PATH" --prompt-file "$attempt_prompt" --system-file "$system_file" --event-log "$events_file" --events-log "$EVENTS_LOG_ABS" --redact-observability --timeout "$AGENT_TIMEOUT_SECONDS")
         [ -n "$model" ] && args+=(--model "$model")
+        [ -n "$effort" ] && args+=(--effort "$effort")
         [ -n "$resume_session" ] && args+=(--resume-session "$resume_session")
         if "$RUN_AGENT_BIN" "${args[@]}" >"$runner_file" 2>&1; then run_exit=0; else run_exit=$?; fi
         [ "$attempt_prompt" = "$prompt_file" ] || rm -f "$attempt_prompt"

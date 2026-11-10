@@ -391,6 +391,14 @@ resolve_tooling_model writer tooling-writer balanced
 MODEL_WRITER="$RESOLVED_TOOLING_MODEL"
 resolve_tooling_model reviewer tooling-reviewer deep
 MODEL_REVIEWER="$RESOLVED_TOOLING_MODEL"
+# Effort por agente (issue #2500): nivel de fabrica + mapping del consumidor,
+# resuelto antes de crear el worktree; vacio = heredar (sin --effort).
+resolve_pipeline_agent_effort writer tooling-writer \
+    || abort "No se pudo resolver el effort de tooling-writer: MEFISTO_EFFORTS_ERROR=${PIPELINE_EFFORT_ERROR:-motivo desconocido}"
+EFFORT_WRITER="$RESOLVED_PIPELINE_EFFORT"
+resolve_pipeline_agent_effort reviewer tooling-reviewer \
+    || abort "No se pudo resolver el effort de tooling-reviewer: MEFISTO_EFFORTS_ERROR=${PIPELINE_EFFORT_ERROR:-motivo desconocido}"
+EFFORT_REVIEWER="$RESOLVED_PIPELINE_EFFORT"
 MODEL_WRITER_JSON="null"; MODEL_WRITER_INHERITED=true
 MODEL_REVIEWER_JSON="null"; MODEL_REVIEWER_INHERITED=true
 if [ -n "$MODEL_WRITER" ]; then MODEL_WRITER_JSON="$(printf '%s' "$MODEL_WRITER" | jq -Rr '@json')"; MODEL_WRITER_INHERITED=false; fi
@@ -531,11 +539,11 @@ run_agent() {
     local runner_file="$PIPELINE_TMP_DIR/${stage}-${agent}.runner.log"
     printf '%s' "$prompt" > "$prompt_file"
     printf '%s\n' 'You are running in non-interactive print mode. There is no human to approve anything. Use editing tools directly; never ask for permission. Do not push or create pull requests.' > "$system_file"
-    local agent_id model profile start_ts run_exit=0 elapsed=0 failure_type="" hold_started="" hold_total=0 resume_session="" resume_degraded=false attempt=0
+    local agent_id model effort profile start_ts run_exit=0 elapsed=0 failure_type="" hold_started="" hold_total=0 resume_session="" resume_degraded=false attempt=0
     local denial_retry_used=false entry_commit summary_file
     entry_commit="$(git -C "$WORKTREE_PATH" rev-parse HEAD)"
     summary_file="$(mefisto_state_path "summaries/stage-${stage}-${agent}.md" "$WORKTREE_PATH")"
-    case "$agent" in reviewer) agent_id="tooling-reviewer"; profile="deep"; model="$MODEL_REVIEWER" ;; *) agent_id="tooling-writer"; profile="balanced"; model="$MODEL_WRITER" ;; esac
+    case "$agent" in reviewer) agent_id="tooling-reviewer"; profile="deep"; model="$MODEL_REVIEWER"; effort="$EFFORT_REVIEWER" ;; *) agent_id="tooling-writer"; profile="balanced"; model="$MODEL_WRITER"; effort="$EFFORT_WRITER" ;; esac
     case "$agent" in writer) AGENT_WR_RES="running" ;; reviewer) AGENT_RV_RES="running" ;; esac
     update_status "$stage-$agent" running
     log_agent_model_invocation "$agent" "$model"
@@ -551,6 +559,7 @@ run_agent() {
         fi
         local args=(--runtime "$MEFISTO_RUNTIME_RESUELTO" --agent "$agent_id" --cwd "$WORKTREE_PATH" --prompt-file "$attempt_prompt" --system-file "$system_file" --event-log "$events_file" --events-log "$EVENTS_LOG_ABS" --redact-observability --timeout "$MEFISTO_AGENT_TIMEOUT_SECONDS")
         [ -n "$model" ] && args+=(--model "$model")
+        [ -n "$effort" ] && args+=(--effort "$effort")
         [ -n "$resume_session" ] && args+=(--resume-session "$resume_session")
         if "$RUN_AGENT_BIN" "${args[@]}" >"$runner_file" 2>&1; then run_exit=0; else run_exit=$?; fi
         [ "$attempt_prompt" = "$prompt_file" ] || rm -f "$attempt_prompt"
