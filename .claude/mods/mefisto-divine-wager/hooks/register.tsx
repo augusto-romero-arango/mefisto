@@ -70,7 +70,6 @@ import {
   steps,
   toolingIssueOf,
   usedColumns,
-  withModUi,
   historianFrom,
   isAgentActive,
   bitacoraPrOf,
@@ -201,7 +200,7 @@ let batchSinceMs = 0
 let lastStatsReadMs = 0
 let lastHoldReadMs = 0
 let isPolling = false
-// Una sesion no interactiva (los agentes de los pipelines) no tiene a nadie mirando: el mod no reescribe ni sigue nada.
+// Una sesion no interactiva (los agentes de los pipelines) no tiene a nadie mirando: el mod no sigue nada.
 let isInteractive = false
 let lastPrCheckMs = 0
 let isLogOpen = false
@@ -991,13 +990,13 @@ export const register: Register = on => {
     const launchedMs = Date.now() - 5_000
     const batchIssues = isInteractive ? batchIssuesOf(e.command) : null
     if (batchIssues && batchIssues.length > 0) {
-      const ran = await next({ ...e, command: withModUi(e.command) })
+      const ran = await next(e)
       if (ran.deny === undefined && ran.isError !== true) await watchBatch($, batchIssues, launchedMs)
       return ran
     }
     const issue = isInteractive ? toolingIssueOf(e.command) : null
     if (!issue) return next(e)
-    const ran = await next({ ...e, command: withModUi(e.command) })
+    const ran = await next(e)
     if (ran.deny === undefined && ran.isError !== true) {
       await watch($, issue, launchedMs)
     }

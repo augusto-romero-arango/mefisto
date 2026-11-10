@@ -1,6 +1,6 @@
 import { expect, test } from 'claude-code/testing'
 
-import { RELEASE_STEPS, bumpVersion, currentReleaseStep, finishRelease, isConsolidated, releaseBranchOf, releaseChecklist, releaseHeader, releaseInvocationOf, releaseIssuesOf, releasePlan, releaseTagOf, withObservedSteps, bitacoraPrOf, fieldNoteNamesOf, pendingNotes, processedDirsOf, withProcessedNotes, finishMerge, ghMergeNumbersOf, isGhMergeRun, mergeCounts, mergeHeader, mergeOutcomesOf, mergePromptArgs, mergePrsOf, withMergeOutcomes, agentFlagOf, historianFrom, isAgentActive, liveTape, isReleasePrompt, isReleaseRun, holdOf, holdText, bitacoraPrompt, changelogOf, fieldNotesIn, releaseArgsOf, releaseOptions, mergeArgsOf, mergeOptions, parseOpenPrs, withoutHeredocs, fmtCost, issueStatsFromHistory, statsPending, fitTitle, summaryTitleWidth, statsTotal, currentRowParts, totalRowText, batchFromStatus, batchIssuesOf, batchPr, batchSummary, issueMark, newlyMerged, readyRows, titlesOf, toolingOf, waitingFace, cropGrid, pageOf, parseNextOrder, sequentialOf, finishedFromHistory, mascotPose, parseEvent, usedColumns, relative, pickEventsFile, steps, stampToMs, toolingIssueOf, withModUi } from './logic'
+import { RELEASE_STEPS, bumpVersion, currentReleaseStep, finishRelease, isConsolidated, releaseBranchOf, releaseChecklist, releaseHeader, releaseInvocationOf, releaseIssuesOf, releasePlan, releaseTagOf, withObservedSteps, bitacoraPrOf, fieldNoteNamesOf, pendingNotes, processedDirsOf, withProcessedNotes, finishMerge, ghMergeNumbersOf, isGhMergeRun, mergeCounts, mergeHeader, mergeOutcomesOf, mergePromptArgs, mergePrsOf, withMergeOutcomes, agentFlagOf, historianFrom, isAgentActive, liveTape, isReleasePrompt, isReleaseRun, holdOf, holdText, bitacoraPrompt, changelogOf, fieldNotesIn, releaseArgsOf, releaseOptions, mergeArgsOf, mergeOptions, parseOpenPrs, withoutHeredocs, fmtCost, issueStatsFromHistory, statsPending, fitTitle, summaryTitleWidth, statsTotal, currentRowParts, totalRowText, batchFromStatus, batchIssuesOf, batchPr, batchSummary, issueMark, newlyMerged, readyRows, titlesOf, toolingOf, waitingFace, cropGrid, pageOf, parseNextOrder, sequentialOf, finishedFromHistory, mascotPose, parseEvent, usedColumns, relative, pickEventsFile, steps, stampToMs, toolingIssueOf } from './logic'
 
 test('detecta el lanzamiento de /mefisto-tooling', async () => {
   expect(toolingIssueOf('MEFISTO_RUNTIME=claude ./.claude/scripts/mefisto-tmux-pipeline.sh --tooling 2059')).toBe('2059')
@@ -54,11 +54,6 @@ test('marca los stages', async () => {
 test('acorta las rutas del worktree', async () => {
   expect(relative('/Users/x/Cosmos/worktree-mefisto-issue-1982-enmendar/docs/adr/a.md')).toBe('docs/adr/a.md')
   expect(relative('git diff')).toBe('git diff')
-})
-
-test('antepone MEFISTO_UI=mod sin pisar uno explicito', async () => {
-  expect(withModUi('MEFISTO_RUNTIME=claude ./.claude/scripts/mefisto-tmux-pipeline.sh --tooling 1')).toBe('MEFISTO_RUNTIME=claude MEFISTO_UI=mod ./.claude/scripts/mefisto-tmux-pipeline.sh --tooling 1')
-  expect(withModUi('MEFISTO_UI=tmux ./x.sh --tooling 1')).toBe('MEFISTO_UI=tmux ./x.sh --tooling 1')
 })
 
 test('la mascota toma el rol del stage y la pose del ultimo evento', async () => {
@@ -166,13 +161,6 @@ test('avisa una sola vez por issue mergeado', async () => {
   expect(newlyMerged(after, after)).toEqual([])
 })
 
-test('MEFISTO_UI=mod llega al wrapper aunque vaya dentro de un comando compuesto', async () => {
-  expect(withModUi('./.claude/scripts/mefisto-tmux-pipeline.sh --tooling 7')).toBe('MEFISTO_UI=mod ./.claude/scripts/mefisto-tmux-pipeline.sh --tooling 7')
-  expect(withModUi('MEFISTO_RUNTIME=claude ./.claude/scripts/mefisto-validate-batch-deps.sh 2080; rc=$?; [ "$rc" -eq 0 ] && MEFISTO_RUNTIME=claude ./.claude/scripts/mefisto-tmux-pipeline.sh --batch 2080'))
-    .toBe('MEFISTO_RUNTIME=claude ./.claude/scripts/mefisto-validate-batch-deps.sh 2080; rc=$?; [ "$rc" -eq 0 ] && MEFISTO_RUNTIME=claude MEFISTO_UI=mod ./.claude/scripts/mefisto-tmux-pipeline.sh --batch 2080')
-  expect(withModUi('MEFISTO_UI=tmux ./.claude/scripts/mefisto-tmux-pipeline.sh --tooling 7')).toBe('MEFISTO_UI=tmux ./.claude/scripts/mefisto-tmux-pipeline.sh --tooling 7')
-})
-
 test('duracion y costo de cada issue terminado desde el historial', async () => {
   const entry = (issue: string, started: string, finished: string, costs: (number | null)[]) =>
     JSON.stringify({
@@ -212,8 +200,6 @@ test('solo cuenta el wrapper que se ejecuta, no el que aparece como texto', asyn
   expect(toolingIssueOf("echo 'mefisto-tmux-pipeline.sh --tooling 7'")).toBe(null)
   expect(toolingIssueOf('cd /repo && MEFISTO_RUNTIME=claude ./.claude/scripts/mefisto-tmux-pipeline.sh --tooling 7')).toBe('7')
   expect(batchIssuesOf('a; rc=$?; [ "$rc" -eq 0 ] && X=1 ./.claude/scripts/mefisto-tmux-pipeline.sh --batch 8 9')).toEqual(['8', '9'])
-  expect(withModUi('echo "mefisto-tmux-pipeline.sh"; ./s/mefisto-tmux-pipeline.sh --tooling 7'))
-    .toBe('echo "mefisto-tmux-pipeline.sh"; MEFISTO_UI=mod ./s/mefisto-tmux-pipeline.sh --tooling 7')
 })
 
 test('el merge desde la banda ofrece todos o los PRs mas recientes y arma los argumentos de /mefisto-merge', async () => {
