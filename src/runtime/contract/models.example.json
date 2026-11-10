@@ -7,6 +7,14 @@
     },
     "agents": {
       "<agent-id>": "<provider/model>"
+    },
+    "efforts": {
+      "agents": {
+        "<agent-id>": "<quick|light|standard|thorough|exhaustive>"
+      },
+      "levels": {
+        "<quick|light|standard|thorough|exhaustive>": "<nivel-nativo>"
+      }
     }
   }
 }

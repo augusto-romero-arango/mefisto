@@ -132,6 +132,13 @@ runtime_fake_default_model() {
     esac
 }
 
+runtime_fake_default_effort() {
+    case "$1" in
+        quick|light|standard|thorough|exhaustive) printf '%s' "${MEFISTO_FAKE_DEFAULT_EFFORT:-}" ;;
+        *) return 1 ;;
+    esac
+}
+
 # --- runtime_fake_build_cmd ---------------------------------------------
 
 runtime_fake_build_cmd() {
