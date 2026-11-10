@@ -2,8 +2,8 @@
 
 Ejecuta, para el brazo **Claude Code** unicamente, el protocolo fijado por
 `docs/testing/lsp-experiment-protocol.md` (issue #976). No compara cifras
-absolutas contra OpenCode (#980); esa comparacion no existe en ningun punto
-de este documento ni de la sintesis posterior (#981).
+absolutas contra otro runtime; esa comparacion no existe en ningun punto de
+este documento ni de la sintesis posterior (#981).
 
 ## Veredicto
 
@@ -157,9 +157,8 @@ Este resultado:
   de proyecciones (`projection-test-writer`, `projections-scaffolder`,
   `projection-implementer` en su rol read-side) -- #976 ya los excluye del
   corpus y este piloto no aporta evidencia a favor ni en contra para ellos.
-- **No se compara** con OpenCode (#980): ese piloto corre su propio preflight
-  sobre su propio mecanismo (servidor C# + feature flag + permiso) y llega a
-  su propia conclusion, independiente de esta.
+- **No se compara** con el piloto de otro runtime: cada uno corre su propio
+  preflight sobre su propio mecanismo y llega a su propia conclusion.
 - **No decide adopcion de LSP** en ningun agente publicado: esa decision es
   de #981, y de todas formas requeriria evidencia favorable que este piloto
   no produjo.
@@ -230,8 +229,5 @@ finalmente mida.
   https://github.com/anthropics/claude-code/issues/79744
 - `docs/testing/lsp-experiment-protocol.md` (issue #976) -- protocolo, corpus,
   formato de evidencia y umbrales que este documento intenta ejecutar. Sus
-  fuentes **[4]**/**[5]** son las que aqui aparecen como **[3]**/**[4]**: la
+  fuentes **[2]**/**[3]** son las que aqui aparecen como **[3]**/**[4]**: la
   numeracion es local a cada documento, la URL es la clave estable.
-- `docs/testing/opencode-dogfooding.md` (issue #874) -- precedente de reporte
-  parcial con evidencia reproducible en vez de datos fabricados cuando una
-  certificacion no puede completarse en el entorno disponible.

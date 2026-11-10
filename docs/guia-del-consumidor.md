@@ -2,21 +2,6 @@
 
 Manual operativo para adoptar Mefisto en un proyecto: instalación, configuración, primeros pasos y uso. Movido desde el [README](../README.md).
 
-## Soporte OpenCode: alcance certificado
-
-El [veredicto del corte vertical](testing/opencode-consumer-cutover.md#veredicto-final-del-corte-vertical-1066) (issue #1066, `PASA` sobre la cadena `v0.37.14` → `v0.37.16`, con la desviación de release declarada allí) certifica soporte OpenCode publicado **exclusivamente para `/mefisto:tooling`**: instalación real con checksum del artefacto OpenCode, discovery de comandos/agentes/Skills/scripts/permisos/hooks/MCP, ejecución headless hasta PR real lanzada desde sesión interactiva, Herdr con pools de panes separados por runtime, y observabilidad correlacionable sin secretos.
-
-Queda **fuera** de esa certificación —discovery disponible, invocación real no ejercitada por el gate—:
-
-- el resto de slash commands publicados y sus pipelines (`/implement`, `/infra-base`, `/scaffold`, `/scaffold-projections`, `/scaffold-mcp`, `/parallel`, `/sequential`, `/merge` y los demás del catálogo de "Qué incluye");
-- todos los agentes fuera de `tooling-writer` y `tooling-reviewer`;
-- la carga real de Agent Skills bajo OpenCode (los agentes del corte declaran solo `read`/`edit`/`shell`);
-- la conexión y el listado real del MCP bundleado `microsoft-learn`, y la traducción de permisos MCP por agente/comando (#1145).
-
-`/mefisto:implement` (rutas write-side y `tipo:projection`) tiene su propio protocolo de certificación en [`docs/testing/tdd-consumer-certification.md`](testing/tdd-consumer-certification.md), y su [veredicto](testing/tdd-consumer-certification.md#veredicto-final-del-corte-tdd-multi-runtime-1487) (#1487) cerró **`PASA`** (2026-09-22, release `v0.38.2`): las cuatro corridas reales write-side/read-side × Claude/OpenCode exigidas por #1435/#1436 se ejecutaron en vivo el 2026-09-21, así que esas dos rutas quedan certificadas bajo ambos runtimes. `--scaffold-domain`, `--from-stage`, `--variant` y la remediación de coverage siguen fuera de esa certificación. El veredicto anterior (#1411, `NO PASA`) queda como antecedente.
-
-`/mefisto:infra` tiene su propio protocolo en [`docs/testing/infra-consumer-certification.md`](testing/infra-consumer-certification.md), y su [veredicto](testing/infra-consumer-certification.md#estado-de-la-certificacion) (#1629) cerró **`PASA`** (2026-09-30, release `v0.40.1`): Claude Code y OpenCode, lanzados desde Herdr y desde `tmux` autónomo, con la invocación directa y la selección automática de modelos por perfil. Mezclar lanzamientos de dos distribuciones o versiones sobre el mismo servidor `tmux` sigue fuera de esa certificación hasta #1740. El intento sobre `v0.40.0` (`NO PASA`, #1730) queda como antecedente.
-
 ## Stack supuesto en el consumidor
 
 - .NET 10 + Azure Functions isolated worker
@@ -31,72 +16,6 @@ Si tu proyecto no encaja con este stack, este harness no es para ti.
 ## Instalación
 
 **Requisito de versión:** el plugin requiere Claude Code >= 2.1.287, la versión que publicó los mods: `hooks/hooks.json` declara la clave `modules`, y una versión anterior podría rechazar el archivo entero y dejarte sin `.plugin-root`, `sessions.jsonl` ni el recordatorio de field notes (MEF-ADR-0055). `/mefisto:onboard` lo verifica (`claude update` para actualizar).
-
-### OpenCode: bootstrap, upgrade y rollback
-
-**Activación por repositorio.** La release OpenCode se instala una vez por usuario y queda inerte. Cada consumidor la activa commiteando el cargador `.opencode/plugins/mefisto.js`, que `/mefisto:onboard` escribe junto con el `.claude/settings.json` (MEF-ADR-0053, decisión 2). El cargador registra los agentes, comandos, Skills, MCP y hooks de la release activa sin copiarlos al repo, así que actualizar Mefisto no exige tocar el consumidor. En un repo sin cargador, OpenCode no recibe nada de Mefisto. Los agentes de pipeline no dependen del cargador: reciben la release con `OPENCODE_CONFIG_DIR`.
-
-**Camino recomendado desde Claude Code:** ejecuta `/mefisto:upgrade`. Actualiza Claude y consulta el estado de la release OpenCode sin leer `opencode.json`, providers, modelos ni credenciales. Si ya hay una release OpenCode instalada, alinea y activa automaticamente la misma version; si no la hay, pide una unica confirmacion para el bootstrap. Si se declina, conserva el modo solo Claude: no instala OpenCode. Un conflicto se informa y nunca se repara automaticamente. El resultado separa la version cargada por la sesion, la destino en disco y la identidad verificable de ambas distribuciones; luego requiere `/reload-plugins` o reiniciar la sesion.
-
-El procedimiento directo siguiente queda como **recuperacion avanzada** cuando no puedes iniciar Claude Code o necesitas reparar manualmente una instalacion OpenCode conflictiva.
-
-OpenCode usa una release global por usuario; no copia el checkout. La raíz es
-`${XDG_DATA_HOME:-$HOME/.local/share}/mefisto` o, en macOS cuando `XDG_DATA_HOME`
-no está definido, `$HOME/Library/Application Support/mefisto`, conforme a
-[MEF-ADR-0053](adr/mef-adr-0053-distribucion-multi-runtime-consumidores.md)
-y la [XDG Base Directory Specification](https://specifications.freedesktop.org/basedir-spec/latest/).
-
-Para el primer bootstrap, descarga **el tarball y su checksum del mismo tag**,
-verifica antes de extraer y ejecuta exclusivamente el instalador que quedó dentro
-del contenido verificado:
-
-```bash
-VERSION=<semver>
-BASE="https://github.com/augusto-romero-arango/mefisto/releases/download/v$VERSION"
-curl -fL "$BASE/mefisto-opencode-v$VERSION.tar.gz" -o "mefisto-opencode-v$VERSION.tar.gz"
-curl -fL "$BASE/mefisto-opencode-v$VERSION.tar.gz.sha256" -o "mefisto-opencode-v$VERSION.tar.gz.sha256"
-shasum -a 256 -c "mefisto-opencode-v$VERSION.tar.gz.sha256"
-mkdir "mefisto-opencode-release" && tar -xzf "mefisto-opencode-v$VERSION.tar.gz" -C "mefisto-opencode-release" && ./mefisto-opencode-release/install.sh install "$VERSION"
-```
-
-Tras el bootstrap, el único punto de entrada es
-`<raíz-de-datos>/mefisto/active/bin/mefisto-opencode`. El instalador instalado
-descarga y vuelve a verificar ambos assets antes de extraer; dos activaciones
-concurrentes se serializan con un lock bajo esa misma raíz. No crea enlaces en el
-`PATH`, no lee auth stores ni modifica `opencode.json`. Si un proceso termina forzosamente y deja
-`.activation.lock`, verifica que no haya otra instalación en curso y elimina solo
-ese directorio de lock antes de reintentar.
-
-```bash
-M="${XDG_DATA_HOME:-$HOME/.local/share}/mefisto/active/bin/mefisto-opencode" # Linux/XDG
-"$M" install <semver>    # upgrade verificando el tag v<semver>
-"$M" activate <semver>   # rollback a una release ya instalada
-"$M" project             # opt-in: proyeccion global (carga Mefisto en TODOS los repos)
-"$M" deactivate          # retira la proyeccion global (solo los enlaces de Mefisto)
-"$M" status              # runtime, versión, tag, commit y diagnóstico
-"$M" prune --keep 2      # previsualiza y pide confirmar la poda de releases inactivas
-```
-
-`prune` es siempre opt-in: ni `install` ni `activate` eliminan releases. Conserva
-la activa y su anterior inmediata para el rollback de un paso, incluso si
-`--keep` (retención total, `2` por defecto) pide menos. Antes de borrar lista las
-releases y los KiB recuperables; responde exactamente `si` desde una terminal o
-usa `--yes` para una ejecución no interactiva.
-Las entradas que no son releases válidas se informan y se conservan.
-
-En macOS sin `XDG_DATA_HOME`, sustituye `M` por
-`"$HOME/Library/Application Support/mefisto/active/bin/mefisto-opencode"`.
-
-**Proyección global (opt-in, no recomendada).** `project` (o `/mefisto:runtimes enable opencode`) enlaza la release en la configuración global de OpenCode y carga Mefisto en todas las sesiones, incluidos los repos que no lo usan. Mientras exista, el cargador de cada repo se inhibe para no cargar la superficie dos veces. Si la tenías activa de una versión anterior, `/mefisto:upgrade` en un repo con el cargador commiteado ofrece retirarla.
-
-La configuración global de OpenCode es `$OPENCODE_CONFIG_DIR` si está definido;
-si no, `${XDG_CONFIG_HOME:-$HOME/.config}/opencode`, también en macOS. `project`
-usa enlaces por archivo a `active/{commands,agents,skills,plugins}` de la release
-actual (OpenCode 1.18.29 o posterior). Si un nombre ya pertenece al usuario,
-aborta sin sobrescribirlo; las capacidades que la release todavía no contiene se
-anuncian como degradación visible. `OPENCODE_CONFIG_DIR` definido pero vacío se
-rechaza para no proyectar accidentalmente en otra raíz. La instalación no inspecciona auth stores.
-Véase [MEF-ADR-0053](adr/mef-adr-0053-distribucion-multi-runtime-consumidores.md).
 
 ### 1. Configurar `.claude/settings.json` del repo consumidor
 
@@ -135,6 +54,8 @@ Crea (o extiende) `.claude/settings.json` en la raíz del repo consumidor con tr
 - **`extraKnownMarketplaces`** registra el marketplace que aloja a Mefisto (el repo de GitHub). El esquema del bloque `source` usa la clave `source` (no `type`) con valor `"github"` — ver issue #75. Si tu repo todavía declara `"repo": "augusto-romero-arango/eda-evsourcing-azure-harness"` (el nombre del repo antes del issue #2349), sigue funcionando porque GitHub redirige el nombre viejo; para actualizarlo edita solo ese `repo` y Claude Code vuelve a traer el marketplace desde la fuente nueva ([doc de marketplaces](https://code.claude.com/docs/en/plugins/host-marketplace)). No uses `claude plugin marketplace remove`: desinstala los plugins de ese marketplace. El nombre del marketplace (`augusto-romero-arango-harness`) no cambia.
 - **`enabledPlugins`** es **lo que activa Mefisto en este repo**: Mefisto se instala por usuario pero deshabilitado a ese nivel, y la precedencia proyecto > usuario de Claude Code lo habilita solo donde este archivo lo declara (MEF-ADR-0053, decisión 2). Al estar en el `settings.json` versionado, cualquiera que clone el repo arranca con Mefisto habilitado, y los worktrees de pipeline (que nacen de `origin/main`) también. Por eso debe quedar **commiteado**: un `settings.local.json` no viaja. La clave es `<plugin.name>@<marketplace.name>` = `mefisto@augusto-romero-arango-harness` (verificado contra `.claude-plugin/plugin.json` y `.claude-plugin/marketplace.json`). El `/plugin install` interactivo del paso 2 habilita el plugin en tu instalación local pero **no deja artefacto en el repo**, así que sin esta clave la habilitación no es reproducible.
 - **`permissions`** es un **punto de partida ajustable** (sintaxis `Bash(<cmd>:*)` de Claude Code; ver la [doc de settings](https://code.claude.com/docs/en/settings)). El `allow` evita la fricción de aprobar uno a uno los `dotnet`/`git`/`gh`/`terraform`/`az` que disparan los pipelines; el `deny` es una red de seguridad contra comandos destructivos (`terraform destroy`, `az group delete`, `git push --force`). Endurécelo o relájalo según la política de tu equipo — el `deny` tiene prioridad sobre el `allow`.
+
+Si Mefisto ya carga en tu sesión y el diagnóstico de `/mefisto:onboard` reporta que el repo no lo habilita, el mismo comando ofrece escribir los dos primeros bloques: muestra el plan y, solo con tu `si`, fusiona `extraKnownMarketplaces` y `enabledPlugins` en `.claude/settings.json` sin tocar el resto de claves. No commitea: commitea el archivo y llévalo a `main`.
 
 ### 2. Instalar el plugin una vez por usuario, deshabilitado
 
@@ -311,7 +232,7 @@ Para un diagnóstico del onboarding (¿está bien formado el `harness.config.jso
 /mefisto:onboard
 ```
 
-Imprime un checklist con estado por ítem (OK / FALTA / NO VERIFICADO) y, para cada FALTA, el comando que lo resuelve. Por defecto no crea ni modifica nada; como excepciones opt-in puede provisionar los labels faltantes y configurar el CI hacia Azure (OIDC, MEF-ADR-0022), pero solo tras tu confirmación explícita para cada una.
+Imprime un checklist con estado por ítem (OK / FALTA / NO VERIFICADO) y, para cada FALTA, el comando que lo resuelve. Por defecto no crea ni modifica nada; como excepciones opt-in, cada una solo tras tu confirmación explícita, puede migrar las directivas contractuales a `AGENTS.md`, provisionar los labels faltantes, configurar el CI hacia Azure (OIDC, MEF-ADR-0022), escribir `tenancy.strategy`, encadenar `/mefisto:scaffold-projections`, habilitar Mefisto en el repo y crear `.mefisto/appinsights.env`.
 
 ## Primeros pasos con el harness (greenfield)
 

@@ -62,7 +62,7 @@ Se miden con git desde la raíz del repo. `dist/` queda fuera porque lo regenera
 | M1b | Líneas en `.sh` | 104686 | 94501 | 0 |
 | M2 | Archivos `.jq` | 21 | 19 | 0 |
 | M3 | Archivos que mencionan tmux | 96 | 90 | 0 |
-| M4 | Archivos que mencionan OpenCode | 283 | 21 | 2 |
+| M4 | Archivos que mencionan OpenCode | 283 | 9, todos excepción | 0 fuera de las excepciones |
 | M5 | Comandos de `hooks/hooks.json` que no son `node` | 7 de 7 | 7 de 7 | 0 |
 
 ```bash
@@ -80,7 +80,13 @@ git grep -c '"command": "node ' -- hooks/hooks.json
 ```
 
 M3 y M4 admiten una excepción: la sección de control de cambios de un ADR puede nombrar tmux u
-OpenCode. Restos aceptados de M4, además de esas secciones:
+OpenCode. La comprobación, que debe dar 0 en cada ADR:
+
+```bash
+for f in docs/adr/mef-adr-*.md; do awk '/^## Control de cambios/{c=1} !c' "$f" | grep -ci opencode; done
+```
+
+Restos aceptados de M4, además de esas secciones:
 
 - `docs/adr/mef-adr-0057-portabilidad-typescript-node.md`: es el ADR que retira OpenCode.
 - `docs/adr/INDICE-TEMATICO.md`: filas históricas que solo consolida `/mefisto-release`.
@@ -92,7 +98,7 @@ Estados: `pendiente`, `en curso`, `hecho`.
 | Paso | Qué | Estado | PR |
 |---|---|---|---|
 | 1 | ADR de portabilidad | hecho | #2547 |
-| 2a | Retirar OpenCode | en curso | #2551 (código y tests); falta el de ADRs y `docs/` |
+| 2a | Retirar OpenCode | hecho | #2551, #2552 |
 | 2b | Retirar tmux | pendiente | |
 | 3 | Base TypeScript | pendiente | |
 | 4 | Hooks | pendiente | |
@@ -115,10 +121,10 @@ Primero OpenCode: al salir, el único uso de tmux que queda es el modo explícit
 
 | Fila | Alcance | Estado | PR |
 |---|---|---|---|
-| 2a | OpenCode: `.opencode/`, `opencode.json`, adaptadores y runtime de OpenCode, política de permisos, scripts de instalación, empaquetado y proyección, lógica de par de adaptadores en `/upgrade` y `/runtimes`, sus tests y fixtures. Enmiendas a MEF-ADR-0049, 0050 y 0053; `AGENTS.md` y `README.md` | pendiente | |
+| 2a | OpenCode: `.opencode/`, `opencode.json`, adaptadores y runtime de OpenCode, política de permisos, scripts de instalación, empaquetado y proyección, lógica de par de adaptadores en `/upgrade` y `/runtimes`, sus tests y fixtures. Enmiendas a MEF-ADR-0049, 0050 y 0053; `AGENTS.md` y `README.md` | hecho | #2551, #2552 |
 | 2b | tmux: el modo sesión de los dos despachadores (que pasan a un nombre sin tmux), `--attach`, `--if-exists`, sus tests, `docs/tmux-cheatsheet.md` y el requisito en `README.md`. `MEFISTO_UI=tmux` da un error claro. Enmienda a MEF-ADR-0055 | pendiente | |
 
-Hecho cuando: M4 = 0 (2a) y M3 = 0 (2b), ningún archivo lleva `opencode` ni `tmux` en la ruta
+Hecho cuando: M4 (2a) y M3 (2b) están en su meta, ningún archivo lleva `opencode` ni `tmux` en la ruta
 fuera de `dist/`, y la suite completa pasa en local.
 
 ### Paso 3: Base TypeScript
