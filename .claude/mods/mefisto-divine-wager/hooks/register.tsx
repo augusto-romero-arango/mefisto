@@ -200,7 +200,7 @@ let batchSinceMs = 0
 let lastStatsReadMs = 0
 let lastHoldReadMs = 0
 let isPolling = false
-// Una sesion no interactiva (los agentes de los pipelines) no tiene a nadie mirando: el mod no reescribe ni sigue nada.
+// Una sesion no interactiva (los agentes de los pipelines) no tiene a nadie mirando: el mod no sigue nada.
 let isInteractive = false
 let lastPrCheckMs = 0
 let isLogOpen = false
