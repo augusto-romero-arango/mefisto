@@ -3983,6 +3983,8 @@ Ambos archivos son **idempotentes** (misma logica de "si existe / si no existe" 
 >
 > **Orden obligatorio de los dos parches: primero el endpoint en todos los dominios, despues el workflow.** Este reutilizable es **uno por repo** y lo invocan los smoke tests de **todos** los dominios, asi que el step nuevo polea `/api/ready` tambien en los que se scaffoldearon antes de esta enmienda. Un dominio sin `ReadyCheck.cs` responde 404 a esa ruta, y `curl --fail` no distingue "todavia no arranco" de "este dominio no tiene el endpoint": la compuerta agota sus 120s y **tumba la suite** de ese dominio. Aplica primero el parche del Paso 1 (`ReadyCheck.cs` + `.Mensajes.cs` + `.resx` + probe + registro de DI) a **cada** dominio ya scaffoldeado, y solo entonces inserta el step aqui.
 
+> **Repos ya scaffoldeados antes del fix del issue #2468**: mismo limite de idempotencia -- el scaffolder no reescribe un `smoke-tests-dominio.yml` existente. Aplica a mano dos cambios en ese archivo: (1) en el step `Esperar deploys ajenos del mismo commit`, agrega `id: guarda_deploys_ajenos`, la variable `BASE_URL: ${{ inputs.base_url }}` al `env`, la funcion `promover_gate_por_sha` (contenido completo en el Paso 6.1 de arriba) antes del bucle y su invocacion justo antes del `exit 0` de la rama "ningun deploy ajeno en vuelo"; (2) en el step `Smoke tests`, cambia `Api__ExpectedSha: ${{ inputs.expected_sha }}` por `Api__ExpectedSha: ${{ inputs.expected_sha != '' && inputs.expected_sha || steps.guarda_deploys_ajenos.outputs.expected_sha }}`. No requiere cambios de `permissions`. Si el repo ya aplico una correccion equivalente propia, conserva la suya.
+>
 > **Repos ya scaffoldeados antes del fix del issue #2469**: mismo limite de idempotencia -- el scaffolder no reescribe un `smoke-tests-dominio.yml` existente. Inserta a mano el step `Esperar la publicacion del worker de proyecciones del mismo commit` (contenido completo en el Paso 6.1 de arriba, sin `if`) entre `actions/setup-dotnet` y `Esperar deploys ajenos del mismo commit` (o, si el repo no tiene esa guarda, entre `actions/setup-dotnet` y `Esperar /api/ready`). No requiere cambios de `permissions` si el archivo ya concede `actions: read`; si no, aplica antes los parches de permisos del issue #604 (reutilizable, `smoke-tests.yml` y cada `deploy-{kebab}.yml`): sin ellos el run muere en `startup_failure` sin annotation. Si el repo ya tiene un paso equivalente propio, conserva el suyo (en un consumidor el job puede llamarse `deploy` en vez de `publish`: ajusta el literal `select(.name == "publish")`).
 >
 > **Repos ya scaffoldeados antes del fix del issue #1273**: el scaffolder no sobrescribe proyectos ni workflows existentes. Actualiza manualmente `Fixtures/ApiFixture.cs` de cada suite de smoke: cambia `TimeoutGatePorVersion` a 420 s y agrega al error de agotamiento el SHA esperado, el ultimo SHA observado y la URL de `StartupLogs` de Kudu derivada del host de la Function App. El poll de `/api/ready` conserva su presupuesto independiente de 120 s.
@@ -4109,14 +4111,49 @@ jobs:
         # abajo a "solo 200" contra /api/health, que responde 200 con el binario viejo mientras
         # cualquier deploy de este mismo commit sigue en vuelo sobre ese FA. Esta guarda espera a
         # que termine el job 'deploy' de cada run ajeno antes de dejar correr ese warmup.
+        # Que ese job termine no prueba que el host sirva ya el binario nuevo: Azure/functions-action
+        # termina al subir el zip y el host se recicla despues (issue #2468). Por eso, tras esperar,
+        # si un run ajeno desplego con exito el FA bajo prueba, la guarda promueve el gate por SHA
+        # publicando el output expected_sha, que consume el paso 'Smoke tests'.
+        id: guarda_deploys_ajenos
         if: inputs.expected_sha == ''
         env:
           GH_TOKEN: ${{ github.token }}
           REPO: ${{ github.repository }}
           SHA: ${{ github.sha }}
           RUN_ID: ${{ github.run_id }}
+          BASE_URL: ${{ inputs.base_url }}
         run: |
           set -euo pipefail
+          # Promocion (issue #2468): se revisan TODOS los runs 'Deploy *' del commit (no solo los
+          # que estaban en vuelo), con las mismas exclusiones de la guarda. El FA bajo prueba es el
+          # primer label del host de base_url (https://<fa>.azurewebsites.net); un base_url de otro
+          # tipo no promueve nada. El workflow ajeno lo despliega si su archivo -- 'path' sin '@ref',
+          # leido del checkout de este mismo commit -- declara 'app-name: <fa>'. Un deploy ajeno que
+          # fallo, se salto o desplego otro FA no promueve: se conserva el fallback "solo 200".
+          promover_gate_por_sha() {
+            local HOST FA RUN WF CONCLUSION
+            HOST="${BASE_URL#https://}"
+            HOST="${HOST%%/*}"
+            case "$HOST" in
+              *.azurewebsites.net) FA="${HOST%%.*}" ;;
+              *) echo "base_url no es *.azurewebsites.net: no se promueve el gate por SHA."; return 0 ;;
+            esac
+            while read -r RUN WF; do
+              [ -n "${RUN:-}" ] || continue
+              [ -f "$WF" ] || continue
+              grep -qE "app-name:[[:space:]]+$FA([[:space:]]|\$)" "$WF" || continue
+              CONCLUSION=$(gh api "repos/$REPO/actions/runs/$RUN/jobs" --paginate --jq \
+                '.jobs[] | select(.name == "deploy") | .conclusion')
+              if [ "$CONCLUSION" = "success" ]; then
+                echo "El run $RUN desplego $FA con exito: se promueve el gate por SHA ($SHA)."
+                echo "expected_sha=$SHA" >> "$GITHUB_OUTPUT"
+                return 0
+              fi
+            done < <(gh api "repos/$REPO/actions/runs?head_sha=$SHA" --paginate --jq \
+              '.workflow_runs[] | select(.name | startswith("Deploy ")) | select(.path != ".github/workflows/deploy-projections.yml") | select(.id != '"$RUN_ID"') | "\(.id) \(.path | split("@")[0])"')
+            echo "Ningun deploy ajeno exitoso de $FA en el commit $SHA: se conserva el fallback a solo 200."
+          }
           # github.run_id dentro de este reutilizable es el del invocador (un workflow_call
           # comparte el run de quien lo llama) -- excluirlo es obligatorio: sin el, la guarda
           # inspeccionaria su propio run, donde el job que la ejecuta esta por definicion en
@@ -4154,6 +4191,7 @@ jobs:
             done
             if [ -z "$PENDIENTES" ]; then
               echo "Ningun deploy ajeno del commit $SHA sigue en vuelo."
+              promover_gate_por_sha
               exit 0
             fi
             echo "Esperando el job 'deploy' de los runs ajenos:$PENDIENTES (intento $i/$INTENTOS)..."
@@ -4195,9 +4233,10 @@ jobs:
           # appsettings.json del proyecto SmokeTests lee Api:BaseUrl, ServiceBus:ConnectionString
           # y Postgres:ConnectionString; las variables con doble guion bajo las sobreescriben (MEF-ADR-0013).
           Api__BaseUrl: ${{ inputs.base_url }}
-          # Gate por SHA del warmup (issue #325, MEF-ADR-0031): vacio (default del input) degrada a
-          # "solo 200" contra /api/health, sin gate por version -- ver ApiFixture.
-          Api__ExpectedSha: ${{ inputs.expected_sha }}
+          # Gate por SHA del warmup (issue #325, MEF-ADR-0031): el expected_sha del input si llega,
+          # o el que promueve la guarda de deploys ajenos (issue #2468). Sin ninguno de los dos
+          # queda vacio y degrada a "solo 200" contra /api/health, sin gate por version -- ver ApiFixture.
+          Api__ExpectedSha: ${{ inputs.expected_sha != '' && inputs.expected_sha || steps.guarda_deploys_ajenos.outputs.expected_sha }}
           ServiceBus__ConnectionString: ${{ secrets.SERVICEBUS_CONNECTION_STRING }}
           Postgres__ConnectionString: ${{ secrets.POSTGRES_CONNECTION_STRING }}
         # Los tests que dependen de ServiceBus o Postgres se skipean gracefully via
@@ -4209,13 +4248,15 @@ jobs:
 >
 > **`expected_sha` es opcional a proposito (MEF-ADR-0031)**: solo lo pasa `deploy-{kebab}.yml` (Paso 5), que siempre conoce el SHA que acaba de desplegar -- es el unico invocador que despliega el mismo FA que va a probar. El workflow global `smoke-tests.yml` (Paso 6.2) invoca este mismo reutilizable **sin** pasar `expected_sha` -- no hay un SHA propio del FA bajo prueba al que atarse -- y el `ApiFixture` degrada a "solo 200" cuando el valor llega vacio. Cae en la misma clase cualquier workflow que despliegue **otro** componente y ejerza la suite de un FA ajeno (el caso real del consumidor de origen: su `deploy-projections.yml` invoca este reutilizable para la suite del unico dominio con proyecciones; la plantilla que emite `projections-scaffolder` hoy no tiene job de smoke, ver la nota de acoplamiento en ese agente).
 >
-> **La guarda "Esperar deploys ajenos" (issue #604, MEF-ADR-0031 seccion 4 enmendada) es lo que hace seguro ese fallback.** Sin ella, "solo 200" abre la compuerta contra `/api/health`, que responde 200 con el binario viejo mientras cualquier `deploy-{kebab}.yml` de este mismo commit sigue en vuelo sobre el FA bajo prueba -- 4 de 4 solapamientos observados en el diagnostico de origen (`Bitakora.ControlAsistencia`, ventanas de 7 a 31 segundos). La condicion es `inputs.expected_sha == ''` -- identifica la clase "no despliego el FA que pruebo" sin enumerar dominios ni workflows, asi que no crece al scaffoldear un dominio nuevo.
+> **La guarda "Esperar deploys ajenos" (issue #604, MEF-ADR-0031 seccion 4 enmendada) cubre la carrera con un deploy en vuelo; la promocion del issue #2468 cubre el reciclaje posterior.** Sin la espera, "solo 200" abre la compuerta contra `/api/health`, que responde 200 con el binario viejo mientras cualquier `deploy-{kebab}.yml` de este mismo commit sigue en vuelo sobre el FA bajo prueba -- 4 de 4 solapamientos observados en el diagnostico de origen (`Bitakora.ControlAsistencia`, ventanas de 7 a 31 segundos). La condicion es `inputs.expected_sha == ''` -- identifica la clase "no despliego el FA que pruebo" sin enumerar dominios ni workflows, asi que no crece al scaffoldear un dominio nuevo.
 >
 > Espera el **job** `deploy` de cada run ajeno, nunca el run completo, por dos razones: ese run ajeno corre su propio job de smoke **despues** del `deploy`, asi que esperar el run entero es esperar una suite que no gatea nada de este lado; y en cualquier repo que serialice los smoke con un grupo `concurrency` (lo hace el consumidor de origen con `smoke-tests-dev`; las plantillas de este agente no declaran ninguno) es directamente un **deadlock**: el job de smoke del ajeno no puede arrancar hasta que este job libere el grupo, y este job no termina hasta que ese run complete.
 >
 > Si un run ajeno no expone ningun job llamado `deploy`, la guarda **falla** en vez de asumir que ya termino (`::error::` + `exit 1`): degradar en silencio reintroduciria la carrera sin ninguna senal. El precio de esa decision es que el filtro de runs debe ser exacto, y por eso excluye `.github/workflows/deploy-projections.yml` (`projections-scaffolder`): su `name:` es `Deploy Projections Worker` -- matchea el prefijo -- pero despliega el Container App del worker de proyecciones, no toca ninguna Function App y sus jobs son `build-and-test`/`publish`; sin la exclusion, cada corrida global de smoke que coincidiera con una publicacion del worker del mismo commit moriria en `exit 1` por un run sin job `deploy` que esta guarda no tiene como esperar. La exclusion no deja al worker sin espera: la cubre el paso anterior.
 >
 > **El paso "Esperar la publicacion del worker de proyecciones del mismo commit" (issue #2469, MEF-ADR-0031 seccion 4 enmendada) es una correccion distinta de esta guarda.** No lleva `if`: aplica a toda clase de invocador, incluida `deploy-{kebab}.yml`, que comparte `DomainEvents/**` y `global.json` en sus `paths` con `deploy-projections.yml` y por eso dispara ambos con un mismo push. Los tests read-side de la suite leen vistas materializadas por el worker, asi que no deben correr contra su revision vieja. Busca los runs del commit (`inputs.expected_sha` si llega, `github.sha` si no) cuyo `path` sin `@ref` es `.github/workflows/deploy-projections.yml` y espera el **job** `publish` (nunca el run: mismo motivo de deadlock). Sin run, o con `publish` ausente o `skipped` en un run terminado, continua sin aviso; con `publish` en `failure`/`cancelled` continua con `::warning::` (el fallo ya se ve en rojo en el run del worker y no debe tumbar el smoke del write-side); tras 120 intentos de 5 s falla con `::error::`. Si el job `publish` aun no existe y el run no termino, lo trata como en vuelo. No pide permisos nuevos: `actions: read` ya cubre la consulta. El worker es un Container App sin ingress (MEF-ADR-0034 seccion 8), asi que su revision solo se observa por la API de Actions, a traves de ese job.
+>
+> **La guarda promueve el gate por SHA cuando el run ajeno desplego el FA bajo prueba (issue #2468, MEF-ADR-0031 seccion 4 enmendada).** Que el job `deploy` ajeno haya terminado no prueba que el host sirva el binario nuevo: `Azure/functions-action` termina al subir el zip y el host se recicla despues; mientras tanto `/api/health` responde 200 con el binario viejo y la suite correria contra la instancia vieja hasta que el reciclaje la corte (evidencia del consumidor `Bitakora.ControlAsistencia`: la traza `Application started` de la instancia nueva aparecio 33 a 104 s despues de que la guarda liberara; el tiempo de reciclaje es empirico, no hay documentacion oficial que lo fije). Por eso, despues de esperar, la guarda revisa **todos** los runs `Deploy *` del commit (mismas exclusiones: el propio run y `deploy-projections.yml`) y, si alguno tiene su job `deploy` en `success` y su workflow despliega el FA bajo prueba, publica el output `expected_sha=$SHA` (el step lleva `id: guarda_deploys_ajenos`); el paso `Smoke tests` toma el `expected_sha` del input si llega o el promovido, y el `ApiFixture` aplica el gate por `/api/version` (420 s, que cubren los 104 s observados). El FA bajo prueba es el primer label del host de `inputs.base_url` (`https://<fa>.azurewebsites.net`); el workflow ajeno lo despliega si su archivo (`path` sin `@ref`, leido del checkout del mismo commit) contiene `app-name: <fa>` -- convencion que sostiene el bloque `[H]` de `scripts/tests/test-guards.sh` (el `app-name:` de `deploy-{kebab}.yml` y el host del `base_url` derivan el mismo `func-{kebab}-{prefix_func}`). Un `base_url` que no sea `*.azurewebsites.net` no promueve nada. Sin deploy ajeno exitoso del FA (sin runs, `skipped`, `failure`, otro FA) se conserva el fallback "solo 200": un deploy ajeno que fallo no promueve, porque el FA puede seguir en el binario anterior y el gate fallaria por un motivo ajeno a la suite. La clase 1 (`deploy-{kebab}.yml`, que llega con `expected_sha`) no cambia. No pide permisos nuevos.
 >
 > **Dos convenciones acopladas, y el test del marco que las sostiene (CA-6).** El literal `deploy` del job y el prefijo `Deploy ` del nombre son convenciones de `deploy-{kebab}.yml` (Paso 5), verificadas empiricamente contra 4 deploys reales del consumidor de origen; el path excluido es el que genera `projections-scaffolder`. Quien renombre cualquiera de las tres cosas debe mover el literal aqui tambien -- y el bloque `[H]` de `scripts/tests/test-guards.sh` falla si esa correspondencia se rompe, para que la deriva no deje a la guarda ciega en silencio.
 >
