@@ -28,6 +28,9 @@
 #   [check-no-write] CA-5: --check no crea ni el directorio de salida.
 #   [skills]/[skills-opencode] Issue #1685: generacion y --check de Agent Skills
 #         internos, validacion de su frontmatter y mapping de `skills` a OpenCode.
+#   [published-skills] Issue #2529: proyeccion del Skill publicado code-comments
+#         (CA-1 a CA-4): marcador, recurso identico, --check, solo la allowlist
+#         y conflicto de id con src/internal/skills/.
 #
 # Uso: .claude/scripts/tests/test-generate-internal-adapters.sh
 # Exit code: 0 si todos los checks pasan, 1 si alguno falla.
@@ -612,6 +615,40 @@ sed -i.bak 's/"capabilities":\["read","skill"\]/"capabilities":["read"]/' "$SA"
 OC2="$WORKDIR/skill-agent-out2/.opencode/agents/mefisto-fx-skill-agent.md"
 assert_eq '"deny"' "$(grep '^permission: ' "$OC2" | sed 's/^permission: //' | jq -c '.skill')" "sin capacidad skill el permiso queda cerrado"
 grep -qF 'tool nativa `skill`' "$OC2" && fail "emitio instruccion de carga sin capacidad skill" || pass "sin capacidad skill no hay instruccion de carga"
+
+echo ""
+echo "[published-skills] Issue #2529: proyeccion de Skills publicados (allowlist)"
+PS_ROOT="$WORKDIR/pub-tree"
+mkdir -p "$PS_ROOT/skills/code-comments" "$PS_ROOT/skills/projections"
+printf -- '---\nname: code-comments\ndescription: Skill publicado de fixture\n---\n\n# Titulo\n' > "$PS_ROOT/skills/code-comments/SKILL.md"
+printf 'ejemplos\n' > "$PS_ROOT/skills/code-comments/ejemplos.md"
+printf -- '---\nname: projections\ndescription: No se proyecta\n---\n\n# P\n' > "$PS_ROOT/skills/projections/SKILL.md"
+PS_OUT="$WORKDIR/pub-out"
+"$GENERATOR" --out "$PS_OUT" "$PS_ROOT/skills/code-comments/SKILL.md" "$PS_ROOT/skills/code-comments/ejemplos.md" "$PS_ROOT/skills/projections/SKILL.md" >/dev/null 2>&1
+assert_eq "0" "$?" "CA-1: proyecta el Skill publicado (exit 0)"
+head -n 5 "$PS_OUT/.claude/skills/code-comments/SKILL.md" | grep -qF "<!-- GENERADO por src/internal/scripts/generate-internal-adapters.sh desde $PS_ROOT/skills/code-comments/SKILL.md. No editar a mano. -->" && pass "CA-1: SKILL.md lleva el marcador desde skills/code-comments/SKILL.md" || fail "CA-1: falta el marcador en SKILL.md"
+diff -q "$PS_ROOT/skills/code-comments/ejemplos.md" "$PS_OUT/.claude/skills/code-comments/ejemplos.md" >/dev/null 2>&1 && pass "CA-1: ejemplos.md identico a la fuente" || fail "CA-1: ejemplos.md difiere de la fuente"
+[ ! -e "$PS_OUT/.claude/skills/projections" ] && pass "CA-3: no proyecta .claude/skills/projections/" || fail "CA-3: proyecto un Skill fuera de la allowlist"
+[ ! -e "$PS_OUT/.opencode/skills" ] && pass "no emite .opencode/skills/" || fail "emitio .opencode/skills/"
+"$GENERATOR" --check --out "$PS_OUT" "$PS_ROOT/skills/code-comments/SKILL.md" "$PS_ROOT/skills/code-comments/ejemplos.md" >/dev/null 2>&1
+assert_eq "0" "$?" "CA-2: --check al dia con Skill publicado"
+printf 'edicion manual\n' >> "$PS_OUT/.claude/skills/code-comments/SKILL.md"
+OUT=$("$GENERATOR" --check --out "$PS_OUT" "$PS_ROOT/skills/code-comments/SKILL.md" "$PS_ROOT/skills/code-comments/ejemplos.md" 2>&1)
+RC=$?
+assert_eq "1" "$RC" "CA-2: --check falla tras editar a mano SKILL.md"
+printf '%s' "$OUT" | grep -qF ".claude/skills/code-comments/SKILL.md: distinta" && pass "CA-2: --check reporta SKILL.md distinta" || fail "CA-2: --check no reporto distinta: $OUT"
+"$GENERATOR" --out "$PS_OUT" "$PS_ROOT/skills/code-comments/SKILL.md" "$PS_ROOT/skills/code-comments/ejemplos.md" >/dev/null 2>&1
+"$GENERATOR" --check --out "$PS_OUT" "$PS_ROOT/skills/code-comments/SKILL.md" "$PS_ROOT/skills/code-comments/ejemplos.md" >/dev/null 2>&1
+assert_eq "0" "$?" "CA-2: --check pasa tras regenerar"
+
+mkdir -p "$PS_ROOT/src/internal/skills/code-comments"
+printf -- '---\nname: code-comments\ndescription: Duplicado interno\n---\n\n# Dup\n' > "$PS_ROOT/src/internal/skills/code-comments/SKILL.md"
+PS_OUT2="$WORKDIR/pub-out2"
+OUT=$("$GENERATOR" --out "$PS_OUT2" "$PS_ROOT/skills/code-comments/SKILL.md" "$PS_ROOT/src/internal/skills/code-comments/SKILL.md" 2>&1)
+RC=$?
+assert_eq "1" "$RC" "CA-4: id duplicado interno/publicado aborta (exit 1)"
+printf '%s' "$OUT" | grep -qF "code-comments" && pass "CA-4: el error nombra el id" || fail "CA-4: el error no nombra el id: $OUT"
+[ ! -e "$PS_OUT2/.claude/skills" ] && pass "CA-4: no escribe nada ante el conflicto" || fail "CA-4: escribio pese al conflicto"
 
 echo ""
 echo "RESULTADO: $PASS pasaron, $FAIL fallaron"

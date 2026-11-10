@@ -108,6 +108,20 @@ archivos se copian tal cual. No emite `.opencode/skills/`: OpenCode ya descubre
 Los Skills no pasan por la regla de neutralidad de body de agentes/comandos
 (documentan ambos runtimes), pero si por el gate de neutralidad de texto.
 
+### Skills publicados proyectados (issue #2529)
+
+El plugin no se instala sobre si mismo, asi que ningun runtime carga aqui los
+Skills de `skills/`. El generador proyecta a `.claude/skills/<id>/` los Skills
+publicados de una allowlist explicita (`PUBLISHED_PROJECTED_SKILLS`, hoy solo
+`code-comments`), con el mismo tratamiento que los internos: marcador
+`GENERADO ... desde skills/<id>/SKILL.md` en `SKILL.md` y recursos de Nivel 3
+copiados tal cual. No es una segunda copia mantenida a mano: la fuente sigue
+siendo `skills/<id>/` y `--check` detecta cualquier edicion directa. Los
+demas Skills publicados (p. ej. `projections`) no se proyectan para que no se
+disparen en este repo. Un id presente a la vez en `src/internal/skills/` y en la
+allowlist aborta la generacion con un error que nombra el id. Tampoco se emite
+`.opencode/skills/`, por la misma razon que con los internos.
+
 ### Verificacion de descubrimiento en OpenCode (issue #1685, CA-1)
 
 - **Fecha**: 2026-09-29. **Version**: 1.18.32 (la fijada en
