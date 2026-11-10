@@ -7,7 +7,7 @@
   "profile": "balanced",
   "effort": "standard",
   "capabilities": ["read", "edit", "shell", "skill"],
-  "skills": ["projections"]
+  "skills": ["projections", "code-comments"]
 }
 ---
 
@@ -37,6 +37,10 @@ Los bloques de codigo de este agente usan nombres de ejemplo de un proyecto cons
 ## Principio fundamental
 
 **Los tests read-side son la especificacion. No se negocian.** Si un test que dejo `projection-test-writer` parece incorrecto, implementalo igual y anota la duda en el commit message -- mismo principio que `implementer.md`.
+
+## Doctrina de comentarios (MEF-ADR-0044)
+
+Al escribir o tocar comentarios aplica el Skill `code-comments` (MEF-ADR-0044): solo lo no obvio, en una frase; un comentario que tu cambio vuelve falso se corrige o se borra.
 
 ---
 

@@ -123,7 +123,13 @@ for index in "${!agents[@]}"; do
         smoke-test-writer|projection-test-writer|projection-implementer)
             expected_profile='balanced'
             expected_capabilities='["read", "edit", "shell", "skill"]'
-            expected_skills='["projections"]'
+            expected_skills='["projections", "code-comments"]'
+            expected_keys='["capabilities", "description", "effort", "id", "kind", "mode", "profile", "skills"]'
+            ;;
+        test-writer|implementer)
+            expected_profile='balanced'
+            expected_capabilities='["read", "edit", "shell", "skill"]'
+            expected_skills='["code-comments"]'
             expected_keys='["capabilities", "description", "effort", "id", "kind", "mode", "profile", "skills"]'
             ;;
         *)
@@ -234,8 +240,13 @@ for agent in "${agents[@]}"; do
     elif [ "$agent" = smoke-test-writer ] || [ "$agent" = projection-test-writer ] || [ "$agent" = projection-implementer ]; then
         grep -Fq 'model: "sonnet"' "$claude" && pass "$agent Claude materializa balanced como sonnet" || fail "$agent Claude no materializa sonnet"
         grep -Fq 'tools: "Read, Glob, Grep, Edit, Write, Bash, Skill"' "$claude" && pass "$agent Claude materializa capacidades y Skill" || fail "$agent Claude no materializa Skill"
-        grep -Fq 'skills: ["projections"]' "$claude" && pass "$agent Claude conserva skills" || fail "$agent Claude no conserva skills"
-        grep -Fq '"skill":{"*":"deny","mefisto-projections":"allow"}' "$opencode" && grep -Fq 'Antes de ejecutar este body, usa la tool nativa `skill` para cargar, en este orden: `mefisto-projections`.' "$opencode" && pass "$agent OpenCode materializa skills" || fail "$agent OpenCode no materializa skills"
+        grep -Fq 'skills: ["projections","code-comments"]' "$claude" && pass "$agent Claude conserva skills" || fail "$agent Claude no conserva skills"
+        grep -Fq '"skill":{"*":"deny","mefisto-projections":"allow","mefisto-code-comments":"allow"}' "$opencode" && grep -Fq 'Antes de ejecutar este body, usa la tool nativa `skill` para cargar, en este orden: `mefisto-projections`, `mefisto-code-comments`.' "$opencode" && pass "$agent OpenCode materializa skills" || fail "$agent OpenCode no materializa skills"
+    elif [ "$agent" = test-writer ] || [ "$agent" = implementer ]; then
+        grep -Fq 'model: "sonnet"' "$claude" && pass "$agent Claude materializa balanced como sonnet" || fail "$agent Claude no materializa sonnet"
+        grep -Fq 'tools: "Read, Glob, Grep, Edit, Write, Bash, Skill"' "$claude" && pass "$agent Claude materializa capacidades y Skill" || fail "$agent Claude no materializa Skill"
+        grep -Fq 'skills: ["code-comments"]' "$claude" && pass "$agent Claude conserva skills" || fail "$agent Claude no conserva skills"
+        grep -Fq '"skill":{"*":"deny","mefisto-code-comments":"allow"}' "$opencode" && grep -Fq 'Antes de ejecutar este body, usa la tool nativa `skill` para cargar, en este orden: `mefisto-code-comments`.' "$opencode" && pass "$agent OpenCode materializa skills" || fail "$agent OpenCode no materializa skills"
     else
         grep -Fq 'model: "sonnet"' "$claude" && pass "$agent Claude materializa balanced como sonnet" || fail "$agent Claude no materializa sonnet"
         grep -Fq 'tools: "Read, Glob, Grep, Edit, Write, Bash"' "$claude" && pass "$agent Claude materializa capacidades" || fail "$agent Claude no materializa capacidades"

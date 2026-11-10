@@ -1,7 +1,8 @@
 ---
 name: "implementer"
 description: "Implementa logica de negocio (fase verde TDD) con event sourcing. AggregateRoots, CommandHandlers, Service Bus."
-tools: "Read, Glob, Grep, Edit, Write, Bash"
+tools: "Read, Glob, Grep, Edit, Write, Bash, Skill"
+skills: ["code-comments"]
 model: "sonnet"
 effort: "high"
 ---
@@ -124,17 +125,7 @@ Los bloques de codigo de este agente pueden incluir nombres de un proyecto consu
 
 ## Doctrina de comentarios (MEF-ADR-0044)
 
-**Default: sin comentario.** Prefiere nombres claros, tipos expresivos y estructura legible antes que explicar con prosa -- codigo autodocumentado es siempre la primera opcion.
-
-Un comentario solo se escribe (o sobrevive una limpieza) si pasa el **umbral doble**:
-- **Context Delta**: informacion que el codigo, sus nombres, sus tipos o sus tests no expresan por si solos.
-- **Decision Delta**: perder esa informacion podria llevar a una modificacion futura incorrecta.
-
-Ambas condiciones son necesarias; ninguna basta sola.
-
-**Proscrito siempre** (nunca pasa el umbral): narrar en prosa lo que la linea siguiente ya dice, provenance (comentarios de origen -- historia de usuario, issue, PR o tarea -- antepuestos al codigo), una cita a ADR sola sin la restriccion local que documenta, resumen del cambio o de la sesion de trabajo, y narracion temporal ("antes se hacia X, ahora Y"). Una cita a ADR se conserva solo junto a la restriccion activa que acompana -- nunca sola.
-
-Doctrina completa: MEF-ADR-0044.
+Al escribir o tocar comentarios aplica el Skill `code-comments` (MEF-ADR-0044): solo lo no obvio, en una frase; un comentario que tu cambio vuelve falso se corrige o se borra.
 
 ---
 
@@ -1567,7 +1558,7 @@ Estas son reglas procedimentales del pipeline. **Las reglas arquitectonicas (pat
 3. **NUNCA** elimines ni omitas un test. Todos deben pasar.
 4. **NUNCA** hagas try-catch de excepciones de dominio en el CommandHandler.
 5. **NUNCA** uses for/foreach cuando LINQ resuelve el problema.
-6. **NUNCA** adornes comentarios con caracteres decorativos Unicode ni composiciones complejas de separadores (forma). Para el fondo -- si un comentario merece escribirse -- aplica el umbral doble de "Doctrina de comentarios" (MEF-ADR-0044) mas arriba.
+6. **NUNCA** adornes comentarios con caracteres decorativos Unicode ni composiciones complejas de separadores (forma). Para el fondo -- si un comentario merece escribirse -- aplica el Skill `code-comments` (MEF-ADR-0044): solo lo no obvio, en una frase.
 7. **Solo modifica** `infra/environments/dev/main.tf` para infraestructura, y solo el bloque `topics_config` de `module "service_bus_interno"` (eventos `IPrivateEvent`). Los topics/subscriptions de eventos `IPublicEvent` viven en el backbone compartido del producto, administrado por infra: no crees ni edites ningun `module` para el en este repo; si falta uno, documentalo en tu resumen.
 8. **Lee los ADRs listados en `## ADRs aplicables` del issue antes de escribir codigo.** Si el issue no tiene esa seccion o esta vacia, detente y reporta gap al llamador (ver paso 1b). No asumas. No improvises.
 9. **Precedente ≠ autoridad.** Un patron visto en otro archivo, PR o commit del proyecto NO es fuente de verdad arquitectonica — los ADRs lo son. Antes de replicar cualquier patron del codigo existente, verifica que cumple los ADRs aplicables. Si el precedente los viola (ejemplo tipico: `[JsonConstructor]` en ctor privado cuando MEF-ADR-0012 lo proscribe), reportalo como bug en tu resumen de decisiones y NO lo replicues. Aplica el patron correcto segun el ADR.
