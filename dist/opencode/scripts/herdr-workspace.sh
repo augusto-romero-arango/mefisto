@@ -32,6 +32,16 @@
 # workspaces consumidores legacy se normalizan por label antes de agregar la
 # fila OpenCode faltante.
 #
+# Adopcion (issue #2493): si ya existe un workspace con el label del repo pero
+# ningun pane con label de rol de Mefisto (`planner`, `ejecucion`, `planner
+# [<kind>]`, `ejecucion [<kind>]`; los visores no cuentan), es el caso de herdr
+# abriendo un pane en la carpeta del repo. El script lo adopta, en consumidor y
+# en Mefisto: monta TODAS las filas de runtime debajo del pane raiz, con la misma
+# geometria (primero los `down` desde la raiz, despues los `right`). El pane raiz
+# queda como estaba: shell del usuario, sin rename, sin agente y sin cambiar su
+# cwd. Con varios workspaces del mismo label se prefiere el primero que tenga
+# panes de rol; solo si ninguno los tiene se adopta el primero.
+#
 # Los panes de cada fila de Mefisto arrancan con `--kind <kind>` y llevan
 # SIEMPRE `--env MEFISTO_RUNTIME=<kind>` (tambien para los defaults, porque el
 # despacho de #928 debe resolver el runtime de su fila), mas
@@ -509,32 +519,31 @@ mount_runtime_row() {
     MOUNTED_RUNTIME_PLANNER="$p_planner"
 }
 
-# mount_runtime_rows <repo_root> <label> <planner_agent> <runtime...>
+# mount_rows_from_base <repo_root> <label> <planner_agent> <base_pane> <adopt:0|1> <runtime...>
 #
-# Crea todas las filas: primero los `down` inversos, despues todos los `right`.
-mount_runtime_rows() {
-    local repo_root="$1" label="$2" planner_agent="$3"
-    shift 3
+# Monta las filas de runtime a partir de <base_pane>: primero los `down` inversos
+# (herdr inserta cada pane justo debajo de la base), despues todos los `right`,
+# y al final labels y agentes. Con adopt=0 la base es la raiz de un workspace
+# recien creado y pasa a ser el planner de la primera fila (solo se crean los
+# `down` de las filas 2..N). Con adopt=1 la base es un pane existente que no se
+# toca (sin rename ni agente): se crean los `down` de TODAS las filas.
+# Publica en MOUNTED_ROW_COUNT cuantas filas llegaron a tener planner.
+MOUNTED_ROW_COUNT=0
+mount_rows_from_base() {
+    local repo_root="$1" label="$2" planner_agent="$3" base="$4" adopt="$5"
+    shift 5
     local runtimes=("$@")
-    local first_kind="${runtimes[0]}"
-    local first_env=(--env "MEFISTO_RUNTIME=$first_kind")
-    [ -n "${MEFISTO_MODELS_FILE:-}" ] && first_env+=(--env "MEFISTO_MODELS_FILE=$MEFISTO_MODELS_FILE")
-    local resp ws root i kind pane
+    local resp i kind pane lowest=1
+    local planners=() ejecuciones=()
+    MOUNTED_ROW_COUNT=0
+    if [ "$adopt" = "1" ]; then lowest=0; else planners[0]="$base"; fi
 
-    log "Creando el workspace '$label' para $repo_root ..."
-    resp=$(herdr workspace create --cwd "$repo_root" --label "$label" "${first_env[@]}" 2>&1) \
-        || abort "No se pudo crear el workspace: $resp"
-    ws=$(echo "$resp" | jq -r '.result.workspace.workspace_id // empty')
-    root=$(echo "$resp" | jq -r '.result.root_pane.pane_id // empty')
-    [ -n "$ws" ] && [ -n "$root" ] || abort "herdr workspace create no devolvio ids. Respuesta: $resp"
-
-    local planners=("$root") ejecuciones=()
-    for ((i=${#runtimes[@]}-1; i>=1; i--)); do
+    for ((i=${#runtimes[@]}-1; i>=lowest; i--)); do
         kind="${runtimes[$i]}"
         local env_args=(--env "MEFISTO_RUNTIME=$kind")
         [ -n "${MEFISTO_MODELS_FILE:-}" ] && env_args+=(--env "MEFISTO_MODELS_FILE=$MEFISTO_MODELS_FILE")
         pane=""
-        resp=$(herdr pane split --pane "$root" --direction down --cwd "$repo_root" --no-focus "${env_args[@]}" 2>&1) \
+        resp=$(herdr pane split --pane "$base" --direction down --cwd "$repo_root" --no-focus "${env_args[@]}" 2>&1) \
             && pane=$(echo "$resp" | jq -r '.result.pane.pane_id // empty')
         [ -n "$pane" ] || warn "No se pudo crear el planner de la fila '$kind': $resp"
         planners[$i]="$pane"
@@ -557,6 +566,7 @@ mount_runtime_rows() {
         kind="${runtimes[$i]}"
         pane="${planners[$i]:-}"
         [ -n "$pane" ] || continue
+        MOUNTED_ROW_COUNT=$((MOUNTED_ROW_COUNT + 1))
         herdr pane rename "$pane" "planner [$kind]" >/dev/null 2>&1 || true
         [ -n "${ejecuciones[$i]:-}" ] && herdr pane rename "${ejecuciones[$i]}" "ejecucion [$kind]" >/dev/null 2>&1 || true
         local runtime_planner_agent
@@ -565,9 +575,67 @@ mount_runtime_rows() {
         start_agent_in_pane "$(agent_name_for_role planner "$label" "$kind")" "$pane" "$runtime_planner_agent" "$kind"
         [ -n "${ejecuciones[$i]:-}" ] && start_agent_in_pane "$(agent_name_for_role ejecucion "$label" "$kind")" "${ejecuciones[$i]}" "" "$kind"
     done
+}
+
+# mount_runtime_rows <repo_root> <label> <planner_agent> <runtime...>
+#
+# Crea el workspace y todas las filas; la raiz es el planner de la primera.
+mount_runtime_rows() {
+    local repo_root="$1" label="$2" planner_agent="$3"
+    shift 3
+    local runtimes=("$@")
+    local first_kind="${runtimes[0]}"
+    local first_env=(--env "MEFISTO_RUNTIME=$first_kind")
+    [ -n "${MEFISTO_MODELS_FILE:-}" ] && first_env+=(--env "MEFISTO_MODELS_FILE=$MEFISTO_MODELS_FILE")
+    local resp ws root
+
+    log "Creando el workspace '$label' para $repo_root ..."
+    resp=$(herdr workspace create --cwd "$repo_root" --label "$label" "${first_env[@]}" 2>&1) \
+        || abort "No se pudo crear el workspace: $resp"
+    ws=$(echo "$resp" | jq -r '.result.workspace.workspace_id // empty')
+    root=$(echo "$resp" | jq -r '.result.root_pane.pane_id // empty')
+    [ -n "$ws" ] && [ -n "$root" ] || abort "herdr workspace create no devolvio ids. Respuesta: $resp"
+
+    mount_rows_from_base "$repo_root" "$label" "$planner_agent" "$root" 0 "${runtimes[@]}"
 
     echo ""
     success "Workspace '$label' listo ($ws): ${#runtimes[@]} fila(s) de runtime."
+}
+
+# workspace_has_mefisto_panes <workspace_id>
+#
+# 0 si algun pane tiene label de rol de Mefisto (`planner`, `ejecucion`,
+# `planner [<kind>]`, `ejecucion [<kind>]`). Los visores `[ok] mefisto-tooling
+# #N` y los panes sin label no cuentan. Si la lista no se puede leer devuelve 0:
+# ante la duda no se adopta (adoptar monta filas nuevas).
+workspace_has_mefisto_panes() {
+    local ws="$1" panes_json n
+    panes_json=$(herdr pane list --workspace "$ws" 2>/dev/null) || return 0
+    n=$(printf '%s\n' "$panes_json" \
+        | jq -r '[.result.panes[]? | select((.label? // "") | test("^(planner|ejecucion)( \\[[^]]+\\])?$"))] | length' 2>/dev/null) \
+        || return 0
+    [ "${n:-1}" -gt 0 ]
+}
+
+# adopt_workspace_rows <repo_root> <label> <planner_agent> <workspace_id> <runtime...>
+#
+# Monta todas las filas de runtime en un workspace sin panes de Mefisto, debajo
+# de su pane raiz (el primero de la lista), que queda intacto: sin rename, sin
+# agente y sin cambiar su cwd.
+adopt_workspace_rows() {
+    local repo_root="$1" label="$2" planner_agent="$3" ws="$4"
+    shift 4
+    local root
+    root=$(herdr pane list --workspace "$ws" 2>/dev/null \
+        | jq -r '.result.panes[0].pane_id // empty' 2>/dev/null || true)
+    herdr workspace focus "$ws" >/dev/null 2>&1 || true
+    if [ -z "$root" ]; then
+        warn "El workspace '$label' ($ws) no lista ningun pane desde el cual montar las filas; se enfoco sin modificar el layout."
+        return
+    fi
+    mount_rows_from_base "$repo_root" "$label" "$planner_agent" "$root" 1 "$@"
+    echo ""
+    success "Workspace '$label' ($ws) no tenia panes de Mefisto: se montaron $MOUNTED_ROW_COUNT fila(s) debajo del pane raiz."
 }
 
 main() {
@@ -594,11 +662,20 @@ main() {
     label=$(basename "$repo_root")
 
     # Idempotencia de primer nivel: sin workspace con este label todavia, no
-    # hay nada que enfocar en ninguna rama.
-    local existing
-    existing=$(herdr workspace list 2>/dev/null \
-        | jq -r --arg l "$label" '.result.workspaces[]? | select(.label == $l) | .workspace_id' \
-        | head -1)
+    # hay nada que enfocar en ninguna rama. Con varios del mismo label se prefiere
+    # el primero con panes de rol de Mefisto; si ninguno los tiene, se adopta el
+    # primero (first_candidate).
+    local candidates existing="" first_candidate="" candidate
+    candidates=$(herdr workspace list 2>/dev/null \
+        | jq -r --arg l "$label" '.result.workspaces[]? | select(.label == $l) | .workspace_id' || true)
+    while IFS= read -r candidate; do
+        [ -n "$candidate" ] || continue
+        [ -n "$first_candidate" ] || first_candidate="$candidate"
+        if workspace_has_mefisto_panes "$candidate"; then
+            existing="$candidate"
+            break
+        fi
+    done <<< "$candidates"
 
     if [ "$planner_agent" != "mefisto-planner" ]; then
         diagnose_consumer_identity
@@ -611,6 +688,11 @@ main() {
         [ -n "$runtime_kind" ] && runtimes+=("$runtime_kind")
     done < <(runtimes_for_repo "$planner_agent")
     [ "${#runtimes[@]}" -gt 0 ] || abort "La lista de runtimes quedo vacia."
+
+    if [ -z "$existing" ] && [ -n "$first_candidate" ]; then
+        adopt_workspace_rows "$repo_root" "$label" "$planner_agent" "$first_candidate" "${runtimes[@]}"
+        return
+    fi
 
     if [ -z "$existing" ]; then
         mount_runtime_rows "$repo_root" "$label" "$planner_agent" "${runtimes[@]}"
