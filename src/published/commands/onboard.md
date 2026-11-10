@@ -168,7 +168,7 @@ Ejecuta sus pre-condiciones (token `projections.enabled`, cwd de consumidor) y s
 
 ### 8. Activación opt-in de Mefisto en este repo
 
-Aplica este paso **solo si** la sección de activación por repositorio reportó `FALTA`. Mefisto se instala por usuario pero se activa solo en los repos que lo habilitan con archivos de proyecto commiteados (MEF-ADR-0053 decisión 2); una sola provisión escribe la activación de ambos runtimes, para equipos que usan los dos. Los worktrees de pipeline nacen de `origin/main`, así que los archivos deben quedar commiteados.
+Aplica este paso **solo si** la sección de activación por repositorio reportó `FALTA`. Mefisto se instala por usuario pero se activa solo en los repos que lo habilitan con archivos de proyecto commiteados (MEF-ADR-0053 decisión 2). Los worktrees de pipeline nacen de `origin/main`, así que el archivo debe quedar commiteado.
 
 1. Previsualiza el cambio:
 
@@ -183,7 +183,7 @@ Aplica este paso **solo si** la sección de activación por repositorio reportó
 {{mefisto:run onboard-activate-repo.sh --apply}}
 ```
 
-4. Recuerda que debe commitear los archivos que el script nombra y llevarlos a `main`. El script solo fusiona las claves de habilitación y escribe el cargador si falta o está desactualizado; no toca nada más ni commitea.
+4. Recuerda que debe commitear el archivo que el script nombra y llevarlo a `main`. El script solo fusiona las claves de habilitación; no toca nada más ni commitea.
 
 ### 9. Provision opt-in de `.mefisto/appinsights.env`
 
