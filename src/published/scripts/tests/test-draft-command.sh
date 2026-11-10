@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Contrato del comando draft neutral y sus dos proyecciones publicadas
+# Contrato del comando draft neutral y su proyeccion publicada
 # (issue #1641: migracion desde el formato Claude-only commands/draft.md).
 set -uo pipefail
 export LC_ALL=C
@@ -7,7 +7,6 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
 REPO_ROOT="$(cd "$HERE/../../../.." && pwd -P)"
 SOURCE="$REPO_ROOT/src/published/commands/draft.md"
 CLAUDE="$REPO_ROOT/dist/claude/commands/draft.md"
-OPENCODE="$REPO_ROOT/dist/opencode/commands/mefisto:draft.md"
 MIRROR="$REPO_ROOT/commands/draft.md"
 GENERATOR="$REPO_ROOT/src/published/scripts/generate-published-adapters.sh"
 PASS=0; FAIL=0
@@ -32,7 +31,7 @@ contains "$body" "jq -r '.repoSlug // empty' \"{{mefisto:config-path}}\"" 'repoS
 contains "$body" 'REPO_SLUG="augusto-romero-arango/mefisto"' 'mismo default que el planner cuando el campo falta'
 contains "$body" 'gh issue create -R "$REPO_SLUG"' 'draft cross-repo usa -R con el slug resuelto'
 absent "$body" 'HARNESS_REPO_SLUG' 'HARNESS_REPO_SLUG desaparece de la fuente (CA-2/CA-6c)'
-for forbidden in 'Claude' 'OpenCode' '.claude/' '.opencode/' 'cache' 'model:' 'tools:' 'allowed-tools:' 'permission:' '.plugin-root' 'CLAUDE_' 'plugins/cache'; do absent "$body" "$forbidden" "fuente no publica token prohibido: $forbidden"; done
+for forbidden in 'Claude' '.claude/' 'cache' 'model:' 'tools:' 'allowed-tools:' 'permission:' '.plugin-root' 'CLAUDE_' 'plugins/cache'; do absent "$body" "$forbidden" "fuente no publica token prohibido: $forbidden"; done
 
 echo '[fuente] comportamiento conservado (CA-3/CA-4)'
 contains "$body" '[verbo infinitivo] [que cosa]' 'formato de titulo conservado'
@@ -48,27 +47,19 @@ contains "$body" 'agente `planner` (modo `refinar`)' 'confirmacion remite al age
 contains "$body" '/mefisto-plan' 'regla cross-repo remite a /mefisto-plan para refinar en Mefisto'
 contains "$body" 'NUNCA agregues `dom:` ni `estado:listo`' 'draft cross-repo nunca ofrece estado:listo'
 
-echo '[salidas] adaptadores y mirror'
-for file in "$CLAUDE" "$OPENCODE"; do [ -f "$file" ] && pass "existe ${file#"$REPO_ROOT/"}" || fail "falta ${file#"$REPO_ROOT/"}"; done
+echo '[salidas] adaptador y mirror'
+[ -f "$CLAUDE" ] && pass "existe ${CLAUDE#"$REPO_ROOT/"}" || fail "falta ${CLAUDE#"$REPO_ROOT/"}"
 claude_body="$(< "$CLAUDE")"
-opencode_body="$(< "$OPENCODE")"
 contains "$claude_body" 'model: "haiku"' 'Claude materializa el perfil fast (CA-5)'
-absent "$opencode_body" 'model:' 'OpenCode no emite model (CA-5)'
 contains "$claude_body" 'argument-hint: "<descripcion de la idea>"' 'Claude emite argument-hint'
-absent "$opencode_body" 'argument-hint:' 'OpenCode no emite argument-hint propio de Claude'
 contains "$claude_body" '/mefisto:draft' 'Claude resuelve la directiva command a /mefisto:draft'
-contains "$opencode_body" '/mefisto:draft' 'OpenCode resuelve la directiva command a /mefisto:draft'
-for content_label in claude opencode; do
-    case "$content_label" in claude) content="$claude_body" ;; opencode) content="$opencode_body" ;; esac
-    contains "$content" 'MEFISTO_CONFIG_PATH' "$content_label resuelve MEFISTO_CONFIG_PATH (CA-2)"
-    contains "$content" 'REPO_SLUG=$(jq -r' "$content_label conserva la lectura de repoSlug"
-    absent "$content" 'HARNESS_REPO_SLUG' "$content_label no nombra HARNESS_REPO_SLUG (CA-6c)"
-    absent "$content" 'plugins/cache' "$content_label no reimplementa token prohibido: plugins/cache"
-done
+contains "$claude_body" 'MEFISTO_CONFIG_PATH' "claude resuelve MEFISTO_CONFIG_PATH (CA-2)"
+contains "$claude_body" 'REPO_SLUG=$(jq -r' "claude conserva la lectura de repoSlug"
+absent "$claude_body" 'HARNESS_REPO_SLUG' "claude no nombra HARNESS_REPO_SLUG (CA-6c)"
+absent "$claude_body" 'plugins/cache' "claude no reimplementa token prohibido: plugins/cache"
 if cmp -s "$MIRROR" "$CLAUDE"; then pass 'mirror Claude coincide byte a byte (CA-5e)'; else fail 'mirror Claude diverge'; fi
 contains "$(< "$MIRROR")" '<!-- GENERADO por src/published/scripts/generate-published-adapters.sh desde src/published/commands/draft.md. No editar a mano. -->' 'mirror conserva marcador generado'
 if jq -e '.assets[] | select(.destination == "commands/draft.md")' "$REPO_ROOT/dist/claude/.mefisto-generated-assets.json" >/dev/null; then pass 'inventariado en dist/claude/.mefisto-generated-assets.json'; else fail 'falta en el inventario Claude'; fi
-if jq -e '.assets[] | select(.destination == "commands/mefisto:draft.md")' "$REPO_ROOT/dist/opencode/.mefisto-generated-assets.json" >/dev/null; then pass 'inventariado en dist/opencode/.mefisto-generated-assets.json'; else fail 'falta en el inventario OpenCode'; fi
 if "$GENERATOR" --check >/dev/null; then pass 'generate-published-adapters --check esta al dia'; else fail 'generate-published-adapters --check detecto divergencias'; fi
 
 printf 'RESULTADO: %s pasaron, %s fallaron\n' "$PASS" "$FAIL"

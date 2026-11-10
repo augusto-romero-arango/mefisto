@@ -4,7 +4,7 @@ set -uo pipefail
 export LC_ALL=C
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
 REPO_ROOT="$(cd "$HERE/../../../.." && pwd -P)"
-DIST="$REPO_ROOT/dist/opencode/scripts"
+DIST="$REPO_ROOT/dist/claude/scripts"
 WORK="$(mktemp -d)"
 trap 'rm -rf "$WORK"' EXIT
 PASS=0; FAIL=0

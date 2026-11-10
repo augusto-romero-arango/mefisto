@@ -1,12 +1,11 @@
 #!/usr/bin/env bash
-# Contrato del comando install-apim neutral y sus proyecciones publicadas.
+# Contrato del comando install-apim neutral y su proyeccion publicada.
 set -uo pipefail
 export LC_ALL=C
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
 REPO_ROOT="$(cd "$HERE/../../../.." && pwd -P)"
 SOURCE="$REPO_ROOT/src/published/commands/install-apim.md"
 CLAUDE="$REPO_ROOT/dist/claude/commands/install-apim.md"
-OPENCODE="$REPO_ROOT/dist/opencode/commands/mefisto:install-apim.md"
 MIRROR="$REPO_ROOT/commands/install-apim.md"
 GENERATOR="$REPO_ROOT/src/published/scripts/generate-published-adapters.sh"
 PASS=0; FAIL=0
@@ -43,32 +42,17 @@ for marker in '{{mefisto:assert-consumer-repo}}' '¿Continuar? (s/n)' 'git switc
 done
 [ "$order_ok" -eq 1 ] && pass 'orden: guard -> confirmacion -> rama -> agente -> flip -> commit -> PR' || fail 'orden de pasos invalido'
 
-echo '[salidas] adaptadores y mirror'
-for file in "$CLAUDE" "$OPENCODE"; do [ -f "$file" ] && pass "existe ${file#"$REPO_ROOT/"}" || fail "falta ${file#"$REPO_ROOT/"}"; done
+echo '[salidas] adaptador y mirror'
+[ -f "$CLAUDE" ] && pass "existe ${CLAUDE#"$REPO_ROOT/"}" || fail "falta ${CLAUDE#"$REPO_ROOT/"}"
 claude_body="$(< "$CLAUDE")"
-opencode_body="$(< "$OPENCODE")"
 contains "$claude_body" 'model: "sonnet"' 'Claude materializa el perfil balanced'
-absent "$opencode_body" 'model:' 'OpenCode no emite model'
-absent "$opencode_body" 'subtask' 'OpenCode no emite subtask'
-absent "$opencode_body" 'agent:' 'OpenCode no emite agent'
 contains "$claude_body" 'agente `mefisto:apim-gateway-scaffolder`' 'Claude delega en mefisto:apim-gateway-scaffolder'
-contains "$opencode_body" 'agente `apim-gateway-scaffolder`' 'OpenCode delega en apim-gateway-scaffolder'
 contains "$claude_body" 'source "$COMMON"' 'Claude sourcea _pipeline-common.sh'
-contains "$opencode_body" 'COMMON="${MEFISTO_PACKAGE_ROOT}/scripts/_pipeline-common.sh"' 'OpenCode sourcea desde MEFISTO_PACKAGE_ROOT'
 contains "$claude_body" 'COMMON="${MEFISTO_PACKAGE_ROOT}/scripts/_pipeline-common.sh"' 'Claude sourcea desde MEFISTO_PACKAGE_ROOT'
-for rt in claude opencode; do
-    out="$claude_body"; [ "$rt" = opencode ] && out="$opencode_body"
-    forbidden_set=('claude --agent' 'plugins/cache' 'PLUGIN_SCRIPTS')
-    [ "$rt" = opencode ] && forbidden_set+=('CLAUDE_' '.plugin-root')
-    for forbidden in "${forbidden_set[@]}"; do absent "$out" "$forbidden" "$rt sin token de runtime: $forbidden"; done
-done
+for forbidden in 'claude --agent' 'plugins/cache' 'PLUGIN_SCRIPTS'; do absent "$claude_body" "$forbidden" "claude sin token de runtime: $forbidden"; done
 contains "$claude_body" '/mefisto:install-workos' 'Claude resuelve command install-workos'
-contains "$opencode_body" '/mefisto:install-workos' 'OpenCode resuelve command install-workos'
 if cmp -s "$MIRROR" "$CLAUDE"; then pass 'mirror Claude coincide byte a byte'; else fail 'mirror Claude diverge'; fi
-for runtime in claude opencode; do
-    dest="commands/install-apim.md"; [ "$runtime" = opencode ] && dest="commands/mefisto:install-apim.md"
-    if grep -qF "$dest" "$REPO_ROOT/dist/$runtime/.mefisto-generated-assets.json"; then pass "inventario de dist/$runtime lo incluye"; else fail "inventario de dist/$runtime no lo incluye"; fi
-done
+if grep -qF 'commands/install-apim.md' "$REPO_ROOT/dist/claude/.mefisto-generated-assets.json"; then pass 'inventario de dist/claude lo incluye'; else fail 'inventario de dist/claude no lo incluye'; fi
 
 echo '[paso 9.2] flip de tenancy ejecutado sobre el _pipeline-common.sh distribuido'
 FLIP="$(awk '
@@ -76,11 +60,11 @@ FLIP="$(awk '
     found && /^```bash$/ { inside=1; next }
     found && /^```$/ && inside { exit }
     inside { print }
-' "$OPENCODE")"
+' "$CLAUDE")"
 if [ -z "$FLIP" ]; then
     fail 'no se pudo extraer el bloque del paso 9.2'
 else
-    export MEFISTO_PACKAGE_ROOT="$REPO_ROOT/dist/opencode"
+    export MEFISTO_PACKAGE_ROOT="$REPO_ROOT/dist/claude"
     mk_repo() {
         local repo="$1"
         mkdir -p "$repo"; git -C "$repo" init -q
@@ -100,11 +84,8 @@ else
     if run_flip "$R2" "$WORK/r2.out"; then fail 'no aborto con solo el legacy'; elif grep -qF 'todavía es legacy' "$WORK/r2.out" && [ "$before" = "$(cat "$R2/.claude/harness.config.json")" ] && [ ! -e "$R2/.mefisto/harness.config.json" ]; then pass 'aborta con solo el legacy sin modificarlo ni crear el canonico'; else fail "manejo incorrecto del legacy: $(cat "$WORK/r2.out")"; fi
 fi
 
-for rt in claude opencode; do
-    out="$CLAUDE"; [ "$rt" = opencode ] && out="$OPENCODE"
-    n="$(grep -cF 'export MEFISTO_INSTRUCTIONS_PATH' "$out")"
-    [ "$n" -eq 1 ] && pass "$rt resuelve instrucciones solo en el preambulo generado" || fail "$rt resuelve instrucciones $n veces"
-done
+n="$(grep -cF 'export MEFISTO_INSTRUCTIONS_PATH' "$CLAUDE")"
+[ "$n" -eq 1 ] && pass 'claude resuelve instrucciones solo en el preambulo generado' || fail "claude resuelve instrucciones $n veces"
 
 echo '[paso 2b] deteccion de servidores MCP desde instructions-path'
 MCP_BLOCK="$(awk '
@@ -112,7 +93,7 @@ MCP_BLOCK="$(awk '
     found && /^```bash$/ { inside=1; next }
     found && /^```$/ && inside { exit }
     inside { print }
-' "$OPENCODE")"
+' "$CLAUDE")"
 R3="$WORK/mcp"; mkdir -p "$R3/src/Ejemplo.Principal.Mcp.Reportes"
 printf 'RootNamespace: Ejemplo.Principal\n' > "$R3/AGENTS.md"
 out="$(cd "$R3" && MEFISTO_INSTRUCTIONS_PATH=AGENTS.md bash -c "$MCP_BLOCK"$'\n''printf "%s|%s" "$ROOT_NAMESPACE" "$SERVIDORES_MCP"' 2>&1)"

@@ -5,13 +5,13 @@
 # Cubre:
 #   [pre] El generador y sus libs existen, tienen sintaxis valida y el
 #         generador es ejecutable.
-#   [valid-fixtures] Los fixtures de fixtures/valid/ (#853) generan los 4
-#         archivos (Claude/OpenCode x agente/comando) con exit 0.
-#   [claude-exact]/[opencode-exact] Contenido byte-a-byte esperado para un
-#         agente y un comando minimos, en ambos runtimes.
+#   [valid-fixtures] Los fixtures de fixtures/valid/ (#853) generan los 2
+#         archivos (agente y comando) con exit 0.
+#   [claude-exact] Contenido byte-a-byte esperado para un agente y un comando
+#         minimos.
 #   [directives] Las tres directivas de body ({{mefisto:launch-agent}},
-#         {{mefisto:run}}, {{mefisto:command-path}}) traducidas correctamente
-#         en ambos runtimes, incluida una embebida dentro de otro comando.
+#         {{mefisto:run}}, {{mefisto:command-path}}) traducidas correctamente,
+#         incluida una embebida dentro de otro comando.
 #   [unknown-directive] Una directiva desconocida aborta sin escribir nada.
 #   [invalid-source] Un fixture invalido de #853 aborta sin escribir nada.
 #   [determinism] CA-4: dos corridas consecutivas y una tercera tras tocar el
@@ -26,8 +26,8 @@
 #         lista de fuentes esta vacia hoy, y expandir un array vacio bajo
 #         `set -u` aborta con "unbound variable" hasta bash 4.4.
 #   [check-no-write] CA-5: --check no crea ni el directorio de salida.
-#   [skills]/[skills-opencode] Issue #1685: generacion y --check de Agent Skills
-#         internos, validacion de su frontmatter y mapping de `skills` a OpenCode.
+#   [skills] Issue #1685: generacion y --check de Agent Skills internos y
+#         validacion de su frontmatter.
 #   [published-skills] Issue #2529: proyeccion del Skill publicado code-comments
 #         (CA-1 a CA-4): marcador, recurso identico, --check, solo la allowlist
 #         y conflicto de id con src/internal/skills/; [published-skills-default]
@@ -72,7 +72,7 @@ SRC_DIR="$WORKDIR/src"
 mkdir -p "$SRC_DIR"
 
 echo "[pre] El generador y sus libs existen y tienen sintaxis valida"
-for f in "$GENERATOR" "$LIB_DIR/frontmatter.sh" "$LIB_DIR/adapter-claude.sh" "$LIB_DIR/adapter-opencode.sh"; do
+for f in "$GENERATOR" "$LIB_DIR/frontmatter.sh" "$LIB_DIR/adapter-claude.sh"; do
     if [ -f "$f" ]; then
         pass "existe: ${f#"$REPO_ROOT"/}"
     else
@@ -173,7 +173,7 @@ Cuerpo.
 EOF
 
 echo ""
-echo "[valid-fixtures] fixtures/valid/*.md (#853) generan los 4 archivos con exit 0"
+echo "[valid-fixtures] fixtures/valid/*.md (#853) generan los 2 archivos con exit 0"
 OUT_VALID="$WORKDIR/out-valid"
 OUT=$("$GENERATOR" --out "$OUT_VALID" \
     "$CONTRACT_DIR/fixtures/valid/mefisto-example-agent.md" \
@@ -184,8 +184,7 @@ if [ "$RC" -eq 0 ]; then
 else
     fail "exit $RC (esperaba 0). Salida: $OUT"
 fi
-for relpath in ".claude/agents/mefisto-example-agent.md" ".claude/commands/mefisto-example-command.md" \
-               ".opencode/agents/mefisto-example-agent.md" ".opencode/commands/mefisto-example-command.md"; do
+for relpath in ".claude/agents/mefisto-example-agent.md" ".claude/commands/mefisto-example-command.md"; do
     if [ -f "$OUT_VALID/$relpath" ]; then
         pass "existe: $relpath"
     else
@@ -218,15 +217,10 @@ if grep -q '^tools: "Read, Glob, Grep, AskUserQuestion"$' "$WORKDIR/out-ask/.cla
 else
     fail "ask no se mapeo a AskUserQuestion en el agente Claude"
 fi
-if grep -q '^effort: "high"$' "$OUT_VALID/.claude/agents/mefisto-example-agent.md" 2>/dev/null && ! grep -q '^effort:' "$OUT_VALID/.opencode/agents/mefisto-example-agent.md" 2>/dev/null; then
-    pass "effort standard -> effort: high en Claude y omitido en OpenCode (#2497)"
+if grep -q '^effort: "high"$' "$OUT_VALID/.claude/agents/mefisto-example-agent.md" 2>/dev/null; then
+    pass "effort standard -> effort: high en el agente Claude (#2497)"
 else
-    fail "effort no se emite en Claude o se emite en OpenCode"
-fi
-if grep -q '^agent: "mefisto-example-agent"$' "$OUT_VALID/.opencode/commands/mefisto-example-command.md" 2>/dev/null; then
-    pass "agent propagado al comando OpenCode desde el campo neutral 'agent'"
-else
-    fail "agent no se propago al comando OpenCode"
+    fail "effort no se emite en el agente Claude"
 fi
 
 echo ""
@@ -248,24 +242,6 @@ skills: [\"agent-skill-authoring\",\"comment-cleanup\"]
 Cuerpo de prueba."
 assert_eq "$EXPECTED_CLAUDE_AGENT" "$(cat "$OUT_BASIC/.claude/agents/mefisto-fx-agent-basic.md" 2>/dev/null)" "agente Claude: contenido exacto"
 
-# El bloque `permission` esperado se DERIVA del adaptador (con el mismo
-# mapping que consume el generador) en vez de repetir aqui sus ~3 KB de JSON:
-# lo que este check fija es el LAYOUT del frontmatter -- orden de los campos y
-# `permission` como flow mapping de una sola linea (issue #862). El contenido
-# del bloque lo cubre .claude/scripts/tests/test-opencode-permissions.sh, que
-# es tambien el unico lugar donde hay que tocar tests si el mapping cambia.
-source "$LIB_DIR/adapter-opencode.sh"
-EXPECTED_OPENCODE_PERMISSION_BASIC="$(opencode_permission_json "$SRC_DIR/mefisto-fx-agent-basic.md" '["read","edit"]' "subagent")"
-EXPECTED_OPENCODE_AGENT="---
-description: \"Agente de prueba minimo para el generador de adaptadores (issue #854).\"
-mode: \"subagent\"
-permission: $EXPECTED_OPENCODE_PERMISSION_BASIC
----
-<!-- GENERADO por src/internal/scripts/generate-internal-adapters.sh desde $SRC_DIR/mefisto-fx-agent-basic.md. No editar a mano. -->
-
-Cuerpo de prueba."
-assert_eq "$EXPECTED_OPENCODE_AGENT" "$(cat "$OUT_BASIC/.opencode/agents/mefisto-fx-agent-basic.md" 2>/dev/null)" "agente OpenCode: contenido exacto"
-
 EXPECTED_CLAUDE_COMMAND="---
 description: \"Comando de prueba minimo para el generador (issue #854).\"
 argument-hint: \"<issue> -- numero del issue\"
@@ -276,16 +252,8 @@ allowed-tools: \"Bash\"
 Procesa el issue \$ARGUMENTS."
 assert_eq "$EXPECTED_CLAUDE_COMMAND" "$(cat "$OUT_BASIC/.claude/commands/mefisto-fx-command-basic.md" 2>/dev/null)" "comando Claude: contenido exacto"
 
-EXPECTED_OPENCODE_COMMAND="---
-description: \"Comando de prueba minimo para el generador (issue #854).\"
----
-<!-- GENERADO por src/internal/scripts/generate-internal-adapters.sh desde $SRC_DIR/mefisto-fx-command-basic.md. No editar a mano. -->
-
-Procesa el issue \$ARGUMENTS."
-assert_eq "$EXPECTED_OPENCODE_COMMAND" "$(cat "$OUT_BASIC/.opencode/commands/mefisto-fx-command-basic.md" 2>/dev/null)" "comando OpenCode: contenido exacto (sin agent/subtask)"
-
 echo ""
-echo "[directives] las tres directivas de body traducidas en ambos runtimes"
+echo "[directives] las tres directivas de body traducidas"
 OUT_DIR="$WORKDIR/out-directives"
 OUT=$("$GENERATOR" --out "$OUT_DIR" "$SRC_DIR/mefisto-fx-agent-basic.md" "$SRC_DIR/mefisto-fx-command-directives.md" 2>&1)
 RC=$?
@@ -315,30 +283,6 @@ cat \".claude/commands/mefisto-fx-command-basic.md\"
 \`\`\`"
 assert_eq "$EXPECTED_CLAUDE_DIRECTIVES" "$(cat "$OUT_DIR/.claude/commands/mefisto-fx-command-directives.md" 2>/dev/null)" "directivas traducidas para Claude"
 
-EXPECTED_OPENCODE_DIRECTIVES="---
-description: \"Comando de prueba, cubre las tres directivas de body (issue #854).\"
-agent: \"mefisto-fx-agent-basic\"
-subtask: true
----
-<!-- GENERADO por src/internal/scripts/generate-internal-adapters.sh desde $SRC_DIR/mefisto-fx-command-directives.md. No editar a mano. -->
-
-Invoca al agente:
-
-Actua como \`mefisto-fx-agent-basic\` con este mensaje inicial: \$ARGUMENTS
-
-Corre el script auxiliar:
-
-\`\`\`bash
-MEFISTO_RUNTIME=opencode ./.claude/scripts/some-script.sh --flag value
-\`\`\`
-
-Lee el comando hermano:
-
-\`\`\`bash
-cat \".opencode/commands/mefisto-fx-command-basic.md\"
-\`\`\`"
-assert_eq "$EXPECTED_OPENCODE_DIRECTIVES" "$(cat "$OUT_DIR/.opencode/commands/mefisto-fx-command-directives.md" 2>/dev/null)" "directivas traducidas para OpenCode (agent inferido de launch-agent)"
-
 echo ""
 echo "[unknown-directive] una directiva desconocida aborta sin escribir nada"
 OUT_UNKNOWN="$WORKDIR/out-unknown"
@@ -354,8 +298,8 @@ if printf '%s' "$OUT" | grep -q "directiva de body desconocida"; then
 else
     fail "el mensaje no cita la directiva desconocida. Salida: $OUT"
 fi
-if [ ! -e "$OUT_UNKNOWN/.claude" ] && [ ! -e "$OUT_UNKNOWN/.opencode" ]; then
-    pass "no escribio nada (.claude/.opencode no existen)"
+if [ ! -e "$OUT_UNKNOWN/.claude" ]; then
+    pass "no escribio nada (.claude no existe)"
 else
     fail "escribio algo pese al abort"
 fi
@@ -375,8 +319,8 @@ if printf '%s' "$OUT" | grep -q "distinto del nombre de archivo"; then
 else
     fail "no propago el motivo del validador. Salida: $OUT"
 fi
-if [ ! -e "$OUT_INVALID/.claude" ] && [ ! -e "$OUT_INVALID/.opencode" ]; then
-    pass "no escribio nada (.claude/.opencode no existen)"
+if [ ! -e "$OUT_INVALID/.claude" ]; then
+    pass "no escribio nada (.claude no existe)"
 else
     fail "escribio algo pese al abort"
 fi
@@ -455,15 +399,10 @@ else
     fail "no se genero el archivo con el id de guiones esperado"
 fi
 if grep -qF 'description: "Hace X: paso \"importante\" para el usuario."' "$OUT_ESC/.claude/commands/mefisto-fx-id-with-many-hyphens-here.md" 2>/dev/null; then
-    pass "description con ':' y comillas escapado correctamente (Claude)"
+    pass "description con ':' y comillas escapado correctamente"
 else
-    fail "description mal escapado (Claude). Contenido:
+    fail "description mal escapado. Contenido:
 $(cat "$OUT_ESC/.claude/commands/mefisto-fx-id-with-many-hyphens-here.md" 2>/dev/null)"
-fi
-if grep -qF 'description: "Hace X: paso \"importante\" para el usuario."' "$OUT_ESC/.opencode/commands/mefisto-fx-id-with-many-hyphens-here.md" 2>/dev/null; then
-    pass "description con ':' y comillas escapado correctamente (OpenCode)"
-else
-    fail "description mal escapado (OpenCode)"
 fi
 
 echo ""
@@ -495,8 +434,8 @@ if printf '%s' "$OUT" | grep -qF "capacidad mcp sin mapeo Claude definido"; then
 else
     fail "el mensaje no es el de CA-2. Salida: $OUT"
 fi
-if [ ! -e "$OUT_MCP/.claude" ] && [ ! -e "$OUT_MCP/.opencode" ]; then
-    pass "no escribio nada (.claude/.opencode no existen)"
+if [ ! -e "$OUT_MCP/.claude" ]; then
+    pass "no escribio nada (.claude no existe)"
 else
     fail "escribio algo pese al abort"
 fi
@@ -555,11 +494,6 @@ if [ -f "$SK_OUT/.claude/skills/mefisto-fx-skill/SKILL.md" ] && [ -f "$SK_OUT/.c
 else
     fail "no genero .claude/skills/<id>/"
 fi
-if [ ! -e "$SK_OUT/.opencode/skills" ]; then
-    pass "no emite .opencode/skills/ (OpenCode ya descubre .claude/skills/)"
-else
-    fail "emitio .opencode/skills/ y duplicaria el Skill"
-fi
 assert_eq "$(printf -- '---\nname: mefisto-fx-skill\ndescription: Skill de fixture\n---\n<!-- GENERADO por src/internal/scripts/generate-internal-adapters.sh desde %s. No editar a mano. -->\n\n# Titulo' "$SK_SRC")" "$(cat "$SK_OUT/.claude/skills/mefisto-fx-skill/SKILL.md")" "SKILL.md generado: frontmatter verbatim + marcador + body"
 "$GENERATOR" --check --out "$SK_OUT" "$SK_SRC" "$SK_RES" >/dev/null 2>&1
 assert_eq "0" "$?" "--check al dia con Skills"
@@ -594,30 +528,6 @@ OUT=$("$VALIDATOR" "$BAD/SKILL.md" 2>&1)
 printf '%s' "$OUT" | grep -q "description:" && pass "validador rechaza description ausente" || fail "validador no rechazo description ausente: $OUT"
 
 echo ""
-echo "[skills-opencode] CA-4: agente con skills -> permiso skill acotado + instruccion de carga"
-SA="$WORKDIR/skill-agent.md"
-cat > "$SA" <<'FXEOF'
----
-{"kind":"agent","effort":"standard","id":"skill-agent","description":"Agente con skills","mode":"subagent","capabilities":["read","skill"],"skills":["mefisto-fx-skill"]}
----
-
-Cuerpo.
-FXEOF
-SA="$WORKDIR/mefisto-fx-skill-agent.md"
-sed 's/"id":"skill-agent"/"id":"mefisto-fx-skill-agent"/' "$WORKDIR/skill-agent.md" > "$SA"
-"$GENERATOR" --out "$WORKDIR/skill-agent-out" "$SA" >/dev/null 2>&1
-OC="$WORKDIR/skill-agent-out/.opencode/agents/mefisto-fx-skill-agent.md"
-PERM="$(grep '^permission: ' "$OC" | sed 's/^permission: //')"
-assert_eq '{"*":"deny","mefisto-fx-skill":"allow"}' "$(printf '%s' "$PERM" | jq -c '.skill')" "permiso skill acotado al id declarado"
-grep -qF 'usa la tool nativa `skill` para cargar, en este orden: `mefisto-fx-skill`' "$OC" && pass "instruccion de carga on-demand en el body" || fail "falta la instruccion de carga"
-grep -q '^skills:' "$WORKDIR/skill-agent-out/.claude/agents/mefisto-fx-skill-agent.md" && pass "adaptador Claude conserva skills:" || fail "Claude perdio skills:"
-sed -i.bak 's/"capabilities":\["read","skill"\]/"capabilities":["read"]/' "$SA"
-"$GENERATOR" --out "$WORKDIR/skill-agent-out2" "$SA" >/dev/null 2>&1
-OC2="$WORKDIR/skill-agent-out2/.opencode/agents/mefisto-fx-skill-agent.md"
-assert_eq '"deny"' "$(grep '^permission: ' "$OC2" | sed 's/^permission: //' | jq -c '.skill')" "sin capacidad skill el permiso queda cerrado"
-grep -qF 'tool nativa `skill`' "$OC2" && fail "emitio instruccion de carga sin capacidad skill" || pass "sin capacidad skill no hay instruccion de carga"
-
-echo ""
 echo "[published-skills] Issue #2529: proyeccion de Skills publicados (allowlist)"
 PS_ROOT="$WORKDIR/pub-tree"
 mkdir -p "$PS_ROOT/skills/code-comments" "$PS_ROOT/skills/projections"
@@ -630,7 +540,6 @@ assert_eq "0" "$?" "CA-1: proyecta el Skill publicado (exit 0)"
 head -n 5 "$PS_OUT/.claude/skills/code-comments/SKILL.md" | grep -qF "<!-- GENERADO por src/internal/scripts/generate-internal-adapters.sh desde $PS_ROOT/skills/code-comments/SKILL.md. No editar a mano. -->" && pass "CA-1: SKILL.md lleva el marcador desde skills/code-comments/SKILL.md" || fail "CA-1: falta el marcador en SKILL.md"
 diff -q "$PS_ROOT/skills/code-comments/ejemplos.md" "$PS_OUT/.claude/skills/code-comments/ejemplos.md" >/dev/null 2>&1 && pass "CA-1: ejemplos.md identico a la fuente" || fail "CA-1: ejemplos.md difiere de la fuente"
 [ ! -e "$PS_OUT/.claude/skills/projections" ] && pass "CA-3: no proyecta .claude/skills/projections/" || fail "CA-3: proyecto un Skill fuera de la allowlist"
-[ ! -e "$PS_OUT/.opencode/skills" ] && pass "no emite .opencode/skills/" || fail "emitio .opencode/skills/"
 "$GENERATOR" --check --out "$PS_OUT" "$PS_ROOT/skills/code-comments/SKILL.md" "$PS_ROOT/skills/code-comments/ejemplos.md" >/dev/null 2>&1
 assert_eq "0" "$?" "CA-2: --check al dia con Skill publicado"
 printf 'edicion manual\n' >> "$PS_OUT/.claude/skills/code-comments/SKILL.md"

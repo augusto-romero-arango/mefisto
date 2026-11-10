@@ -100,7 +100,7 @@ EVENTS_RATE_LIMIT_WITH_RESET="$TMP/events-rl-reset.jsonl"
 printf '%s\n' '{"v":1,"type":"run.failed","ts":"2026-05-07T22:00:05Z","status":"failed","runtime":"claude","model":null,"session_id":null,"duration_ms":100,"tokens":{"input":null,"output":null},"cost_usd":null,"turns":null,"denials":null,"ttft_ms":null,"api_duration_ms":null,"error":{"kind":"rate_limit","detail":"ventana agotada"},"resets_at":"2026-05-07T22:40:00Z"}' > "$EVENTS_RATE_LIMIT_WITH_RESET"
 
 EVENTS_RATE_LIMIT_NULL_RESET="$TMP/events-rl-noreset.jsonl"
-printf '%s\n' '{"v":1,"type":"run.failed","ts":"2026-09-06T22:00:05Z","status":"failed","runtime":"opencode","model":null,"session_id":null,"duration_ms":100,"tokens":{"input":null,"output":null},"cost_usd":null,"turns":null,"denials":null,"ttft_ms":null,"api_duration_ms":null,"error":{"kind":"rate_limit","detail":"429"},"resets_at":null}' > "$EVENTS_RATE_LIMIT_NULL_RESET"
+printf '%s\n' '{"v":1,"type":"run.failed","ts":"2026-09-06T22:00:05Z","status":"failed","runtime":"fake","model":null,"session_id":null,"duration_ms":100,"tokens":{"input":null,"output":null},"cost_usd":null,"turns":null,"denials":null,"ttft_ms":null,"api_duration_ms":null,"error":{"kind":"rate_limit","detail":"429"},"resets_at":null}' > "$EVENTS_RATE_LIMIT_NULL_RESET"
 
 EVENTS_5XX="$TMP/events-5xx.jsonl"
 printf '%s\n' '{"v":1,"type":"run.failed","ts":"2026-08-05T10:00:00Z","status":"failed","runtime":"claude","model":null,"session_id":null,"duration_ms":100,"tokens":{"input":null,"output":null},"cost_usd":null,"turns":null,"denials":null,"ttft_ms":null,"api_duration_ms":null,"error":{"kind":"provider_unavailable","detail":"API Error: 529 Overloaded"}}' > "$EVENTS_5XX"
@@ -138,9 +138,9 @@ else
     fail "B-4: se esperaba '2026-05-07T22:40:00Z' del fixture canonico, se obtuvo '$got'"
 fi
 
-got=$(agent_events_resets_at "$FIXTURES_DIR/valid-rate-limit-opencode.jsonl")
+got=$(agent_events_resets_at "$FIXTURES_DIR/valid-rate-limit-sin-reset.jsonl")
 if [ -z "$got" ]; then
-    pass "B-5: fixture canonico del contrato (opencode) -> resets_at null da cadena vacia"
+    pass "B-5: fixture canonico del contrato (sin reset) -> resets_at null da cadena vacia"
 else
     fail "B-5: se esperaba cadena vacia del fixture canonico, se obtuvo '$got'"
 fi

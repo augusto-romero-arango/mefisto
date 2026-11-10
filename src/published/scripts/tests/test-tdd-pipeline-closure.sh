@@ -67,10 +67,10 @@ assert_dependency_closure() {
 }
 
 echo '[pre] sintaxis y dependencias de clausura'
-if bash -n "$REPO_ROOT/dist/claude/scripts/tdd-pipeline.sh" && bash -n "$REPO_ROOT/dist/opencode/scripts/tdd-pipeline.sh"; then
-    pass 'ambas copias publicadas de TDD tienen sintaxis Bash valida'
+if bash -n "$REPO_ROOT/dist/claude/scripts/tdd-pipeline.sh"; then
+    pass 'la copia publicada de TDD tiene sintaxis Bash valida'
 else
-    fail 'alguna copia publicada de TDD tiene sintaxis Bash invalida'
+    fail 'la copia publicada de TDD tiene sintaxis Bash invalida'
 fi
 assert_dependency_closure "$REPO_ROOT/scripts/tdd-pipeline.sh"
 assert_dependency_closure "$REPO_ROOT/scripts/tooling-pipeline.sh"
@@ -87,9 +87,9 @@ cat > "$CONSUMER/.mefisto/harness.config.json" <<'EOF'
   "boundedContext": {"name": "Ventas", "domains": ["ventas"]}
 }
 EOF
-OUTPUT="$(cd "$CONSUMER" && "$REPO_ROOT/dist/opencode/scripts/tdd-pipeline.sh" 2>&1)"; RC=$?
+OUTPUT="$(cd "$CONSUMER" && "$REPO_ROOT/dist/claude/scripts/tdd-pipeline.sh" 2>&1)"; RC=$?
 if [ "$RC" -eq 1 ] && printf '%s\n' "$OUTPUT" | grep -Fq 'Uso:'; then
-    pass 'TDD publicado arranca desde dist/opencode y llega al uso sin argumentos'
+    pass 'TDD publicado arranca desde dist/claude y llega al uso sin argumentos'
 else
     fail "TDD publicado no llego al uso desde la clausura (exit $RC)"
 fi

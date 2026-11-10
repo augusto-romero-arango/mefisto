@@ -85,7 +85,7 @@ check_invalid "command-doc-self.md" "directiva command-doc command-doc-self refe
 check_invalid "skill-root-missing.md" "directiva skill-root skill-inexistente no resuelve a skills/skill-inexistente/SKILL.md"
 
 skill_root_source="$(< "$CONTRACT_DIR/fixtures/valid/skill-root.md")"
-if printf '%s' "$skill_root_source" | grep -Eq 'Claude|OpenCode|mefisto-projections|MEFISTO_PACKAGE_ROOT|\.claude|\.opencode'; then
+if printf '%s' "$skill_root_source" | grep -Eq 'Claude|mefisto-projections|MEFISTO_PACKAGE_ROOT|\.claude'; then
     fail "skill-root.md acopla la fuente neutral a un runtime"
 else
     pass "skill-root.md conserva exclusivamente el id logico"

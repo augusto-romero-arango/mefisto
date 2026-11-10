@@ -11,4 +11,4 @@ Fixture de `fixtures/invalid/` (issue #853): el frontmatter pasa el schema,
 pero el body debe rechazarse porque nombra un runtime concreto en vez de
 describir la intencion de forma neutral.
 
-Corre `claude --agent mefisto-planner` y deja el resultado en `.opencode/`.
+Corre `claude --agent mefisto-planner` y deja el resultado en `.claude/agents/`.

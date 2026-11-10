@@ -20,8 +20,8 @@ Todo evento lleva `v: 1` y un `type` del vocabulario cerrado declarado en
 | `run.completed` / `run.failed` | `ts`, `status`, `runtime`, `model|null`, `session_id|null`, `duration_ms`, `tokens`, `estimated_cost_usd|null`, `turns|null`, `denials|null`, `ttft_ms|null`, `api_duration_ms|null`, `error|null`, `resets_at?` |
 
 `tokens` conserva `input` y `output`, ambos numero o `null`, y puede incluir
-`cache_read`, `cache_write` y `reasoning`, tambien numero o `null`. Cuando
-OpenCode expone ambos contadores, `output` representa la salida visible y
+`cache_read`, `cache_write` y `reasoning`, tambien numero o `null`. Cuando un
+runtime expone ambos contadores, `output` representa la salida visible y
 `reasoning` queda separado. Claude conserva sin reinterpretar la semantica de
 su `output_tokens` en `output`, mapea
 `cache_read_input_tokens`/`cache_creation_input_tokens` como cache y deja
@@ -140,8 +140,7 @@ posicional de `build_cmd`:
 que no lo lea sigue siendo valido). Cada adaptador lo aplica a su manera: el de
 Claude Code antepone `env CLAUDE_CODE_EFFORT_LEVEL=<valor>` al argv (la variable
 prevalece sobre el campo `effort` del frontmatter del agente, que el flag no
-logra), el de OpenCode agrega `--variant <valor>` y el fake agrega
-`--fake-effort <valor>`.
+logra) y el fake agrega `--fake-effort <valor>`.
 
 `src/runtime/mefisto-run-agent.sh` crea un directorio de trabajo por corrida
 (`mktemp -d`) y lo expone en la variable global `MEFISTO_RUNTIME_WORK_DIR`
@@ -179,26 +178,19 @@ respeta `--runtime` ->
 `MEFISTO_RUNTIME` -> autodeteccion. Esta ultima escanea adaptadores y ejecuta
 sus probes: un runtime nuevo no exige modificar el runner ni el resolutor.
 
-El id `<agent>` es opaco para el runner y obligatorio en su interfaz. Los dos
-adaptadores reales lo entregan al CLI como `--agent <id>` (Claude Code y
-OpenCode), para que cada runtime cargue el frontmatter, la doctrina y los
-permisos del agente seleccionado. El adaptador `fake` lo recibe pero lo ignora,
-pues solo modela escenarios de prueba. En Claude Code, un `--model` explicito
-que el runner entrega gana sobre `model:` del frontmatter; si el runner no
-entrega modelo, el runtime aplica el declarado por el agente.
+El id `<agent>` es opaco para el runner y obligatorio en su interfaz. El
+adaptador de Claude Code lo entrega al CLI como `--agent <id>`, para que el
+runtime cargue el frontmatter, la doctrina y los permisos del agente
+seleccionado. El adaptador `fake` lo recibe pero lo ignora, pues solo modela
+escenarios de prueba. En Claude Code, un `--model` explicito que el runner
+entrega gana sobre `model:` del frontmatter; si el runner no entrega modelo,
+el runtime aplica el declarado por el agente.
 
-Ninguno de los dos adaptadores reales pone el prompt en argv (issue #1448):
-ambos lo transportan por el canal de stdin de la seccion anterior. Claude Code
-fija `MEFISTO_RUNTIME_STDIN_FILE` directo a `<prompt_file>`, sin releerlo, y
-recibe el system prompt como `--append-system-prompt-file <system_file>` (la
-RUTA, nunca el contenido). OpenCode no tiene un flag equivalente para el
-system prompt ni para el mensaje: materializa
-`<MEFISTO_RUNTIME_WORK_DIR>/opencode-message.md` con `system + "\n\n" +
-prompt` (o solo `prompt` sin system-file) y apunta `MEFISTO_RUNTIME_STDIN_FILE`
-ahi, porque `opencode run` concatena mensaje posicional y stdin cuando llegan
-los dos (`resolveRunInput`, `packages/opencode/src/cli/cmd/run.ts`,
-verificado en 1.18.29) -- cualquier texto en argv corromperia el mensaje que
-recibe el modelo.
+El adaptador de Claude Code no pone el prompt en argv (issue #1448): lo
+transporta por el canal de stdin de la seccion anterior. Fija
+`MEFISTO_RUNTIME_STDIN_FILE` directo a `<prompt_file>`, sin releerlo, y recibe
+el system prompt como `--append-system-prompt-file <system_file>` (la RUTA,
+nunca el contenido).
 
 `lib/mefisto-process.sh` es la fuente unica del watchdog: ejecuta el argv sin
 `eval`, separa stdout/stderr y crea una sesion sin TTY de control. El runner
@@ -274,28 +266,13 @@ resultado con redirect a archivo, nunca con `$(...)`.
 
 ### Effort en conversaciones
 
-El mapping de modelos rige en los pipelines (resolutor + `--variant`/`effort`
-por corrida). Cuando el usuario **conversa** con un agente fuera de un
-pipeline, cada runtime lo aplica distinto (MEF-ADR-0050):
+El mapping de modelos rige en los pipelines (resolutor + `--effort` por
+corrida). Cuando el usuario **conversa** con un agente fuera de un pipeline,
+rige el mecanismo nativo de cada runtime (MEF-ADR-0050).
 
-- **OpenCode**: el agente hereda el modelo interactivo y `variant` solo rige
-  si el agente fija su propio `model`, asi que el effort de fabrica no aplica
-  por si solo. El plugin generado `plugins/mefisto-efforts.js` inyecta
-  `agent.<id>.{model,variant}` **solo si** `.mefisto/models.json` del
-  repositorio fija modelo para ese agente (`opencode.agents.<id>` u
-  `opencode.profiles.<perfil>`). Sin modelo local no inyecta nada. Nivel:
-  `opencode.efforts.agents.<id>` > fabrica; nativo:
-  `opencode.efforts.levels.<nivel>` > tabla embebida del adaptador (misma que
-  `runtime_opencode_default_effort`, con test de paridad). Un nivel fuera del
-  vocabulario omite ese agente (`efforts_level_invalid`); si la config del
-  usuario ya fija `model` o `variant` del agente no se sobreescribe
-  (`efforts_config_conflict`); un mapping ilegible o de forma invalida no
-  inyecta nada (`efforts_mapping_invalid`). Nunca interrumpe el arranque. En un
-  worktree sin `.mefisto/models.json` no inyecta nada: los pipelines ya pasan
-  `--variant`.
-- **Claude Code**: la conversacion usa el effort de fabrica del frontmatter
-  del agente, que gana sobre `--effort`, `/effort` y los settings. El ajuste
-  de `.mefisto/models.json` rige solo en pipelines; no existe override por
-  agente en settings. La unica via para una conversacion es la variable de
-  entorno `CLAUDE_CODE_EFFORT_LEVEL`, global (todos los agentes) y la unica que
-  gana sobre el frontmatter.
+En Claude Code la conversacion usa el effort de fabrica del frontmatter del
+agente, que gana sobre `--effort`, `/effort` y los settings. El ajuste de
+`.mefisto/models.json` rige solo en pipelines; no existe override por agente en
+settings. La unica via para una conversacion es la variable de entorno
+`CLAUDE_CODE_EFFORT_LEVEL`, global (todos los agentes) y la unica que gana
+sobre el frontmatter.

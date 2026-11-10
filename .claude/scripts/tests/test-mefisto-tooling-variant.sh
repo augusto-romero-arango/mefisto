@@ -322,7 +322,7 @@ chmod +x "$FAKE_BIN/herdr"
 # runtime con mefisto_resolve_runtime, los bloques 11-14 dependen de que la
 # autodeteccion vea UN solo runtime instalado. Con el PATH recortado de
 # run_herdr (abajo) este stub es el unico candidato, asi que la resolucion es
-# la misma en cualquier maquina -- tenga instalados claude, opencode o ambos.
+# la misma en cualquier maquina, tenga o no un claude real instalado.
 # Ningun bloque llega a ejecutarlo: el pane run del stub de herdr solo registra
 # la linea tecleada.
 cat > "$FAKE_BIN/claude" <<'STUB'
@@ -519,15 +519,15 @@ echo ""
 echo "[19] mefisto-tmux-pipeline.sh: --tooling propaga MEFISTO_RUNTIME al pane cuando el launcher lo hereda (issue #871, CA-2)"
 # El pane nace en un shell nuevo: no hereda el entorno del wrapper. Sin la
 # asignacion explicita en el send-keys, el sub-pipeline autodetectaria el
-# runtime y una corrida lanzada desde OpenCode caeria en Claude Code sin
+# runtime y una corrida lanzada con otro runtime caeria en Claude Code sin
 # avisar. Se verifica sobre la LINEA del send-keys (no sobre el log entero)
 # para que la guarda no la satisfaga cualquier otra aparicion del nombre.
-MEFISTO_RUNTIME=opencode run_wrapper --tooling 711
+MEFISTO_RUNTIME=fake run_wrapper --tooling 711
 if [ "$LAST_RC" -eq 0 ]; then pass "corre sin abortar con MEFISTO_RUNTIME heredado (rc=$LAST_RC)"; else fail "no deberia abortar (rc=$LAST_RC, stderr: $LAST_STDERR)"; fi
-if grep -qE 'send-keys -t %[0-9]+ MEFISTO_RUNTIME=opencode .*mefisto-tooling-pipeline\.sh 711' "$TMUX_STUB_LOG"; then
-    pass "el send-keys de ejecucion antepone MEFISTO_RUNTIME=opencode al pipeline"
+if grep -qE 'send-keys -t %[0-9]+ MEFISTO_RUNTIME=fake .*mefisto-tooling-pipeline\.sh 711' "$TMUX_STUB_LOG"; then
+    pass "el send-keys de ejecucion antepone MEFISTO_RUNTIME=fake al pipeline"
 else
-    fail "el pane no recibe MEFISTO_RUNTIME=opencode -- log: $(cat "$TMUX_STUB_LOG")"
+    fail "el pane no recibe MEFISTO_RUNTIME=fake -- log: $(cat "$TMUX_STUB_LOG")"
 fi
 
 # Contraparte negativa: sin la variable en el entorno del wrapper no se

@@ -11,8 +11,9 @@
 #   [B] CA-2: mefisto_resolve_runtime (lib/mefisto-runtime.sh) resuelve segun
 #       la precedencia explicito > MEFISTO_RUNTIME > autodeteccion, con PATH
 #       y MEFISTO_RUNTIME_LIB_DIR controlados (nunca el PATH real de la
-#       maquina: ni el "cero instalados" ni el "ambos instalados" dependen de
-#       si esta maquina tiene claude/opencode de verdad).
+#       maquina: ni el "cero instalados" ni el "dos instalados" dependen de
+#       lo que esta maquina tenga instalado de verdad; el segundo runtime es
+#       un id inventado, `otro`, con su adaptador stub).
 #   [C] CA-3/CA-4: cada fixture de fixtures/run-events/valid-*.jsonl valida
 #       linea a linea contra su definitions[.type]; cada fixture de
 #       invalid-*.jsonl tiene al menos una linea que NO valida (o, en el caso
@@ -60,8 +61,8 @@
 #   [G] El runner resuelve sus propias libs por su UBICACION, no por el cwd
 #       del caller: invocado desde un cwd fuera de todo repo git sigue
 #       corriendo (regresion de la resolucion via `git rev-parse`).
-#   [F] Ningun test de este archivo invoca `claude` ni `opencode` (grep sobre
-#       si mismo) -- todo corre contra el adaptador fake.
+#   [F] Ningun test de este archivo invoca `claude` (grep sobre si mismo) --
+#       todo corre contra el adaptador fake.
 #
 # Uso: .claude/scripts/tests/test-mefisto-run-agent.sh
 # Exit code: 0 si todos los checks pasan, 1 si alguno falla.
@@ -241,10 +242,10 @@ BIN_CLAUDE="$TMP/bin-claude"; mkdir -p "$BIN_CLAUDE"
 printf '#!/bin/sh\nexit 0\n' > "$BIN_CLAUDE/claude"; chmod +x "$BIN_CLAUDE/claude"
 BIN_BOTH="$TMP/bin-both"; mkdir -p "$BIN_BOTH"
 cp "$BIN_CLAUDE/claude" "$BIN_BOTH/claude"
-printf '#!/bin/sh\nexit 0\n' > "$BIN_BOTH/opencode"; chmod +x "$BIN_BOTH/opencode"
+printf '#!/bin/sh\nexit 0\n' > "$BIN_BOTH/otro"; chmod +x "$BIN_BOTH/otro"
 LIBDIR_STUB="$TMP/libdir-stub"; mkdir -p "$LIBDIR_STUB"
 printf '%s\n' 'runtime_claude_is_available() { command -v claude >/dev/null 2>&1; }' > "$LIBDIR_STUB/runtime-claude.sh"
-printf '%s\n' 'runtime_opencode_is_available() { command -v opencode >/dev/null 2>&1; }' > "$LIBDIR_STUB/runtime-opencode.sh"
+printf '%s\n' 'runtime_otro_is_available() { command -v otro >/dev/null 2>&1; }' > "$LIBDIR_STUB/runtime-otro.sh"
 
 ORIG_PATH="$PATH"
 unset MEFISTO_RUNTIME
@@ -256,18 +257,18 @@ if ! mefisto_resolve_runtime "" >/dev/null 2>&1; then
         *) fail "B-1: el motivo no nombra MEFISTO_RUNTIME: $MEFISTO_RUNTIME_ERROR" ;;
     esac
 else
-    fail "B-1: deberia fallar con PATH sin claude ni opencode"
+    fail "B-1: deberia fallar con PATH sin ningun runtime"
 fi
 PATH="$ORIG_PATH"
 
 PATH="$BIN_BOTH"; MEFISTO_RUNTIME_LIB_DIR="$LIBDIR_STUB"
 if ! mefisto_resolve_runtime "" >/dev/null 2>&1; then
     case "$MEFISTO_RUNTIME_ERROR" in
-        *MEFISTO_RUNTIME*) pass "B-2: ambos runtimes instalados -> falla y el motivo nombra MEFISTO_RUNTIME" ;;
+        *MEFISTO_RUNTIME*) pass "B-2: dos runtimes instalados -> falla y el motivo nombra MEFISTO_RUNTIME" ;;
         *) fail "B-2: el motivo no nombra MEFISTO_RUNTIME: $MEFISTO_RUNTIME_ERROR" ;;
     esac
 else
-    fail "B-2: deberia fallar con PATH con claude y opencode a la vez"
+    fail "B-2: deberia fallar con PATH con claude y otro a la vez"
 fi
 PATH="$ORIG_PATH"
 
@@ -281,20 +282,20 @@ fi
 PATH="$ORIG_PATH"
 
 PATH="$BIN_NONE"; MEFISTO_RUNTIME_LIB_DIR="$LIBDIR_STUB"
-RESOLVED="$(mefisto_resolve_runtime "opencode" 2>/dev/null)"
-if [ "$RESOLVED" = "opencode" ]; then
+RESOLVED="$(mefisto_resolve_runtime "otro" 2>/dev/null)"
+if [ "$RESOLVED" = "otro" ]; then
     pass "B-4: --runtime explicito gana aunque el PATH no tenga ningun runtime instalado"
 else
-    fail "B-4: se esperaba 'opencode' (explicito), se obtuvo '$RESOLVED'"
+    fail "B-4: se esperaba 'otro' (explicito), se obtuvo '$RESOLVED'"
 fi
 PATH="$ORIG_PATH"
 
-PATH="$BIN_NONE"; MEFISTO_RUNTIME_LIB_DIR="$LIBDIR_STUB"; MEFISTO_RUNTIME="opencode"
+PATH="$BIN_NONE"; MEFISTO_RUNTIME_LIB_DIR="$LIBDIR_STUB"; MEFISTO_RUNTIME="otro"
 RESOLVED="$(mefisto_resolve_runtime "" 2>/dev/null)"
-if [ "$RESOLVED" = "opencode" ]; then
+if [ "$RESOLVED" = "otro" ]; then
     pass "B-5: MEFISTO_RUNTIME (entorno) gana sobre la autodeteccion"
 else
-    fail "B-5: se esperaba 'opencode' (via MEFISTO_RUNTIME), se obtuvo '$RESOLVED'"
+    fail "B-5: se esperaba 'otro' (via MEFISTO_RUNTIME), se obtuvo '$RESOLVED'"
 fi
 unset MEFISTO_RUNTIME
 PATH="$ORIG_PATH"
@@ -339,9 +340,9 @@ check_all_lines_valid() {
 check_all_lines_valid "valid-success.jsonl" "$FIXTURES_DIR/valid-success.jsonl"
 check_all_lines_valid "valid-failed.jsonl" "$FIXTURES_DIR/valid-failed.jsonl"
 check_all_lines_valid "valid-timeout.jsonl" "$FIXTURES_DIR/valid-timeout.jsonl"
-# issue #965: terminal de un agotamiento de ventana de uso, uno por runtime.
+# issue #965: terminal de un agotamiento de ventana de uso, con y sin resets_at.
 check_all_lines_valid "valid-rate-limit-claude.jsonl" "$FIXTURES_DIR/valid-rate-limit-claude.jsonl"
-check_all_lines_valid "valid-rate-limit-opencode.jsonl" "$FIXTURES_DIR/valid-rate-limit-opencode.jsonl"
+check_all_lines_valid "valid-rate-limit-sin-reset.jsonl" "$FIXTURES_DIR/valid-rate-limit-sin-reset.jsonl"
 check_all_lines_valid "legacy-cost-usd.jsonl" "$FIXTURES_DIR/legacy-cost-usd.jsonl"
 
 if jq -e 'select(.type=="run.failed") | .error.kind == "rate_limit" and .resets_at == "2026-05-07T22:40:00Z"' "$FIXTURES_DIR/valid-rate-limit-claude.jsonl" >/dev/null 2>&1; then
@@ -349,10 +350,10 @@ if jq -e 'select(.type=="run.failed") | .error.kind == "rate_limit" and .resets_
 else
     fail "valid-rate-limit-claude.jsonl: no trae el error.kind/resets_at esperado"
 fi
-if jq -e 'select(.type=="run.failed") | .error.kind == "rate_limit" and .resets_at == null' "$FIXTURES_DIR/valid-rate-limit-opencode.jsonl" >/dev/null 2>&1; then
-    pass "valid-rate-limit-opencode.jsonl: error.kind='rate_limit' con resets_at null (sin campo estructurado en OpenCode)"
+if jq -e 'select(.type=="run.failed") | .error.kind == "rate_limit" and .resets_at == null' "$FIXTURES_DIR/valid-rate-limit-sin-reset.jsonl" >/dev/null 2>&1; then
+    pass "valid-rate-limit-sin-reset.jsonl: error.kind='rate_limit' con resets_at null"
 else
-    fail "valid-rate-limit-opencode.jsonl: no trae el error.kind/resets_at esperado"
+    fail "valid-rate-limit-sin-reset.jsonl: no trae el error.kind/resets_at esperado"
 fi
 
 TERMS=$(count_terminals "$FIXTURES_DIR/invalid-two-terminals.jsonl")
@@ -1058,20 +1059,18 @@ else
 fi
 
 echo ""
-echo "[F] Ningun test de este archivo invoca claude ni opencode reales"
+echo "[F] Ningun test de este archivo invoca el claude real"
 
-# El archivo SI menciona 'claude'/'opencode' de forma legitima (nombres de
-# archivo stub del bloque B, mensajes de error): lo que este check rechaza es
-# el patron de invocacion real del CLI (mismo idiom que
-# mefisto-tooling-pipeline.sh:463, el modo "print" de Claude Code seguido del
-# flag de modelo/agente, o el subcomando de ejecucion de OpenCode), no la
-# palabra suelta. Las variables FORBIDDEN_* evitan que el propio patron de
-# busqueda -- si se citara literal en este comentario o en el mensaje de
+# El archivo SI menciona 'claude' de forma legitima (nombres de archivo stub
+# del bloque B, mensajes de error): lo que este check rechaza es el patron de
+# invocacion real del CLI (mismo idiom que mefisto-tooling-pipeline.sh:463, el
+# modo "print" de Claude Code seguido del flag de modelo/agente), no la
+# palabra suelta. La variable FORBIDDEN_CLAUDE_FLAG evita que el propio patron
+# de busqueda -- si se citara literal en este comentario o en el mensaje de
 # fail -- se autodetecte como un falso positivo.
 THIS_FILE="$SCRIPT_DIR/test-mefisto-run-agent.sh"
 FORBIDDEN_CLAUDE_FLAG="-p"
-FORBIDDEN_OPENCODE_SUBCOMMAND="run"
-if grep -qE "claude[[:space:]]+${FORBIDDEN_CLAUDE_FLAG}|opencode[[:space:]]+${FORBIDDEN_OPENCODE_SUBCOMMAND}" "$THIS_FILE"; then
+if grep -qE "claude[[:space:]]+${FORBIDDEN_CLAUDE_FLAG}" "$THIS_FILE"; then
     fail "F-1: el archivo de test parece invocar el CLI real del runtime (patron de invocacion directa)"
 else
     pass "F-1: no se detecto ningun patron de invocacion real del runtime en este test"

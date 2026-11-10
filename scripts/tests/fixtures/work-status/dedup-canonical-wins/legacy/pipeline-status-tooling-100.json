@@ -3,7 +3,7 @@
   "title": "legacy loses",
   "pipeline": "tooling",
   "variant": null,
-  "runtime": "opencode",
+  "runtime": "claude",
   "stage": "2-reviewer",
   "state": "failed",
   "started": "20251201-100000",

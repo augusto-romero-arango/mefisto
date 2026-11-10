@@ -81,7 +81,7 @@ for fixture in "$SESSION_FIXTURES"/*.jsonl; do
     if jq -e --argjson started_keys "$started_keys" --argjson observed_keys "$observed_keys" --argjson legacy_keys "$legacy_keys" '
         def non_empty_string: type == "string" and length > 0;
         def timestamp: type == "string" and test("^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$");
-        def runtime: . == "claude" or . == "opencode";
+        def runtime: . == "claude";
         def version: . == null or non_empty_string;
         def commit: . == null or (type == "string" and test("^[0-9a-f]{40}$"));
         if has("record_type") | not then
@@ -115,12 +115,12 @@ if jq -e '.record_type == "session.started" and .model != null and .harness_vers
 else
     fail "inicios: falta un caso de identidad completa o degradada"
 fi
-if jq -e '.record_type == "session.model-observed" and .runtime == "opencode" and (.model | test("^[^/]+/[^/]+$")) and (has("provider") | not)' "$SESSION_FIXTURES/first-model-observation.jsonl" >/dev/null 2>&1; then
-    pass "first-model-observation.jsonl: OpenCode normaliza providerID/model.id sin campo provider"
+if jq -e '.record_type == "session.model-observed" and (.model | type == "string" and length > 0) and (has("provider") | not)' "$SESSION_FIXTURES/first-model-observation.jsonl" >/dev/null 2>&1; then
+    pass "first-model-observation.jsonl: la observacion conserva un modelo opaco sin campo provider"
 else
-    fail "first-model-observation.jsonl: normalizacion OpenCode invalida"
+    fail "first-model-observation.jsonl: observacion de modelo invalida"
 fi
-if jq -s 'length == 3 and [.[].record_type] == ["session.started", "session.model-observed", "session.model-observed"] and [.[].model] == [null, "anthropic/claude-sonnet-4-6", "openai/gpt-5.6"] and ([.[] | select(.model != null) | .model] | unique | length) == 2' "$SESSION_FIXTURES/model-repeat-and-change.jsonl" >/dev/null 2>&1; then
+if jq -s 'length == 3 and [.[].record_type] == ["session.started", "session.model-observed", "session.model-observed"] and [.[].model] == [null, "claude-sonnet-4-6", "claude-opus-4-6"] and ([.[] | select(.model != null) | .model] | unique | length) == 2' "$SESSION_FIXTURES/model-repeat-and-change.jsonl" >/dev/null 2>&1; then
     pass "model-repeat-and-change.jsonl: A repetido se omite y A->B conserva ambos hechos"
 else
     fail "model-repeat-and-change.jsonl: semantica append-only invalida"
@@ -131,13 +131,12 @@ else
     fail "legacy-and-new.jsonl: compatibilidad historica invalida"
 fi
 
-echo "[remind-field-notes] paridad del recordatorio entre runtimes"
+echo "[remind-field-notes] destino del recordatorio"
 claude_reminder="$(jq -r '.hooks.Stop[].hooks[].command | select(contains("field-notes-reminded"))' "$REPO_ROOT/hooks/hooks.json" | grep -o '\[recordatorio\][^"]*' | head -n 1)"
-opencode_reminder="$(grep -o '\[recordatorio\][^"]*' "$REPO_ROOT/dist/opencode/plugins/mefisto-observability.js" | head -n 1)"
-if [ -n "$claude_reminder" ] && [ "$claude_reminder" = "$opencode_reminder" ] && printf '%s' "$claude_reminder" | grep -qF 'docs/bitacora/field-notes/'; then
-    pass "texto del recordatorio identico en Claude y OpenCode y apunta a docs/bitacora/field-notes/"
+if [ -n "$claude_reminder" ] && printf '%s' "$claude_reminder" | grep -qF 'docs/bitacora/field-notes/'; then
+    pass "el recordatorio apunta a docs/bitacora/field-notes/"
 else
-    fail "texto del recordatorio divergente: '$claude_reminder' vs '$opencode_reminder'"
+    fail "el recordatorio no apunta a docs/bitacora/field-notes/: '$claude_reminder'"
 fi
 
 echo "RESULTADO: $PASS pasaron, $FAIL fallaron"

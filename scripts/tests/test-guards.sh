@@ -29,7 +29,7 @@
 #      que en los pipelines headless (`claude -p`) el subagente correria sin su
 #      doctrina y produciria codigo plausible pero ciego a ella. F5 cierra el
 #      hueco anotado en MEF-ADR-0049: un campo especifico de Claude Code pasaba
-#      el bloque `[F]` sin senal y OpenCode lo ignoraba en silencio.
+#      el bloque `[F]` sin senal.
 #   G) Ningun bloque triple-backtick `bash` de commands/*.md contiene sintaxis
 #      posicional de shell ($1..$9, ${N}, $*, $@, $#): Claude Code la expande como
 #      placeholder de argumentos del slash command ANTES de entregar el texto al
@@ -279,7 +279,7 @@ echo "[E] is_path_in_consumer_blocklist clasifica correctamente"
     # (MEF-ADR-0030 decision #4) -- solo docs/adr/mef-adr-* es del marco
     # mefisto-manifest.json es una entrada exacta: vecinos, prefijos, sufijos,
     # subdirectorios y separadores alternativos siguen siendo rutas del consumidor.
-    for allowed in "src/Foo.cs" "src/publication/foo.md" "src/runtime-local/foo.sh" "distribution/foo.txt" "tests/Bar.cs" ".github/workflows/deploy.yml" ".claude/settings.json" "docs/bitacora/notes.md" "docs/testing/mefisto-certification/fixture.md" "docs/adr/0028-x.md" "docs/adr/ca-adr-0009-x.md" ".opencode/agents/foo.md" "AGENTS.md" ".github/workflows/ci.yml" ".github/rulesets/main.json" "opencode.json" "sub/mefisto-manifest.json" "mefisto-manifest.json.bak" "foo-mefisto-manifest.json" "mefisto-manifest.json/foo" "mefisto-manifest.json\\foo"; do
+    for allowed in "src/Foo.cs" "src/publication/foo.md" "src/runtime-local/foo.sh" "distribution/foo.txt" "tests/Bar.cs" ".github/workflows/deploy.yml" ".claude/settings.json" "docs/bitacora/notes.md" "docs/testing/mefisto-certification/fixture.md" "docs/adr/0028-x.md" "docs/adr/ca-adr-0009-x.md" "AGENTS.md" ".github/workflows/ci.yml" ".github/rulesets/main.json" "sub/mefisto-manifest.json" "mefisto-manifest.json.bak" "foo-mefisto-manifest.json" "mefisto-manifest.json/foo" "mefisto-manifest.json\\foo"; do
         if is_path_in_consumer_blocklist "$allowed"; then
             echo "  FAIL: '$allowed' detectado como blocklist (deberia estar permitido)"
             exit 1
@@ -339,12 +339,11 @@ echo "[E2] is_path_in_mefisto_scope clasifica correctamente"
     # skills/ y .claude/skills/: Agent Skills publicados e internos (MEF-ADR-0033)
     # changelog.d/: fragmentos de CHANGELOG/indice de ADRs (issue #380)
     # .mcp.json: declaracion del server MCP bundleado (issue #763), entrada EXACTA
-    # src/internal/, .opencode/{agents,commands,plugins,skills}/, AGENTS.md y
-    # opencode.json: arquitectura neutral interna (issue #852, MEF-ADR-0049).
+    # src/internal/ y AGENTS.md: arquitectura neutral interna (issue #852, MEF-ADR-0049).
     # mefisto-manifest.json: metadata Claude raiz exacta, registrada antes de que
     # #1132 la pueble. src/{published,runtime}/ y dist/: distribucion publicada multi-runtime
     # registrada antes de poblarla (issue #1043, MEF-ADR-0053).
-    for valid in "commands/foo.md" "skills/projections/SKILL.md" "skills/projections/scripts/check.sh" "agents/bar.md" "scripts/baz.sh" "hooks/hooks.json" "docs/adr/mef-adr-0001-service-bus-topics-por-evento.md" ".claude-plugin/plugin.json" ".claude/commands/mefisto-foo.md" ".claude/skills/mefisto-doctrina/SKILL.md" ".claude/mods/mefisto-divine-wager/hooks/register.tsx" ".claude/settings.json" ".mcp.json" "mefisto-manifest.json" "changelog.d/380.added.md" "changelog.d/README.md" "README.md" "src/internal/foo.ts" "src/internal/skills/foo/SKILL.md" "src/published/foo.md" "src/runtime/foo.sh" "dist/x" ".opencode/agents/foo.md" ".opencode/commands/foo.md" ".opencode/plugins/foo.js" ".opencode/skills/foo/SKILL.md" "AGENTS.md" "opencode.json" ".github/workflows/ci.yml" ".github/rulesets/main.json"; do
+    for valid in "commands/foo.md" "skills/projections/SKILL.md" "skills/projections/scripts/check.sh" "agents/bar.md" "scripts/baz.sh" "hooks/hooks.json" "docs/adr/mef-adr-0001-service-bus-topics-por-evento.md" ".claude-plugin/plugin.json" ".claude/commands/mefisto-foo.md" ".claude/skills/mefisto-doctrina/SKILL.md" ".claude/mods/mefisto-divine-wager/hooks/register.tsx" ".claude/settings.json" ".mcp.json" "mefisto-manifest.json" "changelog.d/380.added.md" "changelog.d/README.md" "README.md" "src/internal/foo.ts" "src/internal/skills/foo/SKILL.md" "src/published/foo.md" "src/runtime/foo.sh" "dist/x" "AGENTS.md" ".github/workflows/ci.yml" ".github/rulesets/main.json"; do
         if is_path_in_mefisto_scope "$valid"; then
             echo "  PASS: '$valid' en scope de Mefisto"
         else
@@ -356,9 +355,8 @@ echo "[E2] is_path_in_mefisto_scope clasifica correctamente"
     # Rutas invalidas en Mefisto
     # ".mcp.json" y "mefisto-manifest.json" son entradas EXACTAS de la raiz: ni
     # prefijos, sufijos, separadores alternativos ni subdirectorios (issues #763 y #1135).
-    # ".opencode/agent/" (singular), vecinos de src/{published,runtime}/ y dist/,
-    # ".mefisto/" y "opencode.json" fuera de la raiz exacta siguen fuera de scope.
-    for invalid in "src/Foo.cs" "src/otro/x.sh" "src/publication/foo.md" "src/runtime-local/foo.sh" "distribution/x" "dist-local/x" "tests/Bar.cs" ".github/CODEOWNERS" ".github/workflows" ".github/rulesets" "infra/main.tf" ".claude/harness.config.json" ".claude/pipeline/events.log" "sub/.mcp.json" "foo.mcp.json" "sub/mefisto-manifest.json" "mefisto-manifest.json.bak" "foo-mefisto-manifest.json" "mefisto-manifest.json/foo" "mefisto-manifest.json\\foo" ".opencode/x.json" ".opencode/agent/x.md" ".mefisto/pipeline/events.log" ".mefisto/models.json" "sub/opencode.json" "foo.opencode.json"; do
+    # Vecinos de src/{published,runtime}/ y dist/, y ".mefisto/", siguen fuera de scope.
+    for invalid in "src/Foo.cs" "src/otro/x.sh" "src/publication/foo.md" "src/runtime-local/foo.sh" "distribution/x" "dist-local/x" "tests/Bar.cs" ".github/CODEOWNERS" ".github/workflows" ".github/rulesets" "infra/main.tf" ".claude/harness.config.json" ".claude/pipeline/events.log" "sub/.mcp.json" "foo.mcp.json" "sub/mefisto-manifest.json" "mefisto-manifest.json.bak" "foo-mefisto-manifest.json" "mefisto-manifest.json/foo" "mefisto-manifest.json\\foo" ".mefisto/pipeline/events.log" ".mefisto/models.json"; do
         if is_path_in_mefisto_scope "$invalid"; then
             echo "  FAIL: '$invalid' esta en scope (NO deberia)"
             exit 1
@@ -468,14 +466,14 @@ EOF
         fi
 
         # F5: el frontmatter no declara ningun campo fuera del estandar portable
-        # (MEF-ADR-0050 seccion 3) -- `allowed-tools` en particular, que OpenCode
-        # ignora en silencio. Solo cuentan claves de nivel superior: una linea
-        # indentada (^[ \t]) es una sub-clave anidada bajo `metadata:` y no cuenta.
+        # (MEF-ADR-0050 seccion 3) -- `allowed-tools` en particular. Solo cuentan
+        # claves de nivel superior: una linea indentada (^[ \t]) es una sub-clave
+        # anidada bajo `metadata:` y no cuenta.
         non_portable_fields="$(non_portable_frontmatter_fields "$skill_file")"
         if [ -n "$non_portable_fields" ]; then
             while IFS= read -r field; do
                 [ -n "$field" ] || continue
-                fail "$rel: frontmatter con campo no portable '$field' (MEF-ADR-0050: solo $PORTABLE_SKILL_FRONTMATTER_FIELDS_SLASHED; OpenCode lo ignora en silencio)"
+                fail "$rel: frontmatter con campo no portable '$field' (MEF-ADR-0050: solo $PORTABLE_SKILL_FRONTMATTER_FIELDS_SLASHED)"
             done <<EOF
 $non_portable_fields
 EOF
@@ -1221,9 +1219,7 @@ done
 # presente, o la logica quedaria duplicada entre el prompt y el script. El
 # ultimo prohibido no es mecanica de git sino neutralidad (MEF-ADR-0050): el
 # borrador de la nota vive en `.mefisto/` (ignorado por Git, dentro del repo),
-# nunca en /tmp -- los agentes internos corren con `external_directory: deny`
-# (src/internal/contract/opencode-permissions.json), asi que una ruta externa
-# es inescribible en OpenCode.
+# nunca en /tmp.
 for forbidden in \
     'INITIAL_HEAD_REF=$(git symbolic-ref -q --short HEAD || true)' \
     'INITIAL_DEFAULT_BRANCH=$(gh repo view --json defaultBranchRef' \

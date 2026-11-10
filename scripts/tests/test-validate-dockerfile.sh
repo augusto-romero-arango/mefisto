@@ -59,10 +59,10 @@ check_script() {
 
 [ -x "$REPO_ROOT/scripts/validate-dockerfile.sh" ] && pass 'script ejecutable' || fail 'script no ejecutable'
 check_script 'scripts/' "$REPO_ROOT/scripts/validate-dockerfile.sh"
-if [ -f "$REPO_ROOT/dist/opencode/scripts/validate-dockerfile.sh" ]; then
-    check_script 'dist/opencode/scripts/' "$REPO_ROOT/dist/opencode/scripts/validate-dockerfile.sh"
+if [ -f "$REPO_ROOT/dist/claude/scripts/validate-dockerfile.sh" ]; then
+    check_script 'dist/claude/scripts/' "$REPO_ROOT/dist/claude/scripts/validate-dockerfile.sh"
 else
-    fail 'falta dist/opencode/scripts/validate-dockerfile.sh'
+    fail 'falta dist/claude/scripts/validate-dockerfile.sh'
 fi
 
 echo '[guard] rechaza el repo de Mefisto'

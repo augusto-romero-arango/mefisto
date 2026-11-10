@@ -13,12 +13,11 @@ run() { mefisto_resolve_effort "$@" >"$TMP/out" 2>/dev/null; RC=$?; OUT="$(cat "
 
 MAP="$TMP/m.json"
 cat >"$MAP" <<'J'
-{"opencode":{"efforts":{"agents":{"implementer":"thorough"},"levels":{"thorough":"high"}}}}
+{"claude":{"efforts":{"agents":{"implementer":"thorough"},"levels":{"thorough":"high"}}}}
 J
-run opencode implementer light "$MAP"; check "override agente+traduccion parcial rc" 0 "$RC"; check "override agente+traduccion parcial" high "$OUT"
-run opencode other thorough "$MAP"; check "traduccion parcial" high "$OUT"
-run opencode other exhaustive "$MAP"; check "nivel no listado usa adaptador" max "$OUT"
-run opencode other quick; check "default opencode" low "$OUT"
+run claude implementer light "$MAP"; check "override agente+traduccion parcial rc" 0 "$RC"; check "override agente+traduccion parcial" high "$OUT"
+run claude other thorough "$MAP"; check "traduccion parcial" high "$OUT"
+run claude other exhaustive "$MAP"; check "nivel no listado usa adaptador" max "$OUT"
 run claude other light; check "default claude light" medium "$OUT"
 run claude other standard "$TMP/no-existe.json"; check "ruta inexistente" high "$OUT"
 : >"$TMP/vacio.json"; run claude other thorough "$TMP/vacio.json"; check "ruta vacia" xhigh "$OUT"

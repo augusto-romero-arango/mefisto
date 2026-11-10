@@ -1,12 +1,11 @@
 #!/usr/bin/env bash
-# Contrato del comando bitacora neutral y sus proyecciones publicadas.
+# Contrato del comando bitacora neutral y su proyeccion publicada.
 set -uo pipefail
 export LC_ALL=C
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
 REPO_ROOT="$(cd "$HERE/../../../.." && pwd -P)"
 SOURCE="$REPO_ROOT/src/published/commands/bitacora.md"
 CLAUDE="$REPO_ROOT/dist/claude/commands/bitacora.md"
-OPENCODE="$REPO_ROOT/dist/opencode/commands/mefisto:bitacora.md"
 MIRROR="$REPO_ROOT/commands/bitacora.md"
 GENERATOR="$REPO_ROOT/src/published/scripts/generate-published-adapters.sh"
 PASS=0; FAIL=0
@@ -40,29 +39,16 @@ for marker in '{{mefisto:assert-consumer-repo}}' '{{mefisto:launch-agent histori
 done
 [ "$order_ok" -eq 1 ] && pass 'orden: guard -> historiador -> verificacion del PR -> merge' || fail 'orden de pasos invalido'
 
-echo '[salidas] adaptadores y mirror'
-for file in "$CLAUDE" "$OPENCODE"; do [ -f "$file" ] && pass "existe ${file#"$REPO_ROOT/"}" || fail "falta ${file#"$REPO_ROOT/"}"; done
+echo '[salidas] adaptador y mirror'
+[ -f "$CLAUDE" ] && pass "existe ${CLAUDE#"$REPO_ROOT/"}" || fail "falta ${CLAUDE#"$REPO_ROOT/"}"
 claude_body="$(< "$CLAUDE")"
-opencode_body="$(< "$OPENCODE")"
 contains "$claude_body" 'model: "haiku"' 'Claude materializa el perfil fast'
-for k in 'model:' 'subtask' 'agent:'; do absent "$opencode_body" "$k" "OpenCode no emite $k"; done
 contains "$claude_body" 'mefisto:historiador' 'Claude delega en mefisto:historiador'
-contains "$opencode_body" 'historiador' 'OpenCode delega en historiador'
 contains "$claude_body" '"${MEFISTO_PACKAGE_ROOT}/commands/merge.md"' 'Claude lee merge'
-contains "$opencode_body" '"${MEFISTO_PACKAGE_ROOT}/commands/mefisto:merge.md"' 'OpenCode lee merge'
 [ -f "$REPO_ROOT/dist/claude/commands/merge.md" ] && pass 'existe dist/claude/commands/merge.md' || fail 'falta dist/claude/commands/merge.md'
-[ -f "$REPO_ROOT/dist/opencode/commands/mefisto:merge.md" ] && pass 'existe dist/opencode/commands/mefisto:merge.md' || fail 'falta dist/opencode/commands/mefisto:merge.md'
-for rt in claude opencode; do
-    out="$claude_body"; [ "$rt" = opencode ] && out="$opencode_body"
-    forbidden_set=('plugins/cache' 'claude --agent')
-    [ "$rt" = opencode ] && forbidden_set+=('CLAUDE_' '.claude/' '.plugin-root')
-    for forbidden in "${forbidden_set[@]}"; do absent "$out" "$forbidden" "$rt sin token de runtime: $forbidden"; done
-done
+for forbidden in 'plugins/cache' 'claude --agent'; do absent "$claude_body" "$forbidden" "claude sin token de runtime: $forbidden"; done
 if cmp -s "$MIRROR" "$CLAUDE"; then pass 'mirror Claude coincide byte a byte'; else fail 'mirror Claude diverge'; fi
-for runtime in claude opencode; do
-    dest="commands/bitacora.md"; [ "$runtime" = opencode ] && dest="commands/mefisto:bitacora.md"
-    if grep -qF "$dest" "$REPO_ROOT/dist/$runtime/.mefisto-generated-assets.json"; then pass "inventario de dist/$runtime lo incluye"; else fail "inventario de dist/$runtime no lo incluye"; fi
-done
+if grep -qF 'commands/bitacora.md' "$REPO_ROOT/dist/claude/.mefisto-generated-assets.json"; then pass 'inventario de dist/claude lo incluye'; else fail 'inventario de dist/claude no lo incluye'; fi
 if "$GENERATOR" --check >/dev/null; then pass 'generate-published-adapters --check esta al dia'; else fail 'generate-published-adapters --check detecto divergencias'; fi
 
 printf 'RESULTADO: %s pasaron, %s fallaron\n' "$PASS" "$FAIL"

@@ -1,12 +1,11 @@
 #!/usr/bin/env bash
-# Contrato del agente infra-bootstrap neutral y sus dos proyecciones publicadas.
+# Contrato del agente infra-bootstrap neutral y su proyeccion publicada.
 set -uo pipefail
 export LC_ALL=C
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
 REPO_ROOT="$(cd "$HERE/../../../.." && pwd -P)"
 SOURCE="$REPO_ROOT/src/published/agents/infra-bootstrap.md"
 CLAUDE="$REPO_ROOT/dist/claude/agents/infra-bootstrap.md"
-OPENCODE="$REPO_ROOT/dist/opencode/agents/infra-bootstrap.md"
 MIRROR="$REPO_ROOT/agents/infra-bootstrap.md"
 GENERATOR="$REPO_ROOT/src/published/scripts/generate-published-adapters.sh"
 PASS=0; FAIL=0
@@ -45,7 +44,7 @@ for secret in AZURE_CLIENT_ID AZURE_TENANT_ID AZURE_SUBSCRIPTION_ID; do
 done
 
 echo '[fuente] sin acoplamientos'
-for forbidden in 'PLUGIN_ROOT' '.plugin-root' 'plugins/cache' 'PLUGIN_SCRIPTS' 'az account show' 'iac-pipeline.sh' 'Claude' 'OpenCode' '.claude/pipeline' '.opencode/' 'model:' 'tools:' 'CLAUDE_'; do
+for forbidden in 'PLUGIN_ROOT' '.plugin-root' 'plugins/cache' 'PLUGIN_SCRIPTS' 'az account show' 'iac-pipeline.sh' 'Claude' '.claude/pipeline' 'model:' 'tools:' 'CLAUDE_'; do
     absent "$body" "$forbidden" "fuente sin: $forbidden"
 done
 
@@ -58,31 +57,20 @@ for marker in '### 1. ' '### 2. ' 'azure-account-info.sh' 'bootstrap-backend.sh 
 done
 if [ "$order_ok" = 1 ]; then pass 'orden backend -> labels -> CI -> base -> pipeline'; else fail 'orden de pasos incorrecto'; fi
 
-echo '[salidas] adaptadores y mirror'
-for file in "$CLAUDE" "$OPENCODE"; do [ -f "$file" ] && pass "existe ${file#"$REPO_ROOT/"}" || fail "falta ${file#"$REPO_ROOT/"}"; done
+echo '[salidas] adaptador y mirror'
+[ -f "$CLAUDE" ] && pass "existe ${CLAUDE#"$REPO_ROOT/"}" || fail "falta ${CLAUDE#"$REPO_ROOT/"}"
 claude_body="$(< "$CLAUDE")"
-opencode_body="$(< "$OPENCODE")"
 for form in 'azure-account-info.sh" 2>&1' 'bootstrap-backend.sh" --subscription <id> --env <env>' 'setup-github-labels.sh" 2>&1' 'setup-github-ci.sh" <id>' 'tmux-pipeline.sh" --infra <issue>'; do
     contains "$claude_body" "MEFISTO_RUNTIME=claude \"\${MEFISTO_PACKAGE_ROOT}/scripts/$form" "Claude invoca $form con su runtime"
-    contains "$opencode_body" "MEFISTO_RUNTIME=opencode \"\${MEFISTO_PACKAGE_ROOT}/scripts/$form" "OpenCode invoca $form con su runtime"
 done
-absent "$claude_body" 'MEFISTO_RUNTIME=opencode' 'Claude no fija el runtime OpenCode'
-absent "$opencode_body" 'MEFISTO_RUNTIME=claude' 'OpenCode no fija el runtime Claude'
-for out in "$claude_body" "$opencode_body"; do
-    absent "$out" 'az account show' 'salida sin az directo'
-    absent "$out" 'iac-pipeline.sh' 'salida sin iac-pipeline.sh directo'
-    absent "$out" 'PLUGIN_SCRIPTS' 'salida sin PLUGIN_SCRIPTS'
-    absent "$out" 'plugins/cache' 'salida sin cache de plugins'
-    absent "$out" '{{mefisto:' 'salida sin directivas sin resolver'
-done
-absent "$opencode_body" '.claude/pipeline/.plugin-root' 'salida OpenCode sin marcador Claude'
+absent "$claude_body" 'az account show' 'salida sin az directo'
+absent "$claude_body" 'iac-pipeline.sh' 'salida sin iac-pipeline.sh directo'
+absent "$claude_body" 'PLUGIN_SCRIPTS' 'salida sin PLUGIN_SCRIPTS'
+absent "$claude_body" 'plugins/cache' 'salida sin cache de plugins'
+absent "$claude_body" '{{mefisto:' 'salida sin directivas sin resolver'
 contains "$claude_body" 'name: "infra-bootstrap"' 'Claude expone el id del agente'
 contains "$claude_body" 'tools: "Bash"' 'Claude deriva solo la capacidad shell'
 contains "$claude_body" 'model: "haiku"' 'Claude materializa el perfil fast'
-absent "$opencode_body" 'model:' 'OpenCode no emite model'
-contains "$opencode_body" 'mode: "all"' 'OpenCode conserva mode all'
-contains "$opencode_body" '"bash":{"*":"deny"' 'OpenCode mantiene shell deny por defecto'
-absent "$opencode_body" '"az *"' 'OpenCode no habilita az'
 case "$claude_body" in *[Mm][Cc][Pp]*) fail 'Claude omite MCP' ;; *) pass 'Claude omite MCP' ;; esac
 
 if cmp -s "$MIRROR" "$CLAUDE"; then pass 'mirror Claude coincide byte a byte'; else fail 'mirror Claude diverge'; fi

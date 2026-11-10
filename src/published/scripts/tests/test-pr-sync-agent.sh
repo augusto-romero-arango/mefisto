@@ -1,12 +1,11 @@
 #!/usr/bin/env bash
-# Contrato del agente pr-sync neutral y sus dos proyecciones publicadas.
+# Contrato del agente pr-sync neutral y su proyeccion publicada.
 set -uo pipefail
 export LC_ALL=C
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
 REPO_ROOT="$(cd "$HERE/../../../.." && pwd -P)"
 SOURCE="$REPO_ROOT/src/published/agents/pr-sync.md"
 CLAUDE="$REPO_ROOT/dist/claude/agents/pr-sync.md"
-OPENCODE="$REPO_ROOT/dist/opencode/agents/pr-sync.md"
 MIRROR="$REPO_ROOT/agents/pr-sync.md"
 GENERATOR="$REPO_ROOT/src/published/scripts/generate-published-adapters.sh"
 PASS=0; FAIL=0
@@ -45,45 +44,31 @@ contains "$body" 'mergeados' 'reporta PRs mergeados'
 contains "$body" 'al día' 'reporta PRs al dia'
 contains "$body" 'no lo inspecciones tú' 'worktree temporal queda como sugerencia al usuario, no como comando propio'
 absent "$body" './scripts/' 'fuente no referencia ./scripts/ con ruta relativa'
-for forbidden in 'Claude' 'OpenCode' '.claude/' '.opencode/' 'cache' 'model:' 'tools:' 'allowed-tools:' 'permission:' '.plugin-root' 'CLAUDE_'; do
+for forbidden in 'Claude' '.claude/' 'cache' 'model:' 'tools:' 'allowed-tools:' 'permission:' '.plugin-root' 'CLAUDE_'; do
     absent "$body" "$forbidden" "fuente no publica token prohibido: $forbidden"
 done
 
-echo '[salidas] adaptadores y mirror'
-for file in "$CLAUDE" "$OPENCODE"; do [ -f "$file" ] && pass "existe ${file#"$REPO_ROOT/"}" || fail "falta ${file#"$REPO_ROOT/"}"; done
+echo '[salidas] adaptador y mirror'
+[ -f "$CLAUDE" ] && pass "existe ${CLAUDE#"$REPO_ROOT/"}" || fail "falta ${CLAUDE#"$REPO_ROOT/"}"
 claude_body="$(< "$CLAUDE")"
-opencode_body="$(< "$OPENCODE")"
 for form in '<PRs>' '<PRs> --merge' '--all' '--all --merge' '<num>'; do
     contains "$claude_body" "MEFISTO_RUNTIME=claude \"\${MEFISTO_PACKAGE_ROOT}/scripts/pr-sync.sh\" $form" "Claude invoca pr-sync.sh $form con su runtime"
-    contains "$opencode_body" "MEFISTO_RUNTIME=opencode \"\${MEFISTO_PACKAGE_ROOT}/scripts/pr-sync.sh\" $form" "OpenCode invoca pr-sync.sh $form con su runtime"
 done
-absent "$claude_body" 'MEFISTO_RUNTIME=opencode' 'Claude no fija el runtime OpenCode'
-absent "$opencode_body" 'MEFISTO_RUNTIME=claude' 'OpenCode no fija el runtime Claude'
 contains "$claude_body" 'name: "pr-sync"' 'Claude expone el id del agente'
 contains "$claude_body" 'tools: "Bash"' 'Claude deriva solo la capacidad shell'
 contains "$claude_body" 'model: "sonnet"' 'Claude materializa el perfil balanced'
-absent "$opencode_body" 'model:' 'OpenCode no emite model'
-contains "$opencode_body" 'mode: "all"' 'OpenCode conserva mode all'
-contains "$opencode_body" '"bash":{"*":"deny"' 'OpenCode mantiene shell deny por defecto salvo reglas explicitas'
-contains "$opencode_body" '"skill":"deny"' 'OpenCode no habilita Skills para este agente'
 case "$claude_body" in *[Mm][Cc][Pp]*) fail 'Claude omite MCP' ;; *) pass 'Claude omite MCP' ;; esac
 
 # El preambulo compartido de resolucion de MEFISTO_PACKAGE_ROOT (identico en
 # todo artefacto ya migrado, p.ej. merge.md) cita el marcador canonico Claude
 # como fallback de lectura legado y queda fuera de este chequeo; solo se
-# exige que las invocaciones propias de pr-sync.sh no lo reimplementen y que
-# la salida OpenCode completa no lo mencione.
+# exige que las invocaciones propias de pr-sync.sh no lo reimplementen.
 claude_invocations="$(printf '%s\n' "$claude_body" | grep -F 'scripts/pr-sync.sh"')"
-opencode_invocations="$(printf '%s\n' "$opencode_body" | grep -F 'scripts/pr-sync.sh"')"
 for forbidden_path in './scripts/pr-sync.sh' '.claude/pipeline/.plugin-root' 'plugins/cache'; do
     absent "$claude_invocations" "$forbidden_path" "invocacion Claude no reimplementa el lookup legacy ($forbidden_path)"
-    absent "$opencode_invocations" "$forbidden_path" "invocacion OpenCode no reimplementa el lookup legacy ($forbidden_path)"
 done
-absent "$opencode_body" '.claude/pipeline/.plugin-root' 'salida OpenCode completa sin marcador Claude'
 absent "$claude_body" 'plugins/cache' 'salida Claude completa sin cache de plugins'
-absent "$opencode_body" 'plugins/cache' 'salida OpenCode completa sin cache de plugins'
 absent "$claude_body" './scripts/pr-sync.sh' 'salida Claude completa sin ruta relativa rota'
-absent "$opencode_body" './scripts/pr-sync.sh' 'salida OpenCode completa sin ruta relativa rota'
 
 if cmp -s "$MIRROR" "$CLAUDE"; then pass 'mirror Claude coincide byte a byte'; else fail 'mirror Claude diverge'; fi
 contains "$(< "$MIRROR")" '<!-- GENERADO por src/published/scripts/generate-published-adapters.sh desde src/published/agents/pr-sync.md. No editar a mano. -->' 'mirror conserva marcador generado'

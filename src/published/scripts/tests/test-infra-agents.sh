@@ -1,8 +1,7 @@
 #!/usr/bin/env bash
 # Verifica el corte vertical neutral de infra-writer/infra-reviewer (issue #1625):
-# metadata/perfiles, allowlist MCP por runtime, denegacion de terraform
-# plan/apply y az en OpenCode, ausencia de tokens de runtime en la fuente y
-# paridad byte a byte de los mirrors raiz Claude.
+# metadata/perfiles, allowlist MCP de Claude, ausencia de tokens de runtime en
+# la fuente y paridad byte a byte de los mirrors raiz Claude.
 set -uo pipefail
 export LC_ALL=C
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
@@ -40,12 +39,12 @@ echo '[d] ausencia de tokens de runtime en la fuente neutral'
 for agent in infra-writer infra-reviewer; do
     agent_body="$(body "$REPO_ROOT/src/published/agents/$agent.md")"
     contains "$agent_body" '{{mefisto:assert-consumer-repo}}' "$agent conserva el guard"
-    for token in '.claude' '.opencode' 'claude' 'opencode' 'marketplace' 'cache' 'model:' 'tools:' 'permission:' 'allowed-tools:'; do
+    for token in '.claude' 'claude' 'marketplace' 'cache' 'model:' 'tools:' 'permission:' 'allowed-tools:'; do
         absent "$(printf '%s' "$agent_body" | tr '[:upper:]' '[:lower:]')" "$token" "$agent no menciona token de runtime: $token"
     done
 done
 
-echo '[integracion] generacion de las cuatro salidas y check limpio'
+echo '[integracion] generacion de las dos salidas y check limpio'
 if "$GENERATOR" --out "$WORK" \
     "$REPO_ROOT/src/published/agents/infra-writer.md" \
     "$REPO_ROOT/src/published/agents/infra-reviewer.md" >/dev/null; then
@@ -54,7 +53,7 @@ else
     fail 'el generador no proceso ambos agentes en conjunto'
 fi
 
-echo '[b] allowlist MCP por runtime'
+echo '[b] allowlist MCP de Claude'
 claude_writer="$(< "$WORK/dist/claude/agents/infra-writer.md")"
 claude_reviewer="$(< "$WORK/dist/claude/agents/infra-reviewer.md")"
 contains "$claude_writer" 'mcp__terraform__*' 'Claude writer expone el matcher corto de terraform'
@@ -62,24 +61,6 @@ contains "$claude_writer" 'mcp__plugin_terraform_terraform__*' 'Claude writer ex
 contains "$claude_writer" 'model: "sonnet"' 'Claude writer materializa perfil balanced'
 contains "$claude_reviewer" 'model: "opus"' 'Claude reviewer materializa perfil deep'
 absent "$claude_reviewer" 'mcp__' 'Claude reviewer no expone ningun matcher MCP'
-opencode_writer="$(< "$WORK/dist/opencode/agents/infra-writer.md")"
-opencode_reviewer="$(< "$WORK/dist/opencode/agents/infra-reviewer.md")"
-contains "$opencode_writer" '"terraform_*":true' 'OpenCode writer habilita terraform_*'
-contains "$opencode_reviewer" '"terraform_*":false' 'OpenCode reviewer deniega terraform_*'
-absent "$opencode_writer" 'model:' 'OpenCode writer no fija model'
-absent "$opencode_reviewer" 'model:' 'OpenCode reviewer no fija model'
-
-echo '[c] terraform plan/apply y az denegados en OpenCode'
-for rendered_name in opencode_writer opencode_reviewer; do
-    rendered="${!rendered_name}"
-    contains "$rendered" '"bash":{"*":"deny"' "$rendered_name mantiene shell deny por defecto"
-    contains "$rendered" '"terraform init -backend=false*":"allow"' "$rendered_name permite terraform init -backend=false"
-    contains "$rendered" '"terraform validate*":"allow"' "$rendered_name permite terraform validate"
-    contains "$rendered" '"terraform fmt*":"allow"' "$rendered_name permite terraform fmt"
-    for denied in '"terraform plan' '"terraform apply' '"az '; do
-        absent "$rendered" "$denied" "$rendered_name no declara allow explicito para: $denied"
-    done
-done
 
 echo '[e] mirrors identicos'
 for agent in infra-writer infra-reviewer; do
@@ -95,16 +76,14 @@ for agent in infra-writer infra-reviewer; do
     fi
 done
 
-echo '[inventario] ambas distribuciones registran los dos agentes'
-for runtime in claude opencode; do
-    inventory="$WORK/dist/$runtime/.mefisto-generated-assets.json"
-    for agent in infra-writer infra-reviewer; do
-        if jq -e --arg id "src/published/agents/$agent.md" 'any(.assets[]; .id == $id)' "$inventory" >/dev/null; then
-            pass "$runtime inventaria $agent"
-        else
-            fail "$runtime no inventaria $agent"
-        fi
-    done
+echo '[inventario] la distribucion registra los dos agentes'
+inventory="$WORK/dist/claude/.mefisto-generated-assets.json"
+for agent in infra-writer infra-reviewer; do
+    if jq -e --arg id "src/published/agents/$agent.md" 'any(.assets[]; .id == $id)' "$inventory" >/dev/null; then
+        pass "claude inventaria $agent"
+    else
+        fail "claude no inventaria $agent"
+    fi
 done
 
 if "$GENERATOR" --check --out "$WORK" \

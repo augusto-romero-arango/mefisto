@@ -52,7 +52,7 @@ printf '%s\n' '{"schemaVersion":1,"version":"1.2.3","commit":"0123456789abcdef01
 printf '%s\n' '{"schemaVersion":1,"version":"2.0.0","commit":"0123456789abcdef0123456789abcdef01234567"}' > "$FAKE/src/published/release-identity.json"; assert_failure 'version divergente de plugin aborta'
 rm "$FAKE/src/published/release-identity.json"; assert_failure 'fuente ausente aborta'
 
-printf '[integracion] staging, inventario y diagnostico\n'
+printf '[integracion] staging e inventario\n'
 OUT="$WORK/salida Claude con espacios"
 source_before="$(shasum "$REPO_ROOT/src/published/release-identity.json")"
 bash "$GENERATOR" --out "$OUT" "$REPO_ROOT/src/published/agents/tooling-reviewer.md"; rc=$?
@@ -82,13 +82,6 @@ bash "$GENERATOR" --out "$OUT" "$REPO_ROOT/src/published/agents/tooling-reviewer
 rm "$OUT/dist/claude/mefisto-manifest.json"
 check="$(bash "$GENERATOR" --check --out "$OUT" "$REPO_ROOT/src/published/agents/tooling-reviewer.md")"; rc=$?
 [ "$rc" -eq 1 ] && case "$check" in *'dist/claude/mefisto-manifest.json: faltante'*) true ;; *) false ;; esac && pass '--check detecta manifiesto faltante' || fail '--check no detecto manifiesto faltante'
-bash "$GENERATOR" --out "$OUT" "$REPO_ROOT/src/published/agents/tooling-reviewer.md" >/dev/null
-printf '{corrupto\n' > "$OUT/dist/claude/mefisto-manifest.json"
-diagnosis="$(bash "$REPO_ROOT/src/published/scripts/diagnose-installation-identity.sh" --claude-root "$OUT/dist/claude" --opencode-root "$WORK/sin-opencode")"
-[ "$(printf '%s' "$diagnosis" | jq -r .claude.state)" = metadata_invalid ] && pass 'diagnostico conserva metadata corrupta como invalida' || fail 'diagnostico gano un fallback indebido'
-bash "$GENERATOR" --out "$OUT" "$REPO_ROOT/src/published/agents/tooling-reviewer.md" >/dev/null
-diagnosis="$(bash "$REPO_ROOT/src/published/scripts/diagnose-installation-identity.sh" --claude-root "$OUT/dist/claude" --opencode-root "$WORK/sin-opencode")"
-[ "$(printf '%s' "$diagnosis" | jq -r .claude.state)" = available ] && pass 'diagnostico reconoce identidad Claude disponible' || fail 'diagnostico no reconoce identidad Claude'
 
 printf '\nResultado: %s PASS, %s FAIL\n' "$PASS" "$FAIL"
 exit "$FAIL"

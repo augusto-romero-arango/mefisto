@@ -332,8 +332,7 @@ _consumer_origin_slug() {
 
 # _check_repo_slug <config>
 #
-# Valida el repoSlug efectivo (config o default augusto-romero-arango/mefisto, igual que
-# _repo_slug de upgrade.sh): atajo local contra el origin del consumidor y, si no coincide,
+# Valida el repoSlug efectivo (config o default augusto-romero-arango/mefisto): atajo local contra el origin del consumidor y, si no coincide,
 # verificacion de contenido via gh (.claude-plugin/plugin.json con name == mefisto).
 _check_repo_slug() {
     local cfg="$1" slug="" origin_slug origen err name rc motivo

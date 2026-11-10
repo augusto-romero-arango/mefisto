@@ -11,9 +11,6 @@
 #   A-6: _check_repo_activation de onboard-diagnose.sh: OK / FALTA / INFO.
 #   A-7: _mefisto_marketplace deriva el nombre de la raiz del cache o de known_marketplaces.json
 #        con el slug actual o el previo al rename; _fuente_marketplace cae al slug actual.
-#   A-8: upgrade.sh --disable-user retira la proyeccion global de OpenCode solo con el
-#        cargador commiteado, y es idempotente.
-#   A-9: _reportar_activacion_opencode: MIGRACION PENDIENTE / AVISO / silencio.
 #
 # Nunca toca la configuracion real: CLAUDE_CONFIG_DIR y MEFISTO_CACHE_ROOT apuntan a
 # temporales y 'claude' es un stub antepuesto al PATH.
@@ -147,13 +144,8 @@ assert_igual "true" "$(jq -r --arg id "mefisto@$MK5" '.enabledPlugins[$id]' "$C5
 assert_igual "true" "$(jq -r '.enabledPlugins["otro@x"]' "$C5/.claude/settings.json")" "A-5: conserva otros plugins"
 assert_igual "Bash(git:*)" "$(jq -r '.permissions.allow[0]' "$C5/.claude/settings.json")" "A-5: conserva permissions"
 assert_igual "github" "$(jq -r --arg m "$MK5" '.extraKnownMarketplaces[$m].source.source' "$C5/.claude/settings.json")" "A-5: declara el marketplace"
-cmp -s "$REPO_ROOT/src/published/opencode/mefisto-loader.js" "$C5/.opencode/plugins/mefisto.js" \
-    && pass "A-5: escribe el cargador OpenCode identico al publicado" || fail "A-5: cargador OpenCode ausente o distinto"
 OUT=$( cd "$C5" && bash "$REPO_ROOT/scripts/onboard-activate-repo.sh" --apply 2>&1 )
 assert_contiene "$OUT" "no hay nada que escribir" "A-5: idempotente"
-echo '// cargador viejo' > "$C5/.opencode/plugins/mefisto.js"
-OUT=$( cd "$C5" && bash "$REPO_ROOT/scripts/onboard-activate-repo.sh" --preview 2>&1 )
-assert_contiene "$OUT" "reemplazar .opencode/plugins/mefisto.js" "A-5: un cargador desactualizado se ofrece reemplazar"
 
 echo "[A-6] _check_repo_activation (onboard-diagnose.sh)"
 # shellcheck disable=SC1091
@@ -170,17 +162,6 @@ assert_igual "" "$USER_LEVEL_DETAIL" "A-6: usuario deshabilitado -> sin fila de 
 usuario "{\"enabledPlugins\":{\"mefisto@$MKT\":true}}"
 _check_repo_activation claude "$C6"
 assert_contiene "$USER_LEVEL_DETAIL" "habilitado a nivel usuario" "A-6: usuario habilitado -> fila INFO"
-export XDG_CONFIG_HOME="$TMP/xdg"
-_check_repo_activation opencode "$C6"
-assert_igual "FALTA" "$REPO_ACTIVATION_STATE" "A-6: OpenCode sin cargador commiteado -> FALTA"
-assert_igual "" "$USER_LEVEL_DETAIL" "A-6: OpenCode sin proyeccion global -> sin fila de usuario"
-mkdir -p "$C6/.opencode/plugins"; echo '// cargador' > "$C6/.opencode/plugins/mefisto.js"
-git -C "$C6" add .opencode && git -C "$C6" -c user.email=t@t -c user.name=t commit -q -m loader
-mkdir -p "$XDG_CONFIG_HOME/opencode"; echo '{}' > "$XDG_CONFIG_HOME/opencode/.mefisto-projection.json"
-_check_repo_activation opencode "$C6"
-assert_igual "OK" "$REPO_ACTIVATION_STATE" "A-6: OpenCode con cargador commiteado -> OK"
-assert_contiene "$USER_LEVEL_DETAIL" "proyeccion global" "A-6: proyeccion global activa -> fila INFO"
-rm -f "$XDG_CONFIG_HOME/opencode/.mefisto-projection.json"
 
 echo "[A-7] _mefisto_marketplace"
 assert_igual "$MKT" "$(_mefisto_marketplace "$CACHE/$MKT/mefisto/0.50.0")" "A-7: deriva el nombre de la raiz del cache"
@@ -193,45 +174,6 @@ assert_igual "mkt-nuevo" "$(_mefisto_marketplace "$TMP/checkout")" "A-7: reconoc
 rm -f "$KNOWN"
 assert_igual "augusto-romero-arango-harness" "$(_mefisto_marketplace "$TMP/checkout")" "A-7: sin registro cae al nombre publicado"
 assert_igual '{"source":"github","repo":"augusto-romero-arango/mefisto"}' "$(_fuente_marketplace augusto-romero-arango-harness)" "A-7: fuente por defecto con el slug actual"
-
-echo "[A-8] upgrade.sh --disable-user retira la proyeccion global de OpenCode"
-C8=$(nuevo_consumidor a8)
-export XDG_CONFIG_HOME="$TMP/xdg8"
-mkdir -p "$XDG_CONFIG_HOME/opencode"; echo '{}' > "$XDG_CONFIG_HOME/opencode/.mefisto-projection.json"
-LAUNCHER8="$TMP/launcher8"
-cat > "$LAUNCHER8" <<'EOF8'
-#!/usr/bin/env bash
-echo "launcher $*" >> "$ACT_LOG"
-[ "$1" = deactivate ] && rm -f "$XDG_CONFIG_HOME/opencode/.mefisto-projection.json"
-exit 0
-EOF8
-chmod +x "$LAUNCHER8"
-NOCLAUDE="$TMP/noclaude"; mkdir -p "$NOCLAUDE"
-for t in bash env git jq dirname basename cat sed awk grep head uname mktemp rm cp ls tr cut sort; do p=$(command -v "$t") && ln -sf "$p" "$NOCLAUDE/$t"; done
-run_disable() { ( cd "$1" && PATH="$NOCLAUDE" MEFISTO_RUNTIME=opencode MEFISTO_OPENCODE_LAUNCHER="$LAUNCHER8" bash "$REPO_ROOT/scripts/upgrade.sh" --disable-user ) 2>&1; }
-: > "$LOG"
-OUT=$(run_disable "$C8"); RC=$?
-assert_igual "1" "$RC" "A-8: sin cargador commiteado -> exit 1"
-assert_contiene "$OUT" "este repo quedaria sin Mefisto" "A-8: explica por que no retira la proyeccion"
-assert_no_contiene "$(cat "$LOG")" "deactivate" "A-8: no llama a deactivate"
-mkdir -p "$C8/.opencode/plugins"; echo '// cargador' > "$C8/.opencode/plugins/mefisto.js"
-git -C "$C8" add .opencode && git -C "$C8" -c user.email=t@t -c user.name=t commit -q -m loader
-: > "$LOG"
-OUT=$(run_disable "$C8"); RC=$?
-assert_igual "0" "$RC" "A-8: con cargador commiteado -> exit 0"
-assert_contiene "$(cat "$LOG")" "launcher deactivate" "A-8: retira la proyeccion con deactivate"
-: > "$LOG"
-OUT=$(run_disable "$C8"); RC=$?
-assert_igual "0" "$RC" "A-8: sin proyeccion global -> idempotente"
-assert_no_contiene "$(cat "$LOG")" "deactivate" "A-8: sin proyeccion no vuelve a llamar deactivate"
-
-echo "[A-9] _reportar_activacion_opencode"
-echo '{}' > "$XDG_CONFIG_HOME/opencode/.mefisto-projection.json"
-assert_contiene "$(_reportar_activacion_opencode "$C8")" "MIGRACION PENDIENTE" "A-9: proyeccion activa + cargador commiteado -> migracion pendiente"
-C9=$(nuevo_consumidor a9)
-assert_contiene "$(_reportar_activacion_opencode "$C9")" "AVISO: este repo no commitea" "A-9: proyeccion activa sin cargador -> aviso"
-rm -f "$XDG_CONFIG_HOME/opencode/.mefisto-projection.json"
-assert_igual "" "$(_reportar_activacion_opencode "$C8")" "A-9: sin proyeccion global -> no reporta nada"
 
 echo ""
 echo "===================================================================="

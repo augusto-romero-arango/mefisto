@@ -1,12 +1,11 @@
 #!/usr/bin/env bash
-# Contrato del comando fix-review neutral y sus dos proyecciones publicadas.
+# Contrato del comando fix-review neutral y su proyeccion publicada.
 set -uo pipefail
 export LC_ALL=C
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
 REPO_ROOT="$(cd "$HERE/../../../.." && pwd -P)"
 SOURCE="$REPO_ROOT/src/published/commands/fix-review.md"
 CLAUDE="$REPO_ROOT/dist/claude/commands/fix-review.md"
-OPENCODE="$REPO_ROOT/dist/opencode/commands/mefisto:fix-review.md"
 MIRROR="$REPO_ROOT/commands/fix-review.md"
 GENERATOR="$REPO_ROOT/src/published/scripts/generate-published-adapters.sh"
 PASS=0; FAIL=0
@@ -23,7 +22,7 @@ metadata="$(awk 'NR == 1 { next } $0 == "---" { exit } { print }' "$SOURCE")"
 if printf '%s' "$metadata" | jq -e '.kind == "command" and .id == "fix-review" and .profile == "deep" and .arguments == "<numero-de-PR>" and (keys | sort) == ["arguments", "description", "id", "kind", "profile"]' >/dev/null; then pass 'metadata sin agent ni capabilities'; else fail 'metadata neutral invalida'; fi
 body="$(awk 'NR == 1 { next } $0 == "---" && !seen { seen=1; next } seen { print }' "$SOURCE")"
 contains "$body" '{{mefisto:assert-consumer-repo}}' 'guard consumidor presente'
-for forbidden in 'EnterPlanMode' 'ExitPlanMode' 'Co-Authored-By' 'Claude Opus' 'Claude' 'OpenCode' '.claude/' '.opencode/' 'CLAUDE_' '.plugin-root' 'plugins/cache' 'model:' 'tools:' 'allowed-tools:' 'permission:' '`Read`' '`Edit`' '`Write`'; do absent "$body" "$forbidden" "fuente no publica token prohibido: $forbidden"; done
+for forbidden in 'EnterPlanMode' 'ExitPlanMode' 'Co-Authored-By' 'Claude Opus' 'Claude' '.claude/' 'CLAUDE_' '.plugin-root' 'plugins/cache' 'model:' 'tools:' 'allowed-tools:' 'permission:' '`Read`' '`Edit`' '`Write`'; do absent "$body" "$forbidden" "fuente no publica token prohibido: $forbidden"; done
 contains "$body" 'Uso: {{mefisto:command fix-review}} <numero-de-PR>' 'uso vacio via directiva command'
 contains "$body" '{{mefisto:package-root}}/agents/<id>.md' 'agentes del harness desde package-root'
 contains "$body" '{{mefisto:package-root}}/docs/adr/mef-adr-0019-*.md' 'ADR-0019 desde package-root'
@@ -50,20 +49,14 @@ for marker in '{{mefisto:assert-consumer-repo}}' '## Fase 1: Triaje' '## Fase 2:
 done
 [ "$ok" = 1 ] && pass 'guard -> triaje -> plan -> build/test -> push -> respuestas -> mejora -> field note'
 
-echo '[salidas] adaptadores y mirror'
-for file in "$CLAUDE" "$OPENCODE"; do [ -f "$file" ] && pass "existe ${file#"$REPO_ROOT/"}" || fail "falta ${file#"$REPO_ROOT/"}"; done
+echo '[salidas] adaptador y mirror'
+[ -f "$CLAUDE" ] && pass "existe ${CLAUDE#"$REPO_ROOT/"}" || fail "falta ${CLAUDE#"$REPO_ROOT/"}"
 claude_body="$(< "$CLAUDE")"
-opencode_body="$(< "$OPENCODE")"
 contains "$claude_body" 'model: "opus"' 'Claude materializa el perfil deep'
-absent "$opencode_body" 'model:' 'OpenCode no emite model'
 contains "$claude_body" '${MEFISTO_PACKAGE_ROOT}/agents/' 'Claude lee agentes desde MEFISTO_PACKAGE_ROOT'
-contains "$opencode_body" '${MEFISTO_PACKAGE_ROOT}/agents/' 'OpenCode lee agentes desde MEFISTO_PACKAGE_ROOT'
 contains "$claude_body" 'repoSlug' 'Claude lee repoSlug'
-contains "$opencode_body" 'repoSlug' 'OpenCode lee repoSlug'
 absent "$claude_body" 'plugins/cache' 'salida Claude sin cache de plugins'
-absent "$opencode_body" 'plugins/cache' 'salida OpenCode sin cache de plugins'
 contains "$claude_body" 'Nunca auto-resuelvas comentarios' 'Claude conserva las reglas'
-contains "$opencode_body" 'Nunca auto-resuelvas comentarios' 'OpenCode conserva las reglas'
 if cmp -s "$MIRROR" "$CLAUDE"; then pass 'mirror Claude coincide byte a byte'; else fail 'mirror Claude diverge'; fi
 contains "$(< "$MIRROR")" '<!-- GENERADO por src/published/scripts/generate-published-adapters.sh desde src/published/commands/fix-review.md. No editar a mano. -->' 'mirror conserva marcador generado'
 if "$GENERATOR" --check >/dev/null; then pass 'generate-published-adapters --check esta al dia'; else fail 'generate-published-adapters --check detecto divergencias'; fi

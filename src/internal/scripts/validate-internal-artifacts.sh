@@ -156,7 +156,7 @@ validate_file() {
 # src/internal/skills/<id>/SKILL.md (issue #1685, MEF-ADR-0033): `name` igual
 # al directorio, `description` presente, sin `allowed-tools`. Es un chequeo
 # textual sobre las claves de primer nivel; el body de un Skill no pasa por la
-# regla de neutralidad de agentes/comandos (documenta ambos runtimes).
+# regla de neutralidad de agentes/comandos (documenta los adaptadores).
 validate_skill() {
     local file="$1"
     local rel="${file#"$REPO_ROOT"/}"

@@ -5,7 +5,7 @@
 # (b) exceptions usa APPINSIGHTS_APP/RG del consumidor; (c) custom audita en
 # .mefisto/pipeline/kql-audit.log sin crear archivos junto al script;
 # (d) plan-sites/plan-metrics solo invocan az de lectura y rechazan ids mal
-# formados; (e) la copia en dist/opencode/scripts/ funciona igual;
+# formados; (e) la copia en dist/claude/scripts/ funciona igual;
 # (a2/b0) aviso de solo lectura ante un scripts/.env legacy del consumidor
 # (issue #2386), con el script ejecutado desde fuera del repo como en una instalacion real.
 #
@@ -91,8 +91,8 @@ check_legacy() {
     echo "$out" | grep -q "legacy" && fail "CA-3 aviso sin scripts/.env" || pass "CA-3 sin scripts/.env sin aviso"
 }
 check_legacy "$REPO" "$REPO_ROOT/scripts" "fuente"
-if [ -f "$REPO_ROOT/dist/opencode/scripts/appinsights-query.sh" ]; then
-    check_legacy "$REPO" "$REPO_ROOT/dist/opencode/scripts" "dist-opencode"
+if [ -f "$REPO_ROOT/dist/claude/scripts/appinsights-query.sh" ]; then
+    check_legacy "$REPO" "$REPO_ROOT/dist/claude/scripts" "dist-claude"
 fi
 
 mkdir -p "$REPO/.mefisto"
@@ -152,10 +152,10 @@ help_out=$(run "$REPO")
 echo "$help_out" | grep -q "plan-sites" && echo "$help_out" | grep -q "plan-metrics" \
     && pass "aparecen en el help" || fail "no aparecen en el help"
 
-echo "[e] copia de dist/opencode/scripts"
-if [ -f "$REPO_ROOT/dist/opencode/scripts/appinsights-query.sh" ]; then
+echo "[e] copia de dist/claude/scripts"
+if [ -f "$REPO_ROOT/dist/claude/scripts/appinsights-query.sh" ]; then
     REPO2="$TMP/consumer-dist"
-    make_repo "$REPO2" "$REPO_ROOT/dist/opencode/scripts"
+    make_repo "$REPO2" "$REPO_ROOT/dist/claude/scripts"
     mkdir -p "$REPO2/.mefisto"
     cp "$REPO/.mefisto/appinsights.env" "$REPO2/.mefisto/"
     : > "$AZ_LOG"
@@ -165,7 +165,7 @@ if [ -f "$REPO_ROOT/dist/opencode/scripts/appinsights-query.sh" ]; then
     [ -f "$REPO2/.mefisto/pipeline/kql-audit.log" ] && pass "auditoria en dist" || fail "sin auditoria en dist"
     check_plans "$REPO2"
 else
-    fail "falta dist/opencode/scripts/appinsights-query.sh"
+    fail "falta dist/claude/scripts/appinsights-query.sh"
 fi
 
 echo ""
