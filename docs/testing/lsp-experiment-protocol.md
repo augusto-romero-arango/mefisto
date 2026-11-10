@@ -1,25 +1,26 @@
-# Protocolo del experimento multi-runtime de LSP en agentes C# (issue #976)
+# Protocolo del experimento de LSP en agentes C# (issue #976)
 
 Este documento fija el **protocolo y el corpus** de un experimento A/B: si la navegacion
 semantica (LSP) reduce contexto/tokens o mejora calidad frente a busqueda textual en los
 agentes publicados de Mefisto que trabajan sobre C#. **No ejecuta ningun piloto** -- lo
-ejecutan #979 (Claude Code) y #980 (OpenCode) sobre este mismo protocolo; #981 sintetiza
-la decision. La hipotesis se expresa como capacidad semantica neutral (MEF-ADR-0050): el
-servidor, la configuracion, el tool schema y el wire format quedan fijados por runtime, y
-por eso **solo son validos los deltas texto-vs-LSP dentro del mismo runtime** -- ninguna
-cifra absoluta de Claude Code se compara contra OpenCode, ni aqui ni en #979/#980/#981.
+ejecuta un piloto por runtime con adaptador sobre este mismo protocolo (hoy solo Claude
+Code, #979); #981 sintetiza la decision. La hipotesis se expresa como capacidad semantica
+neutral (MEF-ADR-0050): el servidor, la configuracion, el tool schema y el wire format
+quedan fijados por runtime, y por eso **solo son validos los deltas texto-vs-LSP dentro
+del mismo runtime** -- ninguna cifra absoluta se compara entre runtimes, ni aqui ni en
+#979/#981.
 
 ## Que este documento NO decide
 
-- No corre ningun par texto/LSP: eso es #979 y #980.
+- No corre ningun par texto/LSP: eso es #979.
 - No decide adopcion de LSP en la doctrina de ningun agente: eso es #981.
 - No prueba `test-writer`, `smoke-test-writer` ni las variantes de proyecciones
   (`projection-test-writer`, `projections-scaffolder`, `projection-implementer` en su
   rol read-side). Un resultado favorable en los tres roles de este protocolo **no**
   se extrapola por si solo a esos roles no probados.
 - No reintroduce el MCP de Rider (#978 lo retira del baseline textual antes de este
-  experimento) ni bundlea `csharp-lsp` o cambia `opencode.json`/permisos como efecto
-  colateral de medir.
+  experimento) ni bundlea `csharp-lsp` o cambia permisos como efecto colateral de
+  medir.
 
 ## Consumidor y SHA de referencia
 
@@ -38,16 +39,16 @@ alcanzable, y es el punto de comparacion del experimento, no "lo ultimo del cons
 
 Reglas de uso:
 
-1. **Los dos pilotos usan este SHA**, no uno propio. Es la unica forma de que los deltas
-   texto-vs-LSP de #979 y de #980 describan el mismo codigo. Cada piloto lo copia a su
-   preflight (`docs/testing/lsp-pilot-claude.md`, `docs/testing/lsp-pilot-opencode.md`)
-   como dato reverificado con el comando de arriba, no como supuesto heredado.
+1. **Todo piloto usa este SHA**, no uno propio. Es la unica forma de que los deltas
+   texto-vs-LSP de cada piloto describan el mismo codigo. Cada piloto lo copia a su
+   preflight (`docs/testing/lsp-pilot-claude.md`) como dato reverificado con el comando
+   de arriba, no como supuesto heredado.
 2. Queda **congelado** para los tres casos, las tres repeticiones por caso y ambos brazos
    (texto/LSP) de cada piloto -- ninguna repeticion resuelve `HEAD` por su cuenta, ni
    siquiera si el consumidor avanza mientras el piloto esta en curso.
 3. Si el SHA deja de ser alcanzable (rebase destructivo, borrado del repo), el piloto que
    lo detecte **enmienda este documento** con el SHA nuevo y su fecha antes de correr, y
-   el otro piloto se realinea a ese mismo valor. Ninguno elige un SHA distinto en
+   cualquier otro piloto se realinea a ese mismo valor. Ninguno elige un SHA distinto en
    silencio dentro de su propio reporte: eso reintroduce una variable no controlada entre
    runtimes, que es precisamente lo que este SHA existe para eliminar.
 
@@ -80,7 +81,7 @@ respuestas no acotadas o ambiguas que contaminarian la medicion:
 - **Tres pares por runtime, por caso.** Un "par" es una repeticion completa: brazo
   texto + brazo LSP sobre el mismo caso, mismo runtime, mismo modelo, mismo prompt,
   mismo SHA (seccion anterior) y mismo estado inicial del worktree. Con 3 casos x 3
-  pares x 2 runtimes, el corpus total son 18 pares (36 ejecuciones individuales).
+  pares, el corpus de cada runtime son 9 pares (18 ejecuciones individuales).
 - **Worktrees limpios.** Cada ejecucion individual (cada brazo de cada par) arranca de
   un worktree nuevo creado desde el SHA congelado -- nunca se reutiliza el worktree de
   una ejecucion anterior, para que ningun estado residual (cache tibia, archivos ya
@@ -95,9 +96,8 @@ respuestas no acotadas o ambiguas que contaminarian la medicion:
   inicial. La **unica** variable que cambia entre los dos brazos de un par es la
   disponibilidad de LSP (ver "Brazos" abajo).
 - **Ninguna comparacion de cifras absolutas entre runtimes.** El delta relevante es
-  texto-vs-LSP calculado dentro de Claude Code y, por separado, dentro de OpenCode.
-  #979 y #980 no confrontan sus numeros entre si; #981 sintetiza dos veredictos
-  independientes, no un promedio cruzado.
+  texto-vs-LSP calculado dentro de cada runtime. Los pilotos no confrontan sus numeros
+  entre si; #981 sintetiza veredictos independientes, no un promedio cruzado.
 
 ## Brazos del experimento
 
@@ -111,10 +111,7 @@ respuestas no acotadas o ambiguas que contaminarian la medicion:
 - Sin ninguna tool ni schema de LSP expuesto al agente -- no solo "sin usarlo": la
   capacidad no esta declarada en la config de esa corrida. Mecanismo concreto por
   runtime: en **Claude Code**, el plugin `csharp-lsp` no esta cargado en esa corrida y se
-  confirma en la traza que la tool no aparece; en **OpenCode**,
-  `OPENCODE_EXPERIMENTAL_LSP_TOOL` sin exportar **y** `lsp: deny` en el bloque
-  `permission` -- los dos gates, porque cerrar uno solo no evidencia que el otro
-  estuviera cerrado.
+  confirma en la traza que la tool no aparece.
 - Navegacion con `Glob`/`Grep`/`Read`; diagnostico con `dotnet build`/`dotnet test`,
   igual que el agente publicado hoy tras #978.
 
@@ -124,11 +121,7 @@ respuestas no acotadas o ambiguas que contaminarian la medicion:
   `anthropics/claude-plugins-official`, respaldado por `csharp-ls` **[1]**. Su
   disponibilidad en modo headless (`claude -p`, el modo real del pipeline publicado) se
   verifica en preflight, no se asume -- ver "Preflight" abajo.
-- **OpenCode**: unicamente el mecanismo nativo -- servidor C# (requiere .NET SDK
-  detectado) + `OPENCODE_EXPERIMENTAL_LSP_TOOL=true` (o el flag experimental global) +
-  permiso `lsp: allow` **[2][3]**. Los tres gates (servidor, feature flag, permiso) se
-  verifican por separado en preflight: son fallos independientes.
-- **Doctrina dirigida**: en ambos runtimes, el brazo LSP recibe una instruccion explicita
+- **Doctrina dirigida**: el brazo LSP recibe una instruccion explicita
   de preferir la consulta semantica sobre la consulta textual para los simbolos
   candidatos del caso. Esta doctrina es temporal para el experimento -- no se adopta en
   ningun agente publicado hasta que #981 lo decida.
@@ -156,9 +149,9 @@ Cada repeticion (brazo individual) registra, como minimo:
 | Resultado del oraculo | pasa/no pasa, segun la tabla de casos |
 | Indexacion/cache fria vs caliente | anotada aparte de las metricas anteriores, nunca mezclada en los promedios de tokens/tiempo |
 
-Ambos pilotos emiten esas filas con **la misma cabecera**, para que #981 concatene los
-dos reportes sin normalizar nada a mano (y siempre leyendo los tokens y el tiempo dentro
-de cada runtime, nunca entre runtimes):
+Todo piloto emite esas filas con **la misma cabecera**, para que #981 lea los reportes
+sin normalizar nada a mano (y siempre leyendo los tokens y el tiempo dentro de cada
+runtime, nunca entre runtimes):
 
 | caso | rol | brazo | pos | rep | tokens_in | tokens_out | costo | wall_clock_s | tool_calls | reintentos | build | tests | hallazgos_mayores | oraculo | cache |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
@@ -171,7 +164,7 @@ contrabalanceo).
 El **tamano bruto de cada respuesta** (payload de la consulta LSP o del grep) es
 diagnostico opcional que se deriva de la traza solo cuando el runtime la expone -- no es
 metrica portable ni motivo para ampliar el contrato neutral de metricas antes de que
-#979/#980 demuestren que hace falta.
+#979 demuestre que hace falta.
 
 ## Criterio de decision (por rol, predeclarado)
 
@@ -215,19 +208,18 @@ se rellena la faltante con el promedio de las otras.
 
 ## Preflight y reglas de parada
 
-Antes de contar cualquier par como valido, cada piloto (#979/#980) verifica y registra:
+Antes de contar cualquier par como valido, cada piloto verifica y registra:
 
 - Version del runtime, version del modelo y SHA del consumidor (fijados, ver seccion
   "Consumidor y SHA de referencia").
 - **Disponibilidad del mecanismo LSP con una consulta pequena de control**, no solo su
   instalacion: Claude Code confirma que `csharp-lsp` responde dentro de `claude -p`
   headless. Los dos reportes abiertos del tracker ubican el fallo en el modo interactivo
-  y describen `-p` como el camino que si funciona **[4][5]**, pero eso no exime de
+  y describen `-p` como el camino que si funciona **[2][3]**, pero eso no exime de
   comprobarlo: son senales de riesgo de terceros, no fuentes normativas, y lo que el
   preflight mide es que la tool aparece en la traza del stage tal como lo lanza el
-  pipeline -- incluidos los subagentes que ese stage invoque, que es justo donde **[4]**
-  reporta la poda -- y que responde a una consulta de control. OpenCode confirma servidor
-  C#, feature flag y permiso como tres gates separados **[2][3]**.
+  pipeline -- incluidos los subagentes que ese stage invoque, que es justo donde **[2]**
+  reporta la poda -- y que responde a una consulta de control.
 - **Frescura tras una edicion**: dentro de una misma ejecucion, si el brazo LSP edita un
   archivo, la siguiente consulta semantica debe reflejar esa edicion antes de aceptarse
   como valida -- una respuesta que ignora una edicion reciente se registra como
@@ -242,31 +234,21 @@ oraculo del caso es distinto (ver tabla de casos).
 ## Fuera de alcance para #981 por adelantado
 
 Si el resultado favorece LSP en alguno de los tres roles, #981 decide una capacidad
-neutral separada de `read` para exponerlo en la doctrina: hoy el contrato interno mapea
-`read` a LSP solo en OpenCode (`src/internal/contract/opencode-permissions.json`,
-`capability_scalar.read` incluye `"lsp"`) y no en Claude Code. Esa asimetria es un
-detalle de implementacion del contrato interno de hoy, no una doctrina a preservar --
-#981 no debe heredarla por inercia.
+neutral separada de `read` para exponerlo en la doctrina.
 
 ## Fuentes
 
 - **[1]** `anthropics/claude-plugins-official`, entrada `csharp-lsp` del marketplace y
   `plugins/csharp-lsp/README.md` -- plugin oficial 1.0.0 respaldado por `csharp-ls`.
   https://github.com/anthropics/claude-plugins-official/tree/main/plugins/csharp-lsp
-- **[2]** "Tools" -- documentacion oficial de OpenCode, seccion LSP (experimental):
-  requiere `OPENCODE_EXPERIMENTAL_LSP_TOOL=true` (o el flag experimental global) y
-  permiso `lsp: allow`. https://opencode.ai/docs/tools/#lsp-experimental
-- **[3]** "LSP" -- documentacion oficial de OpenCode: servidor C# incluido cuando hay
-  .NET SDK, deshabilitado por defecto salvo configuracion explicita de la seccion `lsp`.
-  https://opencode.ai/docs/lsp/
-- **[4]** `anthropics/claude-code#84125` (abierto) -- "LSP tool is pruned from all
+- **[2]** `anthropics/claude-code#84125` (abierto) -- "LSP tool is pruned from all
   subagent tool sets in interactive sessions (present in the parent, and in subagents
   under -p)". Senal de riesgo de terceros, no fuente normativa: reporta el modo
   interactivo como el roto y `-p` como el que si expone la tool a los subagentes; de ahi
   que el preflight verifique la presencia de la tool en la forma exacta en que corre el
   pipeline, subagentes incluidos.
   https://github.com/anthropics/claude-code/issues/84125
-- **[5]** `anthropics/claude-code#79744` (abierto) -- "Interactive LSP client never sends
+- **[3]** `anthropics/claude-code#79744` (abierto) -- "Interactive LSP client never sends
   didChange after Edit-tool writes -- server buffers stay frozen at first-query content
   (headless `-p` syncs correctly)". Misma naturaleza: atribuye la desincronizacion tras
   editar al modo interactivo. Que el reporte afirme que `-p` sincroniza bien es

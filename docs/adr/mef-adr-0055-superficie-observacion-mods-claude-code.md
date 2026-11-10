@@ -29,7 +29,7 @@ Este ADR fija cuatro cosas: la regla de diseno de los mods del propio Mefisto, s
 
 ### Que queda fuera de este ADR
 
-- Una superficie equivalente para OpenCode, cuyos plugins de TUI v2 no declaran estabilidad.
+- Una superficie equivalente para otro runtime.
 
 ## Decision
 
@@ -77,11 +77,11 @@ Del lado interno, el mod vive en `.claude/mods/<mod>/` con la forma de plugin de
 - `types/index.d.ts`
 - `hooks/*.test.ts`
 
-La ruta queda registrada en `is_path_in_mefisto_scope` y en la politica OpenCode generada, antes de poblarla (MEF-ADR-0019 seccion E). Los tipos que el engine regenera en `.claude-plugin/types/` no se versionan. Se cargan desde el marketplace de carpeta `.claude/mods/.claude-plugin/marketplace.json` (`mefisto-mods`), instalado una vez por checkout en alcance `local` (`claude plugin marketplace add ./.claude/mods --scope local` y `claude plugin install <mod>@mefisto-mods --scope local`). Esa configuracion vive en `.claude/settings.local.json`, que no se versiona y no existe en los worktrees de los pipelines, por lo que las sesiones `-p` de los agentes nunca cargan los mods. Un marketplace de carpeta se lee desde la propia carpeta: un cambio se aplica con `/reload-plugins`. `--plugin-dir` queda para probar una copia suelta.
+La ruta queda registrada en `is_path_in_mefisto_scope` antes de poblarla (MEF-ADR-0019 seccion E). Los tipos que el engine regenera en `.claude-plugin/types/` no se versionan. Se cargan desde el marketplace de carpeta `.claude/mods/.claude-plugin/marketplace.json` (`mefisto-mods`), instalado una vez por checkout en alcance `local` (`claude plugin marketplace add ./.claude/mods --scope local` y `claude plugin install <mod>@mefisto-mods --scope local`). Esa configuracion vive en `.claude/settings.local.json`, que no se versiona y no existe en los worktrees de los pipelines, por lo que las sesiones `-p` de los agentes nunca cargan los mods. Un marketplace de carpeta se lee desde la propia carpeta: un cambio se aplica con `/reload-plugins`. `--plugin-dir` queda para probar una copia suelta.
 
 ### 5. Encaje con la neutralidad
 
-El mod es una superficie de **observacion**, no una operacion. MEF-ADR-0050 exige que toda operacion nazca neutral, y aqui la operacion (el pipeline, el merge) sigue neutral e intacta. Sin el mod (OpenCode, `claude -p`, VS Code o una politica administrada que lo bloquee), el flujo es exactamente el de hoy: pane de herdr, sesion tmux o el panel de logs de OpenCode, sin un comando de dashboard equivalente. El mod nunca es requisito de un pipeline.
+El mod es una superficie de **observacion**, no una operacion. MEF-ADR-0050 exige que toda operacion nazca neutral, y aqui la operacion (el pipeline, el merge) sigue neutral e intacta. Sin el mod (`claude -p`, VS Code o una politica administrada que lo bloquee), el flujo es exactamente el de hoy: pane de herdr o sesion tmux, sin un comando de dashboard equivalente. El mod nunca es requisito de un pipeline.
 
 ### 6. Modo de lanzamiento sin pane: `MEFISTO_UI=mod`
 
@@ -91,7 +91,7 @@ El hijo arranca sin `HERDR_*` ni `MEFISTO_UI`, para que los gates que corren tes
 
 En el lado interno el modo sin pane lo decide el runtime resuelto, igual que en el publicado: el adaptador Claude renderiza el lanzamiento con `MEFISTO_RUNTIME=claude`, y sin `MEFISTO_UI` el wrapper corre desacoplado (#2284). El mod solo observa el lanzamiento y no modifica el comando del skill: `/mefisto-tooling` no cambia, y un `MEFISTO_UI` explicito sigue ganando. Con el modo activo, la fila de herdr baja de tres panes a dos: planner y ejecucion.
 
-En el lado publicado el modo lo decide el runtime resuelto (#2285): con el runtime claude y sin `MEFISTO_UI`, o con `MEFISTO_UI=mod`, `tmux-pipeline.sh` corre desacoplado y la consola `fausto-blood-pact` sigue la corrida. Incluye `--parallel`: delega en `parallel-pipeline.sh` (con `--pipeline` y `--max-parallel` si vienen), cuyo scheduler serializa los `tipo:projection` (MEF-ADR-0034), por lo que un lote con dos o mas ya no aborta; el report queda en `logs/parallel-run-<ts>.report.log`. Ese scheduler espera 30 s entre lanzamientos (`--stagger <s>`, `0` lo apaga). Un `MEFISTO_UI=tmux|herdr` explicito y el runtime opencode conservan los panes, y ahi el abort de proyecciones se mantiene.
+En el lado publicado el modo lo decide el runtime resuelto (#2285): con el runtime claude y sin `MEFISTO_UI`, o con `MEFISTO_UI=mod`, `tmux-pipeline.sh` corre desacoplado y la consola `fausto-blood-pact` sigue la corrida. Incluye `--parallel`: delega en `parallel-pipeline.sh` (con `--pipeline` y `--max-parallel` si vienen), cuyo scheduler serializa los `tipo:projection` (MEF-ADR-0034), por lo que un lote con dos o mas ya no aborta; el report queda en `logs/parallel-run-<ts>.report.log`. Ese scheduler espera 30 s entre lanzamientos (`--stagger <s>`, `0` lo apaga). Un `MEFISTO_UI=tmux|herdr` explicito conserva los panes, y ahi el abort de proyecciones se mantiene.
 
 ### 7. Requisitos de construccion
 
@@ -194,6 +194,7 @@ Los mods de ambos lados no comparten codigo (MEF-ADR-0019), pero no deben diverg
 
 ## Control de cambios
 
+- 2026-11-10: "Que queda fuera de este ADR", decision 4, decision 5 y decision 6: sale OpenCode, que deja de ser runtime soportado (MEF-ADR-0057 decision 7); sin el mod la observacion es el pane de herdr o la sesion tmux.
 - 2026-11-10: decision 6: en el lado interno el modo sin pane lo decide el runtime resuelto (`MEFISTO_RUNTIME=claude` sin `MEFISTO_UI`, #2284) y el hook `tool.call` del mod solo observa el lanzamiento, sin reescribir el comando; evita que el clasificador de auto mode quede sin veredicto (issue #2506).
 - 2026-10-16: decision 6 cubre los dos lados: el modo sin pane del consumidor lo decide el runtime resuelto e incluye `--parallel` (delega en `parallel-pipeline.sh`, con escalonado `--stagger`); se retira de "Aplica a" y de "Que queda fuera" el modo sin pane en el consumidor (issue #2448).
 - 2026-10-14: "Que queda fuera de este ADR": se retira el punto de la lista de issues que el reviewer creaba por tests ajustados; el pipeline TDD ya no crea ese issue y la senal pasa a una seccion del body del PR (issue #2438).

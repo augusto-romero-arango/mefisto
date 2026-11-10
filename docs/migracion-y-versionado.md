@@ -16,7 +16,7 @@ No conserves ambos archivos: los lectores avisan de la coexistencia y usan igual
 
 ### Migrar directivas canónicas desde `CLAUDE.md`
 
-Cuando `AGENTS.md` todavía no existe, un `CLAUDE.md` legacy con "Tokens del harness" y "Verificación de fuentes" sigue siendo legible como fallback indefinido. Para que ambos runtimes consuman esas directivas desde la fuente canónica sin duplicarlas:
+Cuando `AGENTS.md` todavía no existe, un `CLAUDE.md` legacy con "Tokens del harness" y "Verificación de fuentes" sigue siendo legible como fallback indefinido. Para que las directivas vivan en la fuente canónica, neutral a runtime, sin duplicarse:
 
 1. mueve las dos secciones, sin reescribir su contenido, a `AGENTS.md`;
 2. elimina esas copias de `CLAUDE.md` y añade `@AGENTS.md` como línea independiente;
@@ -69,7 +69,7 @@ Cambios **incompatibles** al schema de `harness.config.json` (quitar o renombrar
 /mefisto:upgrade
 ```
 
-Reemplaza el flujo manual por un comando + el reload final: detecta el marketplace sin asumir su nombre, actualiza catálogo y plugin, reescribe `.claude/pipeline/.plugin-root` e imprime el delta de `CHANGELOG.md`. Antes de actualizar consulta la adhesion OpenCode: `enabled` y `stale` se alinean automaticamente con la misma version destino; `disabled` pide una sola confirmacion explicita y permite conservar el modo solo Claude; `conflict` queda visible sin mutar OpenCode. Si OpenCode queda habilitado, el resultado incluye `status`, release activa y diagnostico de identidad contra la raiz Claude destino. Bajo confirmación explícita, además poda solo el cache Claude —nunca la versión cargada en esta sesión ni la nueva—; no poda releases OpenCode. Termina siempre pidiendo `/reload-plugins` (o reiniciar la sesión), porque la sesión viva sigue cargando la versión anterior hasta entonces.
+Reemplaza el flujo manual por un comando + el reload final: detecta el marketplace sin asumir su nombre, actualiza catálogo y plugin, reescribe `.claude/pipeline/.plugin-root` e imprime el delta de `CHANGELOG.md`. Reporta además la activación de Mefisto: si el repo ya lo habilita en su `.claude/settings.json` commiteado y el nivel usuario todavía lo carga en todos tus repos, ofrece deshabilitarlo a ese nivel bajo confirmación. Bajo confirmación explícita, además poda las versiones viejas del cache —nunca la versión cargada en esta sesión ni la nueva—. Termina siempre pidiendo `/reload-plugins` (o reiniciar la sesión), porque la sesión viva sigue cargando la versión anterior hasta entonces.
 
 Por qué la poda necesita cuidado: si borrara la versión que la sesión activa tiene cargada, el propio skill en ejecución desaparecería del disco y la sesión rompería a mitad de camino. Como el paso de actualización ya reescribió `.plugin-root` a la versión nueva, ese archivo deja de describir lo que la sesión cargó, así que el skill le pasa la versión cargada al script de forma explícita (`--prune --loaded <versión>`) y el script la respalda en `.claude/pipeline/.plugin-root.previous` —un marker por sesión que escribe una sola vez y que limpia el hook `SessionStart`, no el script—. Correr `/mefisto:upgrade` dos veces en la misma sesión (el camino natural si declinas podar y lo reconsideras después) es por eso seguro. Si ninguna de las dos fuentes resuelve la versión cargada, el script conserva la N-1 por precaución en vez de arriesgarse.
 
