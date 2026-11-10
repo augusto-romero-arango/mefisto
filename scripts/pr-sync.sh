@@ -321,6 +321,14 @@ if ! mefisto_resolve_model "$MEFISTO_RUNTIME_RESUELTO" "implementer" "balanced" 
 fi
 IMPLEMENTER_MODEL="$(cat "$IMPLEMENTER_MODEL_FILE")"; rm -f "$IMPLEMENTER_MODEL_FILE"
 
+# Effort neutral del implementer (issue #2500), en el mismo punto que su modelo
+# y antes del bucle de PRs; sirve a merge y fix. Vacio = heredar (sin --effort).
+if ! resolve_pipeline_agent_effort implementer implementer; then
+    echo -e "${RED}${BOLD}✗ No se pudo resolver el effort de implementer: ${PIPELINE_EFFORT_ERROR:-motivo desconocido} (MEFISTO_EFFORTS_ERROR)${NC}"
+    exit 1
+fi
+IMPLEMENTER_EFFORT="$RESOLVED_PIPELINE_EFFORT"
+
 # ─── Resolver lista de PRs (compatible bash 3.2, sin mapfile) ─────────────────
 if [ "$DO_ALL" = true ]; then
     log "Obteniendo todos los PRs abiertos..."
@@ -398,6 +406,7 @@ run_agent() {
 
         local args=(--runtime "$MEFISTO_RUNTIME_RESUELTO" --agent "$agent" --cwd "$worktree" --prompt-file "$attempt_prompt" --system-file "$system_file" --event-log "$events_file")
         [ -n "$IMPLEMENTER_MODEL" ] && args+=(--model "$IMPLEMENTER_MODEL")
+        [ -n "$IMPLEMENTER_EFFORT" ] && args+=(--effort "$IMPLEMENTER_EFFORT")
         [ -n "$resume_session" ] && args+=(--resume-session "$resume_session")
 
         "$RUN_AGENT_BIN" "${args[@]}" >"$log_file" 2>&1 || run_exit=$?
