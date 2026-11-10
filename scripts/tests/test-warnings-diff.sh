@@ -12,6 +12,7 @@
 #   [fix]  WARNINGS_DIFF_FIXTURE_DIR
 #   [dotnet] toolchain dotnet con fixtures del file logger (issue #2417)
 #   [terraform] toolchain terraform con fixtures y stub (issue #2418)
+#   consola del build (dotnet) y linea de tiempos por fase (issue #2507)
 
 set -uo pipefail
 
@@ -87,9 +88,11 @@ if [ "$RC" -eq 2 ] && echo "$OUT" | grep -q '^NEW shell a.sh SUPPRESSION ' && ec
 
 echo "[CA-3] cache y worktree temporal"
 R=$(new_repo); BASE=$(git -C "$R" rev-parse HEAD)
-run_wd "$R" --toolchain shell --base "$BASE" >/dev/null
+OUT=$(run_wd "$R" --toolchain shell --base "$BASE")
 CACHE="$R/.mefisto/pipeline/warnings-baseline/shell-$BASE-all.txt"
 [ -f "$CACHE" ] && pass "cache creado" || fail "cache ausente: $CACHE"
+echo "$OUT" | grep -Eq '^warnings-diff: base [0-9]+s \(build\), actual [0-9]+s$' \
+    && pass "tiempos (#2507): base sin cache -> (build)" || fail "tiempos sin cache: $OUT"
 # Shim de git en PATH que registra cada invocacion: la segunda corrida no debe
 # llamar 'git worktree add' (un alias no sirve: git ignora aliases que ocultan
 # subcomandos nativos).
@@ -100,6 +103,8 @@ chmod +x "$SHIM/git"
 OUT=$(cd "$R" && PATH="$SHIM:$PATH" "$REAL_SCRIPT" --toolchain shell --base "$BASE" 2>&1); RC=$?
 if [ "$RC" -eq 0 ] && [ -f "$GITLOG" ] && ! grep -q 'worktree add' "$GITLOG"; then
     pass "segunda invocacion reutiliza el cache sin crear worktree"; else fail "cache no reutilizado (rc=$RC): $OUT"; fi
+echo "$OUT" | grep -Eq '^warnings-diff: base [0-9]+s \(cache\), actual [0-9]+s$' \
+    && pass "tiempos (#2507): base desde cache -> (cache)" || fail "tiempos con cache: $OUT"
 [ "$(git -C "$R" worktree list | wc -l | tr -d ' ')" -eq 1 ] && pass "sin worktrees temporales tras salir" || fail "worktree residual"
 run_wd "$R" --toolchain shell --base deadbeef >/dev/null; RC=$?
 [ "$RC" -eq 1 ] && [ "$(git -C "$R" worktree list | wc -l | tr -d ' ')" -eq 1 ] && pass "base invalida -> exit 1 sin worktree residual" || fail "base invalida (rc=$RC)"
@@ -143,6 +148,8 @@ printf '%s\n' 'a.sh:2:1: warning: foo appears unused. Verify use (or export if u
 OUT=$(cd "$R" && WARNINGS_DIFF_FIXTURE_DIR="$FX" "$REAL_SCRIPT" --toolchain shell --base "$BASE" 2>&1); RC=$?
 if [ "$RC" -eq 2 ] && echo "$OUT" | grep -q '^NEW shell a.sh SC2034 bar appears unused' && echo "$OUT" | grep -q '^warnings nuevos: 1$'; then
     pass "fixture dir: parser + diff"; else fail "fixture (rc=$RC): $OUT"; fi
+echo "$OUT" | grep -Eq '^warnings-diff: base [0-9]+s \(build\), actual [0-9]+s$' \
+    && pass "tiempos (#2507): linea presente con --toolchain shell" || fail "tiempos shell: $OUT"
 
 echo "[dotnet] fixtures del file logger"
 FXD="$SCRIPT_DIR/fixtures/warnings-diff/dotnet"
@@ -193,7 +200,7 @@ if [ "$RC" -eq 2 ] && echo "$OUT" | grep -Eq '^warnings-diff: base [0-9]+s \(bui
 STDOUT_ONLY=$(cd "$R" && WARNINGS_DIFF_FIXTURE_DIR="$FXD/new" "$REAL_SCRIPT" --toolchain dotnet --base "$BASE" 2>/dev/null)
 [ "$(echo "$STDOUT_ONLY" | grep -c '')" -eq 2 ] && echo "$STDOUT_ONLY" | head -n1 | grep -q '^NEW dotnet ' && [ "$(echo "$STDOUT_ONLY" | tail -n1)" = 'warnings nuevos: 1' ] \
     && ! echo "$STDOUT_ONLY" | grep -q 'warnings-diff:' && pass "CA-3: stdout sin la linea de tiempos" || fail "CA-3 stdout: $STDOUT_ONLY"
-OUT=$(cd "$R" && WARNINGS_DIFF_FIXTURE_DIR="$FXD/moved" "$REAL_SCRIPT" --toolchain dotnet --base "$BASE" 2>&1 >/dev/null); 
+OUT=$(cd "$R" && WARNINGS_DIFF_FIXTURE_DIR="$FXD/moved" "$REAL_SCRIPT" --toolchain dotnet --base "$BASE" 2>&1 >/dev/null)
 echo "$OUT" | grep -Eq '^warnings-diff: base [0-9]+s \(build\), actual [0-9]+s$' && pass "CA-3: tiempos presentes con exit 0" || fail "CA-3 exit 0: $OUT"
 
 echo "[dotnet] supresiones"
@@ -225,6 +232,8 @@ if [ "$RC" -eq 2 ] && echo "$OUT" | grep -q '^NEW terraform main.tf Deprecated a
     pass "CA-1: warning solo en el actual -> NEW + exit 2"; else fail "CA-1 (rc=$RC): $OUT"; fi
 OUT=$(tf "$FXT/moved"); RC=$?
 [ "$RC" -eq 0 ] && pass "CA-1: mismo warning en otra linea -> exit 0" || fail "CA-1 movido (rc=$RC): $OUT"
+echo "$OUT" | grep -Eq '^warnings-diff: base [0-9]+s \(build\), actual [0-9]+s$' \
+    && pass "tiempos (#2507): linea presente con --toolchain terraform" || fail "tiempos terraform: $OUT"
 OUT=$(tf "$FXT/errors-only"); RC=$?
 [ "$RC" -eq 0 ] && pass "CA-2: diagnosticos error no cuentan como warnings" || fail "CA-2 error ignorado (rc=$RC): $OUT"
 OUT=$(tf "$FXT/invalid"); RC=$?
