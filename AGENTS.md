@@ -116,7 +116,7 @@ por fragmento en `changelog.d/<issue>.adr-index.md`.
 ### Código C#
 
 - **Caracteres prohibidos en `.cs`**: nunca `─` (U+2500) ni decorativos Unicode. Solo guión ASCII `-`.
-- **Comentarios**: mínimos, ver MEF-ADR-0044 (umbral doble Context Delta + Decision Delta; default sin comentario).
+- **Comentarios**: solo lo que no es obvio al leer el código, en una frase si se puede; default sin comentario (MEF-ADR-0044, rige también HCL, bash, TypeScript y YAML).
 - **Commits**: en español, descriptivos, frecuentes.
 - **Ramas de trabajo**: `worktree-issue-<num>-<slug>` (los pipelines las crean para el proyecto consumidor).
 - **PRs**: deben incluir `Closes #<número>` cuando resuelven un issue.
