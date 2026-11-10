@@ -681,38 +681,44 @@ git checkout -- src/ruta/al/archivo.cs
 
 ---
 
-### 6b. Limpieza de comentarios sobre-documentados (MEF-ADR-0044)
+### 6b. Revision de comentarios (MEF-ADR-0044)
 
-Aplica el Skill `code-comments` (precargado via frontmatter, MEF-ADR-0033) sobre cada archivo
-`.cs` que el diff de este PR ya crea o modifica -- produccion, tests y smoke tests por igual.
-**Nunca abras un archivo `.cs` ajeno al diff solo para limpiarlo**: la frontera es estricta
-(MEF-ADR-0044 seccion 6) -- limpiar un archivo no tocado por el issue es un cambio fuera de
-alcance del propio PR.
+Aplica el Skill `code-comments` (precargado via frontmatter, MEF-ADR-0033) en modo revision sobre
+cada archivo `.cs` que el diff de este PR ya crea o modifica -- produccion, tests y smoke tests
+por igual. **Nunca abras un archivo `.cs` ajeno al diff solo para revisarlo**: la frontera es
+estricta (MEF-ADR-0044 seccion 6) -- tocar un archivo no intervenido por el issue es un cambio
+fuera de alcance del propio PR.
 
-Sigue la mecanica completa del Skill sobre cada archivo del diff: clasifica cada comentario
-candidato, aplica el umbral doble Context Delta/Decision Delta, intenta codificar la informacion
-en el codigo antes de conservar un comentario, comprime los sobrevivientes y relee el archivo
-completo.
+Sigue la mecanica de revision del Skill sobre cada archivo del diff: clasifica cada comentario,
+marca hallazgos en los dos sentidos y relee el archivo completo.
 
-- **Behavior-preserving estricto**: la limpieza nunca cambia logica para reducir comentarios --
-  es una operacion puramente textual. Si un comentario solo dejaria de ser necesario cambiando el
-  codigo, eso es refactor (seccion 6 de arriba), no limpieza.
-- **Comentario que contradice la implementacion**: no lo resuelvas por tu cuenta. Reportalo en el
-  resumen sin tocarlo -- la discrepancia puede senalar un bug real, y decidir cual de los dos esta
-  mal es criterio humano (MEF-ADR-0044 seccion 6).
-- **Regla de precedencia**: hay comentarios que citan un ADR del marco y comentarios blindados por
-  construccion que **nunca** se podan. El criterio completo vive en el Skill (paso 7) y en
-  MEF-ADR-0044 seccion 4 -- consultalo antes de tocar cualquier comentario que cite un ADR, y no
-  lo repliques aqui.
+- **Lo que sobra**: si el comentario lleva un porque, una precision, una dependencia o una API
+  externa no obvia, acortalo a eso; si no lleva ninguno, borralo. Ante la duda, acorta antes que
+  borrar.
+- **Lo que falta**: agrega el porque, la precision (unidad, formato, significado de `null`), la
+  dependencia o la API externa no obvia que el codigo no dice. Solo cuando ese dato se pueda sacar
+  del codigo, del issue o del historial; **un porque nunca se inventa** -- si no lo puedes
+  sustentar, no lo escribas y, si importa, reportalo en "Criticas y hallazgos".
+- **Comentario falso** (contradice la implementacion): corrigelo si dice algo util y borralo si no
+  (un blindado siempre se corrige, nunca se borra). Nunca lo dejes falso ni pendiente. Si la
+  discrepancia delata ademas un posible defecto del codigo, anota ese defecto en "Criticas y
+  hallazgos", sin cambiar la logica.
+- **Behavior-preserving estricto**: la revision nunca cambia logica -- es una operacion puramente
+  textual. Si un comentario solo dejaria de ser necesario cambiando el codigo, eso es refactor
+  (seccion 6 de arriba), no revision de comentarios.
+- **Blindados**: los comentarios que un ADR o una plantilla exigen **nunca** se borran ni se
+  acortan. La lista y el criterio para las citas a ADR viven en el Skill y en MEF-ADR-0044
+  seccion 4 -- consultalos antes de tocar cualquier comentario que cite un ADR, y no los repliques
+  aqui.
 - **Caracter `─` (U+2500)**: esta pasada es el momento natural para aplicar la regla absoluta 7
   mientras lees cada comentario del diff; su enunciado sigue viviendo unicamente alli.
 
-Corre `dotnet test` despues de la limpieza -- debe seguir en verde, al ser behavior-preserving. Si
-algun test rompe, revierte la poda: significa que no era puramente textual.
+Corre `dotnet build` y `dotnet test` despues de la revision -- deben seguir en verde, al ser
+puramente textual. Si algo rompe, revierte el cambio: significa que no era solo un comentario.
 
-Documenta en tu resumen (seccion 8) cada poda realizada: el comentario podado o comprimido y cual
-de las dos condiciones del umbral no se cumplio (Context Delta, Decision Delta, o ambas). Si algun
-archivo del diff ya estaba limpio, indicalo explicitamente -- igual que con el refactor.
+Documenta en tu resumen (seccion 8) las tres listas: los comentarios acortados o borrados (con la
+categoria por la que sobraban), los agregados (que faltaba) y los corregidos por falsos. Si algun
+archivo del diff ya estaba en orden, indicalo explicitamente -- igual que con el refactor.
 
 ---
 
@@ -804,7 +810,7 @@ Si el implementer cito precedentes del codigo en su resumen de fase verde, verif
 | Contrato HTTP de comandos (MEF-ADR-0043): verbo segun test de precedencia, ruta kebab-case, ids URL-safe (charset unreserved) + politica de aceptacion de codigos de negocio en ruta, PATCH ausente, `Route` explicito, verbo declarado en Functions que comparten segmento, codigo de exito conforme al paso aplicable (201/204/200, `202` solo con justificacion explicita), coincidencia con el contrato pactado en el issue -- incluido el codigo de exito -- y no-op de PUT/DELETE nuevo o migrado (estado ya alcanzado declarado; mismo exito sin evento, publicacion ni excepcion; unit tests con cero efectos y estado inalterado; smoke con segundo intento y cero efectos correlacionados) (n/a si el diff no crea un endpoint HTTP de comando ni pacta la migracion de uno preexistente; un preexistente solo tocado nunca es bloqueante, salvo que el issue haya pactado explicitamente migrar su codigo de exito o no-op) | ok / falla / n/a | ... |
 | Control de volumen de telemetria (MEF-ADR-0038): orden `SetSampler`/`UseAzureMonitorExporter()`, `ParentBasedSampler` del worker, `DurabilityMetricsEnabled`/`Mode` del write-side (n/a si el diff no toca los seams de observabilidad ni el callback de Wolverine) | ok / falla / n/a | ... |
 | Publicacion con registro (MEF-ADR-0024 decision 7): cada evento de un `PublishAsync` agregado tiene su `PublicarEventoServerless<T>` en `ComposicionServicios{Dominio}` (o en la lista `EnrutamientoEventos{Dominio}`), topic + suscripcion `smoke-tests` en `service_bus_interno` si es `IPrivateEvent`, necesidad documentada en el backbone si es `IPublicEvent` (n/a si el diff no agrega ningun `PublishAsync` sobre `IPrivateEventSender`/`IPublicEventSender`) | ok / falla / n/a | ... |
-| Limpieza de comentarios (MEF-ADR-0044): umbral doble aplicado sobre los `.cs` del diff, behavior-preserving, frontera al diff propio, precedencia de citas a ADR respetada (n/a si el diff no toca ningun `.cs`) | ok / n/a | ... |
+| Revision de comentarios (MEF-ADR-0044): revision en dos sentidos sobre los `.cs` del diff (lo que sobra acortado o borrado y el porque o la precision que faltaba agregada, sin inventar), comentario falso corregido o borrado, behavior-preserving, frontera al diff propio, blindados respetados (n/a si el diff no toca ningun `.cs`) | ok / n/a | ... |
 | Tests via ToString/comportamiento | ok / falla / n/a | ... |
 | Sin numeros magicos | ok / falla / n/a | ... |
 | Condiciones en positivo (guardas if/else afirmativas) | ok / falla / n/a | ... |
@@ -821,10 +827,17 @@ Si el implementer cito precedentes del codigo en su resumen de fase verde, verif
 - [Cada refactoring hecho y su justificacion]
 - [Si no se aplicaron, indicarlo]
 
-### Limpieza de comentarios (MEF-ADR-0044)
-- [Cada poda: comentario eliminado o comprimido + cual de las dos condiciones del umbral no se cumplio (Context Delta / Decision Delta / ambas)]
-- [Comentarios que contradicen la implementacion: reportados aqui, sin resolver]
-- [Si algun archivo del diff ya estaba limpio, indicarlo explicitamente]
+### Revision de comentarios (MEF-ADR-0044)
+**Acortados o borrados**
+- [Cada comentario acortado o borrado + la categoria por la que sobraba (repetia el codigo, narracion, provenance, etc.)]
+
+**Agregados**
+- [Cada porque, precision, dependencia o API externa no obvia agregada + que faltaba y de donde salio (codigo, issue o historial)]
+
+**Corregidos por falsos**
+- [Cada comentario que contradecia la implementacion: que decia y si se corrigio o se borro (el posible defecto que delate va en "Criticas y hallazgos")]
+
+- [Si algun archivo del diff ya estaba en orden, indicarlo explicitamente]
 
 ### Cobertura de criterios de aceptacion
 | Criterio | Estado | Test(s) |
