@@ -127,8 +127,8 @@ estable `detalle redactado: <error.kind>`. Conserva el terminal, su `type`,
 `--stderr-log`: si se combinan, el runner avisa explícitamente que esos destinos
 no estan redactados. `--events-log` es opt-in:
 el nucleo no deriva rutas de estado. Sus exits son 0 (exito), 64 (uso), 65
-(protocolo invalido), 69 (runtime/dependencia), 124 (timeout), o el exit no
-cero del adaptador.
+(protocolo invalido), 69 (runtime/dependencia), 124 (timeout sin exito
+declarado, ver "Corte tras exito declarado"), o el exit no cero del adaptador.
 
 `--effort <opaco>` (issue #2496) es un effort ya traducido a nombre nativo:
 el runner lo trata como opaco, vacio o ausente significa heredar (no se agrega
@@ -204,6 +204,36 @@ recibe el modelo.
 `eval`, separa stdout/stderr y crea una sesion sin TTY de control. El runner
 decide timeout mediante la senal del watchdog y su reloj de pared conforme a
 MEF-ADR-0031.
+
+### Corte tras exito declarado (issue #2472)
+
+Un agente que ya declaro exito puede seguir vivo (p. ej. por un comando en
+segundo plano sin terminar) y, sin este corte, el watchdog lo mataria por
+timeout y el pipeline descartaria un resultado bueno. El bucle en vivo del
+runner mira el terminal que traduce el adaptador: si es
+`run.completed{status:"success"}`, anota el instante (una sola vez). Si el
+proceso sigue vivo `MEFISTO_RUN_AGENT_POST_RESULT_GRACE_S` segundos despues
+(default `120`, entero >= 1; vacio equivale a no fijarla, y un `0` o un valor
+no numerico cae al default con un aviso en stderr), el runner deja un archivo de
+solicitud en su directorio temporal y escribe en `--events-log`
+`POST-RESULT: <agente> seguia vivo <N>s despues de declarar exito -- SIGTERM`.
+
+`run_agent_with_watchdog` atiende ese archivo a traves de la variable global
+opcional `MEFISTO_WATCHDOG_TERMINATE_FILE` (la firma de 7 posicionales no
+cambia): en la siguiente rebanada manda `SIGTERM` al grupo y, si sigue vivo 10 s
+despues, `SIGKILL`. No es un timeout: no deja la senal de timeout. La corrida
+cierra con el terminal de exito del adaptador y exit 0 (el exito declarado manda
+sobre el exit distinto de cero posterior).
+
+Si igual se llega al timeout del watchdog y el raw log ya traia un terminal de
+exito, el runner usa ese terminal (exit 0) en vez de sintetizar `timeout` y
+registra `TIMEOUT tras exito declarado: <agente>` en `--events-log`. Sin exito
+declarado el timeout se comporta como siempre (`run.failed{status:timeout}`,
+exit 124). Un adaptador que no declara exito antes de salir (MEF-ADR-0050)
+conserva el comportamiento de siempre. Si tras el exito un comando en segundo
+plano termina dentro de la gracia, el runtime puede abrir otro turno: un corte a
+mitad de ese turno conserva el ultimo terminal de exito, y el trabajo del turno
+extra puede quedar sin commitear (lo juzga `agent_work_is_trustworthy`).
 
 ## Mapping de modelos
 

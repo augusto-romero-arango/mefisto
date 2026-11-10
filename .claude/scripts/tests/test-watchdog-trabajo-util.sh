@@ -51,6 +51,8 @@
 #       stage no vacio -- fixtures de worktree sucio con y sin resumen.
 #   [F] Paridad: run_agent en el pipeline real invoca las funciones nuevas y
 #       ya no contiene el patron viejo (kill encadenado con `&&`).
+#   [H] CA-4 (issue #2472): MEFISTO_WATCHDOG_TERMINATE_FILE -> SIGTERM al grupo,
+#       SIGKILL a los 10 s si sigue vivo; sin el archivo nada cambia.
 #
 # Uso: .claude/scripts/tests/test-watchdog-trabajo-util.sh
 # Exit code: 0 si todos los chequeos pasan, 1 si alguno falla.
@@ -528,6 +530,54 @@ if grep -q 'failure_type=$(classify_agent_failure' "$PIPE"; then
     pass "G-13: el pipeline delega la clasificacion en classify_agent_failure"
 else
     fail "G-13: el pipeline NO usa classify_agent_failure"
+fi
+
+echo ""
+echo "[H] CA-4 (issue #2472): MEFISTO_WATCHDOG_TERMINATE_FILE pide terminar al grupo sin ser un timeout"
+
+WT_H="$TMP/wt-h"; mkdir -p "$WT_H"
+
+# H-1: con el archivo presente, SIGTERM al grupo (exit 143) mucho antes del timeout.
+H_TERM="$TMP/h1-terminate"; : > "$H_TERM"
+H1_T0=$(date +%s)
+H1_EXIT=$(MEFISTO_WATCHDOG_POLL_S=1 MEFISTO_WATCHDOG_TERMINATE_FILE="$H_TERM" \
+    run_agent_with_watchdog "$WT_H" 60 "$TMP/h1-log.txt" "$TMP/h1-stderr.txt" "$TMP/h1-events.log" "writer" "$TMP/h1-signal" \
+    bash -c 'sleep 60 & wait')
+H1_ELAPSED=$(( $(date +%s) - H1_T0 ))
+if [ "$H1_EXIT" = "143" ] && [ "$H1_ELAPSED" -lt 20 ]; then
+    pass "H-1: con el archivo de solicitud, SIGTERM al grupo (exit 143 en ${H1_ELAPSED}s, tope 60s)"
+else
+    fail "H-1: exit $H1_EXIT en ${H1_ELAPSED}s (esperaba 143 antes de 20s)"
+fi
+if [ ! -f "$TMP/h1-signal" ] && ! grep -q 'TIMEOUT:' "$TMP/h1-events.log" 2>/dev/null; then
+    pass "H-2: la terminacion solicitada no deja senal de timeout ni linea TIMEOUT"
+else
+    fail "H-2: la terminacion solicitada se registro como timeout"
+fi
+
+# H-3: un proceso que ignora SIGTERM recibe SIGKILL a los 10 s.
+H3_T0=$(date +%s)
+H3_EXIT=$(MEFISTO_WATCHDOG_POLL_S=1 MEFISTO_WATCHDOG_TERMINATE_FILE="$H_TERM" \
+    run_agent_with_watchdog "$WT_H" 120 "$TMP/h3-log.txt" "$TMP/h3-stderr.txt" "$TMP/h3-events.log" "writer" "$TMP/h3-signal" \
+    bash -c 'trap "" TERM; while :; do sleep 1; done')
+H3_ELAPSED=$(( $(date +%s) - H3_T0 ))
+if [ "$H3_EXIT" = "137" ] && [ "$H3_ELAPSED" -ge 9 ] && [ "$H3_ELAPSED" -lt 40 ]; then
+    pass "H-3: un proceso que ignora SIGTERM recibe SIGKILL a los 10 s (exit 137 en ${H3_ELAPSED}s)"
+else
+    fail "H-3: exit $H3_EXIT en ${H3_ELAPSED}s (esperaba 137 tras ~10s)"
+fi
+
+# H-4: sin la variable, o con el archivo ausente, nada cambia: el exit del
+# comando viaja intacto y no hay senal.
+H4_EXIT=$(MEFISTO_WATCHDOG_POLL_S=1 run_agent_with_watchdog "$WT_H" 30 "$TMP/h4-log.txt" "$TMP/h4-stderr.txt" "$TMP/h4-events.log" "writer" "$TMP/h4-signal" \
+    bash -c 'sleep 2; exit 7')
+H5_EXIT=$(MEFISTO_WATCHDOG_POLL_S=1 MEFISTO_WATCHDOG_TERMINATE_FILE="$TMP/h5-no-existe" \
+    run_agent_with_watchdog "$WT_H" 30 "$TMP/h5-log.txt" "$TMP/h5-stderr.txt" "$TMP/h5-events.log" "writer" "$TMP/h5-signal" \
+    bash -c 'sleep 2; exit 7')
+if [ "$H4_EXIT" = "7" ] && [ "$H5_EXIT" = "7" ] && [ ! -f "$TMP/h4-signal" ] && [ ! -f "$TMP/h5-signal" ]; then
+    pass "H-4: sin variable o sin archivo, el comportamiento y la firma de 7 posicionales no cambian"
+else
+    fail "H-4: exits $H4_EXIT/$H5_EXIT (esperaba 7/7 sin senal)"
 fi
 
 echo ""

@@ -74,6 +74,11 @@
 #                   cualquier --timeout de prueba, para que el watchdog de
 #                   run_agent_with_watchdog lo mate (mismo stand-in de CLI que
 #                   test-watchdog-trabajo-util.sh: un `sleep` largo).
+#   success-then-hang Emite un mensaje y un terminal status=success y despues
+#                   NO sale: se queda dormido muy por encima de cualquier
+#                   --timeout de prueba (issue #2472). Reproduce al agente que
+#                   ya declaro exito pero cuyo proceso sigue vivo; solo una
+#                   senal lo termina.
 #   no-terminal     Emite un mensaje pero NUNCA un evento terminal. Exit 0.
 #   two-terminals   Emite DOS eventos terminales validos. Exit 0.
 #   malformed       Emite una linea valida y luego una linea JSON truncada a
@@ -289,6 +294,11 @@ _runtime_fake_emit_main() {
             sleep "$step_delay"
             printf '{"fake":"terminal","status":"success","model":%s,"effort":%s}\n' "$model_json" "$effort_json"
             exit 0
+            ;;
+        success-then-hang)
+            echo '{"fake":"message","text":"declaro exito y no sale"}'
+            printf '{"fake":"terminal","status":"success","model":%s,"effort":%s}\n' "$model_json" "$effort_json"
+            sleep 3600
             ;;
         fail)
             printf '{"fake":"terminal","status":"failed","model":%s,"effort":%s,"error_kind":"nonzero_exit","error_detail":"guion fail"}\n' "$model_json" "$effort_json"

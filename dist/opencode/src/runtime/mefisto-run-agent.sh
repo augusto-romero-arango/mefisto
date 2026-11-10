@@ -96,8 +96,29 @@
 # terminal (exactamente uno, ver mas abajo) solo se anexa al cierre, nunca
 # en vivo.
 #
+# Corte tras exito declarado (issue #2472): un agente que ya declaro exito pero
+# cuyo proceso no sale (p. ej. porque quedo un comando en segundo plano vivo) no
+# debe caer en TIMEOUT y perder un resultado bueno. El mismo bucle en vivo que
+# traduce el raw log mira el terminal: si el adaptador traduce un terminal
+# `run.completed{status:"success"}`, anota el instante (una sola vez). Si el
+# proceso sigue vivo MEFISTO_RUN_AGENT_POST_RESULT_GRACE_S segundos despues
+# (entero >= 1; default 120; vacio equivale a no fijarla, y un `0` o un valor
+# no numerico cae al default con un aviso en stderr), el runner deja un archivo
+# de solicitud en su directorio temporal y run_agent_with_watchdog (que lo
+# atiende en cada rebanada, ver MEFISTO_WATCHDOG_TERMINATE_FILE en
+# lib/mefisto-process.sh) manda SIGTERM al grupo, y SIGKILL si sigue vivo 10 s
+# despues. Queda en --events-log
+# "POST-RESULT: <agente> seguia vivo <N>s despues de declarar exito -- SIGTERM".
+# La corrida cierra con el terminal de exito y exit 0 (el exito declarado manda
+# sobre el exit distinto de cero posterior). Si igual se llega al timeout del
+# watchdog y el raw log ya traia un terminal de exito, se usa ese terminal
+# (exit 0) en vez de sintetizar `timeout`, y queda en --events-log "TIMEOUT tras
+# exito declarado: <agente>". Un adaptador que no declara exito antes de salir
+# conserva el comportamiento de siempre.
+#
 # Exit code (CA-5): 0 solo con un evento terminal run.completed{status:
-# "success"}; 124 si el watchdog mato el proceso por timeout; 65 si el
+# "success"}; 124 si el watchdog mato el proceso por timeout sin exito
+# declarado (con exito declarado gana el 0, ver arriba); 65 si el
 # protocolo resulto invalido (el adaptador emitio cero o mas de un evento
 # terminal -- el runner lo normaliza SIEMPRE a exactamente uno en
 # --event-log, descartando los que sobren); en cualquier otro caso, el exit
@@ -266,6 +287,23 @@ if [ -z "$LIVE_INTERVAL" ]; then
     LIVE_INTERVAL="$LIVE_INTERVAL_DEFAULT"
 fi
 
+# --- Gracia tras exito declarado (issue #2472) -----------------------------
+# Mismo criterio que el intervalo en vivo: la comparacion NUMERICA decide el
+# ">= 1", no la forma del literal ("00" es todo digitos y vale cero).
+POST_RESULT_GRACE_DEFAULT=120
+POST_RESULT_GRACE_S=""
+case "${MEFISTO_RUN_AGENT_POST_RESULT_GRACE_S:-}" in
+    '') ;;
+    *[!0-9]*) ;;
+    *) [ "$MEFISTO_RUN_AGENT_POST_RESULT_GRACE_S" -ge 1 ] && POST_RESULT_GRACE_S="$MEFISTO_RUN_AGENT_POST_RESULT_GRACE_S" ;;
+esac
+if [ -z "$POST_RESULT_GRACE_S" ]; then
+    if [ -n "${MEFISTO_RUN_AGENT_POST_RESULT_GRACE_S:-}" ]; then
+        echo "AVISO: MEFISTO_RUN_AGENT_POST_RESULT_GRACE_S='${MEFISTO_RUN_AGENT_POST_RESULT_GRACE_S}' invalido (debe ser un entero >= 1); usando el default (${POST_RESULT_GRACE_DEFAULT}s)" >&2
+    fi
+    POST_RESULT_GRACE_S="$POST_RESULT_GRACE_DEFAULT"
+fi
+
 # --- Resolucion de runtime (CA-2) -------------------------------------------
 
 if ! mefisto_resolve_runtime "$OPT_RUNTIME" >/dev/null; then
@@ -399,6 +437,13 @@ fi
 WATCHDOG_EVENTS_LOG="$RUN_TMP_DIR/watchdog-events.log"
 SIGNAL_FILE="$RUN_TMP_DIR/timeout.signal"
 
+# Corte tras exito declarado (issue #2472): el bucle en vivo corre en un
+# subshell, asi que su estado viaja por archivos de RUN_TMP_DIR (nombre unico
+# por corrida, mismo criterio que SIGNAL_FILE). Variable de shell, NO exportada:
+# el proceso del agente no tiene por que heredarla.
+POST_RESULT_SINCE_FILE="$RUN_TMP_DIR/post-result.since"
+MEFISTO_WATCHDOG_TERMINATE_FILE="$RUN_TMP_DIR/post-result.terminate"
+
 # --- Helpers -----------------------------------------------------------
 
 now_ts() { date -u +%Y-%m-%dT%H:%M:%SZ; }
@@ -457,21 +502,52 @@ jq -n -c \
 # alrededor de su propio watchdog), este `&` no se vuelve lider de un grupo de
 # procesos nuevo -- por eso el `kill -9 -"$pid"` que el watchdog dispara sobre
 # el GRUPO del agente jamas lo alcanza (CA-3).
+
+# Evidencia de exito declarado (issue #2472): el terminal NEUTRAL que traduce el
+# adaptador, nunca el formato crudo de ningun CLI. Primera vez que aparece, anota
+# el instante; pasada la gracia con el proceso aun vivo, deja el archivo de
+# solicitud que atiende run_agent_with_watchdog. Best-effort como el resto del
+# tick: nunca altera FINAL_EXIT ni el terminal, que se deciden al cierre.
+post_result_check() {
+    local translated="$1" now since waited
+    [ -f "$MEFISTO_WATCHDOG_TERMINATE_FILE" ] && return 0
+    printf '%s\n' "$translated" | jq -e 'select(type == "object") | select(.type == "run.completed" and .status == "success")' >/dev/null 2>&1 || return 0
+
+    now="$(date +%s)"
+    if [ ! -f "$POST_RESULT_SINCE_FILE" ]; then
+        printf '%s\n' "$now" > "$POST_RESULT_SINCE_FILE" 2>/dev/null
+        return 0
+    fi
+    since="$(cat "$POST_RESULT_SINCE_FILE" 2>/dev/null)"
+    case "$since" in ''|*[!0-9]*) return 0 ;; esac
+    waited=$((now - since))
+    [ "$waited" -ge "$POST_RESULT_GRACE_S" ] || return 0
+
+    if [ -n "$EVENTS_LOG_TARGET" ]; then
+        { printf '[%s] POST-RESULT: %s seguia vivo %ss despues de declarar exito -- SIGTERM\n' "$(date +%H:%M:%S)" "$OPT_AGENT" "$waited" >> "$EVENTS_LOG_TARGET"; } 2>/dev/null
+    fi
+    : > "$MEFISTO_WATCHDOG_TERMINATE_FILE" 2>/dev/null
+    return 0
+}
+
 live_tail_tick() {
     [ -f "$RAW_LOG" ] || return 0
-    [ -w "$OPT_EVENT_LOG" ] || return 0
 
     local total_lines n_prev translated non_terminal m_new pending
-    total_lines="$(wc -l < "$OPT_EVENT_LOG" 2>/dev/null | tr -d ' ')"
-    case "$total_lines" in ''|*[!0-9]*) return 0 ;; esac
-    n_prev=$((total_lines - 1))
-    [ "$n_prev" -ge 0 ] || n_prev=0
 
     # exit_code y stderr_file vacios: solo afectan al terminal que este tick
     # descarta -- un raw log parcial no tiene ninguno de los dos todavia.
     translated="$("$TRANSLATE_FN" "$RAW_LOG" "$RUNTIME_ID" "$OPT_MODEL" "" "" 2>/dev/null)" || return 0
     translated="$(redact_observability_events "$translated")" || return 0
     [ -n "$translated" ] || return 0
+
+    post_result_check "$translated"
+
+    [ -w "$OPT_EVENT_LOG" ] || return 0
+    total_lines="$(wc -l < "$OPT_EVENT_LOG" 2>/dev/null | tr -d ' ')"
+    case "$total_lines" in ''|*[!0-9]*) return 0 ;; esac
+    n_prev=$((total_lines - 1))
+    [ "$n_prev" -ge 0 ] || n_prev=0
 
     non_terminal="$(printf '%s\n' "$translated" | jq -c 'select(type == "object") | select(.type != "run.completed" and .type != "run.failed")' 2>/dev/null)"
     [ -n "$non_terminal" ] || return 0
@@ -583,7 +659,20 @@ fi
 CHOSEN_TERMINAL=""
 FINAL_EXIT=1
 
-if [ "$TIMED_OUT" = "true" ]; then
+# Timeout tras exito declarado (issue #2472): si el raw log ya traia un terminal
+# de exito completo, el watchdog solo mato a un proceso que no salia -- no a un
+# trabajo a medias. Se conserva ese terminal (exit 0) en vez de sintetizar
+# `timeout`. Sin exito declarado, el timeout se comporta como siempre.
+TIMED_OUT_AFTER_SUCCESS=false
+if [ "$TIMED_OUT" = "true" ] && [ "$TERMINAL_COUNT" -eq 1 ] \
+    && [ "$(printf '%s' "$TERMINAL_JSON" | jq -r '.status' 2>/dev/null)" = "success" ]; then
+    TIMED_OUT_AFTER_SUCCESS=true
+    if [ -n "$EVENTS_LOG_TARGET" ]; then
+        { printf '[%s] TIMEOUT tras exito declarado: %s\n' "$(date +%H:%M:%S)" "$OPT_AGENT" >> "$EVENTS_LOG_TARGET"; } 2>/dev/null
+    fi
+fi
+
+if [ "$TIMED_OUT" = "true" ] && [ "$TIMED_OUT_AFTER_SUCCESS" = "false" ]; then
     # El watchdog mato el proceso a mitad de vuelo: cualquier terminal que el
     # adaptador haya alcanzado a traducir no es confiable (la senal pudo llegar
     # a mitad de escritura), asi que se descarta y el runner sintetiza el suyo.
