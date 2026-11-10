@@ -30,8 +30,7 @@
 #   --event-log <jsonl>   Ruta de salida del JSONL neutral. Obligatorio; su
 #                         directorio padre se crea si falta.
 #   --model <opaco>       Modelo a pasar al adaptador, opaco para este runner
-#                         (un alias de Claude Code, un "provider/model" de
-#                         OpenCode, lo que sea). Vacio o ausente = heredar
+#                         (un alias de Claude Code, lo que sea). Vacio o ausente = heredar
 #                         (CA-1): NO llega al adaptador -- build_cmd nunca ve
 #                         el flag de modelo en ese caso.
 #   --effort <opaco>      Effort ya traducido a nombre nativo del runtime, opaco
@@ -71,8 +70,8 @@
 #   --resume-session <id> Reanuda una sesion previa del runtime activo en vez
 #                         de arrancar una nueva (issue #968, CA-1). Opaco
 #                         para este runner: viaja tal cual al adaptador, que
-#                         decide su propio flag (`--resume` en Claude Code,
-#                         `--session` en OpenCode) o lo ignora si no soporta
+#                         decide su propio flag (`--resume` en Claude Code)
+#                         o lo ignora si no soporta
 #                         reanudacion. Vacio o ausente (default): NO llega al
 #                         adaptador -- build_cmd nunca ve el flag en ese caso,
 #                         y el comportamiento es identico byte a byte al de
@@ -127,7 +126,7 @@
 #
 # Interfaz de adaptador (funciones por runtime, `source`adas desde
 # lib/runtime-<id>.sh; este issue solo entrega runtime-fake.sh -- Claude Code
-# y OpenCode son #859/#860):
+# es #859):
 #   runtime_<id>_build_cmd <agent> <cwd> <prompt_file> <model> <system_file>
 #                          [<resume_session_id>] [<effort>]
 #     Rellena el array global MEFISTO_RUNTIME_CMD con el argv completo a
@@ -773,8 +772,8 @@ EVENTS_LOG_LINES="$(printf '%s\n' "$NON_TERMINAL_JSON" | jq -s -r \
     # linea [archivo] "por cada tool.started CON RUTA DE ARCHIVO en
     # input_summary". El nombre se compara en minusculas porque es la unica
     # forma de cubrir los dos runtimes con una sola lista sin volver el runner
-    # dependiente de ninguno (Edit/Write/Read en Claude Code, edit/write/read
-    # en OpenCode -- misma terna, distinta capitalizacion).
+    # dependiente de ninguno (Edit/Write/Read en Claude Code; otro runtime puede
+    # usar la misma terna con distinta capitalizacion).
     def es_tool_de_archivo:
         ((. // "") | ascii_downcase) as $t
         | $t == "edit" or $t == "write" or $t == "read";

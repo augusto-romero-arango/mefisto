@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 # mefisto-neutrality-gate.sh -- Gate de conformidad de neutralidad de runtime
 # (MEF-ADR-0049, issue #911, hijo 1 de 3 de #873). Detecta fugas de un runtime
-# concreto (Claude Code u OpenCode) fuera de las piezas explicitamente
-# autorizadas a nombrarlo, y verifica que los adaptadores generados
-# (.claude/{agents,commands}/, .opencode/{agents,commands}/) esten al dia.
+# concreto fuera de las piezas explicitamente autorizadas a nombrarlo, y
+# verifica que los adaptadores generados (.claude/{agents,commands}/) esten al
+# dia.
 #
 # Uso: mefisto-neutrality-gate.sh [--root <dir>] [--allowlist <file>]
 #   Sin --root: escanea el repo donde vive este propio script (tres niveles
@@ -17,7 +17,7 @@
 #   fixture con su propia allowlist).
 #
 # Alcance del escaneo (MEF-ADR-0019): solo el lado interno --
-# src/internal/**, .claude/**, .opencode/**, AGENTS.md, opencode.json. El
+# src/internal/**, .claude/**, AGENTS.md. El
 # arbol publicado (scripts/, commands/, agents/, hooks/, skills/, docs/,
 # CHANGELOG.md, changelog.d/, CLAUDE.md, README.md, .gitignore,
 # .claude-plugin/, .mcp.json) queda fuera y asi lo declara
@@ -30,12 +30,11 @@
 # fallar el gate):
 #   R1 - alias/ids de modelo de proveedor (haiku/sonnet/opus/fable,
 #        claude-*/gpt-*, prefijos openai//anthropic/), el campo `model` en
-#        frontmatter, y nombres crudos de tools Claude o claves de permiso
-#        OpenCode citados como valor JSON -- solo dentro de src/internal/**
-#        (MEF-ADR-0049: la fuente neutral no nombra ninguno de los dos
-#        runtimes; los adaptadores generados si, y viven fuera de ese
-#        prefijo).
-#   R2 - invocaciones directas `claude -p`/`claude --agent`/`opencode run`,
+#        frontmatter, y nombres crudos de tools o claves de permiso de un
+#        runtime citados como valor JSON -- solo dentro de src/internal/**
+#        (MEF-ADR-0049: la fuente neutral no nombra ningun runtime; los
+#        adaptadores generados si, y viven fuera de ese prefijo).
+#   R2 - invocaciones directas `claude -p`/`claude --agent`,
 #        sobre TODO el universo de archivos (codigo y comentarios).
 #   R3 - `.claude/pipeline`, `CLAUDE_PLUGIN_ROOT`, `CLAUDE_PROJECT_DIR` dentro
 #        de src/internal/** y de los scripts canonicos de .claude/scripts/
@@ -55,11 +54,10 @@
 #
 # Alcance de las dos verificaciones estructurales: las reglas de texto R1-R4
 # siguen siendo solo del lado interno (src/internal/**, .claude/**,
-# .opencode/**, AGENTS.md, opencode.json); adapters-check y
-# published-adapters-check entre las dos cubren ambos generadores -- el
-# interno (src/internal/{agents,commands}/*.md -> .claude/ + .opencode/) y el
-# publicado (src/published/** -> dist/claude/ + dist/opencode/), asi que un
-# `main` con cualquiera de las dos distribuciones desactualizada respecto a su
+# AGENTS.md); adapters-check y published-adapters-check entre las dos cubren
+# ambos generadores -- el interno (src/internal/{agents,commands}/*.md ->
+# .claude/) y el publicado (src/published/** -> dist/claude/), asi que un
+# `main` con cualquiera de las dos salidas desactualizada respecto a su
 # fuente lo detecta este mismo gate (issue #1496).
 #
 # Cada violacion imprime una linea `<ruta>:<linea>: <regla>` (R1-R4) o
@@ -165,7 +163,7 @@ cd "$ROOT" || exit 1
 FILES=()
 while IFS= read -r f; do
     [ -n "$f" ] && FILES+=("$f")
-done < <(git ls-files -- src/internal .claude .opencode AGENTS.md opencode.json 2>/dev/null | sort)
+done < <(git ls-files -- src/internal .claude AGENTS.md 2>/dev/null | sort)
 
 # R1 sobre src/internal/** solamente; R3 sobre src/internal/** + los scripts
 # canonicos de .claude/scripts/ (shims incluidos -- son quienes NO deben
@@ -253,9 +251,9 @@ R1_REGEX='(^|[^A-Za-z0-9_.-])(haiku|sonnet|opus|fable)([^A-Za-z0-9_.-]|$)|(^|[^.
 run_text_rule "R1" "$R1_REGEX" ${R1_FILES[@]+"${R1_FILES[@]}"}
 
 # --- R2: invocaciones directas de CLI de un runtime concreto
-# Borde final tras `-p` y `run`: sin el, "opencode runtime" (prosa legitima
-# en toda la fuente neutral) contaria como invocacion.
-R2_REGEX='claude -p([^A-Za-z0-9_-]|$)|claude --agent|opencode run([^A-Za-z0-9_-]|$)'
+# Borde final tras `-p`: sin el, una palabra que empiece por `-p` contaria
+# como invocacion.
+R2_REGEX='claude -p([^A-Za-z0-9_-]|$)|claude --agent'
 run_text_rule "R2" "$R2_REGEX" ${FILES[@]+"${FILES[@]}"}
 
 # --- R3: rutas/variables de un runtime concreto que rompen la resolucion neutral

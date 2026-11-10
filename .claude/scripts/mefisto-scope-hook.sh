@@ -32,13 +32,9 @@
 # (validate_mefisto_scope_changes) sigue siendo el juez.
 #
 # SOLO APLICA A SESIONES CLAUDE CODE (issue #863): este mecanismo de hooks
-# (`.claude/settings.json` -> PostToolUse) es propio de Claude Code. En
-# OpenCode el equivalente de "feedback temprano de scope" NO es un hook
-# portado -- es el `edit` deny-por-defecto del bloque `permission` generado
-# desde capacidades neutrales (issue #862): OpenCode rechaza la escritura
-# ANTES de que ocurra, mas fuerte que este aviso posterior. Ninguno de los
-# dos reemplaza el gate final: `validate_mefisto_scope_changes` sigue siendo
-# el juez en ambos runtimes (MEF-ADR-0031).
+# (`.claude/settings.json` -> PostToolUse) es propio de Claude Code. No
+# reemplaza el gate final: `validate_mefisto_scope_changes` sigue siendo el
+# juez (MEF-ADR-0031).
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
@@ -78,7 +74,7 @@ git -C "$REPO_ROOT" check-ignore -q -- "$REL_PATH" 2>/dev/null && exit 0
 {
     echo "FUERA DE SCOPE: '$REL_PATH' no esta en la allowlist interna de Mefisto (is_path_in_mefisto_scope, src/internal/scripts/lib/_mefisto-common.sh). El gate final del stage (validate_mefisto_scope_changes) abortara el PR si el archivo sigue ahi."
     echo "Este aviso llega DESPUES de la escritura (hook PostToolUse): el archivo ya existe en el arbol, asi que revierte lo que acabas de hacer -- borralo si lo creaste, o 'git checkout -- $REL_PATH' si ya estaba versionado."
-    echo "Rutas permitidas: commands/, skills/, agents/, scripts/, hooks/, docs/, .claude-plugin/, .claude/{commands,skills,agents,scripts,mods}/, .claude/settings.json, .mcp.json, src/{internal,published,runtime}/, dist/, .opencode/{agents,commands,plugins,skills}/, AGENTS.md, opencode.json, changelog.d/, README.md, CHANGELOG.md, CLAUDE.md, .gitignore, LICENSE, NOTICE."
+    echo "Rutas permitidas: commands/, skills/, agents/, scripts/, hooks/, docs/, .claude-plugin/, .claude/{commands,skills,agents,scripts,mods}/, .claude/settings.json, .mcp.json, src/{internal,published,runtime}/, dist/, AGENTS.md, changelog.d/, README.md, CHANGELOG.md, CLAUDE.md, .gitignore, LICENSE, NOTICE."
     echo "Si esta ruta deberia estar permitida, MEF-ADR-0019 seccion E exige registrarla PRIMERO en un PR aparte (is_path_in_mefisto_scope + is_path_in_consumer_blocklist) antes de poblarla: no la crees en este PR, reportalo en tu resumen de stage."
 } >&2
 exit 2

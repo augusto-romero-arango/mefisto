@@ -62,7 +62,7 @@ source "$SCRIPT_DIR/lib/_mefisto-common.sh"
 assert_in_mefisto || exit 1
 
 # Runtime activo (MEF-ADR-0049, issue #928): el pool de panes de reporte usa
-# el runtime como parte de su clave -- dos filas (Claude/OpenCode) del mismo
+# el runtime como parte de su clave -- dos filas de runtime del mismo
 # workspace ya no pueden compartir ni robarse panes libres entre si. Mismo
 # resolutor canonico que mefisto-tooling-pipeline.sh (mefisto_resolve_runtime,
 # nunca un default literal en esta capa neutral).
@@ -236,7 +236,7 @@ split_new_report_pane() {
 # runtime que esta corrida y este libre; o uno nuevo (split_new_report_pane).
 # De paso poda del registro los panes que ya no existen y CIERRA los panes
 # libres sobrantes -- del mismo runtime, de corridas concurrentes ya
-# terminadas: cada fila (Claude/OpenCode, MEF-ADR-0049, issue #928) colapsa de
+# terminadas: cada fila de runtime (MEF-ADR-0049, issue #928) colapsa de
 # vuelta a UN solo pane de seguimiento propio, sin tocar ni cerrar los panes
 # libres de la otra fila (el reporte de cada corrida pasada sigue en su
 # .report.log).

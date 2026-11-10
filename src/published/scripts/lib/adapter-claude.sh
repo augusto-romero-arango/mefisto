@@ -38,42 +38,12 @@ published_claude_needs_package_root() {
     case "$1" in *'{{mefisto:run '*|*'{{mefisto:package-root}}'*|*'{{mefisto:skill-root '*|*'{{mefisto:command-doc '*) return 0 ;; *) return 1 ;; esac
 }
 
-published_claude_lifecycle_launcher_preamble() {
-    cat <<'EOF'
-```bash
-mefisto_lifecycle_data_root() {
-    if [ -n "${XDG_DATA_HOME:-}" ]; then printf '%s/mefisto\n' "$XDG_DATA_HOME"
-    elif [ "$(uname -s)" = Darwin ]; then printf '%s/Library/Application Support/mefisto\n' "$HOME"
-    else printf '%s/.local/share/mefisto\n' "$HOME"; fi
-}
-mefisto_lifecycle_config_root() {
-    if [ "${OPENCODE_CONFIG_DIR+x}" = x ]; then
-        [ -n "$OPENCODE_CONFIG_DIR" ] || return 1
-        printf '%s\n' "$OPENCODE_CONFIG_DIR"
-    else
-        printf '%s/opencode\n' "${XDG_CONFIG_HOME:-$HOME/.config}"
-    fi
-}
-MEFISTO_LIFECYCLE_LAUNCHER="$(mefisto_lifecycle_data_root)/active/bin/mefisto-opencode"
-MEFISTO_LIFECYCLE_CONFIG_ROOT="$(mefisto_lifecycle_config_root)" || {
-    printf '%s\n' 'Estado OpenCode: unavailable (OPENCODE_CONFIG_DIR esta definido pero vacio).' >&2
-    MEFISTO_LIFECYCLE_CONFIG_ROOT='unavailable'
-}
-if [ ! -f "$MEFISTO_LIFECYCLE_LAUNCHER" ] || [ -L "$MEFISTO_LIFECYCLE_LAUNCHER" ] || [ ! -x "$MEFISTO_LIFECYCLE_LAUNCHER" ]; then
-    printf 'Estado OpenCode: unavailable (no hay launcher estable disponible). Raiz efectiva: %s\n' "$MEFISTO_LIFECYCLE_CONFIG_ROOT" >&2
-fi
-export MEFISTO_LIFECYCLE_LAUNCHER MEFISTO_LIFECYCLE_CONFIG_ROOT
-```
-EOF
-}
-
 # Este bloque se emite dentro del artefacto Claude, no en la fuente neutral. No
 # carga codigo desde el candidato: valida primero la metadata de distribucion.
 published_claude_package_root_preamble() {
     cat <<'EOF'
 ```bash
 mefisto_claude_root=''
-mefisto_claude_canonical_contaminated=0
 mefisto_claude_root_from_candidate() {
     local root
     case "$mefisto_claude_candidate" in /*) ;; *) return 1 ;; esac
@@ -89,18 +59,6 @@ mefisto_claude_root_from_candidate() {
     ' "$root/mefisto-manifest.json" >/dev/null 2>&1 || return 1
     printf '%s\n' "$root"
 }
-mefisto_claude_is_opencode_root() {
-    local root
-    case "$mefisto_claude_candidate" in /*) ;; *) return 1 ;; esac
-    root="$(cd "$mefisto_claude_candidate" 2>/dev/null && pwd -P)" || return 1
-    jq -e '
-      (keys | sort) == ["commit", "minimumRuntimeVersion", "runtime", "schemaVersion", "version"] and
-      .schemaVersion == 1 and .runtime == "opencode" and
-      (.version | type == "string" and test("^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)(-[0-9A-Za-z-]+(\\.[0-9A-Za-z-]+)*)?(\\+[0-9A-Za-z-]+(\\.[0-9A-Za-z-]+)*)?$")) and
-      (.commit | type == "string" and test("^[0-9a-f]{40}$")) and
-      (.minimumRuntimeVersion | type == "string" and test("^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$"))
-    ' "$root/mefisto-manifest.json" >/dev/null 2>&1
-}
 mefisto_claude_loaded='${CLAUDE_PLUGIN_ROOT}'
 if [[ "$mefisto_claude_loaded" != '${'* ]]; then
     mefisto_claude_candidate="$mefisto_claude_loaded"
@@ -113,12 +71,7 @@ else
         if [ -f "$mefisto_claude_cursor/.mefisto/pipeline/.plugin-root" ]; then
             mefisto_claude_candidate="$(< "$mefisto_claude_cursor/.mefisto/pipeline/.plugin-root")"
             if mefisto_claude_root="$(mefisto_claude_root_from_candidate)"; then break; fi
-            if mefisto_claude_is_opencode_root; then
-                mefisto_claude_canonical_contaminated=1
-                break
-            else
-                printf '%s\n' 'ERROR Claude: metadata del marker canonico invalida; reabra o reinstale el plugin.' >&2; exit 1
-            fi
+            printf '%s\n' 'ERROR Claude: metadata del marker canonico invalida; reabra o reinstale el plugin.' >&2; exit 1
         fi
         if [ "$mefisto_claude_cursor" = / ]; then break; fi
         mefisto_claude_cursor="$(cd "$mefisto_claude_cursor/.." && pwd -P)"
@@ -129,9 +82,6 @@ else
             if [ -f "$mefisto_claude_cursor/.claude/pipeline/.plugin-root" ]; then
                 mefisto_claude_candidate="$(< "$mefisto_claude_cursor/.claude/pipeline/.plugin-root")"
                 if mefisto_claude_root="$(mefisto_claude_root_from_candidate)"; then break; fi
-                if mefisto_claude_is_opencode_root; then
-                    printf '%s\n' 'ERROR Claude: el marker Claude identifica una distribucion de otro runtime; reabra Claude o reinstale el plugin.' >&2; exit 1
-                fi
                 printf '%s\n' 'ERROR Claude: metadata del marker Claude invalida; reabra o reinstale el plugin.' >&2; exit 1
             fi
             if [ "$mefisto_claude_cursor" = / ]; then break; fi
@@ -140,11 +90,7 @@ else
     fi
 fi
 if [ -z "$mefisto_claude_root" ]; then
-    if [ "$mefisto_claude_canonical_contaminated" -eq 1 ]; then
-        printf '%s\n' 'ERROR Claude: el marker canonico identifica una distribucion OpenCode y no existe un mirror Claude valido; reabra Claude o reinstale el plugin.' >&2
-    else
-        printf '%s\n' 'ERROR Claude: no se encontro una raiz Claude valida; reabra o reinstale el plugin.' >&2
-    fi
+    printf '%s\n' 'ERROR Claude: no se encontro una raiz Claude valida; reabra o reinstale el plugin.' >&2
     exit 1
 fi
 MEFISTO_PACKAGE_ROOT="$mefisto_claude_root"
@@ -169,8 +115,6 @@ published_claude_translate_body() {
                 translated="${prefix}MEFISTO_RUNTIME=claude \"\${MEFISTO_PACKAGE_ROOT}/scripts/${script}\" ${args}${suffix}"
             elif [[ "$line" =~ ^(.*)\{\{mefisto:loaded-root\}\}(.*)$ ]]; then
                 translated="${BASH_REMATCH[1]}"'${CLAUDE_PLUGIN_ROOT}'"${BASH_REMATCH[2]}"
-            elif [[ "$line" =~ ^(.*)\{\{mefisto:lifecycle-launcher\}\}(.*)$ ]]; then
-                translated="${BASH_REMATCH[1]}$(published_claude_lifecycle_launcher_preamble)${BASH_REMATCH[2]}"
             elif [[ "$line" =~ ^(.*)\{\{mefisto:package-root\}\}(.*)$ ]]; then
                 translated="${BASH_REMATCH[1]}\${MEFISTO_PACKAGE_ROOT}${BASH_REMATCH[2]}"
             elif [[ "$line" =~ ^(.*)\{\{mefisto:skill-root[[:space:]]+([a-z0-9]+(-[a-z0-9]+)*)\}\}(.*)$ ]]; then

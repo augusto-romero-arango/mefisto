@@ -1728,8 +1728,7 @@ build_agents_history_json() {
 #                           issue #965); sin stream, un grep conservador sobre
 #                           el log exige "429" Y un indicio textual de "rate
 #                           limit"/"usage limit" (case-insensitive) a la vez,
-#                           igual que el fallback de runtime-opencode.jq --
-#                           exigir ambos evita que un 4xx no relacionado con
+#                           -- exigir ambos evita que un 4xx no relacionado con
 #                           un "429" propio de otro significado dispare un
 #                           falso positivo.
 #   PROVIDER_UNAVAILABLE  - reemplazo 1:1 de la vieja etiqueta

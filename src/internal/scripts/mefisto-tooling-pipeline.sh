@@ -327,7 +327,7 @@ if ! MEFISTO_RUNTIME_RESUELTO="$(mefisto_resolve_runtime)"; then
     abort "No se pudo resolver el runtime activo: $MEFISTO_RUNTIME_ERROR"
 fi
 command -v "$MEFISTO_RUNTIME_RESUELTO" &>/dev/null \
-    || abort "Falta el CLI del runtime resuelto ('$MEFISTO_RUNTIME_RESUELTO'). Fija MEFISTO_RUNTIME=claude|opencode con un runtime instalado."
+    || abort "Falta el CLI del runtime resuelto ('$MEFISTO_RUNTIME_RESUELTO'). Fija MEFISTO_RUNTIME con un runtime instalado."
 MEFISTO_RUNTIME_JSON="\"$MEFISTO_RUNTIME_RESUELTO\""
 
 # --- Preparar directorio de pipeline ---
@@ -587,8 +587,7 @@ collect_summary() {
 # $MEFISTO_RUNTIME_LIB_DIR (el mismo seam overridable que usa
 # mefisto_resolve_runtime en mefisto-runtime.sh), asi que un runtime nuevo
 # queda cubierto con solo aportar su lib -- este pipeline nunca nombra
-# `runtime-claude.sh` ni `runtime-opencode.sh` (MEF-ADR-0049: ningun pipeline
-# nombra un runtime concreto; MEF-ADR-0050: el conjunto de runtimes
+# `runtime-claude.sh` (MEF-ADR-0049: ningun pipeline nombra un runtime concreto; MEF-ADR-0050: el conjunto de runtimes
 # soportados es abierto).
 #
 # La carga va en un SUBSHELL a proposito: lo unico que este pipeline necesita
@@ -885,8 +884,7 @@ run_agent() {
             # CA-1: si el terminal trajo `resets_at`, dormir hasta esa hora
             # (mas el margen) en vez de sondear a ciegas. El sondeo cada
             # HOLD_PROBE_SECONDS es el piso garantizado -- corre cuando
-            # `resets_at` falta (runtime que no lo informa, o un adaptador
-            # que siempre lo deja null, ver runtime-opencode.jq).
+            # `resets_at` falta (runtime o adaptador que no lo informa).
             local resets_at hold_sleep
             resets_at=$(agent_events_resets_at "$events_file")
             hold_sleep="$HOLD_PROBE_SECONDS"
@@ -1081,13 +1079,12 @@ auto_commit_if_needed() {
     # inyecta ni revierte este archivo (ver el bloque de creacion del
     # worktree), asi que lo unico que puede aparecer aqui es una edicion
     # legitima del agente.
-    # src/internal/, .opencode/{agents,commands,plugins,skills}/, AGENTS.md y
-    # opencode.json se registraron en #852 (MEF-ADR-0049); src/published/,
+    # src/internal/ y AGENTS.md se registraron en #852 (MEF-ADR-0049); src/published/,
     # src/runtime/ y dist/ se registran en #1043 (MEF-ADR-0053). Todas estas
     # entradas respetan la secuencia de MEF-ADR-0019 seccion E; ver
     # is_path_in_mefisto_scope (_mefisto-common.sh) para el detalle.
     # LICENSE y NOTICE (entradas EXACTAS de la raiz) se registraron en #2230
-    local paths="commands/ agents/ scripts/ hooks/ docs/ .claude-plugin/ .claude/commands/ .claude/agents/ .claude/scripts/ .claude/mods/ .claude/settings.json changelog.d/ src/internal/ src/published/ src/runtime/ dist/ .opencode/agents/ .opencode/commands/ .opencode/plugins/ .opencode/skills/ AGENTS.md opencode.json README.md CHANGELOG.md CLAUDE.md .gitignore LICENSE NOTICE"
+    local paths="commands/ agents/ scripts/ hooks/ docs/ .claude-plugin/ .claude/commands/ .claude/agents/ .claude/scripts/ .claude/mods/ .claude/settings.json changelog.d/ src/internal/ src/published/ src/runtime/ dist/ AGENTS.md README.md CHANGELOG.md CLAUDE.md .gitignore LICENSE NOTICE"
 
     if [ -n "$(git -C "$WORKTREE_PATH" status --porcelain -- $paths 2>/dev/null)" ]; then
         log "Haciendo commit automatico (fase $phase)..."
@@ -1242,8 +1239,7 @@ ALCANCE DE ESCRITURA PERMITIDO:
 - .claude/settings.json  (hooks del pipeline interno; entrada EXACTA, no toda .claude/)
 - src/internal/  (layout interno de runtime/proveedor neutral, MEF-ADR-0049; src/ fuera de internal/ sigue fuera de scope)
 - src/published/, src/runtime/, dist/  (layout publicado multi-runtime de MEF-ADR-0053; registrado antes de poblarlo)
-- .opencode/agents/, .opencode/commands/, .opencode/plugins/, .opencode/skills/  (adaptadores OpenCode, MEF-ADR-0049; solo plural)
-- AGENTS.md, opencode.json  (doctrina canonica neutral y config raiz de OpenCode; entradas EXACTAS de la raiz, MEF-ADR-0049)
+- AGENTS.md  (doctrina canonica neutral; entrada EXACTA de la raiz, MEF-ADR-0049)
 - changelog.d/  (fragmentos de CHANGELOG e indice de ADRs, ver instruccion 5 abajo)
 - README.md, CHANGELOG.md, CLAUDE.md, .gitignore, LICENSE, NOTICE  (gobierno del repo)
 
@@ -1292,7 +1288,7 @@ Instrucciones:
     if ! git -C "$WORKTREE_PATH" diff --quiet "$SNAPSHOT_COMMIT" HEAD 2>/dev/null; then
         HAS_COMMITS=true
     fi
-    if [ -n "$(git -C "$WORKTREE_PATH" status --porcelain -- commands/ agents/ scripts/ hooks/ docs/ .claude-plugin/ .claude/commands/ .claude/agents/ .claude/scripts/ .claude/settings.json changelog.d/ src/internal/ src/published/ src/runtime/ dist/ .opencode/agents/ .opencode/commands/ .opencode/plugins/ .opencode/skills/ AGENTS.md opencode.json README.md CHANGELOG.md CLAUDE.md .gitignore LICENSE NOTICE 2>/dev/null)" ]; then
+    if [ -n "$(git -C "$WORKTREE_PATH" status --porcelain -- commands/ agents/ scripts/ hooks/ docs/ .claude-plugin/ .claude/commands/ .claude/agents/ .claude/scripts/ .claude/settings.json changelog.d/ src/internal/ src/published/ src/runtime/ dist/ AGENTS.md README.md CHANGELOG.md CLAUDE.md .gitignore LICENSE NOTICE 2>/dev/null)" ]; then
         HAS_UNSTAGED=true
     fi
     if [ "$HAS_COMMITS" = false ] && [ "$HAS_UNSTAGED" = false ]; then
@@ -1354,8 +1350,8 @@ Tu tarea: revisa la calidad de los cambios producidos por el writer.
 ALCANCE DE ESCRITURA PERMITIDO (igual al del writer):
 commands/, agents/, scripts/, hooks/, docs/, .claude-plugin/,
 .claude/commands/, .claude/agents/, .claude/scripts/, .claude/mods/, .claude/settings.json,
-src/internal/, src/published/, src/runtime/, dist/, .opencode/agents/, .opencode/commands/, .opencode/plugins/, .opencode/skills/,
-AGENTS.md, opencode.json, changelog.d/, README.md, CHANGELOG.md, CLAUDE.md, .gitignore, LICENSE, NOTICE.
+src/internal/, src/published/, src/runtime/, dist/,
+AGENTS.md, changelog.d/, README.md, CHANGELOG.md, CLAUDE.md, .gitignore, LICENSE, NOTICE.
 
 CONTEXTO DE EJECUCION:
 - Modo no-interactivo (print mode). DEBES usar Write/Edit directamente.

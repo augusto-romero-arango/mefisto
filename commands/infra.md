@@ -6,7 +6,6 @@ model: "haiku"
 <!-- GENERADO por src/published/scripts/generate-published-adapters.sh desde src/published/commands/infra.md. No editar a mano. -->
 ```bash
 mefisto_claude_root=''
-mefisto_claude_canonical_contaminated=0
 mefisto_claude_root_from_candidate() {
     local root
     case "$mefisto_claude_candidate" in /*) ;; *) return 1 ;; esac
@@ -22,18 +21,6 @@ mefisto_claude_root_from_candidate() {
     ' "$root/mefisto-manifest.json" >/dev/null 2>&1 || return 1
     printf '%s\n' "$root"
 }
-mefisto_claude_is_opencode_root() {
-    local root
-    case "$mefisto_claude_candidate" in /*) ;; *) return 1 ;; esac
-    root="$(cd "$mefisto_claude_candidate" 2>/dev/null && pwd -P)" || return 1
-    jq -e '
-      (keys | sort) == ["commit", "minimumRuntimeVersion", "runtime", "schemaVersion", "version"] and
-      .schemaVersion == 1 and .runtime == "opencode" and
-      (.version | type == "string" and test("^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)(-[0-9A-Za-z-]+(\\.[0-9A-Za-z-]+)*)?(\\+[0-9A-Za-z-]+(\\.[0-9A-Za-z-]+)*)?$")) and
-      (.commit | type == "string" and test("^[0-9a-f]{40}$")) and
-      (.minimumRuntimeVersion | type == "string" and test("^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$"))
-    ' "$root/mefisto-manifest.json" >/dev/null 2>&1
-}
 mefisto_claude_loaded='${CLAUDE_PLUGIN_ROOT}'
 if [[ "$mefisto_claude_loaded" != '${'* ]]; then
     mefisto_claude_candidate="$mefisto_claude_loaded"
@@ -46,12 +33,7 @@ else
         if [ -f "$mefisto_claude_cursor/.mefisto/pipeline/.plugin-root" ]; then
             mefisto_claude_candidate="$(< "$mefisto_claude_cursor/.mefisto/pipeline/.plugin-root")"
             if mefisto_claude_root="$(mefisto_claude_root_from_candidate)"; then break; fi
-            if mefisto_claude_is_opencode_root; then
-                mefisto_claude_canonical_contaminated=1
-                break
-            else
-                printf '%s\n' 'ERROR Claude: metadata del marker canonico invalida; reabra o reinstale el plugin.' >&2; exit 1
-            fi
+            printf '%s\n' 'ERROR Claude: metadata del marker canonico invalida; reabra o reinstale el plugin.' >&2; exit 1
         fi
         if [ "$mefisto_claude_cursor" = / ]; then break; fi
         mefisto_claude_cursor="$(cd "$mefisto_claude_cursor/.." && pwd -P)"
@@ -62,9 +44,6 @@ else
             if [ -f "$mefisto_claude_cursor/.claude/pipeline/.plugin-root" ]; then
                 mefisto_claude_candidate="$(< "$mefisto_claude_cursor/.claude/pipeline/.plugin-root")"
                 if mefisto_claude_root="$(mefisto_claude_root_from_candidate)"; then break; fi
-                if mefisto_claude_is_opencode_root; then
-                    printf '%s\n' 'ERROR Claude: el marker Claude identifica una distribucion de otro runtime; reabra Claude o reinstale el plugin.' >&2; exit 1
-                fi
                 printf '%s\n' 'ERROR Claude: metadata del marker Claude invalida; reabra o reinstale el plugin.' >&2; exit 1
             fi
             if [ "$mefisto_claude_cursor" = / ]; then break; fi
@@ -73,11 +52,7 @@ else
     fi
 fi
 if [ -z "$mefisto_claude_root" ]; then
-    if [ "$mefisto_claude_canonical_contaminated" -eq 1 ]; then
-        printf '%s\n' 'ERROR Claude: el marker canonico identifica una distribucion OpenCode y no existe un mirror Claude valido; reabra Claude o reinstale el plugin.' >&2
-    else
-        printf '%s\n' 'ERROR Claude: no se encontro una raiz Claude valida; reabra o reinstale el plugin.' >&2
-    fi
+    printf '%s\n' 'ERROR Claude: no se encontro una raiz Claude valida; reabra o reinstale el plugin.' >&2
     exit 1
 fi
 MEFISTO_PACKAGE_ROOT="$mefisto_claude_root"

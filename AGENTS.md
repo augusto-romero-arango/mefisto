@@ -1,6 +1,6 @@
 # AGENTS.md — mefisto
 
-Harness opinionado para agentes de codigo (nombre interno: `mefisto`, repo: `augusto-romero-arango/mefisto`, antes `eda-evsourcing-azure-harness`): orquesta el desarrollo asistido de aplicaciones .NET 10 serverless en Azure con Event Driven Architecture y Event Sourcing. Claude Code se conserva como runtime compatible detras de un adaptador; OpenCode es el runtime del dogfooding interno (MEF-ADR-0049).
+Harness opinionado para agentes de codigo (nombre interno: `mefisto`, repo: `augusto-romero-arango/mefisto`, antes `eda-evsourcing-azure-harness`): orquesta el desarrollo asistido de aplicaciones .NET 10 serverless en Azure con Event Driven Architecture y Event Sourcing. Claude Code es el unico runtime con adaptador (MEF-ADR-0057); la doctrina sigue neutral a runtime (MEF-ADR-0049).
 
 ## Principios de respuesta
 
@@ -39,8 +39,7 @@ y `Verificación de fuentes` en el `AGENTS.md` del consumidor, el puente mínimo
 | Skill | Propósito |
 |---|---|
 | `/onboard` | Diagnostica el onboarding del consumidor (config, labels, CI) y reporta un checklist; provisión opt-in bajo confirmación |
-| `/upgrade` | Actualiza Mefisto desde el runtime activo (Claude Code u OpenCode) con `upgrade.sh`: consulta el estado del par de adaptadores; alinea automáticamente `enabled`/`stale`, ofrece habilitar `disabled` con una confirmación y deja `conflict` sin mutar; evidencia versiones e identidad, y poda solo el runtime activo bajo confirmación (nunca la versión cargada ni el par) |
-| `/runtimes` | Consulta y administra la proyección de adaptadores instalados: estado, habilitación y deshabilitación sin descargar, actualizar ni seleccionar una release |
+| `/upgrade` | Actualiza Mefisto desde el runtime activo con `upgrade.sh`: evidencia la versión instalada y la versión destino, ofrece retirar el nivel de usuario cuando el repo ya lo activa con archivos commiteados, y poda bajo confirmación (nunca la versión cargada) |
 | `/draft` | Captura una idea como issue `estado:borrador` |
 | `/implement` | Pipeline TDD para un issue `estado:listo` |
 | `/tooling` | Pipeline de tooling (scripts, fixtures, config, agentes) |
@@ -132,11 +131,11 @@ un plugin) y cuándo envolver doctrina extensa en un Agent Skill: ver skill inte
 Mefisto mantiene **dos sets** de skills/agentes/pipelines físicamente separados (doctrina completa en MEF-ADR-0019):
 
 - **Publicados** (`commands/`, `skills/`, `agents/`, `scripts/`, `hooks/`): se distribuyen vía marketplace y operan únicamente sobre archivos del consumidor.
-- **Internos** (`.claude/commands/`, `.claude/skills/`, `.claude/agents/`, `.claude/scripts/`): no se publican; el runtime de agente activo (Claude Code u OpenCode, MEF-ADR-0049) los carga al abrir este repo. Llevan prefijo `mefisto-` y operan solo sobre archivos del propio plugin.
+- **Internos** (`.claude/commands/`, `.claude/skills/`, `.claude/agents/`, `.claude/scripts/`): no se publican; el runtime de agente activo (MEF-ADR-0049) los carga al abrir este repo. Llevan prefijo `mefisto-` y operan solo sobre archivos del propio plugin.
 
-Toda operacion de cualquiera de los dos sets -- skill, comando, agente, pipeline, hook o Agent Skill -- nace neutral a runtime, con el conjunto de runtimes soportados abierto (MEF-ADR-0050): "soportado" significa unicamente "tiene adaptador en el repo", hoy Claude Code y OpenCode.
+Toda operacion de cualquiera de los dos sets -- skill, comando, agente, pipeline, hook o Agent Skill -- nace neutral a runtime, con el conjunto de runtimes soportados abierto (MEF-ADR-0050): "soportado" significa unicamente "tiene adaptador en el repo", hoy Claude Code (MEF-ADR-0057).
 
-Dentro del lado interno, `src/internal/{agents,commands}/*.md` es la **fuente neutral** (MEF-ADR-0049): `.claude/{agents,commands}/*.md` y `.opencode/{agents,commands}/*.md` son su **salida generada** por `src/internal/scripts/generate-internal-adapters.sh` y **no se editan a mano** — se edita la fuente y se regenera (`--check` falla si divergen). Los pipelines internos viven en `src/internal/scripts/` y `.claude/scripts/` es su superficie estable con shims de tres lineas (MEF-ADR-0049 decision 2); la unica excepcion es `mefisto-scope-hook.sh`, hook `PostToolUse` del adaptador Claude, cuyo equivalente en OpenCode es la politica de permisos `edit/write/patch` generada desde `is_path_in_mefisto_scope` (deniega antes de escribir; paridad verificada por `test-scope-parity.sh`, MEF-ADR-0050). Los Agent Skills internos siguen el mismo modelo (issue #1685): la fuente canonica es `src/internal/skills/<id>/` y `generate-internal-adapters.sh` genera `.claude/skills/<id>/` con marcador (OpenCode ya descubre esa ruta, verificado en `src/internal/contract/README.md`, asi que no se emite `.opencode/skills/`); `--check` los cubre igual que a agentes y comandos. Con el mismo tratamiento proyecta ahi, desde `skills/<id>/`, los Skills publicados de la allowlist `PUBLISHED_PROJECTED_SKILLS` del generador (hoy solo `code-comments`, issue #2529), sin segunda copia a mano.
+Dentro del lado interno, `src/internal/{agents,commands}/*.md` es la **fuente neutral** (MEF-ADR-0049): `.claude/{agents,commands}/*.md` es su **salida generada** por `src/internal/scripts/generate-internal-adapters.sh` y **no se edita a mano** — se edita la fuente y se regenera (`--check` falla si diverge). Los pipelines internos viven en `src/internal/scripts/` y `.claude/scripts/` es su superficie estable con shims de tres lineas (MEF-ADR-0049 decision 2); la unica excepcion es `mefisto-scope-hook.sh`, hook `PostToolUse` del adaptador Claude (MEF-ADR-0050). Los Agent Skills internos siguen el mismo modelo (issue #1685): la fuente canonica es `src/internal/skills/<id>/` y `generate-internal-adapters.sh` genera `.claude/skills/<id>/` con marcador; `--check` los cubre igual que a agentes y comandos. Con el mismo tratamiento proyecta ahi, desde `skills/<id>/`, los Skills publicados de la allowlist `PUBLISHED_PROJECTED_SKILLS` del generador (hoy solo `code-comments`, issue #2529), sin segunda copia a mano.
 
 `skills/` y `.claude/skills/` son las ubicaciones de Agent Skills (MEF-ADR-0033) y ya están registradas en los gates de scope; el primero publicado es `skills/projections/` (ver "Agent Skills disponibles"), y del lado interno están `harness-config-contract` y `agent-skill-authoring` (fuente en `src/internal/skills/`). La integridad de todo Skill nuevo (su `name` frontmatter, sus recursos de Nivel 3 y las referencias `skills:` de los agentes) la valida el bloque `[F]` de `scripts/tests/test-guards.sh`: un `skills:` mal escrito degrada en silencio, sin error visible en un pipeline headless. **Todo tipo de artefacto nuevo del plugin debe registrarse a mano** en el blocklist publicado (`is_path_in_consumer_blocklist`) y en la allowlist interna (`is_path_in_mefisto_scope`): ambos enumeran rutas explícitamente. Ese registro y el uso de la ruta son **dos PRs distintos, y el de registro va primero** — el gate que juzga un PR se carga fuera de su worktree, así que un PR que registra una ruta y la puebla a la vez se autobloquea (regla completa en MEF-ADR-0019, sección E).
 
@@ -148,7 +147,7 @@ Ver `README.md`.
 
 ## Trabajar sobre el propio plugin
 
-Si estás clonando este repo (Mefisto) para evolucionarlo, **no necesitas instalar el plugin sobre sí mismo**. El runtime de agente activo (Claude Code u OpenCode, MEF-ADR-0049) carga automáticamente los skills internos desde `.claude/commands/` y `.claude/agents/` del repo activo. Los pipelines internos viven bajo `.claude/scripts/`.
+Si estás clonando este repo (Mefisto) para evolucionarlo, **no necesitas instalar el plugin sobre sí mismo**. El runtime de agente activo (MEF-ADR-0049) carga automáticamente los skills internos desde `.claude/commands/` y `.claude/agents/` del repo activo. Los pipelines internos viven bajo `.claude/scripts/`.
 
 Workflow típico:
 

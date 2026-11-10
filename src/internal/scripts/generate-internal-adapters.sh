@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# generate-internal-adapters.sh -- Genera los adaptadores .claude/ y
-# .opencode/ a partir de la fuente neutral src/internal/{agents,commands}/*.md
+# generate-internal-adapters.sh -- Genera el adaptador .claude/ a partir de
+# la fuente neutral src/internal/{agents,commands}/*.md
 # (MEF-ADR-0049 CA-2/CA-3/CA-6, issue #854). Valida primero con
 # validate-internal-artifacts.sh (#853): si algun artefacto de origen falla,
 # aborta sin escribir nada (CA-1).
@@ -17,25 +17,22 @@
 #   validate-internal-artifacts.sh).
 #
 #   --out <dir>   Raiz alternativa donde leer/escribir los adaptadores
-#                 generados (".claude/{agents,commands}" y
-#                 ".opencode/{agents,commands}" bajo <dir>) en vez de la raiz
-#                 del repo. Uso principal: tests -- nunca escriben en el
-#                 .claude/ ni .opencode/ reales del repo.
+#                 generados (".claude/{agents,commands}" bajo <dir>) en vez de
+#                 la raiz del repo. Uso principal: tests -- nunca escriben en
+#                 el .claude/ real del repo.
 #   --check       No escribe nada: genera en un directorio temporal y compara
 #                 contra lo ya versionado bajo la raiz de salida. Exit 1 y una
 #                 linea "<ruta>: faltante|distinta|huerfana|sin marcador" por
 #                 divergencia; exit 0 si todo coincide. Todo archivo .md bajo
-#                 .claude/{agents,commands} u .opencode/{agents,commands} debe
-#                 llevar el marcador de generado -- no queda ningun adaptador
-#                 de autoria manual bajo esas rutas (issue #913).
+#                 .claude/{agents,commands} debe llevar el marcador de generado
+#                 -- no queda ningun adaptador de autoria manual bajo esas
+#                 rutas (issue #913).
 #
 # Agent Skills internos (issue #1685, MEF-ADR-0033/0049): la fuente canonica es
 # src/internal/skills/<id>/ (SKILL.md con frontmatter YAML portable + recursos
-# de Nivel 3). Se genera unicamente .claude/skills/<id>/, con el marcador de
-# generado tras el frontmatter de SKILL.md; OpenCode descubre ese mismo
-# directorio (verificado, ver src/internal/contract/README.md), asi que NO se
-# emite .opencode/skills/: duplicarlo cargaria el Skill dos veces. --check
-# aplica las mismas reglas faltante/distinta/huerfana/sin marcador.
+# de Nivel 3). Se genera .claude/skills/<id>/, con el marcador de generado tras
+# el frontmatter de SKILL.md. --check aplica las mismas reglas
+# faltante/distinta/huerfana/sin marcador.
 #
 # Agent Skills publicados proyectados (issue #2529, MEF-ADR-0019/0049): el
 # generador proyecta tambien, a .claude/skills/<id>/ y con el mismo tratamiento,
@@ -44,13 +41,6 @@
 # ningun runtime los carga aqui sin esa proyeccion, y la fuente sigue siendo una
 # sola. El resto (p. ej. `projections`) no se proyecta. Un id presente a la vez
 # en src/internal/skills/ y en esa lista aborta con un error que nombra el id.
-#
-# Plugin de efforts (issue #2505): ademas se genera
-# .opencode/plugins/mefisto-efforts.js, un unico archivo con {id, profile,
-# effort} de cada agente fuente y la tabla de nativos por defecto, que aplica
-# el effort de fabrica en conversaciones (hook `config`). Solo se emite si hay
-# al menos un agente entre las fuentes procesadas. --check lo cubre igual:
-# faltante/distinta/huerfana/sin marcador.
 #
 # Exit code: 0 si genero (o, con --check, verifico) sin divergencias; 1 si la
 # validacion previa fallo, si algun archivo tiene una directiva de body
@@ -79,7 +69,7 @@ VALIDATOR="$SCRIPT_DIR/validate-internal-artifacts.sh"
 MARKER_SOURCE_SCRIPT="src/internal/scripts/generate-internal-adapters.sh"
 PUBLISHED_PROJECTED_SKILLS="code-comments"
 
-for required in "$VALIDATOR" "$LIB_DIR/frontmatter.sh" "$LIB_DIR/adapter-claude.sh" "$LIB_DIR/adapter-opencode.sh"; do
+for required in "$VALIDATOR" "$LIB_DIR/frontmatter.sh" "$LIB_DIR/adapter-claude.sh"; do
     if [ ! -f "$required" ]; then
         echo "ERROR: no existe '$required'" >&2
         exit 1
@@ -93,7 +83,6 @@ fi
 
 source "$LIB_DIR/frontmatter.sh"
 source "$LIB_DIR/adapter-claude.sh"
-source "$LIB_DIR/adapter-opencode.sh"
 
 CHECK_MODE=0
 OUT_ROOT="$REPO_ROOT"
@@ -168,8 +157,6 @@ trap 'rm -rf "$STAGE_DIR"' EXIT
 
 GEN_STATUS=0
 GENERATED_RELPATHS=()
-AGENTS_EFFORT_JSON="[]"
-EFFORTS_MARKER_LINE="// GENERADO por $MARKER_SOURCE_SCRIPT desde src/internal/agents/*.md. No editar a mano."
 
 # skill_rel_parts <ruta> -- imprime "<id>/<ruta-relativa-en-el-skill>" si la
 # ruta cae bajo src/internal/skills/<id>/ o bajo skills/<id>/ con <id> en
@@ -260,26 +247,12 @@ for file in ${FILES[@]+"${FILES[@]}"}; do
         GEN_STATUS=1
         continue
     fi
-    opencode_out="$(opencode_render "$rel_source" "$instance_json" "$marker_line" "$body")"
-    if [ $? -ne 0 ]; then
-        GEN_STATUS=1
-        continue
-    fi
 
     claude_relpath=".claude/${kind}s/${id}.md"
-    opencode_relpath=".opencode/${kind}s/${id}.md"
 
     mkdir -p "$(dirname "$STAGE_DIR/$claude_relpath")"
     printf '%s\n' "$claude_out" > "$STAGE_DIR/$claude_relpath"
     GENERATED_RELPATHS+=("$claude_relpath")
-
-    mkdir -p "$(dirname "$STAGE_DIR/$opencode_relpath")"
-    printf '%s\n' "$opencode_out" > "$STAGE_DIR/$opencode_relpath"
-    GENERATED_RELPATHS+=("$opencode_relpath")
-
-    if [ "$kind" = "agent" ]; then
-        AGENTS_EFFORT_JSON="$(printf '%s' "$instance_json" | jq -c --argjson acc "$AGENTS_EFFORT_JSON" '$acc + [{id, profile, effort}]')"
-    fi
 done
 
 for pub_id in $PUBLISHED_PROJECTED_SKILLS; do
@@ -294,18 +267,6 @@ for pub_id in $PUBLISHED_PROJECTED_SKILLS; do
             ;;
     esac
 done
-
-if [ "$GEN_STATUS" -eq 0 ] && [ "$AGENTS_EFFORT_JSON" != "[]" ]; then
-    AGENTS_EFFORT_JSON="$(printf '%s' "$AGENTS_EFFORT_JSON" | jq -c 'sort_by(.id)')"
-    mkdir -p "$(dirname "$STAGE_DIR/$OPENCODE_EFFORTS_PLUGIN_RELPATH")"
-    if effort_plugin_out="$(opencode_render_efforts_plugin "$EFFORTS_MARKER_LINE" "$AGENTS_EFFORT_JSON")"; then
-        printf '%s\n' "$effort_plugin_out" > "$STAGE_DIR/$OPENCODE_EFFORTS_PLUGIN_RELPATH"
-        GENERATED_RELPATHS+=("$OPENCODE_EFFORTS_PLUGIN_RELPATH")
-    else
-        echo "ERROR: no se pudo generar $OPENCODE_EFFORTS_PLUGIN_RELPATH" >&2
-        GEN_STATUS=1
-    fi
-fi
 
 if [ "$GEN_STATUS" -ne 0 ]; then
     echo "ERROR: la generacion aborto; no se escribio nada" >&2
@@ -353,21 +314,7 @@ if [ "$CHECK_MODE" -eq 1 ]; then
                 DIVERGENCE=1
                 ;;
         esac
-    done < <(find "$OUT_ROOT/.claude/agents" "$OUT_ROOT/.claude/commands" "$OUT_ROOT/.opencode/agents" "$OUT_ROOT/.opencode/commands" -name '*.md' 2>/dev/null | sort)
-
-    # Plugins (issue #2505): todo archivo bajo .opencode/plugins exige el
-    # marcador de generado y debe estar entre lo generado.
-    while IFS= read -r existing_file; do
-        [ -n "$existing_file" ] || continue
-        rel="${existing_file#"$OUT_ROOT"/}"
-        if [ "$(head -n1 "$existing_file")" != "$EFFORTS_MARKER_LINE" ]; then
-            echo "$rel: sin marcador"
-            DIVERGENCE=1
-        elif ! path_in_generated_list "$rel"; then
-            echo "$rel: huerfana"
-            DIVERGENCE=1
-        fi
-    done < <(find "$OUT_ROOT/.opencode/plugins" -type f 2>/dev/null | sort)
+    done < <(find "$OUT_ROOT/.claude/agents" "$OUT_ROOT/.claude/commands" -name '*.md' 2>/dev/null | sort)
 
     # Skills (issue #1685): SKILL.md exige marcador; todo archivo bajo
     # .claude/skills debe estar ademas entre lo generado.

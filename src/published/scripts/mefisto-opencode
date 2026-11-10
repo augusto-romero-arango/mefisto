@@ -1,6 +1,0 @@
-#!/usr/bin/env bash
-# Entrada estable de la release activa; install.sh distingue este modo del bootstrap.
-set -euo pipefail
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
-export MEFISTO_OPENCODE_INSTALLED=1
-exec "$SCRIPT_DIR/install.sh" "$@"

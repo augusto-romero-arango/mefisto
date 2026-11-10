@@ -5,7 +5,6 @@ model: "haiku"
 <!-- GENERADO por src/published/scripts/generate-published-adapters.sh desde src/published/commands/onboard.md. No editar a mano. -->
 ```bash
 mefisto_claude_root=''
-mefisto_claude_canonical_contaminated=0
 mefisto_claude_root_from_candidate() {
     local root
     case "$mefisto_claude_candidate" in /*) ;; *) return 1 ;; esac
@@ -21,18 +20,6 @@ mefisto_claude_root_from_candidate() {
     ' "$root/mefisto-manifest.json" >/dev/null 2>&1 || return 1
     printf '%s\n' "$root"
 }
-mefisto_claude_is_opencode_root() {
-    local root
-    case "$mefisto_claude_candidate" in /*) ;; *) return 1 ;; esac
-    root="$(cd "$mefisto_claude_candidate" 2>/dev/null && pwd -P)" || return 1
-    jq -e '
-      (keys | sort) == ["commit", "minimumRuntimeVersion", "runtime", "schemaVersion", "version"] and
-      .schemaVersion == 1 and .runtime == "opencode" and
-      (.version | type == "string" and test("^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)(-[0-9A-Za-z-]+(\\.[0-9A-Za-z-]+)*)?(\\+[0-9A-Za-z-]+(\\.[0-9A-Za-z-]+)*)?$")) and
-      (.commit | type == "string" and test("^[0-9a-f]{40}$")) and
-      (.minimumRuntimeVersion | type == "string" and test("^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$"))
-    ' "$root/mefisto-manifest.json" >/dev/null 2>&1
-}
 mefisto_claude_loaded='${CLAUDE_PLUGIN_ROOT}'
 if [[ "$mefisto_claude_loaded" != '${'* ]]; then
     mefisto_claude_candidate="$mefisto_claude_loaded"
@@ -45,12 +32,7 @@ else
         if [ -f "$mefisto_claude_cursor/.mefisto/pipeline/.plugin-root" ]; then
             mefisto_claude_candidate="$(< "$mefisto_claude_cursor/.mefisto/pipeline/.plugin-root")"
             if mefisto_claude_root="$(mefisto_claude_root_from_candidate)"; then break; fi
-            if mefisto_claude_is_opencode_root; then
-                mefisto_claude_canonical_contaminated=1
-                break
-            else
-                printf '%s\n' 'ERROR Claude: metadata del marker canonico invalida; reabra o reinstale el plugin.' >&2; exit 1
-            fi
+            printf '%s\n' 'ERROR Claude: metadata del marker canonico invalida; reabra o reinstale el plugin.' >&2; exit 1
         fi
         if [ "$mefisto_claude_cursor" = / ]; then break; fi
         mefisto_claude_cursor="$(cd "$mefisto_claude_cursor/.." && pwd -P)"
@@ -61,9 +43,6 @@ else
             if [ -f "$mefisto_claude_cursor/.claude/pipeline/.plugin-root" ]; then
                 mefisto_claude_candidate="$(< "$mefisto_claude_cursor/.claude/pipeline/.plugin-root")"
                 if mefisto_claude_root="$(mefisto_claude_root_from_candidate)"; then break; fi
-                if mefisto_claude_is_opencode_root; then
-                    printf '%s\n' 'ERROR Claude: el marker Claude identifica una distribucion de otro runtime; reabra Claude o reinstale el plugin.' >&2; exit 1
-                fi
                 printf '%s\n' 'ERROR Claude: metadata del marker Claude invalida; reabra o reinstale el plugin.' >&2; exit 1
             fi
             if [ "$mefisto_claude_cursor" = / ]; then break; fi
@@ -72,11 +51,7 @@ else
     fi
 fi
 if [ -z "$mefisto_claude_root" ]; then
-    if [ "$mefisto_claude_canonical_contaminated" -eq 1 ]; then
-        printf '%s\n' 'ERROR Claude: el marker canonico identifica una distribucion OpenCode y no existe un mirror Claude valido; reabra Claude o reinstale el plugin.' >&2
-    else
-        printf '%s\n' 'ERROR Claude: no se encontro una raiz Claude valida; reabra o reinstale el plugin.' >&2
-    fi
+    printf '%s\n' 'ERROR Claude: no se encontro una raiz Claude valida; reabra o reinstale el plugin.' >&2
     exit 1
 fi
 MEFISTO_PACKAGE_ROOT="$mefisto_claude_root"
@@ -94,7 +69,7 @@ Antes de continuar, aborta si existe `src/internal/scripts/generate-internal-ada
 `/mefisto:onboard` es el primer corte del onboarding automatizado (el "doctor" diagnostico). Reporta, sin tocar nada:
 
 1. **Configuracion** (`.mefisto/harness.config.json`, con fallback legacy de solo lectura): existencia, parseo con `jq`, campos requeridos (`projectName`, `namespacePrefix`, `solutionFile`, `boundedContext`) y formato de `terraformStateStorage`. La validacion la hace `load_harness_config` del plugin, que es la **unica fuente de verdad** de las reglas del tfstate (`^[a-z0-9]{3,24}$`) y del BC (`name` 1-63 chars; `domains` subconjunto de `domainLabels`). Con el config válido, valida también el **`repoSlug` efectivo** (MEF-ADR-0053 decisión 4, issue #2353): el declarado o, si falta, el default `augusto-romero-arango/mefisto`, destino de los drafts cross-repo y de las releases que busca `/mefisto:upgrade`. Reporta `FALTA` (con la acción de corregirlo o borrarlo) si coincide con el `origin` del propio consumidor, atajo local sin red, o si el manifiesto `plugin.json` del plugin en ese repo no existe o no declara `name: mefisto`; `OK` si lo declara, y `NO VERIFICADO` si `gh` no está instalado, no está autenticado o no hay red. Incluye además la **versión mínima exigida por el adaptador Claude** (MEF-ADR-0055): 2.1.287, la que publicó los mods que declara `hooks/hooks.json`. Reporta `OK` si la versión instalada la cumple, `FALTA` si es menor (con la acción de actualizar) y `NO VERIFICADO` si no se puede leer la versión; bajo cualquier otro runtime es informativa (`INFO`), MEF-ADR-0050/0053. Reporta también la **activación por repositorio** del runtime activo (MEF-ADR-0053 decisión 2): `OK` si los archivos de proyecto commiteados activan Mefisto, `FALTA` si no (con la provisión opt-in del paso 8), y una fila `INFO` si Mefisto todavía se carga en todos los repos desde un nivel global (`/mefisto:upgrade` ofrece retirarlo).
-2. **Directivas canónicas del consumidor** (MEF-ADR-0049/0050/0053): comprueba independientemente que `AGENTS.md` tenga las secciones obligatorias "Tokens del harness" y "Verificación de fuentes", con los 5 tokens dentro de la primera (`RootNamespace`, `SolutionFile`, `ProjectDisplayName`, `BoundedContext`, `BoundedContextDomains`), y, según el runtime, el puente `CLAUDE.md`. `AGENTS.md` es la fuente canónica para todos los runtimes; `CLAUDE.md` con una línea independiente exacta `@AGENTS.md` es un **requisito del adaptador Claude** (el diagnóstico lo reporta `FALTA` solo bajo ese runtime) y **informativo bajo OpenCode**, donde no bloquea (MEF-ADR-0050/0053). Si conserva cualquiera de las dos secciones contractuales, reporta `FALTA` y pide limpiarlas manualmente, sin tocar el archivo. Un `CLAUDE.md` legacy legible sigue visible como fallback de migración, pero bajo el adaptador Claude nunca deja el proyecto canónicamente listo. Un archivo existente no legible reporta `NO VERIFICADO`.
+2. **Directivas canónicas del consumidor** (MEF-ADR-0049/0050/0053): comprueba independientemente que `AGENTS.md` tenga las secciones obligatorias "Tokens del harness" y "Verificación de fuentes", con los 5 tokens dentro de la primera (`RootNamespace`, `SolutionFile`, `ProjectDisplayName`, `BoundedContext`, `BoundedContextDomains`), y, según el runtime, el puente `CLAUDE.md`. `AGENTS.md` es la fuente canónica para todos los runtimes; `CLAUDE.md` con una línea independiente exacta `@AGENTS.md` es un **requisito del adaptador Claude** (el diagnóstico lo reporta `FALTA` solo bajo ese runtime; MEF-ADR-0050/0053). Si conserva cualquiera de las dos secciones contractuales, reporta `FALTA` y pide limpiarlas manualmente, sin tocar el archivo. Un `CLAUDE.md` legacy legible sigue visible como fallback de migración, pero bajo el adaptador Claude nunca deja el proyecto canónicamente listo. Un archivo existente no legible reporta `NO VERIFICADO`.
 3. **Estructura de carpetas esperada** (contrato del harness, punto 3): reporta de forma **informativa** (no bloqueante) la presencia de `src/`, `tests/` e `infra/environments/`. No la marca como `FALTA` cuando falta: un greenfield legitimo aun no tiene estas carpetas antes del primer `/mefisto:scaffold` o `/mefisto:infra-base`, y tratarla como bloqueante daria un falso negativo.
 4. **Labels de GitHub** (MEF-ADR-0007): que existan `tipo:*`, `estado:borrador`, `estado:listo`, `dom:<x>` por cada `domainLabels`, mas `bug`, `bloqueado` y `warning`.
 
@@ -130,9 +105,7 @@ No reinterpretes ni recalcules el checklist ni el bloque "Proximos pasos": el bl
 
 ### 3. Migración opt-in de directivas canónicas
 
-Ofrece este paso **solo** cuando el diagnóstico reportó que falta `AGENTS.md` o, bajo el adaptador Claude, el puente exacto `@AGENTS.md` en `CLAUDE.md` (bajo OpenCode el puente es informativo: si solo falta el puente, ofrece el paso únicamente cuando el usuario indique que el equipo también usa Claude). Muestra primero el plan que produce `--preview`: crear `AGENTS.md` solamente si está ausente, crear o añadir el puente sin mover ni borrar texto existente, y cualquier aviso de doctrina legacy duplicada. Si `AGENTS.md` existe pero está incompleto, explica que no se fusiona por heurística y que debe completarse manualmente.
-
-Antes de previsualizar, pregunta si el equipo **también usa Claude**: si responde que sí, ofrece `--with-claude-bridge` (crea o completa el puente `CLAUDE.md` -> `@AGENTS.md` aun bajo OpenCode) y agrega ese flag tanto a la previsualización (`MEFISTO_RUNTIME=claude "${MEFISTO_PACKAGE_ROOT}/scripts/onboard-migrate-directives.sh" --preview --with-claude-bridge`) como a la aplicación (`MEFISTO_RUNTIME=claude "${MEFISTO_PACKAGE_ROOT}/scripts/onboard-migrate-directives.sh" --apply --with-claude-bridge`), para que el plan confirmado sea el que se aplica. Sin esa respuesta, no lo agregues.
+Ofrece este paso **solo** cuando el diagnóstico reportó que falta `AGENTS.md` o, bajo el adaptador Claude, el puente exacto `@AGENTS.md` en `CLAUDE.md`. Muestra primero el plan que produce `--preview`: crear `AGENTS.md` solamente si está ausente, crear o añadir el puente sin mover ni borrar texto existente, y cualquier aviso de doctrina legacy duplicada. Si `AGENTS.md` existe pero está incompleto, explica que no se fusiona por heurística y que debe completarse manualmente.
 
 Advierte que, aunque la migración es conservadora, escribe archivos del consumidor. Presenta primero el plan real con este bloque, sin aplicar cambios:
 

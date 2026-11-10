@@ -1,0 +1,2 @@
+{"v":1,"type":"run.started","ts":"2026-09-08T11:00:00Z","runtime":"fake","agent":"reviewer","model":null,"cwd":"/tmp"}
+{"v":1,"type":"run.failed","ts":"2026-09-08T11:00:02Z","status":"failed","runtime":"fake","model":null,"session_id":null,"duration_ms":2000,"tokens":{"input":null,"output":null},"cost_usd":null,"turns":null,"denials":null,"ttft_ms":null,"api_duration_ms":null,"error":{"kind":"api_error","detail":"SECRETO-no-mostrar"}}

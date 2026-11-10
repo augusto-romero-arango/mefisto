@@ -142,7 +142,7 @@ should_delegate_to_herdr() {
 # runtime claude y sin MEFISTO_UI explicito, la cinta de la propia sesion
 # (fausto-blood-pact, MEF-ADR-0055) es el visor: no se abre pane ni sesion
 # tmux. MEFISTO_UI=mod tambien lo pide; un MEFISTO_UI=tmux|herdr explicito
-# siempre gana, y el runtime opencode conserva el pane herdr / sesion tmux.
+# siempre gana, y un runtime sin cinta de sesion conserva el pane herdr / sesion tmux.
 uses_detached_ui() {
     [ "${MEFISTO_UI:-}" = "mod" ] && return 0
     [ -z "${MEFISTO_UI:-}" ] && [ "${MEFISTO_RUNTIME:-}" = "claude" ] && return 0
