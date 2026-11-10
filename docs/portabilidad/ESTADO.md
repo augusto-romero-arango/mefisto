@@ -124,7 +124,7 @@ Primero OpenCode: al salir, el único uso de tmux que queda es el modo explícit
 | 2a | OpenCode: `.opencode/`, `opencode.json`, adaptadores y runtime de OpenCode, política de permisos, scripts de instalación, empaquetado y proyección, lógica de par de adaptadores en `/upgrade` y `/runtimes`, sus tests y fixtures. Enmiendas a MEF-ADR-0049, 0050 y 0053; `AGENTS.md` y `README.md` | hecho | #2551, #2552 |
 | 2b | tmux: el modo sesión de los dos despachadores (que pasan a un nombre sin tmux), `--attach`, `--if-exists`, sus tests, `docs/tmux-cheatsheet.md` y el requisito en `README.md`. `MEFISTO_UI=tmux` da un error claro. Enmienda a MEF-ADR-0055 | pendiente | |
 
-Hecho cuando: M4 = 0 (2a) y M3 = 0 (2b), ningún archivo lleva `opencode` ni `tmux` en la ruta
+Hecho cuando: M4 (2a) y M3 (2b) están en su meta, ningún archivo lleva `opencode` ni `tmux` en la ruta
 fuera de `dist/`, y la suite completa pasa en local.
 
 ### Paso 3: Base TypeScript
