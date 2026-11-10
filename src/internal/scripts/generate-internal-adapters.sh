@@ -119,21 +119,8 @@ while [ $# -gt 0 ]; do
     esac
 done
 
-# --- CA-1: validar primero, sin escribir nada si falla -----------------------
-if [ ${#FILES[@]} -eq 0 ]; then
-    VALIDATE_OUT="$("$VALIDATOR" 2>&1)"
-    VALIDATE_RC=$?
-else
-    VALIDATE_OUT="$("$VALIDATOR" "${FILES[@]}" 2>&1)"
-    VALIDATE_RC=$?
-fi
-if [ "$VALIDATE_RC" -ne 0 ]; then
-    [ -n "$VALIDATE_OUT" ] && printf '%s\n' "$VALIDATE_OUT" >&2
-    echo "ERROR: validacion previa (validate-internal-artifacts.sh) fallo; no se genero nada" >&2
-    exit 1
-fi
-
-# Sin archivos explicitos: el mismo scan por defecto que el validador.
+# Sin archivos explicitos: el scan por defecto del validador mas los Skills
+# publicados proyectados, que asi pasan por la misma validacion previa.
 if [ ${#FILES[@]} -eq 0 ]; then
     while IFS= read -r f; do
         [ -n "$f" ] && FILES+=("$f")
@@ -150,6 +137,20 @@ if [ ${#FILES[@]} -eq 0 ]; then
             [ -n "$f" ] && FILES+=("$f")
         done < <(find "$REPO_ROOT/skills/$pub_id" -type f 2>/dev/null | sort)
     done
+fi
+
+# --- CA-1: validar primero, sin escribir nada si falla -----------------------
+if [ ${#FILES[@]} -eq 0 ]; then
+    VALIDATE_OUT="$("$VALIDATOR" 2>&1)"
+    VALIDATE_RC=$?
+else
+    VALIDATE_OUT="$("$VALIDATOR" "${FILES[@]}" 2>&1)"
+    VALIDATE_RC=$?
+fi
+if [ "$VALIDATE_RC" -ne 0 ]; then
+    [ -n "$VALIDATE_OUT" ] && printf '%s\n' "$VALIDATE_OUT" >&2
+    echo "ERROR: validacion previa (validate-internal-artifacts.sh) fallo; no se genero nada" >&2
+    exit 1
 fi
 
 # CA-5: con --check no se escribe nada, ni siquiera el directorio de salida
@@ -231,9 +232,10 @@ for file in ${FILES[@]+"${FILES[@]}"}; do
         continue
     fi
 
-    # Skill publicado fuera de la allowlist: no se proyecta.
-    case "$file" in
-        skills/*/*|*/skills/*/*) continue ;;
+    # Skill publicado fuera de la allowlist: no se proyecta. Se ancla a la ruta
+    # relativa para que un `skills/` ancestro del clon no salte agentes.
+    case "$rel_source" in
+        skills/*/*|/*/skills/*/*) continue ;;
     esac
 
     fm="$(extract_frontmatter "$file")"
