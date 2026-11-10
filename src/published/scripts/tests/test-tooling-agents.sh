@@ -63,7 +63,7 @@ for agent in tooling-writer tooling-reviewer; do
     metadata="$(frontmatter "$source")"
     expected_profile=balanced; [ "$agent" = tooling-reviewer ] && expected_profile=deep
     if printf '%s' "$metadata" | jq -e --arg id "$agent" --arg profile "$expected_profile" \
-        '.kind == "agent" and .id == $id and .mode == "all" and .profile == $profile and .capabilities == ["read", "edit", "shell"] and (keys | sort) == ["capabilities", "description", "effort", "id", "kind", "mode", "profile"]' >/dev/null; then
+        '.kind == "agent" and .id == $id and .mode == "all" and .profile == $profile and .capabilities == ["read", "edit", "shell", "skill"] and .skills == ["code-comments"] and (keys | sort) == ["capabilities", "description", "effort", "id", "kind", "mode", "profile", "skills"]' >/dev/null; then
         pass "$agent declara solo el contrato neutral esperado"
     else
         fail "$agent no declara el contrato neutral esperado"
@@ -107,9 +107,10 @@ for runtime in claude opencode; do
         absent "$rendered" '{{mefisto:' "$runtime/$agent no conserva directivas"
         case "$rendered" in *[Mm][Cc][Pp]*) fail "$runtime/$agent omite MCP" ;; *) pass "$runtime/$agent omite MCP" ;; esac
         if [ "$runtime" = claude ]; then
-            case "$rendered" in *[Ss]kill*) fail "$runtime/$agent omite Skills" ;; *) pass "$runtime/$agent omite Skills" ;; esac
+            contains "$rendered" 'skills: ["code-comments"]' "$runtime/$agent conserva skills"
         else
-            contains "$rendered" '"skill":"deny"' "$runtime/$agent omite Skills habilitados"
+            contains "$rendered" '"skill":{"*":"deny","mefisto-code-comments":"allow"}' "$runtime/$agent habilita solo code-comments"
+            contains "$rendered" 'en este orden: `mefisto-code-comments`.' "$runtime/$agent precarga code-comments"
         fi
     done
 done
@@ -117,8 +118,8 @@ claude_writer="$(< "$REPO_ROOT/dist/claude/agents/tooling-writer.md")"
 claude_reviewer="$(< "$REPO_ROOT/dist/claude/agents/tooling-reviewer.md")"
 contains "$claude_writer" 'name: "tooling-writer"' 'Claude expone el id del writer'
 contains "$claude_reviewer" 'name: "tooling-reviewer"' 'Claude expone el id del reviewer'
-contains "$claude_writer" 'tools: "Read, Glob, Grep, Edit, Write, Bash"' 'Claude writer deriva solo read/edit/shell'
-contains "$claude_reviewer" 'tools: "Read, Glob, Grep, Edit, Write, Bash"' 'Claude reviewer deriva solo read/edit/shell'
+contains "$claude_writer" 'tools: "Read, Glob, Grep, Edit, Write, Bash, Skill"' 'Claude writer deriva read/edit/shell/skill'
+contains "$claude_reviewer" 'tools: "Read, Glob, Grep, Edit, Write, Bash, Skill"' 'Claude reviewer deriva read/edit/shell/skill'
 contains "$claude_writer" 'model: "sonnet"' 'Claude materializa perfil balanced'
 contains "$claude_reviewer" 'model: "opus"' 'Claude materializa perfil deep'
 
@@ -134,13 +135,13 @@ for agent in tooling-writer tooling-reviewer; do
     if [ -f "$mirror" ]; then pass "la raiz instalada descubre $agent"; else fail "falta $agent en la raiz instalada"; fi
     if cmp -s "$mirror" "$rendered"; then pass "mirror raiz de $agent coincide byte a byte"; else fail "mirror raiz de $agent diverge de Claude"; fi
     contains "$(< "$mirror")" '<!-- GENERADO por src/published/scripts/generate-published-adapters.sh desde src/published/agents/'"$agent"'.md. No editar a mano. -->' "mirror raiz de $agent conserva marcador generado"
-    contains "$(< "$mirror")" 'tools: "Read, Glob, Grep, Edit, Write, Bash"' "mirror raiz de $agent expone solo tools Claude"
+    contains "$(< "$mirror")" 'tools: "Read, Glob, Grep, Edit, Write, Bash, Skill"' "mirror raiz de $agent expone solo tools Claude"
     if [ "$agent" = tooling-writer ]; then
         contains "$(< "$mirror")" 'model: "sonnet"' 'mirror raiz del writer conserva perfil balanced'
     else
         contains "$(< "$mirror")" 'model: "opus"' 'mirror raiz del reviewer materializa perfil deep'
     fi
-    for forbidden in 'Skill' 'MCP' 'WebFetch' 'WebSearch' 'Task'; do
+    for forbidden in 'MCP' 'WebFetch' 'WebSearch' 'Task'; do
         absent "$(< "$mirror")" "$forbidden" "mirror raiz de $agent omite $forbidden"
     done
 done
@@ -152,7 +153,7 @@ for rendered in "$opencode_writer" "$opencode_reviewer"; do
     contains "$rendered" '"edit":{"*":"allow"' 'OpenCode permite edicion'
     contains "$rendered" '"bash":{"*":"deny"' 'OpenCode mantiene shell deny por defecto'
     contains "$rendered" '"webfetch":"deny"' 'OpenCode deniega web'
-    contains "$rendered" '"skill":"deny"' 'OpenCode deniega Skills'
+    contains "$rendered" '"skill":{"*":"deny","mefisto-code-comments":"allow"}' 'OpenCode habilita solo code-comments'
     contains "$rendered" '"task":"deny"' 'OpenCode deniega delegacion'
     absent "$rendered" 'model:' 'OpenCode hereda modelo'
 done
@@ -208,11 +209,11 @@ for runtime in claude opencode; do
     done
 done
 # Lo no-clausura de cada distribucion se afirma como conjunto semantico: el
-# manifiesto en Claude, y observabilidad + MCP + todo el arbol de Skills en
+# manifiesto en Claude, y esfuerzos + observabilidad + MCP + todo el arbol de Skills en
 # OpenCode, derivado de skills/ en vez de muestrear dos archivos sueltos.
 claude_extra="$(jq -r '.assets[] | select(.adapter != "tooling-closure" and .adapter != "tooling-knowledge" and (.source | startswith("src/published/agents/") | not)) | "\(.id) \(.destination)"' "$WORK/dist/claude/.mefisto-generated-assets.json" | sort)"
 opencode_extra="$(jq -r '.assets[] | select(.adapter != "tooling-closure" and .adapter != "tooling-knowledge" and (.source | startswith("src/published/agents/") | not)) | "\(.id) \(.destination)"' "$WORK/dist/opencode/.mefisto-generated-assets.json" | sort)"
-opencode_extra_expected="$(printf '%s\n%s\n%s\n' 'interactive-observability plugins/mefisto-observability.js' 'mcp-config plugins/mefisto-mcp.js' "$skill_expected" | sort)"
+opencode_extra_expected="$(printf '%s\n%s\n%s\n%s\n' 'efforts-config plugins/mefisto-efforts.js' 'interactive-observability plugins/mefisto-observability.js' 'mcp-config plugins/mefisto-mcp.js' "$skill_expected" | sort)"
 [ "$claude_extra" = 'mefisto-manifest mefisto-manifest.json' ] && pass 'Claude inventaria el manifiesto fuera de las clausuras compartidas' || fail "Claude inventaria assets inesperados fuera de las clausuras: $claude_extra"
 [ "$opencode_extra" = "$opencode_extra_expected" ] && pass 'OpenCode inventaria observabilidad, MCP y todos los archivos de Skills' || fail 'OpenCode no inventaria observabilidad, MCP y todos los archivos de Skills'
 [ ! -e "$WORK/dist/claude/skills" ] && pass 'Claude no recibe Skills adaptados ni internos' || fail 'Claude recibio un arbol de Skills adaptado'
