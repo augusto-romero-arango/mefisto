@@ -428,7 +428,10 @@ resolve_pipeline_stage_effort() {
     local agent_file="$SCRIPT_DIR/../agents/$agent_id.md" level=""
 
     level="$(extract_frontmatter "$agent_file" 2>/dev/null | jq -r '.effort // empty' 2>/dev/null)" || level=""
-    [ -n "$level" ] || abort "No se pudo resolver el effort de $agent_id: la fuente $agent_file no declara 'effort' o es ilegible (MEFISTO_EFFORTS_ERROR: sin nivel de fabrica)"
+    if [ -z "$level" ]; then
+        MEFISTO_EFFORTS_ERROR="la fuente $agent_file no declara 'effort' o es ilegible"
+        abort "No se pudo resolver el effort de $agent_id: MEFISTO_EFFORTS_ERROR=$MEFISTO_EFFORTS_ERROR"
+    fi
 
     # Redirect a archivo, nunca "$(...)": MEFISTO_EFFORTS_ERROR se perderia en
     # el subshell (misma trampa que resolve_pipeline_stage_model).
@@ -657,7 +660,7 @@ run_agent() {
     # worktree (CA-2, resolve_pipeline_stage_model): aqui solo se selecciona
     # por rol. El stage de resolucion de conflictos corre como
     # `run_agent "merge" "writer"` y por eso cae en la rama de escritura --
-    # mismo agente y mismo modelo que el writer de Stage 1.
+    # mismo agente, modelo y effort que el writer de Stage 1.
     local MEFISTO_AGENT_ID AGENT_MODEL AGENT_EFFORT
     case "$agent" in
         reviewer) MEFISTO_AGENT_ID="mefisto-reviewer"; AGENT_MODEL="$MODEL_REVIEWER"; AGENT_EFFORT="$EFFORT_REVIEWER" ;;

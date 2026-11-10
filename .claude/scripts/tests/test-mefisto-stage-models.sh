@@ -32,6 +32,13 @@
 #       de un pane herdr el valor viaja crudo (sin las comillas que solo
 #       sirven al send-keys de tmux), sobrevive un id de modelo con caracteres
 #       de glob, y el mismo rechazo explicito en --batch.
+#   effort por agente en mefisto-tooling-pipeline.sh (bloques 25-28, issue
+#       #2499) -- resolve_pipeline_stage_effort corre ANTES del worktree y
+#       run_agent pasa --effort por rol solo si no es vacio; la funcion real
+#       contra el adaptador fake: nivel de fabrica de la fuente neutral
+#       (writer standard, reviewer thorough), override por agente en
+#       models.json, linea EFFORTS: en events.log, y los abortos por fuente
+#       sin effort o mapping invalido.
 #
 # Uso: .claude/scripts/tests/test-mefisto-stage-models.sh
 # Exit code: 0 si todos los chequeos pasan, 1 si alguno falla.

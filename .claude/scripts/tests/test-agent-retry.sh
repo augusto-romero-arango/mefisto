@@ -199,6 +199,9 @@ setup_run_agent_env() {
     # ademas el caso que ejerce la rama sin --model del array del runner.
     MODEL_WRITER=""
     MODEL_REVIEWER=""
+    # Effort por rol (issue #2499): vacio = heredar, run_agent omite --effort.
+    EFFORT_WRITER=""
+    EFFORT_REVIEWER=""
 
     # Reintentos rapidos: el bucle real espera 120s.
     export MEFISTO_AGENT_MAX_ATTEMPTS=3

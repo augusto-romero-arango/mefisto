@@ -249,6 +249,12 @@ EOF
     printf '.mefisto/\n.claude/pipeline/\n' > "$FAKE_MEFISTO/.gitignore"
     cp "$CANON_LIB" "$FAKE_MEFISTO/src/internal/scripts/lib/_mefisto-common.sh"
     cp "$REPO_ROOT/src/internal/scripts/lib/mefisto-state.sh" "$FAKE_MEFISTO/src/internal/scripts/lib/mefisto-state.sh"
+    # Effort por agente (issue #2499): el pipeline lee el nivel de fabrica del
+    # campo `effort` de la fuente neutral de writer/reviewer con frontmatter.sh,
+    # antes de crear el worktree; sin estas copias aborta en el arranque.
+    cp "$REPO_ROOT/src/internal/scripts/lib/frontmatter.sh" "$FAKE_MEFISTO/src/internal/scripts/lib/frontmatter.sh"
+    mkdir -p "$FAKE_MEFISTO/src/internal/agents"
+    cp "$REPO_ROOT/src/internal/agents/mefisto-writer.md" "$REPO_ROOT/src/internal/agents/mefisto-reviewer.md" "$FAKE_MEFISTO/src/internal/agents/"
     # El fixture copia el nucleo completo y no conserva una segunda fuente
     # ejecutable de runtime/modelos/runner bajo src/internal/.
     cp -R "$REPO_ROOT/src/runtime" "$FAKE_MEFISTO/src/runtime"

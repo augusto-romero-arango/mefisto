@@ -257,6 +257,12 @@ EOF
     # runtime se copia desde su frontera canonica; el fixture no trae shims.
     cp "$REPO_ROOT/src/internal/scripts/lib/_mefisto-common.sh" "$FAKE_MEFISTO/src/internal/scripts/lib/_mefisto-common.sh"
     cp "$REPO_ROOT/src/internal/scripts/lib/mefisto-state.sh" "$FAKE_MEFISTO/src/internal/scripts/lib/mefisto-state.sh"
+    # Effort por agente (issue #2499): el pipeline lee el nivel de fabrica del
+    # campo `effort` de la fuente neutral de writer/reviewer con frontmatter.sh,
+    # antes de crear el worktree; sin estas copias aborta en el arranque.
+    cp "$REPO_ROOT/src/internal/scripts/lib/frontmatter.sh" "$FAKE_MEFISTO/src/internal/scripts/lib/frontmatter.sh"
+    mkdir -p "$FAKE_MEFISTO/src/internal/agents"
+    cp "$REPO_ROOT/src/internal/agents/mefisto-writer.md" "$REPO_ROOT/src/internal/agents/mefisto-reviewer.md" "$FAKE_MEFISTO/src/internal/agents/"
     cp -R "$REPO_ROOT/src/runtime" "$FAKE_MEFISTO/src/runtime"
     cp "$REPO_ROOT/src/internal/prompts/noninteractive-system.md" "$FAKE_MEFISTO/src/internal/prompts/noninteractive-system.md"
     # Gate de neutralidad (issue #914): el pipeline lo invoca tras cada stage

@@ -195,6 +195,9 @@ setup_run_agent_env() {
     MEFISTO_RUNTIME_RESUELTO="claude"
     MODEL_WRITER=""
     MODEL_REVIEWER=""
+    # Effort por rol (issue #2499): vacio = heredar, run_agent omite --effort.
+    EFFORT_WRITER=""
+    EFFORT_REVIEWER=""
 
     # El adaptador de prueba vive en un directorio propio por bloque: asi el
     # test ejercita el DESCUBRIMIENTO real de runtime_supports_resume, no una

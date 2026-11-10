@@ -193,6 +193,9 @@ setup_run_agent_env() {
     MEFISTO_RUNTIME_RESUELTO="claude"
     MODEL_WRITER=""
     MODEL_REVIEWER=""
+    # Effort por rol (issue #2499): vacio = heredar, run_agent omite --effort.
+    EFFORT_WRITER=""
+    EFFORT_REVIEWER=""
 
     # Reintento corto de #534 fuera de juego a proposito: este archivo prueba
     # el hold, no el backoff de #534 (ya cubierto en test-agent-retry.sh).
