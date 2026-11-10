@@ -1,6 +1,7 @@
 ---
 {
   "kind": "agent",
+  "effort": "standard",
   "id": "mefisto-otro-nombre",
   "description": "Fixture invalido: el campo id no coincide con el nombre del archivo (CA-2).",
   "mode": "subagent"

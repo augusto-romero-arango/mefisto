@@ -4,7 +4,7 @@
     {
       "$comment": "kind: agent",
       "type": "object",
-      "required": ["kind", "id", "description", "mode"],
+      "required": ["kind", "id", "description", "mode", "effort"],
       "properties": {
         "kind": { "type": "string", "enum": ["agent"] },
         "id": {
@@ -14,6 +14,7 @@
         },
         "description": { "type": "string", "minLength": 1 },
         "mode": { "type": "string", "enum": ["primary", "subagent", "all"] },
+        "effort": { "type": "string", "enum": ["quick", "light", "standard", "thorough", "exhaustive"] },
         "profile": { "type": "string", "enum": ["fast", "balanced", "deep"] },
         "capabilities": {
           "type": "array",

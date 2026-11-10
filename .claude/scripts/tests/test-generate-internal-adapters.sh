@@ -92,6 +92,7 @@ cat > "$SRC_DIR/mefisto-fx-agent-basic.md" <<'EOF'
 ---
 {
   "kind": "agent",
+  "effort": "standard",
   "id": "mefisto-fx-agent-basic",
   "description": "Agente de prueba minimo para el generador de adaptadores (issue #854).",
   "mode": "subagent",
@@ -197,6 +198,7 @@ cat > "$WORKDIR/ask-src/mefisto-fx-ask.md" <<'EOF'
 ---
 {
   "kind": "agent",
+  "effort": "standard",
   "id": "mefisto-fx-ask",
   "description": "Agente read+ask (issue #2142).",
   "mode": "primary",
@@ -211,6 +213,11 @@ if grep -q '^tools: "Read, Glob, Grep, AskUserQuestion"$' "$WORKDIR/out-ask/.cla
     pass "capacidad ask -> AskUserQuestion en el agente Claude (#2142)"
 else
     fail "ask no se mapeo a AskUserQuestion en el agente Claude"
+fi
+if grep -q '^effort: "high"$' "$OUT_VALID/.claude/agents/mefisto-example-agent.md" 2>/dev/null && ! grep -q '^effort:' "$OUT_VALID/.opencode/agents/mefisto-example-agent.md" 2>/dev/null; then
+    pass "effort standard -> effort: high en Claude y omitido en OpenCode (#2497)"
+else
+    fail "effort no se emite en Claude o se emite en OpenCode"
 fi
 if grep -q '^agent: "mefisto-example-agent"$' "$OUT_VALID/.opencode/commands/mefisto-example-command.md" 2>/dev/null; then
     pass "agent propagado al comando OpenCode desde el campo neutral 'agent'"
@@ -228,6 +235,7 @@ RC=$?
 EXPECTED_CLAUDE_AGENT="---
 name: \"mefisto-fx-agent-basic\"
 description: \"Agente de prueba minimo para el generador de adaptadores (issue #854).\"
+effort: \"high\"
 tools: \"Read, Glob, Grep, Edit, Write\"
 skills: [\"agent-skill-authoring\",\"comment-cleanup\"]
 ---
@@ -460,6 +468,7 @@ cat > "$SRC_DIR/mefisto-fx-mcp-capability.md" <<'EOF'
 ---
 {
   "kind": "agent",
+  "effort": "standard",
   "id": "mefisto-fx-mcp-capability",
   "description": "Agente que declara la capacidad mcp, sin mapeo Claude (issue #854).",
   "mode": "subagent",
@@ -585,7 +594,7 @@ echo "[skills-opencode] CA-4: agente con skills -> permiso skill acotado + instr
 SA="$WORKDIR/skill-agent.md"
 cat > "$SA" <<'FXEOF'
 ---
-{"kind":"agent","id":"skill-agent","description":"Agente con skills","mode":"subagent","capabilities":["read","skill"],"skills":["mefisto-fx-skill"]}
+{"kind":"agent","effort":"standard","id":"skill-agent","description":"Agente con skills","mode":"subagent","capabilities":["read","skill"],"skills":["mefisto-fx-skill"]}
 ---
 
 Cuerpo.

@@ -2,6 +2,7 @@
 name: "mefisto-writer"
 description: "Ejecuta la fase de escritura del pipeline interno de tooling de Mefisto: implementa lo que describe un issue de tooling del propio plugin (skills, agentes, pipelines bash, hooks, ADRs o metadata del plugin), tanto en su lado publicado como en su lado interno. Solo opera dentro del repo de Mefisto, orquestado por ese pipeline."
 model: "sonnet"
+effort: "high"
 tools: "Read, Glob, Grep, Edit, Write, Bash"
 ---
 <!-- GENERADO por src/internal/scripts/generate-internal-adapters.sh desde src/internal/agents/mefisto-writer.md. No editar a mano. -->

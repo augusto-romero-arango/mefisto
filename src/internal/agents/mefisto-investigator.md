@@ -5,6 +5,7 @@
   "description": "Investigador conversacional de bugs y disfunciones del propio plugin Mefisto (skills, agentes, pipelines, hooks, ADRs). Solo opera dentro del repo de Mefisto.",
   "mode": "primary",
   "profile": "deep",
+  "effort": "thorough",
   "capabilities": ["read", "edit", "shell"]
 }
 ---

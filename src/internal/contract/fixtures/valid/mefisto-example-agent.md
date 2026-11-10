@@ -1,6 +1,7 @@
 ---
 {
   "kind": "agent",
+  "effort": "standard",
   "id": "mefisto-example-agent",
   "description": "Agente de ejemplo para validar el contrato neutral de agentes (issue #853). No se invoca en produccion.",
   "mode": "subagent",

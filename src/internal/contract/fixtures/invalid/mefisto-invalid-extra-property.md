@@ -1,6 +1,7 @@
 ---
 {
   "kind": "agent",
+  "effort": "standard",
   "id": "mefisto-invalid-extra-property",
   "description": "Fixture invalido: declara una propiedad generica no contemplada por el contrato.",
   "mode": "subagent",

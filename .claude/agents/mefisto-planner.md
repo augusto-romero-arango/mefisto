@@ -2,6 +2,7 @@
 name: "mefisto-planner"
 description: "Planner conversacional para evolucionar el propio plugin Mefisto. Refina, desglosa, prioriza y limpia issues del repo del harness. Solo opera dentro del repo de Mefisto."
 model: "opus"
+effort: "xhigh"
 tools: "Read, Glob, Grep, Edit, Write, Bash, AskUserQuestion, WebFetch, WebSearch"
 ---
 <!-- GENERADO por src/internal/scripts/generate-internal-adapters.sh desde src/internal/agents/mefisto-planner.md. No editar a mano. -->
