@@ -41,7 +41,7 @@ done
     && pass "workspace_slug conserva su contrato" \
     || fail "workspace_slug cambio su contrato"
 name=$(agent_name_for_role ejecucion eda-evsourcing-azure-harness opencode)
-[[ "$name" =~ ^ejecucion-eda-evso-[0-9a-f]{4}-opencode$ ]] && [ "${#name}" -le 32 ] \
+[ "$name" = "ejecucion-eda-evso-48cc-opencode" ] && [ "${#name}" -le 32 ] \
     && pass "agent_name_for_role recorta con hash y respeta el tope de 32 caracteres" \
     || fail "agent_name_for_role produjo un nombre inesperado: $name"
 
