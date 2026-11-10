@@ -40,7 +40,9 @@ que es la fuente de verdad. Resumen:
 Ningún PR dispara CI: por política de `.github/workflows/ci.yml` (issues #1743 y #1766) la suite
 corre en la nightly y a mano. Por eso la verificación la hace el goal antes de mergear:
 
-- PR solo de documentación: nada que correr.
+- PR solo de documentación: nada que correr, salvo que toque `docs/adr/`. Los ADRs se copian a
+  `dist/`, así que ese PR regenera con `src/published/scripts/generate-published-adapters.sh` y
+  comprueba que su `--check` sale en 0.
 - PR que toca bash: los tests de lo tocado, en local. Al cerrar una fila, la suite completa en
   local con `src/internal/scripts/mefisto-test-suite.sh`.
 - PR que toca TypeScript (desde el paso 3): `tsc --noEmit` y `node --test` en local, y el workflow
