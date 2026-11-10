@@ -22,6 +22,8 @@ Tomadas el 2026-11-10. El paso 1 las pasa a un ADR; a partir de ahí manda el AD
 
 - Este trabajo va fuera de los pipelines de Mefisto: sin issues ni `/mefisto-plan`. Sigue rigiendo
   el flujo de entrega de `AGENTS.md`: worktree, rama y PR a `main`.
+- Cada goal mergea sus propios PRs a `main` (squash y borrado de rama) cuando CI está en verde,
+  sin esperar al usuario. Con CI en rojo no se mergea: se corrige en el mismo PR.
 - Un script se porta completo, con sus tests, en un PR. El `.sh` queda como shim
   (`exec node x.ts "$@"`) solo mientras tenga llamadores en bash.
 - Tests con `node --test`. `tsc --noEmit` corre en CI.
