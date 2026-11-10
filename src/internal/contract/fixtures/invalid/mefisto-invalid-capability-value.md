@@ -1,6 +1,7 @@
 ---
 {
   "kind": "agent",
+  "effort": "standard",
   "id": "mefisto-invalid-capability-value",
   "description": "Fixture invalido: declara una capacidad fuera del vocabulario cerrado (issue #853 CA-3).",
   "mode": "subagent",

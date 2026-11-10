@@ -128,6 +128,8 @@ check_invalid "no-frontmatter.md" "frontmatter: ausente"
 check_invalid "frontmatter-not-json.md" "no es JSON valido"
 check_invalid "mismatched-id.md" "distinto del nombre de archivo"
 check_invalid "mefisto-missing-mode.md" "mode: campo requerido ausente"
+check_invalid "mefisto-missing-effort.md" "effort: campo requerido ausente"
+check_invalid "mefisto-invalid-effort-value.md" "effort: valor"
 check_invalid "mefisto-id-not-string.md" "id: tipo esperado string"
 check_invalid "mefisto-body-runtime-reference.md" "nombra un runtime concreto"
 

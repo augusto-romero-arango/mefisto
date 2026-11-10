@@ -5,6 +5,7 @@
   "description": "Ejecuta la fase de escritura del pipeline interno de tooling de Mefisto: implementa lo que describe un issue de tooling del propio plugin (skills, agentes, pipelines bash, hooks, ADRs o metadata del plugin), tanto en su lado publicado como en su lado interno. Solo opera dentro del repo de Mefisto, orquestado por ese pipeline.",
   "mode": "all",
   "profile": "balanced",
+  "effort": "standard",
   "capabilities": ["read", "edit", "shell"]
 }
 ---

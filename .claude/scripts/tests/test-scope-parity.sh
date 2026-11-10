@@ -37,6 +37,7 @@ cat > "$WORKDIR/src/mefisto-fx-parity-writer.md" <<'FX'
 ---
 {
   "kind": "agent",
+  "effort": "standard",
   "id": "mefisto-fx-parity-writer",
   "description": "Agente estilo writer para la paridad de scope (issue #1684).",
   "mode": "all",

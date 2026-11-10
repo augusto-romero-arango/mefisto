@@ -18,6 +18,14 @@ adapter_claude_default_model() {
     runtime_claude_default_model "$1"
 }
 
+# adapter_claude_default_effort <effort> -- nivel nativo desde la tabla fija del
+# adaptador de ejecucion comun (issue #2497); sin tabla duplicada aqui.
+adapter_claude_default_effort() {
+    local runtime_lib="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/../../../runtime/lib/runtime-claude.sh"
+    source "$runtime_lib"
+    runtime_claude_default_effort "$1"
+}
+
 # claude_map_capability_tools <capacidad> -- imprime la lista de tools de
 # Claude Code que corresponde a una capacidad neutral (CA-2):
 #   read->Read, Glob, Grep | edit->Edit, Write | shell->Bash |
@@ -133,11 +141,25 @@ claude_render() {
         [ -n "$model" ] && model_q="$(printf '%s' "$model" | jq -Rr '@json')"
     fi
 
+    local effort_q=""
+    if [ "$kind" = "agent" ]; then
+        local effort native_effort
+        effort="$(printf '%s' "$instance_json" | jq -r '.effort // empty')"
+        if [ -n "$effort" ]; then
+            if ! native_effort="$(adapter_claude_default_effort "$effort")"; then
+                echo "$rel_source: effort $effort sin traduccion Claude definida" >&2
+                return 1
+            fi
+            effort_q="$(printf '%s' "$native_effort" | jq -Rr '@json')"
+        fi
+    fi
+
     local fm_lines=()
     if [ "$kind" = "agent" ]; then
         fm_lines+=("name: $(printf '%s' "$instance_json" | jq -r '.id | @json')")
         fm_lines+=("description: $(printf '%s' "$instance_json" | jq -r '.description | @json')")
         [ -n "$model_q" ] && fm_lines+=("model: $model_q")
+        [ -n "$effort_q" ] && fm_lines+=("effort: $effort_q")
         [ -n "$tools_q" ] && fm_lines+=("tools: $tools_q")
         local has_skills
         has_skills="$(printf '%s' "$instance_json" | jq -r 'if (.skills != null and (.skills | length) > 0) then "1" else "0" end')"

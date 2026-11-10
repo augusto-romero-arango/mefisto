@@ -5,6 +5,7 @@
   "description": "Planner conversacional para evolucionar el propio plugin Mefisto. Refina, desglosa, prioriza y limpia issues del repo del harness. Solo opera dentro del repo de Mefisto.",
   "mode": "primary",
   "profile": "deep",
+  "effort": "thorough",
   "capabilities": ["read", "edit", "shell", "ask", "web"]
 }
 ---

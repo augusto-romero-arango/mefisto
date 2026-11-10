@@ -2,6 +2,7 @@
 name: "mefisto-reviewer"
 description: "Ejecuta la fase de revision del pipeline interno de tooling de Mefisto: audita la calidad de los cambios producidos por mefisto-writer en la misma corrida y corrige directamente los problemas que encuentra. Solo opera dentro del repo de Mefisto, orquestado por ese pipeline."
 model: "opus"
+effort: "xhigh"
 tools: "Read, Glob, Grep, Edit, Write, Bash"
 ---
 <!-- GENERADO por src/internal/scripts/generate-internal-adapters.sh desde src/internal/agents/mefisto-reviewer.md. No editar a mano. -->

@@ -2,6 +2,7 @@
 name: "mefisto-investigator"
 description: "Investigador conversacional de bugs y disfunciones del propio plugin Mefisto (skills, agentes, pipelines, hooks, ADRs). Solo opera dentro del repo de Mefisto."
 model: "opus"
+effort: "xhigh"
 tools: "Read, Glob, Grep, Edit, Write, Bash"
 ---
 <!-- GENERADO por src/internal/scripts/generate-internal-adapters.sh desde src/internal/agents/mefisto-investigator.md. No editar a mano. -->

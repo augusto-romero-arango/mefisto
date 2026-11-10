@@ -36,6 +36,7 @@ todos los adaptadores.
 | `profile` | ambos | `fast`, `balanced` o `deep` |
 | `capabilities`, `skills` | ambos | listas opcionales |
 | `mode` | agente | `primary`, `subagent` o `all` |
+| `effort` | agente | obligatorio: `quick`, `light`, `standard`, `thorough` o `exhaustive`; sin default global |
 | `agent`, `arguments` | comando | opcionales |
 
 Todos los objetos usan `additionalProperties: false`. Las capacidades forman
@@ -61,6 +62,7 @@ Mapeo principal:
 | `agent` de comando | directiva de body | `agent` + `subtask: true` |
 | `arguments` | `argument-hint` | se omite |
 | `profile` | modelo por tabla fija | se omite; el usuario configura el modelo interactivo |
+| `effort` (agente) | `effort` nativo por tabla fija (`runtime_claude_default_effort`), justo despues de `model` | se omite (se resuelve en #2505) |
 
 El mapping de modelos en ejecucion headless vive en los adaptadores y en
 `mefisto-models.sh`; el generador no lee `.mefisto/models.json`, porque eso

@@ -1,6 +1,7 @@
 ---
 {
   "kind": "agent",
+  "effort": "standard",
   "id": 853,
   "description": "Fixture invalido: 'id' no es un string, asi que el motivo debe venir del schema (tipo), no del chequeo de nombre de archivo.",
   "mode": "subagent"

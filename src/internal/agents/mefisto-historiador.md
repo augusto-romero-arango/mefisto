@@ -5,6 +5,7 @@
   "description": "Pone al dia la bitacora del propio plugin Mefisto procesando todas las field notes pendientes, agrupadas por dia. Lee field notes de sesiones mefisto-planner/mefisto-investigation, git log e issues del repo de Mefisto; escribe en docs/bitacora/ una entrada por cada dia con notas pendientes. Solo opera dentro del repo de Mefisto.",
   "mode": "primary",
   "profile": "balanced",
+  "effort": "light",
   "capabilities": ["read", "edit", "shell"]
 }
 ---

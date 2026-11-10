@@ -102,6 +102,7 @@ cat > "$SRC_DIR/mefisto-fx-perm-empty.md" <<'EOF'
 ---
 {
   "kind": "agent",
+  "effort": "standard",
   "id": "mefisto-fx-perm-empty",
   "description": "Agente sin capacidades, para CA-1 (issue #862).",
   "mode": "subagent",
@@ -116,6 +117,7 @@ cat > "$SRC_DIR/mefisto-fx-perm-read.md" <<'EOF'
 ---
 {
   "kind": "agent",
+  "effort": "standard",
   "id": "mefisto-fx-perm-read",
   "description": "Agente solo-lectura, para CA-2 (issue #862).",
   "mode": "subagent",
@@ -130,6 +132,7 @@ cat > "$SRC_DIR/mefisto-fx-perm-planner.md" <<'EOF'
 ---
 {
   "kind": "agent",
+  "effort": "standard",
   "id": "mefisto-fx-perm-planner",
   "description": "Agente estilo planner (read+shell, mode primary), para CA-3/CA-4 (issue #862).",
   "mode": "primary",
@@ -144,6 +147,7 @@ cat > "$SRC_DIR/mefisto-fx-perm-writer.md" <<'EOF'
 ---
 {
   "kind": "agent",
+  "effort": "standard",
   "id": "mefisto-fx-perm-writer",
   "description": "Agente estilo writer/reviewer (read+edit+shell, mode all), para CA-2/CA-4 (issues #862/#1034).",
   "mode": "all",
@@ -158,6 +162,7 @@ cat > "$SRC_DIR/mefisto-fx-perm-ask-primary.md" <<'EOF'
 ---
 {
   "kind": "agent",
+  "effort": "standard",
   "id": "mefisto-fx-perm-ask-primary",
   "description": "Agente read+ask en mode primary (issue #2142).",
   "mode": "primary",
@@ -172,6 +177,7 @@ cat > "$SRC_DIR/mefisto-fx-perm-ask-all.md" <<'EOF'
 ---
 {
   "kind": "agent",
+  "effort": "standard",
   "id": "mefisto-fx-perm-ask-all",
   "description": "Agente read+ask en mode all (issue #2142).",
   "mode": "all",
@@ -186,6 +192,7 @@ cat > "$SRC_DIR/mefisto-fx-perm-ask-subagent.md" <<'EOF'
 ---
 {
   "kind": "agent",
+  "effort": "standard",
   "id": "mefisto-fx-perm-ask-subagent",
   "description": "Agente read+ask en mode subagent (issue #2142).",
   "mode": "subagent",
@@ -200,6 +207,7 @@ cat > "$SRC_DIR/mefisto-fx-perm-web.md" <<'EOF'
 ---
 {
   "kind": "agent",
+  "effort": "standard",
   "id": "mefisto-fx-perm-web",
   "description": "Agente read+shell+web, para completar la matriz de CA-6 (issue #862).",
   "mode": "subagent",
