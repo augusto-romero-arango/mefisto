@@ -4,6 +4,22 @@ Todo cambio notable a este proyecto se documenta aquí. Sigue [Keep a Changelog]
 
 ## [Unreleased]
 
+## [0.56.0] - 2026-11-10
+
+### Added
+
+- `generate-internal-adapters.sh` proyecta el Skill publicado `skills/code-comments/` a `.claude/skills/code-comments/` (allowlist explícita `PUBLISHED_PROJECTED_SKILLS`, marcador de generado, recursos copiados tal cual, cubierto por `--check`) para que `mefisto-writer` y `mefisto-reviewer` lo carguen sin una segunda copia; un id duplicado con `src/internal/skills/` aborta nombrando el id.
+
+### Changed
+
+- Se enmienda MEF-ADR-0044: el criterio de comentarios pasa a la heuristica "un comentario dice lo que no es obvio, en una frase si se puede" (6 categorias que se quedan, lista de lo que sobra), con issue junto a su porque como referencia valida, comentario falso siempre corregido o borrado, revisiones con hallazgos en los dos sentidos, alcance ampliado (C#, HCL al escribir y revisar, bash, TypeScript, YAML; consumidor y plugin), blindados de MEF-ADR-0027/0029/0032/0034, "Cuando NO aplica" y "Donde nos apartamos del libro".
+- El Agent Skill `comment-cleanup` se reescribe y renombra a `code-comments` (`skills/code-comments/`): pasa de podar `.cs` a ser la fuente única de la mecánica de comentarios para escribir y para revisar en C#, HCL, bash y TypeScript (qué se queda, qué sobra, cómo escribirlo corto, al cambiar código, hallazgos en los dos sentidos, limpieza en masa con verificación por parser y verificación según el lenguaje), alineado con la MEF-ADR-0044 enmendada en #2527. `ejemplos.md` pasa a C#, HCL y bash del marco más un ejemplo de API externa con URL. El `reviewer` lo carga con `skills: ["projections","code-comments"]`.
+- Los cinco escritores del pipeline TDD (`test-writer`, `implementer`, `smoke-test-writer`, `projection-test-writer`, `projection-implementer`) cargan el Skill `code-comments` por `skills:` (con `Skill` en `tools:`) y reemplazan la copia de la sección "Doctrina de comentarios (MEF-ADR-0044)" y el "umbral doble" por un puntero al Skill: la doctrina vive en un solo lugar.
+- El `reviewer` TDD reescribe su sección 6b como "Revisión de comentarios (MEF-ADR-0044)": hallazgos en los dos sentidos (acorta o borra lo que sobra y agrega el porqué o la precisión que falta, sacados del código, del issue o del historial, nunca inventados), el comentario falso se corrige o se borra (ya no se reporta sin tocar), y la plantilla del reporte y el checklist final pasan a las tres listas acortados/borrados, agregados y corregidos por falsos.
+- `tooling-writer` y `tooling-reviewer` cargan el Skill `code-comments` (`skills:` y `Skill` en `tools:`): el escritor aplica la doctrina de comentarios (MEF-ADR-0044) al escribir bash, C#, TypeScript o YAML, y el revisor la aplica en modo revision sobre los archivos del diff, con hallazgos en los dos sentidos, el comentario falso corregido o borrado, y lo corregido reportado en `## Correcciones`.
+- `infra-writer` e `infra-reviewer` cargan el Skill `code-comments` (`skills:` y `Skill` en `tools:`): el escritor aplica la doctrina de comentarios HCL (MEF-ADR-0044) al escribir, y el revisor la aplica en modo revision sobre los `.tf` del diff, con hallazgos en los dos sentidos, sin borrar ni acortar los comentarios blindados de MEF-ADR-0027 y MEF-ADR-0032 (si contradicen al HCL se corrigen) y reportando lo corregido en el resumen.
+- `mefisto-writer` y `mefisto-reviewer` cargan el Skill `code-comments` (campo `skills` y capacidad `skill` en sus fuentes de `src/internal/agents/`, adaptadores regenerados) y llevan una línea de criterio en el cuerpo: el writer lo aplica al escribir comentarios de código (la prosa Markdown queda fuera) y el reviewer revisa los comentarios del diff en los dos sentidos.
+
 ## [0.55.0] - 2026-11-10
 
 ### Added
@@ -3640,7 +3656,8 @@ Y reemplazar referencias en `CLAUDE.md` del proyecto: `/eda-evsourcing-azure-har
 - Los agentes `reviewer` e `implementer` mantienen el placeholder literal `ADR-XXXX` en sus plantillas de reporte (no es un bug; el agente lo sustituye en tiempo de ejecución por el número real del ADR aplicable).
 - Los ejemplos de código en `test-writer.md`, `implementer.md` y `smoke-test-writer.md` conservan nombres concretos de un proyecto consumidor (`Programacion`, `ControlHoras`) anotados en el "Contrato con el consumidor" de cada agente como ejemplos pedagógicos.
 
-[Unreleased]: https://github.com/augusto-romero-arango/mefisto/compare/v0.55.0...HEAD
+[Unreleased]: https://github.com/augusto-romero-arango/mefisto/compare/v0.56.0...HEAD
+[0.56.0]: https://github.com/augusto-romero-arango/mefisto/compare/v0.55.0...v0.56.0
 [0.55.0]: https://github.com/augusto-romero-arango/mefisto/compare/v0.54.1...v0.55.0
 [0.54.1]: https://github.com/augusto-romero-arango/mefisto/compare/v0.54.0...v0.54.1
 [0.54.0]: https://github.com/augusto-romero-arango/mefisto/compare/v0.53.2...v0.54.0
