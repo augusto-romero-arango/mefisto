@@ -486,8 +486,8 @@ chmod +x "$FAKE_BIN/herdr"
 # Stub de "claude" (issue #928): mefisto_resolve_runtime autodetecta cuando
 # MEFISTO_RUNTIME no esta fijado (bloques 19-21, ninguno lo fija), y necesita
 # resolver a un UNICO runtime instalado. Junto con el PATH recortado de
-# run_herdr (mas abajo), evita depender de que claude/opencode -- reales --
-# esten ambos o ninguno instalados en la maquina que corre la suite.
+# run_herdr (mas abajo), evita depender de que haya o no un claude real
+# instalado en la maquina que corre la suite.
 cat > "$FAKE_BIN/claude" <<'STUB'
 #!/usr/bin/env bash
 exit 0
@@ -510,7 +510,7 @@ run_herdr() {
         #
         # PATH="$FAKE_BIN:/usr/bin:/bin" (issue #928), no "$FAKE_BIN:$PATH":
         # acquire_report_pane ahora resuelve el runtime con
-        # mefisto_resolve_runtime, y un "claude"/"opencode" real en
+        # mefisto_resolve_runtime, y un "claude" real en
         # ~/.local/bin o /opt/homebrew/bin haria la autodeteccion no
         # determinista segun la maquina.
         # -u MEFISTO_RUNTIME (issue #928): ningun bloque herdr de esta suite

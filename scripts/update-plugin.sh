@@ -71,7 +71,7 @@
 # siguiente /mefisto:upgrade, como documenta el issue #531.
 #
 # Uso:
-#   scripts/update-plugin.sh [--align-opencode]     # actualiza Claude y, opcionalmente, OpenCode
+#   scripts/update-plugin.sh                        # actualiza el plugin
 #   scripts/update-plugin.sh --prune [--loaded X]   # borra las podables (tras confirmar)
 #   scripts/update-plugin.sh --disable-user         # deshabilita mefisto a nivel usuario (tras confirmar)
 #
@@ -88,14 +88,13 @@ MARKER_FILE=".claude/pipeline/.plugin-root.previous"
 CANONICAL_ROOT_FILE=".mefisto/pipeline/.plugin-root"
 
 usage() {
-    echo "Uso: $0 [--align-opencode] [--prune --only <v>[,<v>...] [--loaded <version>]]" >&2
+    echo "Uso: $0 [--prune --only <v>[,<v>...] [--loaded <version>]]" >&2
     echo "  (sin flags)        actualiza marketplace + plugin, reescribe .plugin-root, imprime el" >&2
     echo "                     delta de CHANGELOG y reporta versiones podables del cache (sin borrar)." >&2
     echo "  --prune            borra versiones podables (solo tras confirmar con el usuario, CA-4); exige --only." >&2
     echo "  --only <lista>     versiones confirmadas por el usuario (separadas por coma). La poda borra solo la" >&2
     echo "                     interseccion entre esa lista y las podables recalculadas al borrar." >&2
     echo "  --loaded <version> version que la sesion activa tiene cargada; la poda nunca la borra." >&2
-    echo "  --align-opencode alinea OpenCode con el manifiesto de la nueva raiz Claude (sin podar releases OpenCode)." >&2
     echo "  --disable-user     deshabilita mefisto a nivel usuario (solo tras confirmar); exige que el repo lo" >&2
     echo "                     habilite en su .claude/settings.json commiteado (MEF-ADR-0053 decision 2)." >&2
 }
@@ -123,136 +122,6 @@ _modo_disable_user() {
     _deshabilitar_en_usuario "$mkt" || return 1
     echo "OK: mefisto@$mkt deshabilitado a nivel usuario. Sigue activo en los repos que lo habilitan."
     echo "Reinicia las sesiones de Claude Code abiertas en otros repos para descargarlo de ellas."
-}
-
-# _alinear_opencode <raiz-claude>
-#
-# La raiz Claude ya fue elegida por el update del marketplace. Su manifiesto es la unica
-# autoridad para la version objetivo: no se consulta latest, Git ni el cache OpenCode.
-_alinear_opencode() {
-    local claude_root="$1" manifest version launcher installer opencode_root diagnosis projection_result launcher_valido=false
-    manifest="$claude_root/mefisto-manifest.json"
-
-    if ! command -v jq >/dev/null 2>&1; then
-        echo "ERROR: jq es requerido para validar la identidad y alinear OpenCode." >&2
-        return 1
-    fi
-    if [ ! -f "$manifest" ] || [ -L "$manifest" ] || ! jq -e '
-        (keys | sort) == ["commit", "runtime", "schemaVersion", "version"] and
-        .schemaVersion == 1 and .runtime == "claude" and
-        (.version | type == "string" and test("^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)(-(0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*)(\\.(0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*))*)?(\\+[0-9A-Za-z-]+(\\.[0-9A-Za-z-]+)*)?$")) and
-        (.commit | type == "string" and test("^[0-9a-f]{40}$"))
-    ' "$manifest" >/dev/null 2>&1; then
-        echo "ERROR: el manifiesto Claude destino es invalido: $manifest." >&2
-        echo "       OpenCode no se modifico; corrige o reinstala esa version y reintenta." >&2
-        return 1
-    fi
-    version=$(jq -r '.version' "$manifest")
-
-    # El override solo existe para tests; el camino normal conserva el fallback de
-    # MEF-ADR-0053 y no inspecciona configuracion ni credenciales de ningun runtime.
-    if [ -n "${MEFISTO_OPENCODE_LAUNCHER:-}" ]; then
-        launcher="$MEFISTO_OPENCODE_LAUNCHER"
-    elif [ -n "${XDG_DATA_HOME:-}" ]; then
-        launcher="$XDG_DATA_HOME/mefisto/active/bin/mefisto-opencode"
-    elif [ "$(uname -s)" = Darwin ]; then
-        launcher="$HOME/Library/Application Support/mefisto/active/bin/mefisto-opencode"
-    else
-        launcher="$HOME/.local/share/mefisto/active/bin/mefisto-opencode"
-    fi
-
-    # No basta con que la ruta sea ejecutable: un active roto o una release incompleta
-    # deben recorrer el bootstrap confiable. El preflight solo consulta el contrato
-    # publico del launcher y su manifiesto; no lee configuracion de OpenCode.
-    if [ -x "$launcher" ] && "$launcher" status >/dev/null 2>&1; then
-        opencode_root=$("$launcher" package-root 2>/dev/null) || opencode_root=""
-        if [ -n "$opencode_root" ] && [ -d "$opencode_root" ] && [ ! -L "$opencode_root" ] \
-            && [ -f "$opencode_root/mefisto-manifest.json" ] && [ ! -L "$opencode_root/mefisto-manifest.json" ] \
-            && jq -e '
-                (keys | sort) == ["commit", "minimumRuntimeVersion", "runtime", "schemaVersion", "version"] and
-                .schemaVersion == 1 and .runtime == "opencode" and
-                (.version | type == "string" and test("^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)(-(0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*)(\\.(0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*))*)?(\\+[0-9A-Za-z-]+(\\.[0-9A-Za-z-]+)*)?$")) and
-                (.commit | type == "string" and test("^[0-9a-f]{40}$")) and
-                (.minimumRuntimeVersion | type == "string")
-            ' "$opencode_root/mefisto-manifest.json" >/dev/null 2>&1; then
-            launcher_valido=true
-        fi
-    fi
-
-    if [ "$launcher_valido" = true ]; then
-        echo "Alineando OpenCode v$version mediante el launcher activo..."
-        "$launcher" install "$version" || {
-            echo "ERROR: la instalacion OpenCode mediante el launcher fallo; las releases existentes se conservaron para rollback." >&2
-            return 1
-        }
-        "$launcher" activate "$version" || {
-            echo "ERROR: no se pudo activar OpenCode v$version; reintenta o usa el launcher para rollback." >&2
-            return 1
-        }
-    else
-        installer="$claude_root/src/published/scripts/install-opencode-release.sh"
-        if [ ! -f "$installer" ] || [ -L "$installer" ] || [ ! -x "$installer" ]; then
-            echo "ERROR: no hay launcher OpenCode valido ni bootstrap publico confiable en la raiz Claude destino." >&2
-            echo "       OpenCode no se modifico; reinstala el plugin Claude y reintenta." >&2
-            return 1
-        fi
-        echo "Instalando OpenCode v$version con el bootstrap verificado de la raiz Claude destino..."
-        "$installer" bootstrap "$version" || {
-            echo "ERROR: el bootstrap OpenCode fallo; no se borraron releases ni configuracion ajena." >&2
-            return 1
-        }
-        # El entrypoint publico bootstrap descarga el asset y su checksum y verifica
-        # SHA-256 antes de inspeccionarlo, extraerlo o publicar la release.
-        [ -x "$launcher" ] || {
-            echo "ERROR: el bootstrap termino sin un launcher OpenCode activo y valido." >&2
-            return 1
-        }
-    fi
-
-    "$launcher" status || { echo "ERROR: status OpenCode reporto una instalacion incompleta." >&2; return 1; }
-    # La proyeccion global es opt-in (/mefisto:runtimes, MEF-ADR-0053 decision 2): solo se
-    # refresca si ya existe; sin ella, el consumidor activa OpenCode con su cargador.
-    if _proyeccion_global_activa; then
-        "$launcher" project || { echo "ERROR: la proyeccion OpenCode conflicto o fallo; corrige el conflicto y reintenta." >&2; return 1; }
-        if ! projection_result=$("$launcher" projection-status); then
-            echo "ERROR: projection-status OpenCode no confirmo la proyeccion alineada." >&2
-            return 1
-        fi
-        if ! printf '%s\n' "$projection_result" | jq -e --arg version "$version" '
-            (keys | sort) == ["activeVersion", "configRoot", "ledgerRelease", "schemaVersion", "status"] and
-            .schemaVersion == 1 and .status == "enabled" and
-            (.configRoot | type == "string") and
-            .activeVersion == $version and .ledgerRelease == $version
-        ' >/dev/null 2>&1; then
-            echo "ERROR: projection-status OpenCode no reporto enabled para la version $version." >&2
-            return 1
-        fi
-        echo "Estado de proyeccion OpenCode despues de alinear:"
-        printf '%s\n' "$projection_result" | jq .
-    fi
-    opencode_root=$("$launcher" package-root) || { echo "ERROR: no se pudo resolver la raiz fisica OpenCode activa." >&2; return 1; }
-    if [ -z "$opencode_root" ] || [ ! -d "$opencode_root" ] || [ -L "$opencode_root" ]; then
-        echo "ERROR: package-root no retorno una raiz fisica OpenCode valida." >&2
-        return 1
-    fi
-    echo "Release OpenCode activa: $version ($opencode_root)"
-    diagnosis="$opencode_root/diagnose-installation-identity.sh"
-    if [ ! -x "$diagnosis" ]; then
-        echo "ERROR: la release OpenCode activa no contiene el diagnostico de identidad." >&2
-        return 1
-    fi
-    local diagnosis_result
-    if ! diagnosis_result=$("$diagnosis" --claude-root "$claude_root" --opencode-root "$opencode_root"); then
-        echo "ERROR: no se pudo ejecutar el diagnostico de identidad entre Claude y OpenCode." >&2
-        return 1
-    fi
-    if ! printf '%s\n' "$diagnosis_result" | jq -e '.status == "aligned"' >/dev/null; then
-        echo "ERROR: OpenCode no quedo aligned con la raiz Claude destino; las releases se conservan para reintento o rollback." >&2
-        return 1
-    fi
-    echo "Diagnostico de identidad Claude/OpenCode:"
-    printf '%s\n' "$diagnosis_result" | jq .
-    echo "OK: OpenCode aligned con Claude v$version."
 }
 
 # _version_de_ruta <ruta-a-un-directorio-de-version>
@@ -384,7 +253,7 @@ main() {
         return 1
     fi
 
-    local prune=false align_opencode=false loaded_cli="" only_raw="" only_given=false
+    local prune=false loaded_cli="" only_raw="" only_given=false
     if [ "${1:-}" = --disable-user ]; then
         [ "$#" -eq 1 ] || { echo "ERROR: --disable-user no se combina con otros argumentos." >&2; usage; return 1; }
         _modo_disable_user
@@ -393,7 +262,6 @@ main() {
     while [ "$#" -gt 0 ]; do
         case "$1" in
             --prune) prune=true; shift ;;
-            --align-opencode) align_opencode=true; shift ;;
             --loaded)
                 if [ "$#" -lt 2 ] || [ -z "$2" ]; then
                     echo "ERROR: --loaded requiere una version (p. ej. --loaded 0.19.0)" >&2
@@ -412,11 +280,6 @@ main() {
             *) echo "ERROR: argumento desconocido '$1'" >&2; usage; return 1 ;;
         esac
     done
-    if [ "$prune" = true ] && [ "$align_opencode" = true ]; then
-        echo "ERROR: --align-opencode pertenece al modo de actualizacion y no se combina con --prune." >&2
-        usage
-        return 1
-    fi
 
     local only_list=()
     if [ "$only_given" = true ] && [ "$prune" = false ]; then
@@ -570,10 +433,6 @@ main() {
         fi
         echo ""
 
-        if [ "$align_opencode" = true ]; then
-            _alinear_opencode "$new_version_dir" || return 1
-            echo ""
-        fi
     fi
 
     # --- Poda del cache, conservando {version nueva, version cargada} (CA-4) ----------

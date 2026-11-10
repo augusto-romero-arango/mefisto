@@ -327,7 +327,7 @@ check_expression_mirrors() {
         n="$(grep -cF '${{' "$src")"
         [ "$n" -gt 0 ] || continue
         EXPR_EVALUATED=$((EXPR_EVALUATED + 1))
-        for mirror_rel in "$kind/$name" "dist/claude/$kind/$name" "dist/opencode/$kind/$name"; do
+        for mirror_rel in "$kind/$name" "dist/claude/$kind/$name"; do
             if [ ! -f "$root/$mirror_rel" ]; then
                 EXPR_FAILURES+=("$name: espejo $mirror_rel ausente"); continue
             fi
@@ -348,9 +348,9 @@ fi
 
 echo '[arbol real] caso negativo: un espejo con una expresion menos se detecta'
 NEG="$WORK/expr-neg"
-mkdir -p "$NEG/src/published/agents" "$NEG/agents" "$NEG/dist/claude/agents" "$NEG/dist/opencode/agents"
+mkdir -p "$NEG/src/published/agents" "$NEG/agents" "$NEG/dist/claude/agents"
 neg_src="$REPO_ROOT/src/published/agents/domain-scaffolder.md"
-for d in src/published/agents agents dist/claude/agents dist/opencode/agents; do cp "$neg_src" "$NEG/$d/domain-scaffolder.md"; done
+for d in src/published/agents agents dist/claude/agents; do cp "$neg_src" "$NEG/$d/domain-scaffolder.md"; done
 check_expression_mirrors "$NEG"
 [ "$EXPR_EVALUATED" -eq 1 ] && [ "${#EXPR_FAILURES[@]}" -eq 0 ] && pass 'copia temporal consistente no produce fallos' || fail 'copia temporal consistente produjo fallos'
 neg_line="$(grep -nF '${{' "$neg_src" | head -1 | cut -d: -f1)"

@@ -3,7 +3,7 @@
   "scope_excluded": [
     {
       "path": "scripts/**",
-      "motivo": "Arbol publicado (incluye scripts/herdr-workspace.sh, la excepcion que nombraba el padre #873): fuera del universo de archivos del gate (MEF-ADR-0019). La exclusion real la aplica el filtro de prefijos (src/internal/, .claude/, .opencode/, AGENTS.md, opencode.json); esta entrada es solo documentacion."
+      "motivo": "Arbol publicado (incluye scripts/herdr-workspace.sh, la excepcion que nombraba el padre #873): fuera del universo de archivos del gate (MEF-ADR-0019). La exclusion real la aplica el filtro de prefijos (src/internal/, .claude/, AGENTS.md); esta entrada es solo documentacion."
     },
     {
       "path": "commands/**",
@@ -64,37 +64,13 @@
       "motivo": "Wrapper temporal de runtime_claude_default_model para la generacion de frontmatter y el literal `claude --agent <id> \"$ARGUMENTS\"` que emite al traducir la directiva neutral {{mefisto:launch-agent}} (issue #854): es la pieza autorizada a nombrar esa invocacion; la tabla concreta vive en src/runtime desde #1072."
     },
     {
-      "path": "src/internal/scripts/lib/adapter-opencode.sh",
-      "rules": [
-        "R1",
-        "R2",
-        "R3"
-      ],
-      "motivo": "Envuelve runtime_opencode_default_model durante la migracion del generador y traduce la directiva neutral {{mefisto:run}} al literal `MEFISTO_RUNTIME=opencode ./.claude/scripts/<script> ...` (issue #854). La tabla concreta vive en src/runtime desde #1072; la fuente neutral sigue bajo R1."
-    },
-    {
-      "path": "src/internal/contract/opencode-permissions.json",
-      "rules": [
-        "R1",
-        "R3"
-      ],
-      "motivo": "Mapping declarativo capacidad->permiso OpenCode (issue #862): declara a proposito las 17 claves de permiso de OpenCode (bash, edit, external_directory, ...) que R1 prohibe en cualquier OTRO archivo de src/internal/**, y una regla `edit` que permite escribir en `.claude/pipeline/summaries/**` (fallback legacy de resumenes de stage, issue #862) que R3 prohibe en cualquier OTRO archivo."
-    },
-    {
       "path": "src/internal/contract/README.md",
       "rules": [
         "R1",
         "R2",
         "R3"
       ],
-      "motivo": "Documentacion arquitectonica del contrato neutral (MEF-ADR-0049): describe DELIBERADAMENTE ambos runtimes, sus CLIs (`claude -p`, `opencode run`), los alias de modelo que el contrato prohibe (`sonnet`, `opus`, `haiku`, `fable`) y la ruta legacy `.claude/pipeline`, precisamente para explicar por que estan prohibidos en la fuente neutral. No es codigo ejecutable ni fuente neutral sujeta a esas reglas."
-    },
-    {
-      "path": "src/internal/scripts/lib/runtime-fake.sh",
-      "rules": [
-        "R1"
-      ],
-      "motivo": "Runtime falso de pruebas (issue #879): construye a mano JSON de eventos con la clave `model` del contrato neutral run-events.schema.json para simular corridas en los tests, sin invocar ningun CLI real."
+      "motivo": "Documentacion arquitectonica del contrato neutral (MEF-ADR-0049): describe DELIBERADAMENTE el runtime con adaptador y su CLI (`claude -p`), los alias de modelo que el contrato prohibe (`sonnet`, `opus`, `haiku`, `fable`) y la ruta legacy `.claude/pipeline`, precisamente para explicar por que estan prohibidos en la fuente neutral. No es codigo ejecutable ni fuente neutral sujeta a esas reglas."
     },
     {
       "path": ".claude/settings.json",
@@ -108,7 +84,7 @@
       "rules": [
         "R3"
       ],
-      "motivo": "Hook PostToolUse de scope temprano (issue #523): Claude Code lo lanza por la ruta fija de .claude/settings.json y documenta (nunca compone) la ruta ignorada por git .claude/pipeline/** que debe callar para mantener paridad con validate_mefisto_scope_changes -- el estado legacy que MEF-ADR-0049 seccion 3 deja sin migrar. Excepcion nombrada por el padre #873. Artefacto del adaptador Claude por naturaleza (MEF-ADR-0050): su equivalente en OpenCode es la politica de permisos edit/write/patch generada desde is_path_in_mefisto_scope (src/internal/contract/opencode-permissions.json), que deniega antes de escribir; la paridad la verifica test-scope-parity.sh."
+      "motivo": "Hook PostToolUse de scope temprano (issue #523): Claude Code lo lanza por la ruta fija de .claude/settings.json y documenta (nunca compone) la ruta ignorada por git .claude/pipeline/** que debe callar para mantener paridad con validate_mefisto_scope_changes -- el estado legacy que MEF-ADR-0049 seccion 3 deja sin migrar. Excepcion nombrada por el padre #873. Artefacto del adaptador Claude por naturaleza (MEF-ADR-0050)."
     },
     {
       "path": ".claude/agents/**",
@@ -143,7 +119,7 @@
       "rules": [
         "ALL"
       ],
-      "motivo": "Doctrina canonica neutral en prosa (MEF-ADR-0049): documenta la existencia de Claude Code y OpenCode como runtimes intercambiables detras de un adaptador, y puede citar sus CLIs/alias de modelo al explicar esa abstraccion; no es codigo ejecutable sujeto a las reglas de invocacion directa."
+      "motivo": "Doctrina canonica neutral en prosa (MEF-ADR-0049): documenta el runtime Claude Code detras de un adaptador, y puede citar su CLI y sus alias de modelo al explicar esa abstraccion; no es codigo ejecutable sujeto a las reglas de invocacion directa."
     },
     {
       "path": "src/internal/contract/neutrality-allowlist.json",
@@ -157,7 +133,7 @@
       "rules": [
         "ALL"
       ],
-      "motivo": "El propio gate: sus comentarios de cabecera describen R1-R4 citando literalmente los patrones que persigue (alias de modelo, `claude -p`/`claude --agent`/`opencode run`, `CLAUDE_PLUGIN_ROOT`/`CLAUDE_PROJECT_DIR`/`.claude/pipeline`), y R1_REGEX/R2_REGEX/R3_REGEX los contienen literalmente en su definicion. Un detector basado en grep necesariamente contiene el texto que busca; autorreferenciarse evita un falso positivo permanente sobre si mismo."
+      "motivo": "El propio gate: sus comentarios de cabecera describen R1-R4 citando literalmente los patrones que persigue (alias de modelo, `claude -p`/`claude --agent`, `CLAUDE_PLUGIN_ROOT`/`CLAUDE_PROJECT_DIR`/`.claude/pipeline`), y R1_REGEX/R2_REGEX/R3_REGEX los contienen literalmente en su definicion. Un detector basado en grep necesariamente contiene el texto que busca; autorreferenciarse evita un falso positivo permanente sobre si mismo."
     },
     {
       "path": ".claude/mods/**",
@@ -184,7 +160,7 @@
   "not_migrated": [
     {
       "path": ".claude/scripts/mefisto-scope-hook.sh",
-      "motivo": "Hook PostToolUse de scope temprano (issue #523), artefacto del adaptador Claude: Claude Code lo invoca por ruta fija desde .claude/settings.json y MEF-ADR-0019 seccion E exige que el gate de scope se siga cargando desde el checkout principal. Su equivalente OpenCode es la politica de permisos edit/write/patch generada desde is_path_in_mefisto_scope (opencode-permissions.json, #862); no se traslada a src/internal/scripts/.",
+      "motivo": "Hook PostToolUse de scope temprano (issue #523), artefacto del adaptador Claude: Claude Code lo invoca por ruta fija desde .claude/settings.json y MEF-ADR-0019 seccion E exige que el gate de scope se siga cargando desde el checkout principal. No se traslada a src/internal/scripts/.",
       "issue": null
     }
   ]

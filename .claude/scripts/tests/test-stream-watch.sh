@@ -71,12 +71,12 @@
 #       variantes, lista y sin filtro (paridad con el visor previo, sobre la
 #       extension .events.jsonl).
 #   [N] stream_is_newer_than + discover_stream con filtros activos.
-#   [O] CA-5: el JSONL neutral que producen los adaptadores REALES de #859 y
-#       #860 sobre sus fixtures de traza cruda (no JSONL escrito a mano)
-#       rinde el mismo conteo de tools y el mismo estado terminal en ambos
-#       runtimes; los "n/d" aparecen solo en los campos ausentes de OpenCode,
-#       mientras que session_id se conserva. Tambien verifica la lectura de
-#       compatibilidad de un terminal legacy que solo contiene cost_usd.
+#   [O] CA-5: el JSONL neutral que produce el adaptador REAL de #859 sobre
+#       su fixture de traza cruda (no JSONL escrito a mano) rinde el conteo
+#       de tools, el estado terminal y todas las metricas. Tambien verifica
+#       la lectura de compatibilidad de un terminal legacy que solo contiene
+#       cost_usd, y que un costo no resoluble se muestra como n/d sin
+#       degradar un session_id presente.
 #   [P] CA-6: el script no contiene ninguno de los campos propios de la
 #       traza cruda de Claude (`"assistant"`, `"result"`, `tool_use`,
 #       `num_turns`, `total_cost_usd`) ni `.claude/pipeline`, y si localiza
@@ -397,7 +397,7 @@ else
     fail "C-6: se esperaba IGNORED_COUNT=0 tras el cierre, se obtuvo $IGNORED_COUNT"
 fi
 
-# -------- Bloque D: terminal degradado (nulls tipo OpenCode) -- CA-3 --------
+# -------- Bloque D: terminal degradado (campos en null) -- CA-3 --------
 
 echo ""
 echo "[D] Cierre de stage con campos ausentes -> n/d en cada uno, ERROR: <kind> (CA-3)"
@@ -405,7 +405,7 @@ echo "[D] Cierre de stage con campos ausentes -> n/d en cada uno, ERROR: <kind> 
 reset_stage_state
 STREAM_D="$TMP/d-stream.jsonl"
 printf '%s\n' \
-  '{"v":1,"type":"run.failed","ts":"2026-09-05T10:05:05Z","status":"failed","runtime":"opencode","model":null,"session_id":null,"duration_ms":5000,"tokens":{"input":800,"output":null},"cost_usd":null,"turns":null,"denials":null,"ttft_ms":null,"api_duration_ms":null,"error":{"kind":"nonzero_exit","detail":"exit 1"}}' \
+  '{"v":1,"type":"run.failed","ts":"2026-09-05T10:05:05Z","status":"failed","runtime":"fake","model":null,"session_id":null,"duration_ms":5000,"tokens":{"input":800,"output":null},"cost_usd":null,"turns":null,"denials":null,"ttft_ms":null,"api_duration_ms":null,"error":{"kind":"nonzero_exit","detail":"exit 1"}}' \
   > "$STREAM_D"
 
 run_process_new_lines "$STREAM_D" "$TMP/d-out.txt"
@@ -852,20 +852,16 @@ fi
 ISSUES_CSV=""
 NEWER_THAN=""
 
-# -------- Bloque O: CA-5 -- paridad Claude/OpenCode sobre la misma corrida --------
+# -------- Bloque O: CA-5 -- corrida traducida por el adaptador real --------
 
 echo ""
-echo "[O] CA-5: la MISMA corrida traducida por el adaptador Claude y por el de OpenCode produce"
-echo "    el mismo conteo de tools y el mismo estado terminal; los n/d aparecen solo en OpenCode."
+echo "[O] CA-5: la corrida traducida por el adaptador Claude rinde su conteo de tools,"
+echo "    su estado terminal y todas sus metricas."
 
-# Las dos entradas de este bloque NO son JSONL escrito a mano: se generan
-# corriendo los adaptadores reales de #859/#860 sobre sus fixtures de traza
-# cruda, que es lo que pide CA-5 ("las fixtures neutrales de #861 para Claude
-# y OpenCode"). La diferencia importa: inventar el JSONL neutral deja al test
-# afirmando lo que el autor CREE que reporta cada runtime, no lo que reporta.
-# Contra los adaptadores reales queda a la vista, por ejemplo, que OpenCode SI
-# trae session_id aun cuando su estimacion de costo no es resoluble -- dos
-# campos cuya presencia difiere y que un fixture a mano podria falsear.
+# La entrada de este bloque NO es JSONL escrito a mano: se genera corriendo el
+# adaptador real de #859 sobre su fixture de traza cruda. Inventar el JSONL
+# neutral deja al test afirmando lo que el autor CREE que reporta el runtime,
+# no lo que reporta.
 #
 # neutral_run <lib> <fn> <fixture-dir> <fixture> <runtime> <modelo> <destino>
 #
@@ -886,7 +882,6 @@ neutral_run() {
 
 LIB_DIR="$REPO_ROOT/src/runtime/lib"
 FIX_CLAUDE="$SCRIPT_DIR/fixtures/runtime-claude"
-FIX_OC="$SCRIPT_DIR/fixtures/runtime-opencode"
 
 reset_stage_state
 STREAM_CLAUDE="$TMP/claude.events.jsonl"
@@ -894,30 +889,21 @@ neutral_run "$LIB_DIR/runtime-claude.sh" runtime_claude_translate \
     "$FIX_CLAUDE" "success.jsonl" "claude" "claude-sonnet-5" "$STREAM_CLAUDE"
 run_process_new_lines "$STREAM_CLAUDE" "$TMP/claude-out.txt"
 OUT_CLAUDE=$(cat "$TMP/claude-out.txt")
-# El tool.completed{ok:true} de ambas fixtures ya no imprime linea (issue
-# #925): se cuenta por el tool.started, que si es siempre visible -- ambas
-# fixtures traen exactamente una llamada a tool ("Read" en Claude, "glob" en
-# OpenCode).
+# El tool.completed{ok:true} de la fixture ya no imprime linea (issue #925):
+# se cuenta por el tool.started, que si es siempre visible -- la fixture trae
+# exactamente una llamada a tool ("Read").
 TOOLS_CLAUDE=$(grep -c "Read: x" "$TMP/claude-out.txt" | tr -d ' ')
 
-reset_stage_state
-STREAM_OC="$TMP/opencode.events.jsonl"
-neutral_run "$LIB_DIR/runtime-opencode.sh" runtime_opencode_translate \
-    "$FIX_OC" "success-tool-1.18.29.jsonl" "opencode" "" "$STREAM_OC"
-run_process_new_lines "$STREAM_OC" "$TMP/opencode-out.txt"
-OUT_OC=$(cat "$TMP/opencode-out.txt")
-TOOLS_OC=$(grep -cE '  glob$' "$TMP/opencode-out.txt" | tr -d ' ')
-
-if [ "$TOOLS_CLAUDE" -eq 1 ] && [ "$TOOLS_OC" -eq 1 ]; then
-    pass "O-1: mismo conteo de tools (1) en ambas corridas, sobre la salida real de cada adaptador"
+if [ "$TOOLS_CLAUDE" -eq 1 ]; then
+    pass "O-1: conteo de tools (1) sobre la salida real del adaptador"
 else
-    fail "O-1: conteo de tools distinto -- claude=$TOOLS_CLAUDE opencode=$TOOLS_OC"
+    fail "O-1: conteo de tools inesperado -- claude=$TOOLS_CLAUDE"
 fi
 
-if printf '%s' "$OUT_CLAUDE" | grep -q -- "(OK)" && printf '%s' "$OUT_OC" | grep -q -- "(OK)"; then
-    pass "O-2: mismo estado terminal (OK) en ambas corridas"
+if printf '%s' "$OUT_CLAUDE" | grep -q -- "(OK)"; then
+    pass "O-2: estado terminal (OK)"
 else
-    fail "O-2: el estado terminal no coincide -- claude='$OUT_CLAUDE' opencode='$OUT_OC'"
+    fail "O-2: estado terminal inesperado -- claude='$OUT_CLAUDE'"
 fi
 
 if printf '%s' "$OUT_CLAUDE" | grep -q "costo_usd=0.01" && ! printf '%s' "$OUT_CLAUDE" | grep -q "n/d"; then
@@ -940,21 +926,19 @@ else
     fail "O-3b: el terminal legacy no mostro costo_usd=0.02: $OUT_LEGACY"
 fi
 
-if printf '%s' "$OUT_OC" | grep -q "modelo=n/d" && printf '%s' "$OUT_OC" | grep -q "turnos=n/d" \
-    && printf '%s' "$OUT_OC" | grep -q "ttft=n/d" && printf '%s' "$OUT_OC" | grep -q "api=n/d"; then
-    pass "O-4: la corrida OpenCode muestra n/d en los campos que ese runtime no reporta (modelo, turnos, ttft, api)"
+# MEF-ADR-0054, seccion 1: cuando modelo y tokens no permiten resolver la
+# estimacion, el terminal trae estimated_cost_usd:null. session_id si esta
+# presente debe conservarse aunque la estimacion sea n/d.
+reset_stage_state
+STREAM_NOCOST="$TMP/no-cost.events.jsonl"
+printf '%s\n' '{"v":1,"type":"run.completed","ts":"2026-09-05T10:00:00Z","status":"success","runtime":"fake","model":null,"session_id":"ses_presente","duration_ms":100,"tokens":{"input":10,"output":5,"cache_read":null,"cache_write":null,"reasoning":null},"estimated_cost_usd":null,"turns":null,"denials":null,"ttft_ms":null,"api_duration_ms":null,"error":null}' > "$STREAM_NOCOST"
+run_process_new_lines "$STREAM_NOCOST" "$TMP/no-cost-out.txt"
+OUT_NOCOST=$(cat "$TMP/no-cost-out.txt")
+if printf '%s' "$OUT_NOCOST" | grep -q "costo_usd=n/d" \
+    && printf '%s' "$OUT_NOCOST" | grep -q "session_id=ses_presente"; then
+    pass "O-4: costo no resoluble se muestra como n/d sin degradar un session_id presente"
 else
-    fail "O-4: la corrida OpenCode no mostro los n/d esperados: $OUT_OC"
-fi
-
-# MEF-ADR-0054, seccion 1: el cero de OAuth no es una estimacion; cuando modelo
-# y tokens no permiten resolverla, el adaptador emite estimated_cost_usd:null.
-# session_id si esta presente debe conservarse aunque la estimacion sea n/d.
-if printf '%s' "$OUT_OC" | grep -q "costo_usd=n/d" \
-    && printf '%s' "$OUT_OC" | grep -q "session_id=ses_f8b28e18effew6dRCNC6Tm8NHq"; then
-    pass "O-5: OpenCode muestra costo_usd=n/d sin degradar su session_id presente"
-else
-    fail "O-5: OpenCode no distinguio costo no resoluble de session_id presente: $OUT_OC"
+    fail "O-4: no se distinguio costo no resoluble de session_id presente: $OUT_NOCOST"
 fi
 
 # -------- Bloque P: CA-6 -- neutralidad del script fuente --------

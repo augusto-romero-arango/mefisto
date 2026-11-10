@@ -14,7 +14,7 @@
 # lanzamiento de un comando de secuenciamiento, y ese comando depende del
 # runtime del consumidor (MEF-ADR-0050): hoy el unico adaptador publicado es
 # Claude Code Plugin y el comando se invoca '/mefisto:sequential'; bajo
-# OpenCode (#874) el namespace puede diferir. Este script NUNCA hardcodea esa
+# otro runtime el namespace puede diferir. Este script NUNCA hardcodea esa
 # decision: la recibe por '--launch-command "<texto>"' (el wrapper de cada
 # runtime la pasa), y sin el flag cae al default '/mefisto:sequential' -- el
 # unico adaptador publicado hoy.

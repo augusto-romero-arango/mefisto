@@ -1,12 +1,11 @@
 #!/usr/bin/env bash
-# Contrato del agente tooling-investigator neutral y sus proyecciones publicadas (issue #1668).
+# Contrato del agente tooling-investigator neutral y su proyeccion publicada (issue #1668).
 set -uo pipefail
 export LC_ALL=C
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
 REPO_ROOT="$(cd "$HERE/../../../.." && pwd -P)"
 SOURCE="$REPO_ROOT/src/published/agents/tooling-investigator.md"
 CLAUDE="$REPO_ROOT/dist/claude/agents/tooling-investigator.md"
-OPENCODE="$REPO_ROOT/dist/opencode/agents/tooling-investigator.md"
 MIRROR="$REPO_ROOT/agents/tooling-investigator.md"
 GENERATOR="$REPO_ROOT/src/published/scripts/generate-published-adapters.sh"
 PASS=0; FAIL=0
@@ -31,22 +30,17 @@ contains "$body" '{{mefisto:instructions-path}}' 'lee directivas via instruction
 contains "$body" 'docs/bitacora/field-notes/' 'conserva la restriccion de escritura'
 contains "$body" '.mefisto/' 'cubre .mefisto/'
 contains "$body" 'repoSlug' 'conserva el routing via repoSlug'
-for file in "$CLAUDE" "$OPENCODE"; do [ -f "$file" ] && pass "existe ${file#"$REPO_ROOT/"}" || fail "falta ${file#"$REPO_ROOT/"}"; done
+[ -f "$CLAUDE" ] && pass "existe ${CLAUDE#"$REPO_ROOT/"}" || fail "falta ${CLAUDE#"$REPO_ROOT/"}"
 claude_body="$(< "$CLAUDE")"
-opencode_body="$(< "$OPENCODE")"
 
 echo '[b] invocacion del colector'
-for var in claude_body opencode_body; do
-    runtime="${var%_body}"
-    text="${!var}"
-    total="$(printf '%s\n' "$text" | grep -c 'work-status-collect\.sh')"
-    good="$(printf '%s\n' "$text" | grep -c "MEFISTO_RUNTIME=$runtime \"\${MEFISTO_PACKAGE_ROOT}/scripts/work-status-collect.sh\"")"
-    if [ "$total" -gt 0 ] && [ "$total" -eq "$good" ]; then pass "$runtime: $good invocaciones via MEFISTO_PACKAGE_ROOT"; else fail "$runtime: $good de $total invocaciones bien formadas"; fi
-done
+total="$(printf '%s\n' "$claude_body" | grep -c 'work-status-collect\.sh')"
+good="$(printf '%s\n' "$claude_body" | grep -c "MEFISTO_RUNTIME=claude \"\${MEFISTO_PACKAGE_ROOT}/scripts/work-status-collect.sh\"")"
+if [ "$total" -gt 0 ] && [ "$total" -eq "$good" ]; then pass "claude: $good invocaciones via MEFISTO_PACKAGE_ROOT"; else fail "claude: $good de $total invocaciones bien formadas"; fi
 
 echo '[c] ausencia de acoplamientos'
-for var in body claude_body opencode_body; do
-    text="$(printf '%s\n' "${!var}" | grep -v '^permission: ' | grep -v '\.plugin-root')"
+for var in body claude_body; do
+    text="$(printf '%s\n' "${!var}" | grep -v '\.plugin-root')"
     absent "$text" '.claude/pipeline/' "$var sin .claude/pipeline/"
     absent "$text" 'tooling-status.json' "$var sin tooling-status.json"
     absent "$text" 'tooling-history.jsonl' "$var sin tooling-history.jsonl"
@@ -59,13 +53,11 @@ absent "$body" 'CLAUDE.md' 'la fuente sin CLAUDE.md'
 
 echo '[d] mirror e inventario'
 if cmp -s "$MIRROR" "$CLAUDE"; then pass 'mirror identico a dist/claude'; else fail 'mirror diverge'; fi
-for inventory in "$REPO_ROOT/dist/claude/.mefisto-generated-assets.json" "$REPO_ROOT/dist/opencode/.mefisto-generated-assets.json"; do
-    if jq -e '.assets[] | select(.destination == "agents/tooling-investigator.md")' "$inventory" >/dev/null 2>&1; then
-        pass "$(basename "$(dirname "$inventory")") inventaria el agente"
-    else
-        fail "$(basename "$(dirname "$inventory")") no inventaria el agente"
-    fi
-done
+if jq -e '.assets[] | select(.destination == "agents/tooling-investigator.md")' "$REPO_ROOT/dist/claude/.mefisto-generated-assets.json" >/dev/null 2>&1; then
+    pass 'claude inventaria el agente'
+else
+    fail 'claude no inventaria el agente'
+fi
 if "$GENERATOR" --check >/dev/null; then pass 'generate-published-adapters --check al dia'; else fail '--check detecto divergencias'; fi
 
 printf 'RESULTADO: %s pasaron, %s fallaron\n' "$PASS" "$FAIL"

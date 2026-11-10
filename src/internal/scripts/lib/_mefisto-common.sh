@@ -328,23 +328,13 @@ get_harness_sha() {
 #   src/runtime/             Nucleo neutral de runner y eventos del lado publicado
 #                            (MEF-ADR-0053), registrado antes de poblarlo.
 #   dist/                    Distribuciones generadas por runtime (MEF-ADR-0053), registrada
-#                            antes de crear dist/{claude,opencode}/. Los vecinos dist*/ siguen
+#                            antes de crear dist/claude/. Los vecinos dist*/ siguen
 #                            fuera de scope.
-#   .opencode/{agents,commands,plugins,skills}/   Adaptadores OpenCode del propio Mefisto
-#                            (MEF-ADR-0049), espejo neutral de .claude/{agents,commands,skills}/.
-#                            Solo PLURAL: OpenCode 1.18.29 acepta singular y plural por igual,
-#                            pero el generador (#854) solo emite plural y aqui solo se registra
-#                            lo que se usa. Registrada de antemano por el issue #852.
-#                            Deliberadamente NO se replica en is_path_in_consumer_blocklist:
-#                            .opencode/ es la config legitima de OpenCode del consumidor.
-#   AGENTS.md, opencode.json   Doctrina canonica neutral (AGENTS.md) y config raiz de OpenCode
-#                            (opencode.json, issue #868) -- MEF-ADR-0049. Entradas EXACTAS de
-#                            la raiz del repo, no globs, mismo precedente que .mcp.json (issue
-#                            #763) y .claude/settings.json (issue #522). Registradas de
-#                            antemano por el issue #852. Deliberadamente NO se replican en
-#                            is_path_in_consumer_blocklist: ambas son rutas legitimas del
-#                            consumidor (AGENTS.md es su propia doctrina neutral; opencode.json
-#                            su propia config de proyecto OpenCode).
+#   AGENTS.md                Doctrina canonica neutral (MEF-ADR-0049). Entrada EXACTA de la
+#                            raiz del repo, no glob, mismo precedente que .mcp.json (issue
+#                            #763) y .claude/settings.json (issue #522). Deliberadamente NO
+#                            se replica en is_path_in_consumer_blocklist: es una ruta
+#                            legitima del consumidor (su propia doctrina neutral).
 #   changelog.d/             Fragmentos de CHANGELOG/indice de ADRs (issue #380)
 #   .github/workflows/*, .github/rulesets/*   CI y rulesets del propio repo (issue #1742).
 #                            Registradas antes de poblarlas (MEF-ADR-0019 seccion E); el resto de
@@ -365,9 +355,8 @@ is_path_in_mefisto_scope() {
         .claude-plugin/*) return 0 ;;
         .claude/commands/*|.claude/skills/*|.claude/agents/*|.claude/scripts/*|.claude/mods/*) return 0 ;;
         .claude/settings.json) return 0 ;;
-        .opencode/agents/*|.opencode/commands/*|.opencode/plugins/*|.opencode/skills/*) return 0 ;;
         .mcp.json) return 0 ;;
-        README.md|CHANGELOG.md|CLAUDE.md|.gitignore|AGENTS.md|opencode.json|LICENSE|NOTICE|mefisto-manifest.json) return 0 ;;
+        README.md|CHANGELOG.md|CLAUDE.md|.gitignore|AGENTS.md|LICENSE|NOTICE|mefisto-manifest.json) return 0 ;;
         changelog.d/*) return 0 ;;
         .github/workflows/*|.github/rulesets/*) return 0 ;;
         *) return 1 ;;
@@ -410,7 +399,7 @@ validate_mefisto_scope_changes() {
         echo "Mefisto solo permite cambios en: commands/, skills/, agents/, scripts/," >&2
         echo "hooks/, docs/, .claude-plugin/, .claude/{commands,skills,agents,scripts,mods}/," >&2
         echo ".claude/settings.json, .mcp.json, src/{internal,published,runtime}/, dist/," >&2
-        echo ".opencode/{agents,commands,plugins,skills}/, .github/{workflows,rulesets}/, AGENTS.md, opencode.json," >&2
+        echo ".github/{workflows,rulesets}/, AGENTS.md," >&2
         echo "changelog.d/, README.md, CHANGELOG.md, CLAUDE.md, .gitignore, LICENSE, NOTICE" >&2
         return 1
     fi
@@ -1315,7 +1304,7 @@ agent_events_error_field() {
 # COMPLETO de `error.kind` (incluidos "rate_limit" y "provider_unavailable")
 # directo a su etiqueta -- ya no necesita `agent_events_error_detail` para
 # partir 5xx de 4xx, porque esa distincion la hace ahora el adaptador
-# (runtime-claude.jq/runtime-opencode.jq), no un grep sobre el detalle.
+# (runtime-claude.jq), no un grep sobre el detalle.
 agent_events_error_kind() {
     agent_events_error_field "${1:-}" kind
 }
@@ -1364,10 +1353,10 @@ agent_events_resets_at() {
 # `session_id` del evento terminal (run.completed/run.failed), o cadena vacia
 # si falta, es null, el archivo esta vacio/inexistente o jq no esta
 # disponible. Issue #968: la reanudacion de sesion tras un hold (CA-3)
-# necesita esta llave para invocar `--resume-session` -- ambos adaptadores ya
-# la capturan de un evento TEMPRANO del stream (runtime-claude.jq del
-# `system/init`, runtime-opencode.jq del primer evento con `sessionID`) y la
-# dejan en el terminal aunque el proceso muera a mitad de camino: el 429/5xx
+# necesita esta llave para invocar `--resume-session` -- el adaptador ya
+# la captura de un evento TEMPRANO del stream (runtime-claude.jq del
+# `system/init`) y la
+# deja en el terminal aunque el proceso muera a mitad de camino: el 429/5xx
 # no destruye la sesion, solo el proceso que la sostenia.
 agent_events_session_id() {
     local events_file="${1:-}"
@@ -1462,7 +1451,7 @@ agent_failure_is_unrecoverable() {
 # traduccion DIRECTA (un `case` de una via), sin grep: el split entre
 # "rate_limit"/"provider_unavailable"/"api_error" (antes, un grep sobre
 # `error.detail` buscando "API Error: 5"/"API Error: 4") ya lo hizo el
-# adaptador (runtime-claude.jq/runtime-opencode.jq) al construir el
+# adaptador (runtime-claude.jq) al construir el
 # terminal, que es quien de verdad conoce el payload del CLI (MEF-ADR-0050:
 # el pipeline consume `error.kind`, nunca texto de un runtime concreto).
 # PROVIDER_UNAVAILABLE es el reemplazo 1:1 de la vieja etiqueta
@@ -1901,7 +1890,7 @@ mefisto_neutrality_remedy() {
         echo "R4: restaura el shim byte a byte desde la plantilla documentada en src/internal/scripts/README.md; si el archivo de verdad no es un shim, registralo en 'not_migrated' de la allowlist en vez de reformularlo."
     fi
     if [ "$have_adapters" = true ]; then
-        echo "adapters-check: regenera los adaptadores con src/internal/scripts/generate-internal-adapters.sh (sin --check); su salida (.claude/{agents,commands}/, .opencode/{agents,commands}/) no se edita a mano -- se edita la fuente neutral de src/internal/{agents,commands}/ y se regenera."
+        echo "adapters-check: regenera los adaptadores con src/internal/scripts/generate-internal-adapters.sh (sin --check); su salida (.claude/{agents,commands}/) no se edita a mano -- se edita la fuente neutral de src/internal/{agents,commands}/ y se regenera."
     fi
     if [ "$have_published" = true ]; then
         echo "published-adapters-check: regenera la distribucion publicada con src/published/scripts/generate-published-adapters.sh (sin --check); su salida (dist/) no se edita a mano -- se edita la fuente publicada de src/published/ o src/runtime/ y se regenera."

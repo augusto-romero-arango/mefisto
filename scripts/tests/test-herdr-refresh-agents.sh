@@ -220,7 +220,7 @@ assert_contains "intenta el relanzamiento que falla" "$CALLS" "herdr <agent> <st
 
 echo "[C] Neutralidad estatica"
 REFRESH_BODY=$(extract_fn cmd_refresh_agents "$HERDR_SCRIPT")
-assert_eq "bloque nuevo no nombra runtimes" "0" "$(printf '%s' "$REFRESH_BODY" | grep -Eic 'claude|opencode')"
+assert_eq "bloque nuevo no nombra runtimes" "0" "$(printf '%s' "$REFRESH_BODY" | grep -ic 'claude')"
 assert_eq "timeout no envia senales ni mata procesos" "0" "$(printf '%s' "$REFRESH_BODY" | grep -Eic '(^|[;&|[:space:]])(kill|pkill|killall)([[:space:]]|$)')"
 
 echo ""

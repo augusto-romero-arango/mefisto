@@ -148,28 +148,14 @@ _check_claude_version() {
 
 # _check_repo_activation [runtime] [toplevel]
 # Mefisto se instala por usuario e inerte y cada consumidor lo activa con archivos
-# commiteados (MEF-ADR-0053 decision 2): .claude/settings.json bajo claude y el cargador
-# .opencode/plugins/mefisto.js bajo opencode. Deja REPO_ACTIVATION_STATE/_DETAIL y
-# USER_LEVEL_DETAIL (vacio si Mefisto no se carga ya en todos los repos).
+# commiteados (MEF-ADR-0053 decision 2): .claude/settings.json bajo claude. Deja
+# REPO_ACTIVATION_STATE/_DETAIL y USER_LEVEL_DETAIL (vacio si Mefisto no se carga ya en todos los repos).
 _check_repo_activation() {
     local runtime="${1:-claude}" top="${2:-}" mkt
     USER_LEVEL_DETAIL=""
     [ -n "$top" ] || top=$(git rev-parse --show-toplevel 2>/dev/null)
     # shellcheck disable=SC1091
     source "$SCRIPT_DIR/_plugin-scopes.sh"
-    if [ "$runtime" = "opencode" ]; then
-        if _loader_commiteado "$top"; then
-            REPO_ACTIVATION_STATE="OK"
-            REPO_ACTIVATION_DETAIL=".opencode/plugins/mefisto.js commiteado activa Mefisto (repo y worktrees)"
-        else
-            REPO_ACTIVATION_STATE="FALTA"
-            REPO_ACTIVATION_DETAIL=".opencode/plugins/mefisto.js no esta commiteado: sin el, Mefisto no se carga en este repo sin la proyeccion global"
-        fi
-        if _proyeccion_global_activa; then
-            USER_LEVEL_DETAIL="la proyeccion global de Mefisto en OpenCode esta activa: se carga en todos tus repos; /mefisto:upgrade ofrece retirarla"
-        fi
-        return 0
-    fi
     if [ "$runtime" != "claude" ]; then
         REPO_ACTIVATION_STATE="INFO"
         REPO_ACTIVATION_DETAIL="activacion por repositorio: sin verificacion para el runtime $runtime"
@@ -346,8 +332,7 @@ _consumer_origin_slug() {
 
 # _check_repo_slug <config>
 #
-# Valida el repoSlug efectivo (config o default augusto-romero-arango/mefisto, igual que
-# _repo_slug de upgrade.sh): atajo local contra el origin del consumidor y, si no coincide,
+# Valida el repoSlug efectivo (config o default augusto-romero-arango/mefisto): atajo local contra el origin del consumidor y, si no coincide,
 # verificacion de contenido via gh (.claude-plugin/plugin.json con name == mefisto).
 _check_repo_slug() {
     local cfg="$1" slug="" origin_slug origen err name rc motivo
@@ -361,7 +346,7 @@ _check_repo_slug() {
 
     origin_slug=$(_consumer_origin_slug)
     if [ -n "$origin_slug" ] && [ "$(printf '%s' "$origin_slug" | tr '[:upper:]' '[:lower:]')" = "$(printf '%s' "$slug" | tr '[:upper:]' '[:lower:]')" ]; then
-        row FALTA "repoSlug '$slug' apunta al propio consumidor: los drafts cross-repo y el /upgrade de OpenCode irian a este repo ($origen)"
+        row FALTA "repoSlug '$slug' apunta al propio consumidor: los drafts cross-repo irian a este repo ($origen)"
         ACTIONS="${ACTIONS}  - Corrige repoSlug en $cfg con el slug owner/repo del fork de Mefisto, o borralo para usar el default augusto-romero-arango/mefisto.
 "
         return 0

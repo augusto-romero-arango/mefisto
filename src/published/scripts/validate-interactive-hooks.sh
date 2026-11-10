@@ -60,7 +60,7 @@ ERRORS=$(jq -r --slurpfile specification "$SCHEMA" '
     end),
   (if ([$contract.bindings[].id] | unique | length) != ($contract.bindings | length) then "bindings: id duplicado" else empty end),
   (if ([$contract.bindings[]?.id] | sort) != ($contracts | keys | sort) then "bindings: falta un binding requerido o existe uno sin contrato" else empty end),
-  ($contract | [.. | strings | select(test("CLAUDE_[A-Z_]+|OPENCODE_[A-Z_]+|\\.claude(/|$)|\\.opencode(/|$)|SessionStart|PostToolUse|ExitPlanMode|Write\\|Edit|tool\\.execute\\.(before|after)|session\\.(created|idle)|(^|[^a-z])(claude|opencode|javascript|typescript|cache)([^a-z]|$)"; "i"))] | unique[]? | "contrato: referencia a runtime: " + .)
+  ($contract | [.. | strings | select(test("CLAUDE_[A-Z_]+|\\.claude(/|$)|SessionStart|PostToolUse|ExitPlanMode|Write\\|Edit|tool\\.execute\\.(before|after)|session\\.(created|idle)|(^|[^a-z])(claude|javascript|typescript|cache)([^a-z]|$)"; "i"))] | unique[]? | "contrato: referencia a runtime: " + .)
 ' "$CONTRACT") || { echo "$CONTRACT: no se pudo evaluar el contrato" >&2; exit 1; }
 
 if [ -n "$ERRORS" ]; then printf '%s\n' "$ERRORS" >&2; exit 1; fi

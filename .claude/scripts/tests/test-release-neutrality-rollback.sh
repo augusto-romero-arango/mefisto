@@ -73,13 +73,8 @@ mkdir -p "$TEST_REPO/dist/claude"
 cp "$TEST_REPO/mefisto-manifest.json" "$TEST_REPO/dist/claude/mefisto-manifest.json"
 printf '%s\n' '{"schemaVersion":1,"assets":[]}' > "$TEST_REPO/dist/claude/.mefisto-generated-assets.json"
 EOF
-    cat > "$TEST_REPO/src/published/scripts/package-opencode-release.sh" <<'EOF'
-#!/usr/bin/env bash
-exit 99
-EOF
     chmod +x "$TEST_REPO/src/internal/scripts/mefisto-neutrality-gate.sh" \
-        "$TEST_REPO/src/published/scripts/generate-published-adapters.sh" \
-        "$TEST_REPO/src/published/scripts/package-opencode-release.sh"
+        "$TEST_REPO/src/published/scripts/generate-published-adapters.sh"
 
     cat > "$BIN/git" <<'EOF'
 #!/usr/bin/env bash

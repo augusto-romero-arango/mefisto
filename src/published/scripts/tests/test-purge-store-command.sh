@@ -1,12 +1,11 @@
 #!/usr/bin/env bash
-# Contrato del comando purge-store neutral y sus proyecciones publicadas.
+# Contrato del comando purge-store neutral y su proyeccion publicada.
 set -uo pipefail
 export LC_ALL=C
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
 REPO_ROOT="$(cd "$HERE/../../../.." && pwd -P)"
 SOURCE="$REPO_ROOT/src/published/commands/purge-store.md"
 CLAUDE="$REPO_ROOT/dist/claude/commands/purge-store.md"
-OPENCODE="$REPO_ROOT/dist/opencode/commands/mefisto:purge-store.md"
 MIRROR="$REPO_ROOT/commands/purge-store.md"
 GENERATOR="$REPO_ROOT/src/published/scripts/generate-published-adapters.sh"
 PASS=0; FAIL=0
@@ -48,40 +47,32 @@ absent "$body" 'az ' 'fuente sin az directo'
 absent "$body" 'scripts/.env' 'fuente sin scripts/.env'
 for forbidden in '.plugin-root' 'plugins/cache' 'PLUGIN_SCRIPTS' 'CLAUDE_'; do absent "$body" "$forbidden" "fuente sin token prohibido: $forbidden"; done
 
-echo '[salidas] adaptadores'
-for file in "$CLAUDE" "$OPENCODE"; do [ -f "$file" ] && pass "existe ${file#"$REPO_ROOT/"}" || fail "falta ${file#"$REPO_ROOT/"}"; done
+echo '[salida] adaptador'
+[ -f "$CLAUDE" ] && pass "existe ${CLAUDE#"$REPO_ROOT/"}" || fail "falta ${CLAUDE#"$REPO_ROOT/"}"
 claude_body="$(< "$CLAUDE")"
-opencode_body="$(< "$OPENCODE")"
-for pair in "claude:$claude_body" "opencode:$opencode_body"; do
-    rt="${pair%%:*}"; f="${pair#*:}"
-    contains "$f" "MEFISTO_RUNTIME=$rt \"\${MEFISTO_PACKAGE_ROOT}/scripts/purge-store.sh\" --domain \"\$DOMINIO_KEBAB\" --env \"\$ENV\" --dry-run" "$rt invoca purge-store.sh --dry-run"
-    contains "$f" "MEFISTO_RUNTIME=$rt \"\${MEFISTO_PACKAGE_ROOT}/scripts/purge-store.sh\" --domain \"\$DOMINIO_KEBAB\" --env \"\$ENV\"" "$rt invoca purge-store.sh"
-    contains "$f" "MEFISTO_RUNTIME=$rt \"\${MEFISTO_PACKAGE_ROOT}/scripts/appinsights-query.sh\" custom" "$rt invoca appinsights-query.sh"
-    contains "$f" "\"\${MEFISTO_PACKAGE_ROOT}/scripts/azure-account-info.sh\"" "$rt invoca azure-account-info.sh"
-    absent "$f" '{{mefisto:' "$rt sin directivas sin resolver"
-    absent "$f" 'az ' "$rt sin az directo"
-    for forbidden in 'PLUGIN_SCRIPTS' 'plugins/cache' 'scripts/.env'; do absent "$f" "$forbidden" "$rt sin $forbidden"; done
-    # Orden: evidencia -> dry-run -> confirmacion -> purga -> rerun/veredicto.
-    ordered "$f" "$rt respeta el orden evidencia -> dry-run -> confirmacion -> purga -> rerun" \
-        'appinsights-query.sh' '--dry-run' 'Continuar con la purga' '--env "$ENV"
+contains "$claude_body" "MEFISTO_RUNTIME=claude \"\${MEFISTO_PACKAGE_ROOT}/scripts/purge-store.sh\" --domain \"\$DOMINIO_KEBAB\" --env \"\$ENV\" --dry-run" 'claude invoca purge-store.sh --dry-run'
+contains "$claude_body" "MEFISTO_RUNTIME=claude \"\${MEFISTO_PACKAGE_ROOT}/scripts/purge-store.sh\" --domain \"\$DOMINIO_KEBAB\" --env \"\$ENV\"" 'claude invoca purge-store.sh'
+contains "$claude_body" "MEFISTO_RUNTIME=claude \"\${MEFISTO_PACKAGE_ROOT}/scripts/appinsights-query.sh\" custom" 'claude invoca appinsights-query.sh'
+contains "$claude_body" "\"\${MEFISTO_PACKAGE_ROOT}/scripts/azure-account-info.sh\"" 'claude invoca azure-account-info.sh'
+absent "$claude_body" '{{mefisto:' 'claude sin directivas sin resolver'
+absent "$claude_body" 'az ' 'claude sin az directo'
+for forbidden in 'PLUGIN_SCRIPTS' 'plugins/cache' 'scripts/.env'; do absent "$claude_body" "$forbidden" "claude sin $forbidden"; done
+# Orden: evidencia -> dry-run -> confirmacion -> purga -> rerun/veredicto.
+ordered "$claude_body" 'claude respeta el orden evidencia -> dry-run -> confirmacion -> purga -> rerun' \
+    'appinsights-query.sh' '--dry-run' 'Continuar con la purga' '--env "$ENV"
 ```' 'gh run rerun'
-done
-for forbidden in '.plugin-root' 'CLAUDE_'; do absent "$opencode_body" "$forbidden" "OpenCode sin token Claude: $forbidden"; done
 contains "$claude_body" 'model: "sonnet"' 'Claude materializa el perfil balanced'
-absent "$opencode_body" 'model:' 'OpenCode no emite model'
 
 echo '[assets] purge-store.sh distribuido'
 SRC_SH="$REPO_ROOT/scripts/purge-store.sh"
-for rt in claude opencode; do
-    dist_sh="$REPO_ROOT/dist/$rt/scripts/purge-store.sh"
-    if [ -f "$dist_sh" ] && cmp -s "$SRC_SH" "$dist_sh"; then pass "dist/$rt/scripts/purge-store.sh identico"; else fail "dist/$rt/scripts/purge-store.sh ausente o distinto"; fi
-    [ -x "$dist_sh" ] && pass "dist/$rt purge-store.sh ejecutable" || fail "dist/$rt purge-store.sh no ejecutable"
-    [ -f "$REPO_ROOT/dist/$rt/scripts/_pipeline-common.sh" ] && pass "dist/$rt trae _pipeline-common.sh hermano" || fail "dist/$rt sin _pipeline-common.sh"
-    if jq -e '.assets[] | select(.destination == "scripts/purge-store.sh")' "$REPO_ROOT/dist/$rt/.mefisto-generated-assets.json" >/dev/null 2>&1; then pass "inventario de dist/$rt incluye purge-store.sh"; else fail "inventario de dist/$rt sin purge-store.sh"; fi
-    if jq -e '.. | strings | select(. == "commands/purge-store.md" or . == "commands/mefisto:purge-store.md")' "$REPO_ROOT/dist/$rt/.mefisto-generated-assets.json" >/dev/null 2>&1; then pass "inventario de dist/$rt incluye el comando"; else fail "inventario de dist/$rt sin el comando"; fi
-done
+dist_sh="$REPO_ROOT/dist/claude/scripts/purge-store.sh"
+if [ -f "$dist_sh" ] && cmp -s "$SRC_SH" "$dist_sh"; then pass "dist/claude/scripts/purge-store.sh identico"; else fail "dist/claude/scripts/purge-store.sh ausente o distinto"; fi
+[ -x "$dist_sh" ] && pass "dist/claude purge-store.sh ejecutable" || fail "dist/claude purge-store.sh no ejecutable"
+[ -f "$REPO_ROOT/dist/claude/scripts/_pipeline-common.sh" ] && pass "dist/claude trae _pipeline-common.sh hermano" || fail "dist/claude sin _pipeline-common.sh"
+if jq -e '.assets[] | select(.destination == "scripts/purge-store.sh")' "$REPO_ROOT/dist/claude/.mefisto-generated-assets.json" >/dev/null 2>&1; then pass "inventario de dist/claude incluye purge-store.sh"; else fail "inventario de dist/claude sin purge-store.sh"; fi
+if jq -e '.. | strings | select(. == "commands/purge-store.md")' "$REPO_ROOT/dist/claude/.mefisto-generated-assets.json" >/dev/null 2>&1; then pass "inventario de dist/claude incluye el comando"; else fail "inventario de dist/claude sin el comando"; fi
 # Resuelve _pipeline-common.sh desde dist/: el script sale por uso, no por fuente ausente.
-out="$(bash "$REPO_ROOT/dist/opencode/scripts/purge-store.sh" --help 2>&1 < /dev/null || true)"
+out="$(bash "$REPO_ROOT/dist/claude/scripts/purge-store.sh" --help 2>&1 < /dev/null || true)"
 case "$out" in *"_pipeline-common.sh: No such file"*) fail 'dist resuelve _pipeline-common.sh' ;; *) pass 'dist resuelve _pipeline-common.sh' ;; esac
 
 echo '[mirror]'

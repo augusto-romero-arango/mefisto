@@ -9,36 +9,29 @@
 #   [sources] Las diez src/internal/commands/mefisto-{plan,bug,bitacora,
 #         work-status,fix-review,tooling,tooling-verbose,sequential,merge,
 #         release}.md existen y pasan validate-internal-artifacts.sh (#853).
-#   [ca-3] Ninguna fuente ni salida generada contiene `claude --agent`,
-#         `.claude/pipeline`, `.claude/agents` ni `.claude/commands` (CA-3);
-#         la salida Claude de plan/bug/bitacora invoca
-#         `claude --agent <agente> "$ARGUMENTS"` y la de OpenCode lleva
-#         `agent: "<agente>"` + la frase de la directiva.
+#   [ca-3] Ninguna fuente contiene `claude --agent`, `.claude/pipeline`,
+#         `.claude/agents` ni `.claude/commands` (CA-3); la salida generada
+#         de plan/bug/bitacora invoca `claude --agent <agente> "$ARGUMENTS"`
+#         y ninguna salida cita `.claude/pipeline` ni `.claude/agents`.
 #   [check] generate-internal-adapters.sh --check esta en verde: los
-#         adaptadores versionados en .claude/commands/ y .opencode/commands/
-#         coinciden byte-a-byte con lo que la fuente neutral produce (CA-1).
+#         adaptadores versionados en .claude/commands/ coinciden byte-a-byte
+#         con lo que la fuente neutral produce (CA-1).
 #   [claude-output] La salida Claude de los cuatro comandos `fast` lleva
 #         `model: "haiku"`; la de `fix-review` (`deep`) lleva `model: "opus"`
 #         (CA-2, tabla enmendada por issue #1309).
-#   [opencode-output] La salida OpenCode omite `model:` para heredar la
-#         configuracion del usuario (issue #961).
-#   [guard] El bloque del guard inverso (`.claude-plugin/plugin.json`) es
-#         identico byte-a-byte entre la salida Claude y la OpenCode de cada
-#         uno de los cinco comandos (CA-2).
+#   [guard] El bloque del guard inverso (`.claude-plugin/plugin.json`) esta
+#         presente en la salida de cada comando (CA-2).
 #   [ca-5] Ninguna fuente cita `CLAUDE.md` como referencia de gobierno: si
 #         aparece, la linea debe describirlo como shim de compatibilidad.
 #   [command-path] mefisto-tooling-verbose delega en mefisto-tooling via
-#         `{{mefisto:command-path}}`: cada salida apunta a su propio
-#         directorio de comandos (CA-4). mefisto-bitacora ya no lee
-#         mefisto-merge en ninguna salida (issue #2260).
-#   [opencode-cli] Si el CLI `opencode` esta instalado, `opencode debug
-#         config` corrido en la raiz del repo lista los cinco ids bajo
-#         `.command`; si no esta instalado, se omite con aviso (CA-6).
+#         `{{mefisto:command-path}}`: la salida apunta al directorio de
+#         comandos del adaptador (CA-4). mefisto-bitacora ya no lee
+#         mefisto-merge (issue #2260).
 #   [exec-sources] Los cinco comandos de ejecucion (issue #867) existen y
 #         pasan validate-internal-artifacts.sh.
-#   [exec-ca-3] La salida Claude y OpenCode de tooling/tooling-verbose/
-#         sequential/release invoca el script real con `MEFISTO_RUNTIME=
-#         <runtime> ./.claude/scripts/<script>` (CA-3, issue #867).
+#   [exec-ca-3] La salida de tooling/tooling-verbose/sequential/release
+#         invoca el script real con `MEFISTO_RUNTIME=<runtime>
+#         ./.claude/scripts/<script>` (CA-3, issue #867).
 #   [exec-command-path] mefisto-tooling-verbose encadena mefisto-tooling via
 #         `{{mefisto:command-path}}` (issue #867).
 #   [exec-claude-output] La salida Claude de los cuatro comandos de
@@ -48,8 +41,7 @@
 #         ejemplos de `--models` y remite a models.example.json (CA-4, issue
 #         #867).
 #   [run-quoting] {{mefisto:run}} preserva sin alterar un argumento con
-#         espacios y comillas (`--models 'writer=a b'`) en ambos runtimes
-#         (CA-6, issue #867).
+#         espacios y comillas (`--models 'writer=a b'`) (CA-6, issue #867).
 #   [merge-reconcile] mefisto-merge reconcilia cada merge exitoso mediante la
 #         directiva neutral y conserva MERGED si el paso post-merge falla
 #         (issue #1160).
@@ -126,7 +118,7 @@ else
 fi
 
 echo ""
-echo "[ca-3] Ninguna fuente ni salida contiene las referencias prohibidas; plan/bug/bitacora invocan su agente en ambos runtimes"
+echo "[ca-3] Ninguna fuente ni salida contiene las referencias prohibidas; plan/bug/bitacora invocan su agente"
 FORBIDDEN_PATTERNS=("claude --agent" "\.claude/pipeline" "\.claude/agents" "\.claude/commands")
 ALL_SOURCES=()
 for id in $COMMAND_IDS $EXEC_COMMAND_IDS; do
@@ -140,77 +132,44 @@ for pattern in "${FORBIDDEN_PATTERNS[@]}"; do
         fail "una fuente contiene '$pattern': $hit"
     fi
 done
-hit=$(grep -inE "opencode" "${ALL_SOURCES[@]}" 2>/dev/null)
-if [ -z "$hit" ]; then
-    pass "ninguna fuente nombra 'opencode'"
-else
-    fail "una fuente nombra 'opencode': $hit"
-fi
 
 declare_pairs="mefisto-plan:mefisto-planner mefisto-bug:mefisto-investigator mefisto-bitacora:mefisto-historiador"
 for pair in $declare_pairs; do
     cmd_id="${pair%%:*}"
     agent_id="${pair##*:}"
     claude_out="$REPO_ROOT/.claude/commands/$cmd_id.md"
-    opencode_out="$REPO_ROOT/.opencode/commands/$cmd_id.md"
 
     if [ -f "$claude_out" ] && grep -qF "claude --agent $agent_id \"\$ARGUMENTS\"" "$claude_out"; then
         pass "$cmd_id: salida Claude invoca 'claude --agent $agent_id \"\$ARGUMENTS\"'"
     else
         fail "$cmd_id: salida Claude NO invoca 'claude --agent $agent_id \"\$ARGUMENTS\"' ($claude_out)"
     fi
-
-    if [ -f "$opencode_out" ] && grep -q "^agent: \"$agent_id\"$" "$opencode_out" \
-        && grep -qF "Actua como \`$agent_id\` con este mensaje inicial: \$ARGUMENTS" "$opencode_out"; then
-        pass "$cmd_id: salida OpenCode lleva agent: \"$agent_id\" y la frase de la directiva"
-    else
-        fail "$cmd_id: salida OpenCode NO lleva agent:/la frase de la directiva esperada ($opencode_out)"
-    fi
 done
 
-# Las salidas SI referencian su propio runtime y su propio directorio de
-# comandos (los introduce el generador). Lo que CA-3 prohibe en una salida es
-# (a) que nombre el directorio de comandos del OTRO runtime, (b) que la salida
-# OpenCode conserve la invocacion `claude --agent` de la variante Claude, y
-# (c) que cualquiera de las dos siga citando `.claude/pipeline` o
-# `.claude/agents` -- las dos rutas que este issue reemplazo por
-# `.mefisto/pipeline` y `src/internal/agents`.
-cross_ok=1
+# La salida SI nombra su runtime y su directorio de comandos (los introduce el
+# generador); lo que CA-3 prohibe es que siga citando `.claude/pipeline` o
+# `.claude/agents`, reemplazadas por `.mefisto/pipeline` y `src/internal/agents`.
+stale_ok=1
 for id in $COMMAND_IDS $EXEC_COMMAND_IDS; do
-    for out_file in "$REPO_ROOT/.claude/commands/$id.md" "$REPO_ROOT/.opencode/commands/$id.md"; do
-        [ -f "$out_file" ] || { fail "no existe la salida generada $out_file"; cross_ok=0; continue; }
-        if [[ "$out_file" == *".opencode/"* ]]; then
-            other_dir=".claude/commands"
-            if grep -qF "claude --agent" "$out_file" 2>/dev/null; then
-                fail "$out_file: conserva 'claude --agent' (invocacion de la variante Claude)"
-                cross_ok=0
-            fi
-        else
-            other_dir=".opencode/commands"
+    out_file="$REPO_ROOT/.claude/commands/$id.md"
+    [ -f "$out_file" ] || { fail "no existe la salida generada $out_file"; stale_ok=0; continue; }
+    for stale in ".claude/pipeline" ".claude/agents"; do
+        if grep -qF "$stale" "$out_file" 2>/dev/null; then
+            fail "$out_file: sigue citando '$stale' (CA-3)"
+            stale_ok=0
         fi
-        if grep -qF "$other_dir" "$out_file" 2>/dev/null; then
-            fail "$out_file: menciona '$other_dir' (deberia apuntar solo a su propio directorio)"
-            cross_ok=0
-        fi
-        for stale in ".claude/pipeline" ".claude/agents"; do
-            if grep -qF "$stale" "$out_file" 2>/dev/null; then
-                fail "$out_file: sigue citando '$stale' (CA-3)"
-                cross_ok=0
-            fi
-        done
     done
 done
-[ "$cross_ok" -eq 1 ] && pass "cada salida generada referencia solo su propio runtime y ninguna ruta reemplazada por CA-3"
+[ "$stale_ok" -eq 1 ] && pass "ninguna salida generada cita una ruta reemplazada por CA-3"
 
 echo ""
-echo "[guard] CA-2: el bloque del guard inverso es identico en ambas salidas de cada comando"
+echo "[guard] CA-2: el bloque del guard inverso esta presente en la salida de cada comando"
 for id in $COMMAND_IDS $EXEC_COMMAND_IDS; do
     claude_guard=$(sed -n '/^\[ -f "\$REPO_ROOT\/\.claude-plugin\/plugin\.json" \]/,/^}$/p' "$REPO_ROOT/.claude/commands/$id.md" 2>/dev/null)
-    opencode_guard=$(sed -n '/^\[ -f "\$REPO_ROOT\/\.claude-plugin\/plugin\.json" \]/,/^}$/p' "$REPO_ROOT/.opencode/commands/$id.md" 2>/dev/null)
-    if [ -n "$claude_guard" ] && [ "$claude_guard" = "$opencode_guard" ]; then
-        pass "$id: guard inverso presente e identico en ambos adaptadores"
+    if [ -n "$claude_guard" ]; then
+        pass "$id: guard inverso presente en .claude/commands"
     else
-        fail "$id: guard inverso ausente o divergente entre .claude/commands y .opencode/commands"
+        fail "$id: guard inverso ausente en .claude/commands"
     fi
 done
 
@@ -245,73 +204,28 @@ else
 fi
 
 echo ""
-echo "[opencode-output] ningun comando OpenCode fija model:"
-for id in $COMMAND_IDS $EXEC_COMMAND_IDS mefisto-next-order; do
-    if grep -q '^model:' "$REPO_ROOT/.opencode/commands/$id.md" 2>/dev/null; then
-        fail "$id: .opencode/commands no deberia fijar model:"
-    else
-        pass "$id: .opencode/commands sin model: (hereda la configuracion del usuario)"
-    fi
-done
-
-echo ""
-echo "[command-path] mefisto-tooling-verbose apunta a mefisto-tooling en el propio directorio de cada runtime (CA-4)"
+echo "[command-path] mefisto-tooling-verbose apunta a mefisto-tooling en el directorio de comandos del adaptador (CA-4)"
 claude_verbose="$REPO_ROOT/.claude/commands/mefisto-tooling-verbose.md"
-opencode_verbose="$REPO_ROOT/.opencode/commands/mefisto-tooling-verbose.md"
 if grep -qF '.claude/commands/mefisto-tooling.md' "$claude_verbose" 2>/dev/null; then
     pass "mefisto-tooling-verbose: salida Claude apunta a .claude/commands/mefisto-tooling.md"
 else
     fail "mefisto-tooling-verbose: salida Claude NO apunta a .claude/commands/mefisto-tooling.md"
 fi
-if grep -qF '.opencode/commands/mefisto-tooling.md' "$opencode_verbose" 2>/dev/null; then
-    pass "mefisto-tooling-verbose: salida OpenCode apunta a .opencode/commands/mefisto-tooling.md"
+if grep -qF 'commands/mefisto-merge.md' "$REPO_ROOT/.claude/commands/mefisto-bitacora.md" 2>/dev/null; then
+    fail "mefisto-bitacora: .claude/commands/mefisto-bitacora.md todavia lee mefisto-merge (issue #2260)"
 else
-    fail "mefisto-tooling-verbose: salida OpenCode NO apunta a .opencode/commands/mefisto-tooling.md"
-fi
-for f in "$REPO_ROOT/.claude/commands/mefisto-bitacora.md" "$REPO_ROOT/.opencode/commands/mefisto-bitacora.md"; do
-    if grep -qF 'commands/mefisto-merge.md' "$f" 2>/dev/null; then
-        fail "mefisto-bitacora: ${f#$REPO_ROOT/} todavia lee mefisto-merge (issue #2260)"
-    else
-        pass "mefisto-bitacora: ${f#$REPO_ROOT/} no lee mefisto-merge (issue #2260)"
-    fi
-done
-
-echo ""
-echo "[opencode-cli] 'opencode debug config' lista los diez comandos (se omite si el CLI no esta instalado)"
-if command -v opencode >/dev/null 2>&1; then
-    tmpf=$(mktemp)
-    (cd "$REPO_ROOT" && opencode debug config >"$tmpf" 2>/dev/null)
-    if [ -s "$tmpf" ] && jq -e '.command' "$tmpf" >/dev/null 2>&1; then
-        for id in $COMMAND_IDS $EXEC_COMMAND_IDS; do
-            if jq -e --arg id "$id" '.command | has($id)' "$tmpf" >/dev/null 2>&1; then
-                pass "$id: listado por 'opencode debug config' bajo .command"
-            else
-                fail "$id: NO aparece en 'opencode debug config' bajo .command"
-            fi
-        done
-    else
-        fail "'opencode debug config' no produjo un JSON valido con clave .command"
-    fi
-    rm -f "$tmpf"
-else
-    echo "  AVISO: CLI 'opencode' no instalado, se omite este bloque"
+    pass "mefisto-bitacora: .claude/commands/mefisto-bitacora.md no lee mefisto-merge (issue #2260)"
 fi
 
 echo ""
-echo "[exec-ca-3] Las invocaciones de script de los comandos de ejecucion pasan por {{mefisto:run}} en ambos runtimes (issue #867)"
+echo "[exec-ca-3] Las invocaciones de script de los comandos de ejecucion pasan por {{mefisto:run}} (issue #867)"
 check_run_invocation() {
     local id="$1" invocation="$2"
     local claude_out="$REPO_ROOT/.claude/commands/$id.md"
-    local opencode_out="$REPO_ROOT/.opencode/commands/$id.md"
     if [ -f "$claude_out" ] && grep -qF "MEFISTO_RUNTIME=claude ./.claude/scripts/$invocation" "$claude_out"; then
         pass "$id: salida Claude invoca 'MEFISTO_RUNTIME=claude ./.claude/scripts/$invocation'"
     else
         fail "$id: salida Claude NO invoca 'MEFISTO_RUNTIME=claude ./.claude/scripts/$invocation' ($claude_out)"
-    fi
-    if [ -f "$opencode_out" ] && grep -qF "MEFISTO_RUNTIME=opencode ./.claude/scripts/$invocation" "$opencode_out"; then
-        pass "$id: salida OpenCode invoca 'MEFISTO_RUNTIME=opencode ./.claude/scripts/$invocation'"
-    else
-        fail "$id: salida OpenCode NO invoca 'MEFISTO_RUNTIME=opencode ./.claude/scripts/$invocation' ($opencode_out)"
     fi
 }
 check_run_invocation mefisto-tooling 'mefisto-tmux-pipeline.sh --tooling $ARGUMENTS'
@@ -365,18 +279,12 @@ else
 fi
 
 echo ""
-echo "[exec-command-path] mefisto-tooling-verbose encadena mefisto-tooling apuntando al propio directorio de cada runtime (issue #867)"
+echo "[exec-command-path] mefisto-tooling-verbose encadena mefisto-tooling en el directorio de comandos del adaptador (issue #867)"
 claude_tooling_verbose="$REPO_ROOT/.claude/commands/mefisto-tooling-verbose.md"
-opencode_tooling_verbose="$REPO_ROOT/.opencode/commands/mefisto-tooling-verbose.md"
 if grep -qF '.claude/commands/mefisto-tooling.md' "$claude_tooling_verbose" 2>/dev/null; then
     pass "mefisto-tooling-verbose: salida Claude apunta a .claude/commands/mefisto-tooling.md"
 else
     fail "mefisto-tooling-verbose: salida Claude NO apunta a .claude/commands/mefisto-tooling.md"
-fi
-if grep -qF '.opencode/commands/mefisto-tooling.md' "$opencode_tooling_verbose" 2>/dev/null; then
-    pass "mefisto-tooling-verbose: salida OpenCode apunta a .opencode/commands/mefisto-tooling.md"
-else
-    fail "mefisto-tooling-verbose: salida OpenCode NO apunta a .opencode/commands/mefisto-tooling.md"
 fi
 
 echo ""
@@ -436,18 +344,11 @@ fi
 
 if "$GENERATOR" --out "$FIXTURE_OUT" "$FIXTURE_FILE" >/dev/null 2>&1; then
     claude_fixture_out="$FIXTURE_OUT/.claude/commands/mefisto-test-run-quoting.md"
-    opencode_fixture_out="$FIXTURE_OUT/.opencode/commands/mefisto-test-run-quoting.md"
     expected_claude="MEFISTO_RUNTIME=claude ./.claude/scripts/mefisto-tmux-pipeline.sh --tooling \$ARGUMENTS --models 'writer=a b'"
-    expected_opencode="MEFISTO_RUNTIME=opencode ./.claude/scripts/mefisto-tmux-pipeline.sh --tooling \$ARGUMENTS --models 'writer=a b'"
     if grep -qF "$expected_claude" "$claude_fixture_out" 2>/dev/null; then
         pass "fixture de quoting: salida Claude conserva el argumento con espacios y comillas intacto"
     else
         fail "fixture de quoting: salida Claude altero el argumento con espacios/comillas ($claude_fixture_out)"
-    fi
-    if grep -qF "$expected_opencode" "$opencode_fixture_out" 2>/dev/null; then
-        pass "fixture de quoting: salida OpenCode conserva el argumento con espacios y comillas intacto"
-    else
-        fail "fixture de quoting: salida OpenCode altero el argumento con espacios/comillas ($opencode_fixture_out)"
     fi
 else
     fail "fixture de quoting: generate-internal-adapters.sh fallo al generarla"

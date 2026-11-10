@@ -9,7 +9,7 @@
 # estaban en scope (batch del 2026-09-05, issue #853).
 #
 #   [A] Arbol nuevo sin trackear bajo src/internal/ -> exit 0 (en scope).
-#   [B] Arbol nuevo sin trackear bajo .opencode/agents/ -> exit 0 (en scope).
+#   [B] Arbol nuevo sin trackear bajo .claude/agents/ -> exit 0 (en scope).
 #   [C] Archivo bajo un directorio nuevo FUERA de scope -> exit 1, y stderr
 #       nombra el archivo concreto, no el directorio colapsado.
 #   [D] Mezcla: arbol en scope + archivo fuera -> exit 1 y solo se lista el
@@ -61,14 +61,14 @@ else
     fail "src/internal/ nuevo sin trackear rechazado: $ERR"
 fi
 
-echo "[B] Arbol nuevo sin trackear bajo .opencode/agents/ pasa el gate"
+echo "[B] Arbol nuevo sin trackear bajo .claude/agents/ pasa el gate"
 REPO_B="$TMP/b"; BASE_B=$(nuevo_repo "$REPO_B")
-mkdir -p "$REPO_B/.opencode/agents"
-echo 'x' > "$REPO_B/.opencode/agents/writer.md"
+mkdir -p "$REPO_B/.claude/agents"
+echo 'x' > "$REPO_B/.claude/agents/writer.md"
 if ERR=$(set +u; validate_mefisto_scope_changes "$REPO_B" "$BASE_B" 2>&1); then
-    pass ".opencode/agents/ nuevo sin trackear -> exit 0"
+    pass ".claude/agents/ nuevo sin trackear -> exit 0"
 else
-    fail ".opencode/agents/ nuevo sin trackear rechazado: $ERR"
+    fail ".claude/agents/ nuevo sin trackear rechazado: $ERR"
 fi
 
 echo "[C] Archivo bajo un directorio nuevo fuera de scope se rechaza nombrando el archivo"

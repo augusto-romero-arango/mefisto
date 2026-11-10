@@ -1,12 +1,11 @@
 #!/usr/bin/env bash
-# Contrato del comando implement neutral y sus dos proyecciones publicadas.
+# Contrato del comando implement neutral y su proyeccion publicada.
 set -uo pipefail
 export LC_ALL=C
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
 REPO_ROOT="$(cd "$HERE/../../../.." && pwd -P)"
 SOURCE="$REPO_ROOT/src/published/commands/implement.md"
 CLAUDE="$REPO_ROOT/dist/claude/commands/implement.md"
-OPENCODE="$REPO_ROOT/dist/opencode/commands/mefisto:implement.md"
 MIRROR="$REPO_ROOT/commands/implement.md"
 GENERATOR="$REPO_ROOT/src/published/scripts/generate-published-adapters.sh"
 PASS=0; FAIL=0
@@ -62,22 +61,15 @@ contains "$body" 'solo se admite un scaffold por invocacion' 'limita scaffold po
 contains "$body" '{{mefisto:run tmux-pipeline.sh $ARGUMENTS}}' 'despacho sin scaffold'
 contains "$body" '{{mefisto:run tmux-pipeline.sh $ARGUMENTS --scaffold-domain <dominio-kebab-confirmado>}}' 'despacho con scaffold confirmado'
 [ "$(grep -cF '{{mefisto:run tmux-pipeline.sh' "$SOURCE")" -eq 2 ] && pass 'existen dos rutas de lanzamiento' || fail 'las rutas de lanzamiento no son dos'
-for forbidden in 'Claude' 'OpenCode' '.claude/' '.opencode/' 'cache' 'model:' 'tools:' 'allowed-tools:' 'permission:' 'SCAFFOLD_FLAG' '/work-status'; do absent "$body" "$forbidden" "fuente no publica token prohibido: $forbidden"; done
+for forbidden in 'Claude' '.claude/' 'cache' 'model:' 'tools:' 'allowed-tools:' 'permission:' 'SCAFFOLD_FLAG' '/work-status'; do absent "$body" "$forbidden" "fuente no publica token prohibido: $forbidden"; done
 
-echo '[salidas] adaptadores y mirror'
-for file in "$CLAUDE" "$OPENCODE"; do [ -f "$file" ] && pass "existe ${file#"$REPO_ROOT/"}" || fail "falta ${file#"$REPO_ROOT/"}"; done
+echo '[salidas] adaptador y mirror'
+[ -f "$CLAUDE" ] && pass "existe ${CLAUDE#"$REPO_ROOT/"}" || fail "falta ${CLAUDE#"$REPO_ROOT/"}"
 if jq -e '.assets | any(.source == "src/published/commands/implement.md" and .destination == "commands/implement.md" and .mode == "0644" and (.sha256 | test("^[0-9a-f]{64}$")))' "$REPO_ROOT/dist/claude/.mefisto-generated-assets.json" >/dev/null; then pass 'Claude inventaria implement'; else fail 'Claude no inventaria implement'; fi
-if jq -e '.assets | any(.source == "src/published/commands/implement.md" and .destination == "commands/mefisto:implement.md" and .mode == "0644" and (.sha256 | test("^[0-9a-f]{64}$")))' "$REPO_ROOT/dist/opencode/.mefisto-generated-assets.json" >/dev/null; then pass 'OpenCode inventaria implement'; else fail 'OpenCode no inventaria implement'; fi
 contains "$(< "$CLAUDE")" 'model: "haiku"' 'Claude materializa el perfil fast'
 contains "$(< "$CLAUDE")" 'MEFISTO_PACKAGE_ROOT' 'Claude resuelve package root una vez'
 [ "$(grep -c '^MEFISTO_PACKAGE_ROOT=' "$CLAUDE")" -eq 1 ] && pass 'Claude tiene un preambulo de package root' || fail 'Claude duplica package root'
-contains "$(< "$OPENCODE")" 'description:' 'OpenCode materializa el comando'
-contains "$(< "$OPENCODE")" 'mefisto-opencode' 'OpenCode resuelve la release activa'
-[ "$(grep -c 'MEFISTO_PACKAGE_ROOT=.*package-root' "$OPENCODE")" -eq 1 ] && pass 'OpenCode tiene un preambulo de package root' || fail 'OpenCode duplica package root'
 contains "$(< "$CLAUDE")" 'MEFISTO_RUNTIME=claude "${MEFISTO_PACKAGE_ROOT}/scripts/tmux-pipeline.sh" $ARGUMENTS' 'Claude conserva package root con espacios y fija su runtime'
-absent "$(< "$CLAUDE")" 'MEFISTO_RUNTIME=opencode' 'Claude no fija el runtime OpenCode'
-contains "$(< "$OPENCODE")" 'MEFISTO_RUNTIME=opencode "${MEFISTO_PACKAGE_ROOT}/scripts/tmux-pipeline.sh" $ARGUMENTS' 'OpenCode conserva package root con espacios y fija su runtime'
-absent "$(< "$OPENCODE")" 'MEFISTO_RUNTIME=claude' 'OpenCode no fija el runtime Claude'
 if cmp -s "$MIRROR" "$CLAUDE"; then pass 'mirror Claude coincide byte a byte'; else fail 'mirror Claude diverge'; fi
 contains "$(< "$MIRROR")" '<!-- GENERADO por src/published/scripts/generate-published-adapters.sh desde src/published/commands/implement.md. No editar a mano. -->' 'mirror conserva marcador generado'
 if "$GENERATOR" --check >/dev/null; then pass 'generate-published-adapters --check esta al dia'; else fail 'generate-published-adapters --check detecto divergencias'; fi

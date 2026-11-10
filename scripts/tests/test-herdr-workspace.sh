@@ -40,21 +40,21 @@ done
 [ "$(workspace_slug 'Bitakora.ControlAsistencia')" = "bitakora-controlasis" ] \
     && pass "workspace_slug conserva su contrato" \
     || fail "workspace_slug cambio su contrato"
-name=$(agent_name_for_role ejecucion eda-evsourcing-azure-harness opencode)
-[ "$name" = "ejecucion-eda-evso-48cc-opencode" ] && [ "${#name}" -le 32 ] \
+name=$(agent_name_for_role ejecucion eda-evsourcing-azure-harness claude)
+[ "$name" = "ejecucion-eda-evsour-48cc-claude" ] && [ "${#name}" -le 32 ] \
     && pass "agent_name_for_role recorta con hash y respeta el tope de 32 caracteres" \
     || fail "agent_name_for_role produjo un nombre inesperado: $name"
 
 # Anti-colision (issue #2502)
 [ "$(agent_name_for_role ejecucion Cosmos.ControlPlane claude)" = "ejecucion-cosmos-con-a31e-claude" ] \
-    && [ "$(agent_name_for_role ejecucion Cosmos.ControlPlane opencode)" = "ejecucion-cosmos-c-a31e-opencode" ] \
+    && [ "$(agent_name_for_role ejecucion Cosmos.ControlPlane fake)" = "ejecucion-cosmos-contr-a31e-fake" ] \
     && [ "$(agent_name_for_role ejecucion Cosmos.ControlPlane.Front claude)" = "ejecucion-cosmos-con-365f-claude" ] \
-    && [ "$(agent_name_for_role ejecucion Cosmos.ControlPlane.Front opencode)" = "ejecucion-cosmos-c-365f-opencode" ] \
+    && [ "$(agent_name_for_role ejecucion Cosmos.ControlPlane.Front fake)" = "ejecucion-cosmos-contr-365f-fake" ] \
     && pass "CA-1: slug recortado agrega hash del label (nombres exactos)" \
     || fail "CA-1: nombres con hash inesperados"
 collision_ok=1
 for rol in planner ejecucion; do
-    for kind in claude opencode; do
+    for kind in claude fake; do
         a=$(agent_name_for_role "$rol" Cosmos.ControlPlane "$kind")
         b=$(agent_name_for_role "$rol" Cosmos.ControlPlane.Front "$kind")
         a2=$(agent_name_for_role "$rol" Cosmos.ControlPlane "$kind")
@@ -66,28 +66,28 @@ done
     && pass "CA-2: labels con prefijo comun producen nombres distintos, validos y deterministas" \
     || fail "CA-2: colision, no determinismo o nombre invalido"
 [ "$(agent_name_for_role ejecucion Bitakora claude)" = "ejecucion-bitakora-claude" ] \
-    && [ "$(agent_name_for_role ejecucion Bitakora opencode)" = "ejecucion-bitakora-opencode" ] \
+    && [ "$(agent_name_for_role ejecucion Bitakora fake)" = "ejecucion-bitakora-fake" ] \
     && [ "$(agent_name_for_role planner Cosmos.ControlPlane.Front '')" = "planner-cosmos-controlplane" ] \
     && [ "$(agent_name_for_role planner Bitakora '')" = "planner-bitakora" ] \
     && pass "CA-3: label corto y formato legacy sin kind conservan su nombre" \
     || fail "CA-3: nombre sin colision cambio"
 
 unset MEFISTO_RUNTIMES MEFISTO_RUNTIME
-[ "$(runtimes_for_repo mefisto-planner)" = $'claude\nopencode' ] \
-    && pass "default de Mefisto: claude + opencode" \
+[ "$(runtimes_for_repo mefisto-planner)" = "claude" ] \
+    && pass "default de Mefisto: claude" \
     || fail "default de Mefisto inesperado: $(runtimes_for_repo mefisto-planner)"
 MEFISTO_RUNTIME=codex
 export MEFISTO_RUNTIME
 [ "$(runtimes_for_repo mefisto-planner)" = "codex" ] \
     && pass "MEFISTO_RUNTIME produce una lista de un elemento" \
     || fail "MEFISTO_RUNTIME no produjo un elemento"
-MEFISTO_RUNTIMES=' opencode, claude ,opencode,, codex, claude '
+MEFISTO_RUNTIMES=' fake, claude ,fake,, codex, claude '
 export MEFISTO_RUNTIMES
-[ "$(runtimes_for_repo mefisto-planner)" = $'opencode\nclaude\ncodex' ] \
+[ "$(runtimes_for_repo mefisto-planner)" = $'fake\nclaude\ncodex' ] \
     && pass "MEFISTO_RUNTIMES recorta, descarta vacios y colapsa duplicados" \
     || fail "normalizacion inesperada: $(runtimes_for_repo mefisto-planner)"
-[ "$(runtimes_for_repo mefisto:planner)" = $'claude\nopencode' ] \
-    && pass "consumidor ignora ambas variables y conserva Claude + OpenCode" \
+[ "$(runtimes_for_repo mefisto:planner)" = "claude" ] \
+    && pass "consumidor ignora ambas variables y conserva la fila claude" \
     || fail "el consumidor leyo configuracion de runtimes"
 MEFISTO_RUNTIMES=''
 export MEFISTO_RUNTIMES
@@ -101,25 +101,12 @@ FAKE_CONSUMER="$TMP/fake consumer repo"
 FAKE_LEGACY_CONSUMER="$TMP/fake legacy consumer repo"
 FAKE_UNCONFIGURED_CONSUMER="$TMP/fake unconfigured consumer repo"
 FAKE_WORKTREE="$TMP/fake consumer worktree"
-FAKE_PACKAGE="$TMP/fake package"
 FAKE_BIN="$TMP/bin"
-FAKE_XDG="$TMP/xdg"
 mkdir -p "$FAKE_MEFISTO/.claude-plugin" "$FAKE_CONSUMER/.mefisto" \
-    "$FAKE_LEGACY_CONSUMER/.claude" "$FAKE_UNCONFIGURED_CONSUMER" "$FAKE_BIN" \
-    "$FAKE_PACKAGE/scripts" "$FAKE_PACKAGE/src/published/scripts" "$FAKE_XDG/mefisto/active"
+    "$FAKE_LEGACY_CONSUMER/.claude" "$FAKE_UNCONFIGURED_CONSUMER" "$FAKE_BIN"
 printf '{}\n' > "$FAKE_MEFISTO/.claude-plugin/plugin.json"
 printf '{}\n' > "$FAKE_CONSUMER/.mefisto/harness.config.json"
 printf '{}\n' > "$FAKE_LEGACY_CONSUMER/.claude/harness.config.json"
-cp "$TARGET" "$FAKE_PACKAGE/scripts/herdr-workspace.sh"
-cp "$REPO_ROOT/src/published/scripts/diagnose-installation-identity.sh" \
-    "$FAKE_PACKAGE/src/published/scripts/diagnose-installation-identity.real.sh"
-cat > "$FAKE_PACKAGE/src/published/scripts/diagnose-installation-identity.sh" <<'DIAGNOSTIC_STUB'
-#!/usr/bin/env bash
-printf '%s\0' "$@" > "$IDENTITY_STUB_ARGS"
-exec bash "$(dirname "$0")/diagnose-installation-identity.real.sh" "$@"
-DIAGNOSTIC_STUB
-chmod +x "$FAKE_PACKAGE/scripts/herdr-workspace.sh" \
-    "$FAKE_PACKAGE/src/published/scripts/diagnose-installation-identity.sh"
 (cd "$FAKE_MEFISTO" && git init -q && git -c user.email=test@example.com -c user.name=Test commit --allow-empty -q -m inicial)
 (cd "$FAKE_CONSUMER" && git init -q && git -c user.email=test@example.com -c user.name=Test commit --allow-empty -q -m inicial)
 (cd "$FAKE_LEGACY_CONSUMER" && git init -q && git -c user.email=test@example.com -c user.name=Test commit --allow-empty -q -m inicial)
@@ -130,8 +117,6 @@ FAKE_CONSUMER=$(cd "$FAKE_CONSUMER" && pwd -P)
 FAKE_LEGACY_CONSUMER=$(cd "$FAKE_LEGACY_CONSUMER" && pwd -P)
 FAKE_UNCONFIGURED_CONSUMER=$(cd "$FAKE_UNCONFIGURED_CONSUMER" && pwd -P)
 FAKE_WORKTREE=$(cd "$FAKE_WORKTREE" && pwd -P)
-FAKE_PACKAGE=$(cd "$FAKE_PACKAGE" && pwd -P)
-export XDG_DATA_HOME="$FAKE_XDG"
 
 cat > "$FAKE_BIN/herdr" <<'STUB'
 #!/usr/bin/env bash
@@ -223,18 +208,16 @@ chmod +x "$FAKE_BIN/herdr"
 
 HERDR_STUB_LOG="$TMP/herdr.log"
 HERDR_STUB_SPLIT_COUNTER="$TMP/split-counter"
-IDENTITY_STUB_ARGS="$TMP/identity.args"
-export HERDR_STUB_LOG HERDR_STUB_SPLIT_COUNTER IDENTITY_STUB_ARGS MEFISTO_AGENT_START_RETRY_PAUSE=0
+export HERDR_STUB_LOG HERDR_STUB_SPLIT_COUNTER MEFISTO_AGENT_START_RETRY_PAUSE=0
 LAST_STDOUT=""
 LAST_STDERR=""
 LAST_RC=0
 
 run_workspace() {
     local repo="$1" split_start="${2:-2}"
-    local executable="${WORKSPACE_TARGET:-$TARGET}"
     : > "$HERDR_STUB_LOG"
     printf '%s\n' "$split_start" > "$HERDR_STUB_SPLIT_COUNTER"
-    PATH="$FAKE_BIN:$PATH" "$executable" "$repo" >"$TMP/stdout" 2>"$TMP/stderr"
+    PATH="$FAKE_BIN:$PATH" "$TARGET" "$repo" >"$TMP/stdout" 2>"$TMP/stderr"
     LAST_RC=$?
     LAST_STDOUT=$(cat "$TMP/stdout")
     LAST_STDERR=$(cat "$TMP/stderr")
@@ -250,41 +233,9 @@ assert_no_anchor_protocol() {
 }
 
 echo ""
-echo "[B] Workspace nuevo de Mefisto: default de dos filas, orden byte a byte"
+echo "[B] Workspace nuevo de Mefisto: default de una fila"
 unset MEFISTO_RUNTIMES MEFISTO_RUNTIME HERDR_STUB_EXISTING_LABEL HERDR_STUB_PANES
 run_workspace "$FAKE_MEFISTO"
-EXPECTED=$(cat <<EOF
-herdr status server
-herdr workspace list
-herdr workspace create --cwd $FAKE_MEFISTO --label fake-mefisto-repo --env MEFISTO_RUNTIME=claude
-herdr pane split --pane w1:p1 --direction down --cwd $FAKE_MEFISTO --no-focus --env MEFISTO_RUNTIME=opencode
-herdr pane split --pane w1:p1 --direction right --cwd $FAKE_MEFISTO --no-focus --env MEFISTO_RUNTIME=claude
-herdr pane split --pane w1:p2 --direction right --cwd $FAKE_MEFISTO --no-focus --env MEFISTO_RUNTIME=opencode
-herdr pane rename w1:p1 planner [claude]
-herdr pane rename w1:p3 ejecucion [claude]
-herdr pane process-info --pane w1:p1
-herdr agent start planner-fake-mefis-92c3-claude --kind claude --pane w1:p1 --timeout 90000 -- --agent mefisto-planner
-herdr pane process-info --pane w1:p3
-herdr agent start ejecucion-fake-mefis-92c3-claude --kind claude --pane w1:p3 --timeout 90000
-herdr pane rename w1:p2 planner [opencode]
-herdr pane rename w1:p4 ejecucion [opencode]
-herdr pane process-info --pane w1:p2
-herdr agent start planner-fake-mef-92c3-opencode --kind opencode --pane w1:p2 --timeout 90000 -- --agent mefisto-planner
-herdr pane process-info --pane w1:p4
-herdr agent start ejecucion-fake-mef-92c3-opencode --kind opencode --pane w1:p4 --timeout 90000
-EOF
-)
-[ "$LAST_RC" -eq 0 ] && pass "B-1: monta dos filas sin abortar" || fail "B-1: rc=$LAST_RC, stderr=$LAST_STDERR"
-[ "$(cat "$HERDR_STUB_LOG")" = "$EXPECTED" ] \
-    && pass "B-2: downs antes de rights y argumentos exactos" \
-    || fail "B-2: log inesperado. Esperado:\n$EXPECTED\nObtenido:\n$(cat "$HERDR_STUB_LOG")"
-assert_no_anchor_protocol B-3
-
-echo ""
-echo "[C] Workspace nuevo de Mefisto: MEFISTO_RUNTIMES=claude"
-export MEFISTO_RUNTIMES=claude
-run_workspace "$FAKE_MEFISTO"
-unset MEFISTO_RUNTIMES
 EXPECTED=$(cat <<EOF
 herdr status server
 herdr workspace list
@@ -298,20 +249,59 @@ herdr pane process-info --pane w1:p2
 herdr agent start ejecucion-fake-mefis-92c3-claude --kind claude --pane w1:p2 --timeout 90000
 EOF
 )
+[ "$LAST_RC" -eq 0 ] && pass "B-1: monta la fila sin abortar" || fail "B-1: rc=$LAST_RC, stderr=$LAST_STDERR"
 [ "$(cat "$HERDR_STUB_LOG")" = "$EXPECTED" ] \
-    && pass "C-1: una fila tiene cero splits down y conserva --env/--kind" \
-    || fail "C-1: log inesperado. Esperado:\n$EXPECTED\nObtenido:\n$(cat "$HERDR_STUB_LOG")"
-assert_no_anchor_protocol C-2
+    && pass "B-2: una fila tiene cero splits down y conserva --env/--kind" \
+    || fail "B-2: log inesperado. Esperado:\n$EXPECTED\nObtenido:\n$(cat "$HERDR_STUB_LOG")"
+assert_no_anchor_protocol B-3
+export MEFISTO_RUNTIMES=claude
+run_workspace "$FAKE_MEFISTO"
+unset MEFISTO_RUNTIMES
+[ "$(cat "$HERDR_STUB_LOG")" = "$EXPECTED" ] \
+    && pass "B-4: MEFISTO_RUNTIMES=claude monta lo mismo que el default" \
+    || fail "B-4: log inesperado. Esperado:\n$EXPECTED\nObtenido:\n$(cat "$HERDR_STUB_LOG")"
+
+echo ""
+echo "[C] Workspace nuevo de Mefisto: dos runtimes, orden byte a byte"
+export MEFISTO_RUNTIMES=claude,fake
+run_workspace "$FAKE_MEFISTO"
+unset MEFISTO_RUNTIMES
+EXPECTED=$(cat <<EOF
+herdr status server
+herdr workspace list
+herdr workspace create --cwd $FAKE_MEFISTO --label fake-mefisto-repo --env MEFISTO_RUNTIME=claude
+herdr pane split --pane w1:p1 --direction down --cwd $FAKE_MEFISTO --no-focus --env MEFISTO_RUNTIME=fake
+herdr pane split --pane w1:p1 --direction right --cwd $FAKE_MEFISTO --no-focus --env MEFISTO_RUNTIME=claude
+herdr pane split --pane w1:p2 --direction right --cwd $FAKE_MEFISTO --no-focus --env MEFISTO_RUNTIME=fake
+herdr pane rename w1:p1 planner [claude]
+herdr pane rename w1:p3 ejecucion [claude]
+herdr pane process-info --pane w1:p1
+herdr agent start planner-fake-mefis-92c3-claude --kind claude --pane w1:p1 --timeout 90000 -- --agent mefisto-planner
+herdr pane process-info --pane w1:p3
+herdr agent start ejecucion-fake-mefis-92c3-claude --kind claude --pane w1:p3 --timeout 90000
+herdr pane rename w1:p2 planner [fake]
+herdr pane rename w1:p4 ejecucion [fake]
+herdr pane process-info --pane w1:p2
+herdr agent start planner-fake-mefisto-repo-fake --kind fake --pane w1:p2 --timeout 90000 -- --agent mefisto-planner
+herdr pane process-info --pane w1:p4
+herdr agent start ejecucion-fake-mefisto-repo-fake --kind fake --pane w1:p4 --timeout 90000
+EOF
+)
+[ "$LAST_RC" -eq 0 ] && pass "C-1: monta dos filas sin abortar" || fail "C-1: rc=$LAST_RC, stderr=$LAST_STDERR"
+[ "$(cat "$HERDR_STUB_LOG")" = "$EXPECTED" ] \
+    && pass "C-2: downs antes de rights y argumentos exactos" \
+    || fail "C-2: log inesperado. Esperado:\n$EXPECTED\nObtenido:\n$(cat "$HERDR_STUB_LOG")"
+assert_no_anchor_protocol C-3
 
 echo ""
 echo "[C2] Workspace nuevo de Mefisto: tres runtimes"
-export MEFISTO_RUNTIMES=claude,opencode,codex
+export MEFISTO_RUNTIMES=claude,fake,codex
 run_workspace "$FAKE_MEFISTO"
 unset MEFISTO_RUNTIMES
 DOWNS=$(grep -F ' --direction down ' "$HERDR_STUB_LOG")
 EXPECTED_DOWNS=$(cat <<EOF
 herdr pane split --pane w1:p1 --direction down --cwd $FAKE_MEFISTO --no-focus --env MEFISTO_RUNTIME=codex
-herdr pane split --pane w1:p1 --direction down --cwd $FAKE_MEFISTO --no-focus --env MEFISTO_RUNTIME=opencode
+herdr pane split --pane w1:p1 --direction down --cwd $FAKE_MEFISTO --no-focus --env MEFISTO_RUNTIME=fake
 EOF
 )
 [ "$DOWNS" = "$EXPECTED_DOWNS" ] \
@@ -323,7 +313,7 @@ LAST_DOWN_LINE=$(grep -nF ' --direction down ' "$HERDR_STUB_LOG" | cut -d: -f1 |
     && pass "C2-2: todos los down ocurren antes de cualquier right" \
     || fail "C2-2: un right ocurrio antes de terminar los down"
 grep -qxF 'herdr pane rename w1:p1 planner [claude]' "$HERDR_STUB_LOG" \
-    && grep -qxF 'herdr pane rename w1:p3 planner [opencode]' "$HERDR_STUB_LOG" \
+    && grep -qxF 'herdr pane rename w1:p3 planner [fake]' "$HERDR_STUB_LOG" \
     && grep -qxF 'herdr pane rename w1:p2 planner [codex]' "$HERDR_STUB_LOG" \
     && pass "C2-3: las tres filas quedan asociadas al kind correcto" \
     || fail "C2-3: labels inesperados: $(cat "$HERDR_STUB_LOG")"
@@ -332,9 +322,10 @@ assert_no_anchor_protocol C2-4
 echo ""
 echo "[D] Workspace existente con todas las filas: solo focus"
 export HERDR_STUB_EXISTING_LABEL=fake-mefisto-repo
-export HERDR_STUB_PANES='planner [claude]=w1:p1;ejecucion [claude]=w1:p3;planner [opencode]=w1:p2;ejecucion [opencode]=w1:p4'
+export HERDR_STUB_PANES='planner [claude]=w1:p1;ejecucion [claude]=w1:p3;planner [fake]=w1:p2;ejecucion [fake]=w1:p4'
+export MEFISTO_RUNTIMES=claude,fake
 run_workspace "$FAKE_MEFISTO" 5
-unset HERDR_STUB_EXISTING_LABEL HERDR_STUB_PANES
+unset HERDR_STUB_EXISTING_LABEL HERDR_STUB_PANES MEFISTO_RUNTIMES
 grep -qxF 'herdr workspace focus w1' "$HERDR_STUB_LOG" \
     && pass "D-1: enfoca el workspace existente" \
     || fail "D-1: no enfoco: $(cat "$HERDR_STUB_LOG")"
@@ -346,13 +337,14 @@ fi
 assert_no_anchor_protocol D-3
 
 echo ""
-echo "[E] Workspace existente con opencode faltante: toca solo la fila nueva"
+echo "[E] Workspace existente con una fila faltante: toca solo la fila nueva"
 export HERDR_STUB_EXISTING_LABEL=fake-mefisto-repo
 export HERDR_STUB_PANES='planner [claude]=w1:p1;ejecucion [claude]=w1:p3'
+export MEFISTO_RUNTIMES=claude,fake
 run_workspace "$FAKE_MEFISTO" 4
-unset HERDR_STUB_EXISTING_LABEL HERDR_STUB_PANES
-grep -qxF "herdr pane split --pane w1:p1 --direction down --cwd $FAKE_MEFISTO --no-focus --env MEFISTO_RUNTIME=opencode" "$HERDR_STUB_LOG" \
-    && grep -qxF "herdr pane split --pane w1:p4 --direction right --cwd $FAKE_MEFISTO --no-focus --env MEFISTO_RUNTIME=opencode" "$HERDR_STUB_LOG" \
+unset HERDR_STUB_EXISTING_LABEL HERDR_STUB_PANES MEFISTO_RUNTIMES
+grep -qxF "herdr pane split --pane w1:p1 --direction down --cwd $FAKE_MEFISTO --no-focus --env MEFISTO_RUNTIME=fake" "$HERDR_STUB_LOG" \
+    && grep -qxF "herdr pane split --pane w1:p4 --direction right --cwd $FAKE_MEFISTO --no-focus --env MEFISTO_RUNTIME=fake" "$HERDR_STUB_LOG" \
     && pass "E-1: monta la faltante desde el ultimo planner existente" \
     || fail "E-1: splits inesperados: $(cat "$HERDR_STUB_LOG")"
 if grep -qE 'rename w1:p1|rename w1:p3|agent start .*claude' "$HERDR_STUB_LOG"; then
@@ -360,8 +352,8 @@ if grep -qE 'rename w1:p1|rename w1:p3|agent start .*claude' "$HERDR_STUB_LOG"; 
 else
     pass "E-2: la fila existente no recibe rename ni agent start"
 fi
-grep -qxF 'herdr pane rename w1:p4 planner [opencode]' "$HERDR_STUB_LOG" \
-    && grep -qxF 'herdr pane rename w1:p5 ejecucion [opencode]' "$HERDR_STUB_LOG" \
+grep -qxF 'herdr pane rename w1:p4 planner [fake]' "$HERDR_STUB_LOG" \
+    && grep -qxF 'herdr pane rename w1:p5 ejecucion [fake]' "$HERDR_STUB_LOG" \
     && pass "E-3: etiqueta solo los panes nuevos" \
     || fail "E-3: labels inesperados: $(cat "$HERDR_STUB_LOG")"
 assert_no_anchor_protocol E-4
@@ -386,14 +378,12 @@ assert_no_anchor_protocol F-3
 
 echo ""
 echo "[G] Preflight de configuracion del consumidor"
-export WORKSPACE_TARGET="$FAKE_PACKAGE/scripts/herdr-workspace.sh"
 run_workspace "$FAKE_CONSUMER"
 if [ "$LAST_RC" -eq 0 ] \
     && ! printf '%s\n%s\n' "$LAST_STDOUT" "$LAST_STDERR" | grep -Fq 'parece no estar onboardeado' \
     && grep -qxF "herdr workspace create --cwd $FAKE_CONSUMER --label fake consumer repo --env MEFISTO_RUNTIME=claude" "$HERDR_STUB_LOG" \
-    && grep -qxF 'herdr pane rename w1:p1 planner [claude]' "$HERDR_STUB_LOG" \
-    && grep -qxF 'herdr pane rename w1:p2 planner [opencode]' "$HERDR_STUB_LOG"; then
-    pass "G-1: el config canonico abre ambas filas sin warning de onboarding"
+    && grep -qxF 'herdr pane rename w1:p1 planner [claude]' "$HERDR_STUB_LOG"; then
+    pass "G-1: el config canonico abre la fila sin warning de onboarding"
 else
     fail "G-1: el config canonico emitio warning o aborto: $LAST_STDOUT$LAST_STDERR"
 fi
@@ -401,9 +391,8 @@ run_workspace "$FAKE_LEGACY_CONSUMER"
 if [ "$LAST_RC" -eq 0 ] \
     && ! printf '%s\n%s\n' "$LAST_STDOUT" "$LAST_STDERR" | grep -Fq 'parece no estar onboardeado' \
     && grep -qxF "herdr workspace create --cwd $FAKE_LEGACY_CONSUMER --label fake legacy consumer repo --env MEFISTO_RUNTIME=claude" "$HERDR_STUB_LOG" \
-    && grep -qxF 'herdr pane rename w1:p1 planner [claude]' "$HERDR_STUB_LOG" \
-    && grep -qxF 'herdr pane rename w1:p2 planner [opencode]' "$HERDR_STUB_LOG"; then
-    pass "G-2: el config legacy conserva el fallback y abre ambas filas sin warning"
+    && grep -qxF 'herdr pane rename w1:p1 planner [claude]' "$HERDR_STUB_LOG"; then
+    pass "G-2: el config legacy conserva el fallback y abre la fila sin warning"
 else
     fail "G-2: el config legacy emitio warning o aborto: $LAST_STDOUT$LAST_STDERR"
 fi
@@ -418,47 +407,30 @@ if [ "$LAST_RC" -eq 0 ] \
 else
     fail "G-3: preflight ausente no fue no bloqueante o modifico el consumidor: $LAST_STDOUT$LAST_STDERR"
 fi
-unset WORKSPACE_TARGET
 
 echo ""
-echo "[H] Consumidor nuevo: dos filas y path con espacios"
-export WORKSPACE_TARGET="$FAKE_PACKAGE/scripts/herdr-workspace.sh"
-export MEFISTO_RUNTIME=opencode
+echo "[H] Consumidor nuevo: una fila claude y path con espacios"
+export MEFISTO_RUNTIME=fake MEFISTO_RUNTIMES=claude,fake
 export HERDR_STUB_EXPECT_CWD="$FAKE_CONSUMER"
 run_workspace "$FAKE_CONSUMER"
-unset MEFISTO_RUNTIME HERDR_STUB_EXPECT_CWD
+unset MEFISTO_RUNTIME MEFISTO_RUNTIMES HERDR_STUB_EXPECT_CWD
 EXPECTED=$(cat <<EOF
 herdr status server
 herdr workspace list
 herdr workspace create --cwd $FAKE_CONSUMER --label fake consumer repo --env MEFISTO_RUNTIME=claude
-herdr pane split --pane w1:p1 --direction down --cwd $FAKE_CONSUMER --no-focus --env MEFISTO_RUNTIME=opencode
 herdr pane split --pane w1:p1 --direction right --cwd $FAKE_CONSUMER --no-focus --env MEFISTO_RUNTIME=claude
-herdr pane split --pane w1:p2 --direction right --cwd $FAKE_CONSUMER --no-focus --env MEFISTO_RUNTIME=opencode
 herdr pane rename w1:p1 planner [claude]
-herdr pane rename w1:p3 ejecucion [claude]
+herdr pane rename w1:p2 ejecucion [claude]
 herdr pane process-info --pane w1:p1
 herdr agent start planner-fake-consu-ec20-claude --kind claude --pane w1:p1 --timeout 90000 -- --agent mefisto:planner
-herdr pane process-info --pane w1:p3
-herdr agent start ejecucion-fake-consu-ec20-claude --kind claude --pane w1:p3 --timeout 90000
-herdr pane rename w1:p2 planner [opencode]
-herdr pane rename w1:p4 ejecucion [opencode]
 herdr pane process-info --pane w1:p2
-herdr agent start planner-fake-con-ec20-opencode --kind opencode --pane w1:p2 --timeout 90000
-herdr pane process-info --pane w1:p4
-herdr agent start ejecucion-fake-con-ec20-opencode --kind opencode --pane w1:p4 --timeout 90000
+herdr agent start ejecucion-fake-consu-ec20-claude --kind claude --pane w1:p2 --timeout 90000
 EOF
 )
 [ "$LAST_RC" -eq 0 ] && [ "$(cat "$HERDR_STUB_LOG")" = "$EXPECTED" ] \
-    && pass "H-1: filas Claude/OpenCode con labels, nombres, kind y env exactos" \
+    && pass "H-1: fila claude con labels, nombres, kind y env exactos, sin leer MEFISTO_RUNTIME(S)" \
     || fail "H-1: rama consumidor cambio. Esperado:\n$EXPECTED\nObtenido:\n$(cat "$HERDR_STUB_LOG")"
-printf '%s\n%s\n' "$LAST_STDOUT" "$LAST_STDERR" | grep -q 'Diagnostico de identidad: metadata_missing' \
-    && printf '%s\n%s\n' "$LAST_STDOUT" "$LAST_STDERR" | grep -q 'planner \[opencode\].*sin --agent' \
-    && pass "H-2: diagnostica identidad y declara la degradacion del planner OpenCode" \
-    || fail "H-2: falta diagnostico o degradacion visible: $LAST_STDOUT$LAST_STDERR"
-assert_no_anchor_protocol H-3
-[ "$(tr '\0' '\n' < "$IDENTITY_STUB_ARGS")" = $'--claude-root\n'"$FAKE_PACKAGE" ] \
-    && pass "H-4: el diagnostico recibe la raiz Claude del paquete por argv" \
-    || fail "H-4: raiz de diagnostico inesperada: $(tr '\0' ' ' < "$IDENTITY_STUB_ARGS")"
+assert_no_anchor_protocol H-2
 
 export HERDR_STUB_EXPECT_CWD="$FAKE_WORKTREE"
 run_workspace "$FAKE_WORKTREE"
@@ -466,23 +438,11 @@ unset HERDR_STUB_EXPECT_CWD
 [ "$LAST_RC" -eq 0 ] \
     && grep -qF "workspace create --cwd $FAKE_WORKTREE" "$HERDR_STUB_LOG" \
     && ! grep -qF -- "--cwd $FAKE_CONSUMER" "$HERDR_STUB_LOG" \
-    && pass "H-5: un worktree usa su propio Git toplevel argv-safe" \
-    || fail "H-5: worktree resuelto a otra raiz: $(cat "$HERDR_STUB_LOG")"
+    && pass "H-3: un worktree usa su propio Git toplevel argv-safe" \
+    || fail "H-3: worktree resuelto a otra raiz: $(cat "$HERDR_STUB_LOG")"
 
 echo ""
-echo "[I] Consumidor normalizado con OpenCode faltante: agrega solo la fila nueva"
-export HERDR_STUB_EXISTING_LABEL='fake consumer repo'
-export HERDR_STUB_PANES='planner [claude]=w1:p1;ejecucion [claude]=w1:p3'
-run_workspace "$FAKE_CONSUMER"
-unset HERDR_STUB_EXISTING_LABEL HERDR_STUB_PANES
-grep -qxF "herdr pane split --pane w1:p1 --direction down --cwd $FAKE_CONSUMER --no-focus --env MEFISTO_RUNTIME=opencode" "$HERDR_STUB_LOG" \
-    && grep -qxF 'herdr agent start planner-fake-con-ec20-opencode --kind opencode --pane w1:p2 --timeout 90000' "$HERDR_STUB_LOG" \
-    && pass "I-1: agrega OpenCode sin tocar Claude y sin --agent del planner" \
-    || fail "I-1: agregado inesperado: $(cat "$HERDR_STUB_LOG")"
-assert_no_anchor_protocol I-3
-
-echo ""
-echo "[J] Consumidor legacy: normaliza Claude y agrega OpenCode; ambas filas convergen"
+echo "[J] Consumidor legacy: normaliza la fila claude y converge"
 export HERDR_STUB_EXISTING_LABEL='fake consumer repo'
 export HERDR_STUB_PANES='planner=w1:p1'
 run_workspace "$FAKE_CONSUMER"
@@ -496,7 +456,7 @@ run_workspace "$FAKE_CONSUMER"
     && printf '%s\n%s\n' "$LAST_STDOUT" "$LAST_STDERR" | grep -q 'duplicados o ambiguos' \
     && pass "J-2: un workspace legacy ambiguo solo enfoca" \
     || fail "J-2: ambiguedad no conservadora: $(cat "$HERDR_STUB_LOG")"
-export HERDR_STUB_PANES='planner [claude]=w1:p1;ejecucion [claude]=w1:p2;planner [opencode]=w1:p3;ejecucion [opencode]=w1:p4'
+export HERDR_STUB_PANES='planner [claude]=w1:p1;ejecucion [claude]=w1:p2;planner [fake]=w1:p3;ejecucion [fake]=w1:p4'
 run_workspace "$FAKE_CONSUMER"
 FIRST_LOG=$(cat "$HERDR_STUB_LOG")
 run_workspace "$FAKE_CONSUMER"
@@ -505,192 +465,95 @@ unset HERDR_STUB_EXISTING_LABEL HERDR_STUB_PANES
 [ "$SECOND_LOG" = "$FIRST_LOG" ] \
     && grep -qxF 'herdr workspace focus w1' <<< "$SECOND_LOG" \
     && ! grep -qE 'pane rename|pane split|agent start|pane close' <<< "$SECOND_LOG" \
-    && pass "J-3: dos filas presentes solo enfocan byte a byte" \
+    && pass "J-3: la fila normalizada solo enfoca byte a byte y no toca la fila de otro runtime" \
     || fail "J-3: normalizado no converge: $SECOND_LOG"
 
-write_identity() {
-    local root="$1" runtime="$2" version="$3" commit="$4"
-    mkdir -p "$root"
-    printf '{"schemaVersion":1,"runtime":"%s","version":"%s","commit":"%s"}\n' \
-        "$runtime" "$version" "$commit" > "$root/mefisto-manifest.json"
-}
-
 echo ""
-echo "[K] Diagnostico determinista de identidades"
-COMMIT_A=0123456789abcdef0123456789abcdef01234567
-COMMIT_B=89abcdef0123456789abcdef0123456789abcdef
-write_identity "$FAKE_PACKAGE" claude 1.2.3 "$COMMIT_A"
-write_identity "$FAKE_XDG/mefisto/active" opencode 1.2.3 "$COMMIT_A"
-export HERDR_STUB_EXISTING_LABEL='fake consumer repo'
-export HERDR_STUB_PANES='planner [claude]=w1:p1;ejecucion [claude]=w1:p2;planner [opencode]=w1:p3;ejecucion [opencode]=w1:p4'
-run_workspace "$FAKE_CONSUMER"
-printf '%s\n%s\n' "$LAST_STDOUT" "$LAST_STDERR" | grep -q 'Diagnostico de identidad: aligned' \
-    && printf '%s\n%s\n' "$LAST_STDOUT" "$LAST_STDERR" | grep -q "claude: version=1.2.3 commit=$COMMIT_A" \
-    && printf '%s\n%s\n' "$LAST_STDOUT" "$LAST_STDERR" | grep -q "opencode: version=1.2.3 commit=$COMMIT_A" \
-    && pass "K-1: aligned muestra runtime, version y commit" \
-    || fail "K-1: diagnostico aligned incompleto: $LAST_STDOUT$LAST_STDERR"
-write_identity "$FAKE_XDG/mefisto/active" opencode 1.2.4 "$COMMIT_B"
-run_workspace "$FAKE_CONSUMER"
-printf '%s\n%s\n' "$LAST_STDOUT" "$LAST_STDERR" | grep -q 'Diagnostico de identidad: drift' \
-    && printf '%s\n%s\n' "$LAST_STDOUT" "$LAST_STDERR" | grep -q 'no se selecciono ninguna instalacion' \
-    && pass "K-2: drift es visible y accionable" \
-    || fail "K-2: drift no diagnosticado: $LAST_STDOUT$LAST_STDERR"
-rm "$FAKE_XDG/mefisto/active/mefisto-manifest.json"
-run_workspace "$FAKE_CONSUMER"
-printf '%s\n%s\n' "$LAST_STDOUT" "$LAST_STDERR" | grep -q 'Diagnostico de identidad: metadata_missing' \
-    && pass "K-3: metadata ausente conserva el workspace" \
-    || fail "K-3: metadata ausente no diagnosticada: $LAST_STDOUT$LAST_STDERR"
-rm -rf "$FAKE_XDG/mefisto/active"
-run_workspace "$FAKE_CONSUMER"
-printf '%s\n%s\n' "$LAST_STDOUT" "$LAST_STDERR" | grep -q 'Diagnostico de identidad: claude_only' \
-    && pass "K-4: runtime OpenCode ausente se reporta sin activarlo" \
-    || fail "K-4: runtime ausente no diagnosticado: $LAST_STDOUT$LAST_STDERR"
-
-echo ""
-echo "[L] Fallo aislado al iniciar OpenCode"
-mkdir -p "$FAKE_XDG/mefisto/active"
-write_identity "$FAKE_XDG/mefisto/active" opencode 1.2.3 "$COMMIT_A"
-unset HERDR_STUB_EXISTING_LABEL HERDR_STUB_PANES
-export HERDR_STUB_FAIL_KIND=opencode
-run_workspace "$FAKE_CONSUMER"
-unset HERDR_STUB_FAIL_KIND WORKSPACE_TARGET
-[ "$(grep -c 'agent start .*--kind claude' "$HERDR_STUB_LOG")" -eq 2 ] \
-    && [ "$(grep -c 'agent start .*--kind opencode' "$HERDR_STUB_LOG")" -eq 4 ] \
-    && grep -q 'El pane quedo con su shell' <<< "$LAST_STDOUT" \
-    && grep -qxF 'herdr pane rename w1:p2 planner [opencode]' "$HERDR_STUB_LOG" \
-    && grep -qxF 'herdr pane rename w1:p4 ejecucion [opencode]' "$HERDR_STUB_LOG" \
-    && pass "L-1: cada pane OpenCode conserva shell sin cerrar ni reiniciar Claude" \
-    || fail "L-1: el fallo OpenCode contamino otra fila: $(cat "$HERDR_STUB_LOG") $LAST_STDOUT$LAST_STDERR"
-assert_no_anchor_protocol L-2
-unset HERDR_STUB_EXISTING_LABEL HERDR_STUB_PANES
-
-echo ""
-echo "[M] Planner real en la fila OpenCode (issue #1681)"
-[ "$(planner_agent_for_repo "$FAKE_MEFISTO" opencode)" = "mefisto-planner" ] \
-    && [ "$(planner_agent_for_repo "$FAKE_CONSUMER" opencode)" = "planner" ] \
-    && [ "$(planner_agent_for_repo "$FAKE_CONSUMER" claude)" = "mefisto:planner" ] \
-    && [ "$(planner_agent_for_repo "$FAKE_CONSUMER")" = "mefisto:planner" ] \
-    && pass "M-0: planner_agent_for_repo resuelve por repo y runtime" \
-    || fail "M-0: nombres de planner inesperados"
-unset HERDR_STUB_EXISTING_LABEL HERDR_STUB_PANES
-write_identity "$FAKE_XDG/mefisto/active" opencode 1.2.3 "$COMMIT_A"
-mkdir -p "$FAKE_XDG/mefisto/active/agents"
-printf 'planner\n' > "$FAKE_XDG/mefisto/active/agents/planner.md"
-export WORKSPACE_TARGET="$FAKE_PACKAGE/scripts/herdr-workspace.sh"
-run_workspace "$FAKE_CONSUMER"
-[ "$LAST_RC" -eq 0 ] \
-    && grep -qxF 'herdr agent start planner-fake-con-ec20-opencode --kind opencode --pane w1:p2 --timeout 90000 -- --agent planner' "$HERDR_STUB_LOG" \
-    && grep -qxF 'herdr agent start planner-fake-consu-ec20-claude --kind claude --pane w1:p1 --timeout 90000 -- --agent mefisto:planner' "$HERDR_STUB_LOG" \
-    && grep -qxF 'herdr agent start ejecucion-fake-con-ec20-opencode --kind opencode --pane w1:p4 --timeout 90000' "$HERDR_STUB_LOG" \
-    && ! printf '%s\n%s\n' "$LAST_STDOUT" "$LAST_STDERR" | grep -q 'DEGRADACION VISIBLE: la release OpenCode' \
-    && pass "M-1: consumidor, planner OpenCode con --agent planner y sin aviso" \
-    || fail "M-1: planner OpenCode inesperado: $(cat "$HERDR_STUB_LOG") $LAST_STDOUT$LAST_STDERR"
-
+echo "[L] Fallo aislado al iniciar un runtime"
+export MEFISTO_RUNTIMES=claude,fake
+export HERDR_STUB_FAIL_KIND=fake
 run_workspace "$FAKE_MEFISTO"
-[ "$LAST_RC" -eq 0 ] \
-    && grep -qxF 'herdr agent start planner-fake-mefis-92c3-claude --kind claude --pane w1:p1 --timeout 90000 -- --agent mefisto-planner' "$HERDR_STUB_LOG" \
-    && grep -qxF 'herdr agent start planner-fake-mef-92c3-opencode --kind opencode --pane w1:p2 --timeout 90000 -- --agent mefisto-planner' "$HERDR_STUB_LOG" \
-    && pass "M-2: repo de Mefisto, ambas filas con el planner interno" \
-    || fail "M-2: planner interno inesperado: $(cat "$HERDR_STUB_LOG")"
+unset HERDR_STUB_FAIL_KIND MEFISTO_RUNTIMES
+[ "$(grep -c 'agent start .*--kind claude' "$HERDR_STUB_LOG")" -eq 2 ] \
+    && [ "$(grep -c 'agent start .*--kind fake' "$HERDR_STUB_LOG")" -eq 4 ] \
+    && grep -q 'El pane quedo con su shell' <<< "$LAST_STDOUT" \
+    && grep -qxF 'herdr pane rename w1:p2 planner [fake]' "$HERDR_STUB_LOG" \
+    && grep -qxF 'herdr pane rename w1:p4 ejecucion [fake]' "$HERDR_STUB_LOG" \
+    && pass "L-1: cada pane del runtime que falla conserva shell sin cerrar ni reiniciar la otra fila" \
+    || fail "L-1: el fallo de un runtime contamino otra fila: $(cat "$HERDR_STUB_LOG") $LAST_STDOUT$LAST_STDERR"
+assert_no_anchor_protocol L-2
 
-rm -f "$FAKE_XDG/mefisto/active/agents/planner.md"
-run_workspace "$FAKE_CONSUMER"
-[ "$LAST_RC" -eq 0 ] \
-    && grep -qxF 'herdr agent start planner-fake-con-ec20-opencode --kind opencode --pane w1:p2 --timeout 90000' "$HERDR_STUB_LOG" \
-    && printf '%s\n%s\n' "$LAST_STDOUT" "$LAST_STDERR" | grep -q 'DEGRADACION VISIBLE: la release OpenCode activa (1.2.3).*sin --agent.*/mefisto:upgrade' \
-    && pass "M-3: sin planner proyectado arranca sin --agent con aviso y version" \
-    || fail "M-3: degradacion inesperada: $(cat "$HERDR_STUB_LOG") $LAST_STDOUT$LAST_STDERR"
-
-printf 'planner\n' > "$FAKE_XDG/mefisto/active/agents/planner.md"
-FAKE_DIST="$TMP/fake dist"
-mkdir -p "$FAKE_DIST/scripts" "$FAKE_DIST/src/published/scripts"
-cp "$REPO_ROOT/dist/opencode/scripts/herdr-workspace.sh" "$FAKE_DIST/scripts/herdr-workspace.sh"
-cp "$FAKE_PACKAGE/src/published/scripts/"diagnose-installation-identity*.sh "$FAKE_DIST/src/published/scripts/"
-write_identity "$FAKE_DIST" claude 1.2.3 "$COMMIT_A"
-export WORKSPACE_TARGET="$FAKE_DIST/scripts/herdr-workspace.sh"
-run_workspace "$FAKE_CONSUMER"
-[ "$LAST_RC" -eq 0 ] \
-    && grep -qxF 'herdr agent start planner-fake-con-ec20-opencode --kind opencode --pane w1:p2 --timeout 90000 -- --agent planner' "$HERDR_STUB_LOG" \
-    && pass "M-4: el script copiado a dist/opencode/scripts funciona igual" \
-    || fail "M-4: copia de dist inesperada: $(cat "$HERDR_STUB_LOG") $LAST_STDOUT$LAST_STDERR"
-cmp -s "$REPO_ROOT/dist/opencode/scripts/herdr-workspace.sh" "$TARGET" \
-    && cmp -s "$REPO_ROOT/dist/claude/scripts/herdr-workspace.sh" "$TARGET" \
-    && pass "M-5: dist/{claude,opencode} contienen el script fuente" \
-    || fail "M-5: dist diverge del script fuente"
-unset WORKSPACE_TARGET
+echo ""
+echo "[M] Copia distribuida"
+cmp -s "$REPO_ROOT/dist/claude/scripts/herdr-workspace.sh" "$TARGET" \
+    && pass "M-1: dist/claude contiene el script fuente" \
+    || fail "M-1: dist/claude diverge del script fuente"
 
 echo ""
 echo "[N] Workspace del repo sin panes de Mefisto: se adopta y se montan las filas (issue #2493)"
-export WORKSPACE_TARGET="$FAKE_PACKAGE/scripts/herdr-workspace.sh"
 unset MEFISTO_RUNTIMES MEFISTO_RUNTIME
 export HERDR_STUB_EXISTING_LABEL='fake consumer repo'
 export HERDR_STUB_PANES='=w1:p1'
 run_workspace "$FAKE_CONSUMER"
 [ "$LAST_RC" -eq 0 ] \
-    && grep -qxF "herdr pane split --pane w1:p1 --direction down --cwd $FAKE_CONSUMER --no-focus --env MEFISTO_RUNTIME=opencode" "$HERDR_STUB_LOG" \
     && grep -qxF "herdr pane split --pane w1:p1 --direction down --cwd $FAKE_CONSUMER --no-focus --env MEFISTO_RUNTIME=claude" "$HERDR_STUB_LOG" \
-    && grep -qxF "herdr pane split --pane w1:p3 --direction right --cwd $FAKE_CONSUMER --no-focus --env MEFISTO_RUNTIME=claude" "$HERDR_STUB_LOG" \
-    && grep -qxF "herdr pane split --pane w1:p2 --direction right --cwd $FAKE_CONSUMER --no-focus --env MEFISTO_RUNTIME=opencode" "$HERDR_STUB_LOG" \
-    && [ "$(grep -c -- '--direction down' "$HERDR_STUB_LOG")" -eq 2 ] \
-    && [ "$(grep -c -- '--direction right' "$HERDR_STUB_LOG")" -eq 2 ] \
-    && pass "N-1: consumidor, monta dos filas con down desde la raiz y right desde cada planner" \
+    && grep -qxF "herdr pane split --pane w1:p2 --direction right --cwd $FAKE_CONSUMER --no-focus --env MEFISTO_RUNTIME=claude" "$HERDR_STUB_LOG" \
+    && [ "$(grep -c -- '--direction down' "$HERDR_STUB_LOG")" -eq 1 ] \
+    && [ "$(grep -c -- '--direction right' "$HERDR_STUB_LOG")" -eq 1 ] \
+    && pass "N-1: consumidor, monta la fila con down desde la raiz y right desde su planner" \
     || fail "N-1: splits inesperados: $(cat "$HERDR_STUB_LOG") $LAST_STDOUT$LAST_STDERR"
+grep -qxF 'herdr pane rename w1:p2 planner [claude]' "$HERDR_STUB_LOG" \
+    && grep -qxF 'herdr pane rename w1:p3 ejecucion [claude]' "$HERDR_STUB_LOG" \
+    && grep -qF 'herdr agent start planner-fake-consu-ec20-claude --kind claude --pane w1:p2 --timeout 90000 -- --agent mefisto:planner' "$HERDR_STUB_LOG" \
+    && grep -qF 'herdr agent start ejecucion-fake-consu-ec20-claude --kind claude --pane w1:p3 ' "$HERDR_STUB_LOG" \
+    && [ "$(grep -c 'agent start' "$HERDR_STUB_LOG")" -eq 2 ] \
+    && pass "N-2: etiqueta y arranca los dos panes nuevos" \
+    || fail "N-2: labels o agentes inesperados: $(cat "$HERDR_STUB_LOG")"
+if grep -qE 'pane rename w1:p1( |$)|--pane w1:p1 --timeout|pane split --pane w1:p1 --direction right' "$HERDR_STUB_LOG"; then
+    fail "N-3: toco el pane raiz: $(cat "$HERDR_STUB_LOG")"
+else
+    pass "N-3: el pane raiz queda intacto (sin rename ni agent start)"
+fi
+printf '%s\n%s\n' "$LAST_STDOUT" "$LAST_STDERR" | grep -Fq "no tenia panes de Mefisto: se montaron 1 fila(s) debajo del pane raiz." \
+    && grep -qxF 'herdr workspace focus w1' "$HERDR_STUB_LOG" \
+    && ! printf '%s\n%s\n' "$LAST_STDOUT" "$LAST_STDERR" | grep -Fq 'no contiene' \
+    && pass "N-4: enfoca y avisa la adopcion" \
+    || fail "N-4: mensaje de adopcion ausente: $LAST_STDOUT$LAST_STDERR"
+assert_no_anchor_protocol N-5
+
+export HERDR_STUB_EXISTING_LABEL=fake-mefisto-repo
+export MEFISTO_RUNTIMES=claude,fake
+run_workspace "$FAKE_MEFISTO"
+unset MEFISTO_RUNTIMES
+[ "$LAST_RC" -eq 0 ] \
+    && grep -qxF "herdr pane split --pane w1:p1 --direction down --cwd $FAKE_MEFISTO --no-focus --env MEFISTO_RUNTIME=fake" "$HERDR_STUB_LOG" \
+    && grep -qxF "herdr pane split --pane w1:p1 --direction down --cwd $FAKE_MEFISTO --no-focus --env MEFISTO_RUNTIME=claude" "$HERDR_STUB_LOG" \
+    && grep -qxF "herdr pane split --pane w1:p3 --direction right --cwd $FAKE_MEFISTO --no-focus --env MEFISTO_RUNTIME=claude" "$HERDR_STUB_LOG" \
+    && grep -qxF "herdr pane split --pane w1:p2 --direction right --cwd $FAKE_MEFISTO --no-focus --env MEFISTO_RUNTIME=fake" "$HERDR_STUB_LOG" \
+    && grep -qF 'herdr agent start planner-fake-mefis-92c3-claude --kind claude --pane w1:p3 --timeout 90000 -- --agent mefisto-planner' "$HERDR_STUB_LOG" \
+    && [ "$(grep -c 'agent start' "$HERDR_STUB_LOG")" -eq 4 ] \
+    && ! grep -qE 'pane rename w1:p1( |$)|--pane w1:p1 --timeout' "$HERDR_STUB_LOG" \
+    && ! printf '%s\n%s\n' "$LAST_STDOUT" "$LAST_STDERR" | grep -Fq 'no contiene ningun planner' \
+    && printf '%s\n%s\n' "$LAST_STDOUT" "$LAST_STDERR" | grep -Fq "se montaron 2 fila(s) debajo del pane raiz." \
+    && pass "N-6: repo de Mefisto, monta las filas de runtimes_for_repo bajo la raiz sin tocarla" \
+    || fail "N-6: adopcion en Mefisto inesperada: $(cat "$HERDR_STUB_LOG") $LAST_STDOUT$LAST_STDERR"
 LAST_DOWN_LINE=$(grep -nF ' --direction down ' "$HERDR_STUB_LOG" | cut -d: -f1 | tail -1)
 FIRST_RIGHT_LINE=$(grep -nF ' --direction right ' "$HERDR_STUB_LOG" | cut -d: -f1 | head -1)
 [ "$LAST_DOWN_LINE" -lt "$FIRST_RIGHT_LINE" ] \
-    && pass "N-2: todos los down ocurren antes de cualquier right" \
-    || fail "N-2: un right ocurrio antes de terminar los down"
-grep -qxF 'herdr pane rename w1:p3 planner [claude]' "$HERDR_STUB_LOG" \
-    && grep -qxF 'herdr pane rename w1:p4 ejecucion [claude]' "$HERDR_STUB_LOG" \
-    && grep -qxF 'herdr pane rename w1:p2 planner [opencode]' "$HERDR_STUB_LOG" \
-    && grep -qxF 'herdr pane rename w1:p5 ejecucion [opencode]' "$HERDR_STUB_LOG" \
-    && grep -qF 'herdr agent start planner-fake-consu-ec20-claude --kind claude --pane w1:p3 --timeout 90000 -- --agent mefisto:planner' "$HERDR_STUB_LOG" \
-    && grep -qF 'herdr agent start ejecucion-fake-consu-ec20-claude --kind claude --pane w1:p4 ' "$HERDR_STUB_LOG" \
-    && grep -qF 'herdr agent start planner-fake-con-ec20-opencode --kind opencode --pane w1:p2 ' "$HERDR_STUB_LOG" \
-    && grep -qF 'herdr agent start ejecucion-fake-con-ec20-opencode --kind opencode --pane w1:p5 ' "$HERDR_STUB_LOG" \
-    && [ "$(grep -c 'agent start' "$HERDR_STUB_LOG")" -eq 4 ] \
-    && pass "N-3: etiqueta y arranca los cuatro panes nuevos" \
-    || fail "N-3: labels o agentes inesperados: $(cat "$HERDR_STUB_LOG")"
-if grep -qE 'pane rename w1:p1( |$)|--pane w1:p1 --timeout|pane split --pane w1:p1 --direction right' "$HERDR_STUB_LOG"; then
-    fail "N-4: toco el pane raiz: $(cat "$HERDR_STUB_LOG")"
-else
-    pass "N-4: el pane raiz queda intacto (sin rename ni agent start)"
-fi
-printf '%s\n%s\n' "$LAST_STDOUT" "$LAST_STDERR" | grep -Fq "no tenia panes de Mefisto: se montaron 2 fila(s) debajo del pane raiz." \
-    && grep -qxF 'herdr workspace focus w1' "$HERDR_STUB_LOG" \
-    && ! printf '%s\n%s\n' "$LAST_STDOUT" "$LAST_STDERR" | grep -Fq 'no contiene' \
-    && pass "N-5: enfoca y avisa la adopcion" \
-    || fail "N-5: mensaje de adopcion ausente: $LAST_STDOUT$LAST_STDERR"
-assert_no_anchor_protocol N-6
+    && pass "N-7: todos los down ocurren antes de cualquier right" \
+    || fail "N-7: un right ocurrio antes de terminar los down"
 
-export HERDR_STUB_EXISTING_LABEL=fake-mefisto-repo
-export WORKSPACE_TARGET="$TARGET"
 run_workspace "$FAKE_MEFISTO"
-[ "$LAST_RC" -eq 0 ] \
-    && grep -qxF "herdr pane split --pane w1:p1 --direction down --cwd $FAKE_MEFISTO --no-focus --env MEFISTO_RUNTIME=opencode" "$HERDR_STUB_LOG" \
-    && grep -qxF "herdr pane split --pane w1:p1 --direction down --cwd $FAKE_MEFISTO --no-focus --env MEFISTO_RUNTIME=claude" "$HERDR_STUB_LOG" \
-    && grep -qxF "herdr pane split --pane w1:p3 --direction right --cwd $FAKE_MEFISTO --no-focus --env MEFISTO_RUNTIME=claude" "$HERDR_STUB_LOG" \
-    && grep -qxF "herdr pane split --pane w1:p2 --direction right --cwd $FAKE_MEFISTO --no-focus --env MEFISTO_RUNTIME=opencode" "$HERDR_STUB_LOG" \
-    && grep -qF 'herdr agent start planner-fake-mefis-92c3-claude --kind claude --pane w1:p3 --timeout 90000 -- --agent mefisto-planner' "$HERDR_STUB_LOG" \
-    && ! grep -qE 'pane rename w1:p1( |$)|--pane w1:p1 --timeout' "$HERDR_STUB_LOG" \
-    && ! printf '%s\n%s\n' "$LAST_STDOUT" "$LAST_STDERR" | grep -Fq 'no contiene ningun planner' \
-    && pass "N-7: repo de Mefisto, monta las filas de runtimes_for_repo bajo la raiz sin tocarla" \
-    || fail "N-7: adopcion en Mefisto inesperada: $(cat "$HERDR_STUB_LOG") $LAST_STDOUT$LAST_STDERR"
-
-export MEFISTO_RUNTIMES=claude
-run_workspace "$FAKE_MEFISTO"
-unset MEFISTO_RUNTIMES
 grep -qxF "herdr pane split --pane w1:p1 --direction down --cwd $FAKE_MEFISTO --no-focus --env MEFISTO_RUNTIME=claude" "$HERDR_STUB_LOG" \
     && grep -qxF "herdr pane split --pane w1:p2 --direction right --cwd $FAKE_MEFISTO --no-focus --env MEFISTO_RUNTIME=claude" "$HERDR_STUB_LOG" \
     && ! grep -qE 'pane rename w1:p1( |$)' "$HERDR_STUB_LOG" \
-    && pass "N-8: con una sola fila tambien se monta debajo de la raiz" \
+    && pass "N-8: con el default de una fila tambien se monta debajo de la raiz" \
     || fail "N-8: una fila adoptada inesperada: $(cat "$HERDR_STUB_LOG")"
 
-export WORKSPACE_TARGET="$FAKE_PACKAGE/scripts/herdr-workspace.sh"
 export HERDR_STUB_EXISTING_LABEL='fake consumer repo'
 export HERDR_STUB_PANES='[ok] mefisto-tooling #12=w1:p1;=w1:p2'
 run_workspace "$FAKE_CONSUMER"
-grep -qxF "herdr pane split --pane w1:p1 --direction down --cwd $FAKE_CONSUMER --no-focus --env MEFISTO_RUNTIME=opencode" "$HERDR_STUB_LOG" \
+grep -qxF "herdr pane split --pane w1:p1 --direction down --cwd $FAKE_CONSUMER --no-focus --env MEFISTO_RUNTIME=claude" "$HERDR_STUB_LOG" \
     && ! grep -qE 'pane rename w1:p1( |$)' "$HERDR_STUB_LOG" \
     && pass "N-9: un workspace solo con visores se adopta" \
     || fail "N-9: visores tratados como panes de rol: $(cat "$HERDR_STUB_LOG")"
@@ -710,7 +573,7 @@ echo ""
 echo "[N2] Dos workspaces con el mismo label: se prefiere el que tiene filas de Mefisto"
 export HERDR_STUB_SECOND_WS=1
 export HERDR_STUB_PANES='=w1:p1'
-export HERDR_STUB_PANES_W2='planner [claude]=w2:p1;ejecucion [claude]=w2:p2;planner [opencode]=w2:p3;ejecucion [opencode]=w2:p4'
+export HERDR_STUB_PANES_W2='planner [claude]=w2:p1;ejecucion [claude]=w2:p2'
 run_workspace "$FAKE_CONSUMER"
 [ "$LAST_RC" -eq 0 ] \
     && grep -qxF 'herdr workspace focus w2' "$HERDR_STUB_LOG" \
@@ -729,11 +592,11 @@ grep -qxF 'herdr pane rename w1:p1 planner [claude]' "$HERDR_STUB_LOG" \
     || fail "N3-1: comportamiento legacy cambio: $(cat "$HERDR_STUB_LOG")"
 export HERDR_STUB_PANES='planner [claude]=w1:p1;ejecucion [claude]=w1:p3'
 run_workspace "$FAKE_CONSUMER" 4
-grep -qxF "herdr pane split --pane w1:p1 --direction down --cwd $FAKE_CONSUMER --no-focus --env MEFISTO_RUNTIME=opencode" "$HERDR_STUB_LOG" \
-    && ! grep -qE 'rename w1:p1|rename w1:p3' "$HERDR_STUB_LOG" \
-    && pass "N3-2: una fila canonica solo suma la faltante" \
-    || fail "N3-2: agregado de fila faltante cambio: $(cat "$HERDR_STUB_LOG")"
-unset HERDR_STUB_EXISTING_LABEL HERDR_STUB_PANES WORKSPACE_TARGET
+grep -qxF 'herdr workspace focus w1' "$HERDR_STUB_LOG" \
+    && ! grep -qE 'pane split|pane rename|agent start' "$HERDR_STUB_LOG" \
+    && pass "N3-2: una fila canonica solo se enfoca" \
+    || fail "N3-2: la fila canonica no quedo intacta: $(cat "$HERDR_STUB_LOG")"
+unset HERDR_STUB_EXISTING_LABEL HERDR_STUB_PANES
 
 echo ""
 echo "[Z] Protocolo retirado del script"

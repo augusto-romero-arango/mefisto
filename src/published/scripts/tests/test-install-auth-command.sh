@@ -1,12 +1,11 @@
 #!/usr/bin/env bash
-# Contrato del comando install-auth neutral y sus proyecciones publicadas.
+# Contrato del comando install-auth neutral y su proyeccion publicada.
 set -uo pipefail
 export LC_ALL=C
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
 REPO_ROOT="$(cd "$HERE/../../../.." && pwd -P)"
 SOURCE="$REPO_ROOT/src/published/commands/install-auth.md"
 CLAUDE="$REPO_ROOT/dist/claude/commands/install-auth.md"
-OPENCODE="$REPO_ROOT/dist/opencode/commands/mefisto:install-auth.md"
 MIRROR="$REPO_ROOT/commands/install-auth.md"
 GENERATOR="$REPO_ROOT/src/published/scripts/generate-published-adapters.sh"
 PASS=0; FAIL=0
@@ -36,33 +35,20 @@ done
 [ "$order_ok" -eq 1 ] && pass 'orden: guard -> prerequisitos -> CORS -> confirmacion -> rama -> etapa 1 -> gate -> etapa 2 -> PR' || fail 'orden de pasos invalido'
 for marker in 'verbo QUERY' 'App Insights' 'codigo de exito documentado' 'headers de identidad'; do absent "$body" "$marker" "sin copia del checklist post-deploy: $marker"; done
 
-echo '[salidas] adaptadores y mirror'
-for file in "$CLAUDE" "$OPENCODE"; do [ -f "$file" ] && pass "existe ${file#"$REPO_ROOT/"}" || fail "falta ${file#"$REPO_ROOT/"}"; done
+echo '[salidas] adaptador y mirror'
+[ -f "$CLAUDE" ] && pass "existe ${CLAUDE#"$REPO_ROOT/"}" || fail "falta ${CLAUDE#"$REPO_ROOT/"}"
 claude_body="$(< "$CLAUDE")"
-opencode_body="$(< "$OPENCODE")"
 contains "$claude_body" 'model: "sonnet"' 'Claude materializa el perfil balanced'
-for k in 'model:' 'subtask' 'agent:'; do absent "$opencode_body" "$k" "OpenCode no emite $k"; done
 contains "$claude_body" '"${MEFISTO_PACKAGE_ROOT}/commands/install-workos.md"' 'Claude lee install-workos'
 contains "$claude_body" '"${MEFISTO_PACKAGE_ROOT}/commands/install-apim.md"' 'Claude lee install-apim'
-contains "$opencode_body" '"${MEFISTO_PACKAGE_ROOT}/commands/mefisto:install-workos.md"' 'OpenCode lee install-workos'
-contains "$opencode_body" '"${MEFISTO_PACKAGE_ROOT}/commands/mefisto:install-apim.md"' 'OpenCode lee install-apim'
 for id in install-workos install-apim; do
     [ -f "$REPO_ROOT/dist/claude/commands/$id.md" ] && pass "existe dist/claude/commands/$id.md" || fail "falta dist/claude/commands/$id.md"
-    [ -f "$REPO_ROOT/dist/opencode/commands/mefisto:$id.md" ] && pass "existe dist/opencode/commands/mefisto:$id.md" || fail "falta dist/opencode/commands/mefisto:$id.md"
 done
-for rt in claude opencode; do
-    out="$claude_body"; [ "$rt" = opencode ] && out="$opencode_body"
-    forbidden_set=('plugins/cache')
-    [ "$rt" = opencode ] && forbidden_set+=('CLAUDE_' '.claude/' '.plugin-root')
-    for forbidden in "${forbidden_set[@]}"; do absent "$out" "$forbidden" "$rt sin token de runtime: $forbidden"; done
-done
+absent "$claude_body" 'plugins/cache' 'claude sin token de runtime: plugins/cache'
 contains "$claude_body" '/mefisto:install-workos' 'Claude resuelve command install-workos'
-contains "$opencode_body" '/mefisto:install-apim' 'OpenCode resuelve command install-apim'
+contains "$claude_body" '/mefisto:install-apim' 'Claude resuelve command install-apim'
 if cmp -s "$MIRROR" "$CLAUDE"; then pass 'mirror Claude coincide byte a byte'; else fail 'mirror Claude diverge'; fi
-for runtime in claude opencode; do
-    dest="commands/install-auth.md"; [ "$runtime" = opencode ] && dest="commands/mefisto:install-auth.md"
-    if grep -qF "$dest" "$REPO_ROOT/dist/$runtime/.mefisto-generated-assets.json"; then pass "inventario de dist/$runtime lo incluye"; else fail "inventario de dist/$runtime no lo incluye"; fi
-done
+if grep -qF 'commands/install-auth.md' "$REPO_ROOT/dist/claude/.mefisto-generated-assets.json"; then pass 'inventario de dist/claude lo incluye'; else fail 'inventario de dist/claude no lo incluye'; fi
 if "$GENERATOR" --check >/dev/null; then pass 'generate-published-adapters --check esta al dia'; else fail 'generate-published-adapters --check detecto divergencias'; fi
 
 printf 'RESULTADO: %s pasaron, %s fallaron\n' "$PASS" "$FAIL"

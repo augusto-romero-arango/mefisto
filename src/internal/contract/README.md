@@ -46,48 +46,22 @@ expresan intenciones, nunca nombres de tools o claves de permisos.
 ## Generacion de adaptadores
 
 `src/internal/scripts/generate-internal-adapters.sh` transforma las fuentes
-neutrales en `.claude/{agents,commands}/` y
-`.opencode/{agents,commands}/`. Las salidas incluyen un marcador estable de
-archivo generado y no se editan a mano. El modo `--check` genera en un temporal
-y detecta salidas faltantes, distintas, huerfanas o sin marcador.
+neutrales en `.claude/{agents,commands}/`. Las salidas incluyen un marcador
+estable de archivo generado y no se editan a mano. El modo `--check` genera en
+un temporal y detecta salidas faltantes, distintas, huerfanas o sin marcador.
 
 Mapeo principal:
 
-| Campo neutral | Adaptador Claude Code | Adaptador OpenCode |
-|---|---|---|
-| `description` | `description` | `description` |
-| `mode` | se omite | `mode` |
-| `capabilities` | `tools` / `allowed-tools` | `permission` en agentes |
-| `skills` | `skills` | permiso `skill` acotado a esos ids + instruccion de carga on-demand (requiere la capacidad `skill`) |
-| `agent` de comando | directiva de body | `agent` + `subtask: true` |
-| `arguments` | `argument-hint` | se omite |
-| `profile` | modelo por tabla fija | se omite; el usuario configura el modelo interactivo |
-| `effort` (agente) | `effort` nativo por tabla fija (`runtime_claude_default_effort`), justo despues de `model` | se omite del agente; lo aplica el plugin generado `.opencode/plugins/mefisto-efforts.js` (ver abajo) |
-
-### Effort de los agentes internos en conversaciones OpenCode
-
-En OpenCode `variant` solo rige cuando el agente fija su propio `model`, y los
-agentes internos no lo fijan. `generate-internal-adapters.sh` genera por eso
-`.opencode/plugins/mefisto-efforts.js` (hook `config`, descubierto por OpenCode
-en todo `.opencode/plugins/`), con `{id, profile, effort}` de cada fuente
-`src/internal/agents/*.md` y la tabla de nativos por defecto
-(`adapter_opencode_default_effort`, que delega en
-`runtime_opencode_default_effort`) embebidos. No comparte codigo con el plugin
-publicado (MEF-ADR-0019). Lee `<worktree>/.mefisto/models.json` al arrancar:
-
-- Inyecta `agent.<id>.{model,variant}` solo si el mapping fija modelo para ese
-  agente (`opencode.agents.<id>`) o para su perfil (`opencode.profiles.<profile>`);
-  sin modelo local el agente sigue heredando el modelo interactivo.
-- Nivel: `opencode.efforts.agents.<id>` > nivel de fabrica. Nativo:
-  `opencode.efforts.levels.<nivel>` > tabla por defecto. Un nivel fuera del
-  vocabulario omite ese agente (`efforts_level_invalid`).
-- Si la config del usuario ya fija `model` o `variant` para ese agente, no la
-  sobreescribe y registra el conflicto (`efforts_config_conflict`). Un mapping
-  ilegible o de forma invalida no inyecta nada (`efforts_mapping_invalid`) y
-  nunca rompe el arranque.
-
-`--check` lo trata como el resto de salidas: faltante, distinta, huerfana o sin
-marcador. Lo cubre `.claude/scripts/tests/test-internal-opencode-efforts-plugin.sh`.
+| Campo neutral | Adaptador Claude Code |
+|---|---|
+| `description` | `description` |
+| `mode` | campo del contrato que este adaptador no traduce; se omite |
+| `capabilities` | `tools` / `allowed-tools` |
+| `skills` | `skills` |
+| `agent` de comando | campo del contrato que este adaptador no traduce; el enrutamiento va en el body con `{{mefisto:launch-agent <id>}}` |
+| `arguments` | `argument-hint` |
+| `profile` | modelo por tabla fija |
+| `effort` (agente) | `effort` nativo por tabla fija (`runtime_claude_default_effort`), justo despues de `model` |
 
 El mapping de modelos en ejecucion headless vive en los adaptadores y en
 `mefisto-models.sh`; el generador no lee `.mefisto/models.json`, porque eso
@@ -100,13 +74,12 @@ La fuente canonica es `src/internal/skills/<id>/` (`SKILL.md` con frontmatter
 YAML portable de MEF-ADR-0033, mas recursos de Nivel 3). El generador copia el
 directorio a `.claude/skills/<id>/`; en `SKILL.md` inserta el marcador de
 generado justo despues del frontmatter (que se conserva verbatim) y los demas
-archivos se copian tal cual. No emite `.opencode/skills/`: OpenCode ya descubre
-`.claude/skills/` (verificacion abajo) y duplicarlo cargaria el Skill dos veces.
-`--check` reporta Skills faltantes, distintos, huerfanos o sin marcador bajo
-`.claude/skills/`. `validate-internal-artifacts.sh` exige en cada `SKILL.md`:
-`name` igual al directorio, `description` presente y ningun `allowed-tools`.
-Los Skills no pasan por la regla de neutralidad de body de agentes/comandos
-(documentan ambos runtimes), pero si por el gate de neutralidad de texto.
+archivos se copian tal cual. `--check` reporta Skills faltantes, distintos,
+huerfanos o sin marcador bajo `.claude/skills/`.
+`validate-internal-artifacts.sh` exige en cada `SKILL.md`: `name` igual al
+directorio, `description` presente y ningun `allowed-tools`. Los Skills no
+pasan por la regla de neutralidad de body de agentes/comandos (pueden
+documentar un adaptador concreto), pero si por el gate de neutralidad de texto.
 
 ### Skills publicados proyectados (issue #2529)
 
@@ -119,24 +92,7 @@ copiados tal cual. No es una segunda copia mantenida a mano: la fuente sigue
 siendo `skills/<id>/` y `--check` detecta cualquier edicion directa. Los
 demas Skills publicados (p. ej. `projections`) no se proyectan para que no se
 disparen en este repo. Un id presente a la vez en `src/internal/skills/` y en la
-allowlist aborta la generacion con un error que nombra el id. Tampoco se emite
-`.opencode/skills/`, por la misma razon que con los internos.
-
-### Verificacion de descubrimiento en OpenCode (issue #1685, CA-1)
-
-- **Fecha**: 2026-09-29. **Version**: 1.18.32 (la fijada en
-  `.opencode/package.json` via `@opencode-ai/plugin`, igual al binario
-  instalado en la verificacion). **Fuente**: evidencia empirica
-  mas documentacion oficial (<https://opencode.ai/docs/skills/>, verificada
-  2026-09-06 en el Skill `agent-skill-authoring`).
-- **Resultado**: `debug skill` ejecutado en la raiz del repo lista
-  `agent-skill-authoring` y `harness-config-contract` con `location` bajo
-  `.claude/skills/<id>/SKILL.md`. Descubre esa ruta y las carga bajo demanda
-  con la tool nativa `skill`, con el `name` del frontmatter (igual al
-  directorio) como nombre. Consecuencia: no se genera `.opencode/skills/`, y
-  el permiso `skill` de un agente usa esos mismos ids.
-- **Re-verificar** al subir la version de OpenCode: repetir `debug skill`
-  redirigiendo la salida a un archivo (por tuberia se trunca).
+allowlist aborta la generacion con un error que nombra el id.
 
 Las directivas de body son el unico escape neutral y una directiva desconocida
 aborta la generacion:
@@ -147,13 +103,10 @@ aborta la generacion:
 | `{{mefisto:run <script> <args>}}` | Invoca la superficie estable `.claude/scripts/` con el runtime activo |
 | `{{mefisto:command-path <id>}}` | Resuelve la ruta de comando propia del adaptador |
 
-`opencode-permissions.json` traduce capacidades al vocabulario cerrado de
-permisos verificado para el adaptador. La politica es deny-por-defecto, incluye
-siempre `external_directory: deny` y no deja claves en `ask` durante ejecucion
-headless. `mcp` no tiene mapping implicito: el generador aborta hasta que haya
-una decision explicita. `neutrality-allowlist.json` registra solo excepciones
-permanentes del gate de neutralidad; el schema comun de eventos no pertenece a
-esa lista interna.
+La capacidad `mcp` no tiene mapping implicito: el generador aborta hasta que
+haya una decision explicita. `neutrality-allowlist.json` registra solo
+excepciones permanentes del gate de neutralidad; el schema comun de eventos no
+pertenece a esa lista interna.
 
 ## Validacion de artefactos
 

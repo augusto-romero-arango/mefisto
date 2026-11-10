@@ -684,7 +684,7 @@ fi
 # (MEFISTO_RUNTIME, que el comando antepone siempre): con el runtime claude y
 # sin MEFISTO_UI explicito, la cinta de la propia sesion es el visor y no se
 # abre pane ni sesion tmux. Un MEFISTO_UI explicito (tmux|herdr|mod) siempre
-# gana; el runtime opencode conserva el pane herdr / sesion tmux de siempre.
+# gana; un runtime sin cinta de sesion conserva el pane herdr / sesion tmux de siempre.
 uses_detached_ui() {
     [ "${MEFISTO_UI:-}" = "mod" ] && return 0
     [ -z "${MEFISTO_UI:-}" ] && [ "${MEFISTO_RUNTIME:-}" = "claude" ] && return 0

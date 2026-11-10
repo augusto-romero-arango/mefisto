@@ -120,11 +120,11 @@ STUB
     chmod +x "$1"
 }
 
-# make_opencode_stub <path>
-# Solo necesita existir en PATH para que runtime_opencode_is_available (que
-# hace 'command -v opencode') resuelva el runtime; el runner real esta
+# make_claude_stub <path>
+# Solo necesita existir en PATH para que runtime_claude_is_available (que
+# hace 'command -v claude') resuelva el runtime; el runner real esta
 # reemplazado por completo via MEFISTO_RUN_AGENT_BIN.
-make_opencode_stub() {
+make_claude_stub() {
     cat > "$1" <<'STUB'
 #!/usr/bin/env bash
 exit 0
@@ -208,7 +208,7 @@ run_pipeline() {
     (
         cd "$workdir" || exit 99
         env -i HOME="$HOME" PATH="$bindir:$SAFE_SYSTEM_PATH" \
-            MEFISTO_RUNTIME=opencode MEFISTO_RUN_AGENT_BIN="$run_agent_bin" \
+            MEFISTO_RUNTIME=claude MEFISTO_RUN_AGENT_BIN="$run_agent_bin" \
             STUB_STATE_DIR="$state_dir" \
             "$@" \
             ./scripts/iac-pipeline.sh "$issue" --env dev
@@ -229,7 +229,7 @@ BIN_A="$TMP_DIR/bin-a"
 mkdir -p "$BIN_A"
 make_gh_stub "$BIN_A/gh" 9001 "Issue de prueba A"
 make_terraform_stub "$BIN_A/terraform"
-make_opencode_stub "$BIN_A/opencode"
+make_claude_stub "$BIN_A/claude"
 RUN_AGENT_STUB_A="$TMP_DIR/run-agent-a.sh"
 make_run_agent_stub "$RUN_AGENT_STUB_A"
 STATE_A="$TMP_DIR/stub-state-a"; mkdir -p "$STATE_A"
@@ -267,8 +267,8 @@ if [ -f "$STATUS_A" ]; then
     else
         fail "status.state inesperado: $(jq -r '.state' "$STATUS_A")"
     fi
-    if [ "$(jq -r '.runtime' "$STATUS_A")" = "opencode" ]; then
-        pass "status.runtime == opencode"
+    if [ "$(jq -r '.runtime' "$STATUS_A")" = "claude" ]; then
+        pass "status.runtime == claude"
     else
         fail "status.runtime inesperado: $(jq -r '.runtime' "$STATUS_A")"
     fi
@@ -291,8 +291,8 @@ if [ -s "$HISTORY_A" ]; then
     pass "pipeline-history.jsonl presente"
     LAST_A=$(tail -n1 "$HISTORY_A")
     if [ "$(printf '%s' "$LAST_A" | jq -r '.state')" = "failed" ] \
-        && [ "$(printf '%s' "$LAST_A" | jq -r '.runtime')" = "opencode" ]; then
-        pass "la ultima fila del historial trae state:failed y runtime:opencode"
+        && [ "$(printf '%s' "$LAST_A" | jq -r '.runtime')" = "claude" ]; then
+        pass "la ultima fila del historial trae state:failed y runtime:claude"
     else
         fail "fila de historial incorrecta: $LAST_A"
     fi
@@ -340,7 +340,7 @@ BIN_B="$TMP_DIR/bin-b"
 mkdir -p "$BIN_B"
 make_gh_stub "$BIN_B/gh" 9002 "Issue de prueba B"
 make_terraform_stub "$BIN_B/terraform"
-make_opencode_stub "$BIN_B/opencode"
+make_claude_stub "$BIN_B/claude"
 RUN_AGENT_STUB_B="$TMP_DIR/run-agent-b.sh"
 make_run_agent_stub "$RUN_AGENT_STUB_B"
 STATE_B="$TMP_DIR/stub-state-b"; mkdir -p "$STATE_B"
@@ -387,7 +387,7 @@ BIN_C="$TMP_DIR/bin-c"
 mkdir -p "$BIN_C"
 make_gh_stub "$BIN_C/gh" 9003 "Issue de prueba C"
 make_terraform_stub "$BIN_C/terraform"
-make_opencode_stub "$BIN_C/opencode"
+make_claude_stub "$BIN_C/claude"
 RUN_AGENT_STUB_C="$TMP_DIR/run-agent-c.sh"
 make_run_agent_stub "$RUN_AGENT_STUB_C"
 STATE_C="$TMP_DIR/stub-state-c"; mkdir -p "$STATE_C"

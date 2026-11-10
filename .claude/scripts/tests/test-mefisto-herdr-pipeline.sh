@@ -9,7 +9,7 @@
 # test-mefisto-stage-models.sh, test-tooling-state-paths.sh).
 #
 # Cubre (CA-6 de #872; el pool con clave de runtime es CA-1..CA-6 de #928):
-#   [1-4] --tooling/--batch heredan MEFISTO_RUNTIME=claude|opencode (y
+#   [1-4] --tooling/--batch heredan MEFISTO_RUNTIME=claude|fake (y
 #         MEFISTO_MODELS_FILE) en el pane run, antepuestos como asignacion de
 #         entorno a la invocacion del runner (CA-2 de #872).
 #   [5]   Sin MEFISTO_RUNTIME/MEFISTO_MODELS_FILE fijados, el pane run no
@@ -28,18 +28,18 @@
 #         (issue #928).
 #   [17]  Un pane registrado pero ocupado se descarta: crea uno nuevo via
 #         "pane split" en vez de reusarlo.
-#   [18]  CA-1 (#928): con claude y opencode instalados a la vez y sin
+#   [18]  CA-1 (#928): con claude y fake disponibles a la vez y sin
 #         MEFISTO_RUNTIME, acquire_report_pane aborta con el texto de
 #         MEFISTO_RUNTIME_ERROR ANTES de tocar el pool -- cero herdr pane
 #         split/run/close y el archivo del pool queda intacto.
 #   [19]  CA-2 (#928): un despacho que crea pane nuevo escribe la linea con
 #         clave "<pane_id> <runtime>" en el pool.
 #   [20]  CA-3 (#928): con el pool en "w1:p9 claude" libre y un despacho
-#         opencode, se crea pane nuevo (no se reutiliza ni se cierra el de
+#         fake, se crea pane nuevo (no se reutiliza ni se cierra el de
 #         otro runtime) y "w1:p9 claude" sigue en el archivo.
 #   [21]  CA-4 (#928): la poda de panes libres sobrantes solo considera el
-#         mismo runtime -- con "w1:p8 opencode"/"w1:p9 opencode"/"w1:p7 claude"
-#         libres y un despacho opencode, se reutiliza w1:p8, se cierra w1:p9 y
+#         mismo runtime -- con "w1:p8 fake"/"w1:p9 fake"/"w1:p7 claude"
+#         libres y un despacho fake, se reutiliza w1:p8, se cierra w1:p9 y
 #         w1:p7 (otro runtime) ni se cierra ni sale del pool.
 #   [22]  CA-5 (#928): una linea legacy sin clave de runtime ("w1:p9") se
 #         descarta del pool al primer barrido, sin "herdr pane close" -- costo
@@ -58,7 +58,7 @@
 #         referencias ".claude/scripts" en codigo son la invocacion del visor
 #         -- que sigue viviendo ahi porque #878 neutralizo su fuente de datos,
 #         no su ubicacion (mismo caso que mefisto-tmux-pipeline.sh tras #871)
-#         -- y cero defaults literales de runtime (ningun ":-(claude|opencode)",
+#         -- y cero defaults literales de runtime (ningun ":-claude",
 #         issue #928 CA-6: el runtime se resuelve siempre con
 #         mefisto_resolve_runtime, nunca incrustado en esta capa neutral).
 #   [29]  tail -f en vivo del .report.log dentro de --_pane-runner (issue
@@ -71,7 +71,7 @@
 #         comando falso (exit 0 y exit 7) y que no queda ningun `tail -f` del
 #         reporte vivo tras la corrida (CA-3). No pasa por acquire_report_pane
 #         (el runner interno no resuelve runtime, issue #928 nota tecnica), asi
-#         que no depende del stub de claude/opencode en PATH.
+#         que no depende del stub de claude en PATH.
 #   [30-33] Confirmacion de arranque del runner (issue #1563, porte #1571):
 #         mismo mecanismo que scripts/tests/test-herdr-dispatch-confirm.sh del
 #         lado publicado. [30] arranque confirmado al primer intento: un solo
@@ -158,9 +158,9 @@ chmod +x "$FAKE_BIN/gh"
 # PATH restringido de run_herdr (ver mas abajo), asi la autodeteccion de
 # mefisto_resolve_runtime resuelve siempre "claude" en los tests que no fijan
 # MEFISTO_RUNTIME explicitamente -- sin esto, la maquina real que corre la
-# suite (con claude Y/O opencode instalados de verdad) haria la autodeteccion
-# no determinista. El bloque [18] (CA-1, runtimes ambiguos) agrega un
-# "opencode" temporal a este mismo directorio solo durante su corrida.
+# suite (con o sin un claude instalado de verdad) haria la autodeteccion
+# no determinista. El bloque [18] (CA-1, runtimes ambiguos) declara disponible
+# el adaptador fake solo durante su corrida.
 cat > "$FAKE_BIN/claude" <<'STUB'
 #!/usr/bin/env bash
 exit 0
@@ -248,10 +248,10 @@ LAST_RC=0
 #
 # PATH="$FAKE_BIN:/usr/bin:/bin" (issue #928), no "$FAKE_BIN:$PATH": desde que
 # acquire_report_pane resuelve el runtime con mefisto_resolve_runtime, un
-# "command -v claude"/"command -v opencode" que se cuele hasta un CLI real
+# "command -v claude" que se cuele hasta un CLI real
 # (tipicamente en ~/.local/bin o /opt/homebrew/bin, fuera de este PATH
-# recortado) haria la autodeteccion no determinista segun que runtimes tenga
-# instalados la maquina que corre la suite. /usr/bin y /bin alcanzan para git,
+# recortado) haria la autodeteccion no determinista segun lo que tenga
+# instalado la maquina que corre la suite. /usr/bin y /bin alcanzan para git,
 # jq y el resto de coreutils que el canonico y _mefisto-common.sh usan.
 run_herdr() {
     : > "$HERDR_STUB_LOG"
@@ -302,16 +302,16 @@ else
 fi
 
 echo ""
-echo "[2] --tooling hereda MEFISTO_RUNTIME=opencode y MEFISTO_MODELS_FILE en el pane run"
-export MEFISTO_RUNTIME=opencode
+echo "[2] --tooling hereda MEFISTO_RUNTIME=fake y MEFISTO_MODELS_FILE en el pane run"
+export MEFISTO_RUNTIME=fake
 export MEFISTO_MODELS_FILE=/tmp/modelos-de-mentira.json
 run_herdr --tooling 872
 unset MEFISTO_RUNTIME MEFISTO_MODELS_FILE
 if [ "$LAST_RC" -eq 0 ]; then pass "--tooling corre sin abortar (rc=$LAST_RC)"; else fail "no deberia abortar (rc=$LAST_RC, stderr: $LAST_STDERR)"; fi
-if grep -qF "MEFISTO_RUNTIME=opencode" "$HERDR_STUB_LOG"; then
-    pass "el pane run lleva MEFISTO_RUNTIME=opencode"
+if grep -qF "MEFISTO_RUNTIME=fake" "$HERDR_STUB_LOG"; then
+    pass "el pane run lleva MEFISTO_RUNTIME=fake"
 else
-    fail "el pane run no lleva MEFISTO_RUNTIME=opencode -- log: $(cat "$HERDR_STUB_LOG")"
+    fail "el pane run no lleva MEFISTO_RUNTIME=fake -- log: $(cat "$HERDR_STUB_LOG")"
 fi
 if grep -qF "MEFISTO_MODELS_FILE=/tmp/modelos-de-mentira.json" "$HERDR_STUB_LOG"; then
     pass "el pane run lleva MEFISTO_MODELS_FILE"
@@ -332,15 +332,15 @@ else
 fi
 
 echo ""
-echo "[4] --batch hereda MEFISTO_RUNTIME=opencode en el pane run"
-export MEFISTO_RUNTIME=opencode
+echo "[4] --batch hereda MEFISTO_RUNTIME=fake en el pane run"
+export MEFISTO_RUNTIME=fake
 run_herdr --batch 872 873
 unset MEFISTO_RUNTIME
 if [ "$LAST_RC" -eq 0 ]; then pass "--batch corre sin abortar (rc=$LAST_RC)"; else fail "no deberia abortar (rc=$LAST_RC, stderr: $LAST_STDERR)"; fi
-if grep -qF "MEFISTO_RUNTIME=opencode" "$HERDR_STUB_LOG"; then
-    pass "el pane run lleva MEFISTO_RUNTIME=opencode"
+if grep -qF "MEFISTO_RUNTIME=fake" "$HERDR_STUB_LOG"; then
+    pass "el pane run lleva MEFISTO_RUNTIME=fake"
 else
-    fail "el pane run no lleva MEFISTO_RUNTIME=opencode -- log: $(cat "$HERDR_STUB_LOG")"
+    fail "el pane run no lleva MEFISTO_RUNTIME=fake -- log: $(cat "$HERDR_STUB_LOG")"
 fi
 
 echo ""
@@ -529,17 +529,11 @@ echo "----------------------------------------"
 # --- [18-22] Runtime como clave del pool (issue #928, CA-1..CA-5) ------------
 
 echo ""
-echo "[18] CA-1: claude y opencode instalados a la vez sin MEFISTO_RUNTIME -- aborta antes de tocar el pool"
+echo "[18] CA-1: claude y fake disponibles a la vez sin MEFISTO_RUNTIME -- aborta antes de tocar el pool"
 mkdir -p "$FAKE_MEFISTO/.mefisto/pipeline"
 printf 'w1:p9 claude\n' > "$FAKE_MEFISTO/.mefisto/pipeline/herdr-report-panes.txt"
 POOL_BEFORE=$(cat "$FAKE_MEFISTO/.mefisto/pipeline/herdr-report-panes.txt")
-cat > "$FAKE_BIN/opencode" <<'STUB'
-#!/usr/bin/env bash
-exit 0
-STUB
-chmod +x "$FAKE_BIN/opencode"
-run_herdr --tooling 872
-rm -f "$FAKE_BIN/opencode"
+MEFISTO_FAKE_AVAILABLE=1 run_herdr --tooling 872
 if [ "$LAST_RC" -eq 1 ]; then pass "aborta (rc=$LAST_RC)"; else fail "deberia abortar (rc=$LAST_RC)"; fi
 if printf '%s' "$LAST_STDERR" | grep -q "No se pudo resolver el runtime activo" \
     && printf '%s' "$LAST_STDERR" | grep -q "varios runtimes disponibles"; then
@@ -562,21 +556,21 @@ fi
 echo ""
 echo "[19] CA-2: un despacho que crea pane nuevo escribe '<pane_id> <runtime>' en el pool"
 rm -f "$FAKE_MEFISTO/.mefisto/pipeline/herdr-report-panes.txt"
-export MEFISTO_RUNTIME=opencode
+export MEFISTO_RUNTIME=fake
 run_herdr --tooling 872
 unset MEFISTO_RUNTIME
 if [ "$LAST_RC" -eq 0 ]; then pass "corre sin abortar (rc=$LAST_RC)"; else fail "no deberia abortar (rc=$LAST_RC, stderr: $LAST_STDERR)"; fi
 POOL_CONTENT=$(cat "$FAKE_MEFISTO/.mefisto/pipeline/herdr-report-panes.txt" 2>/dev/null)
-if printf '%s\n' "$POOL_CONTENT" | grep -qE '^w1:p[0-9]+ opencode$'; then
-    pass "el pool guarda la linea con clave '<pane_id> opencode'"
+if printf '%s\n' "$POOL_CONTENT" | grep -qE '^w1:p[0-9]+ fake$'; then
+    pass "el pool guarda la linea con clave '<pane_id> fake'"
 else
     fail "el pool no tiene el formato esperado -- contenido: '$POOL_CONTENT'"
 fi
 
 echo ""
-echo "[20] CA-3: pool con 'w1:p9 claude' libre, despacho opencode crea pane nuevo sin tocar el de claude"
+echo "[20] CA-3: pool con 'w1:p9 claude' libre, despacho fake crea pane nuevo sin tocar el de claude"
 printf 'w1:p9 claude\n' > "$FAKE_MEFISTO/.mefisto/pipeline/herdr-report-panes.txt"
-export MEFISTO_RUNTIME=opencode
+export MEFISTO_RUNTIME=fake
 HERDR_STUB_FREE=true run_herdr --tooling 872
 unset MEFISTO_RUNTIME
 if [ "$LAST_RC" -eq 0 ]; then pass "corre sin abortar (rc=$LAST_RC)"; else fail "no deberia abortar (rc=$LAST_RC, stderr: $LAST_STDERR)"; fi
@@ -599,8 +593,8 @@ fi
 
 echo ""
 echo "[21] CA-4: la poda de panes libres sobrantes solo considera el mismo runtime"
-printf 'w1:p8 opencode\nw1:p9 opencode\nw1:p7 claude\n' > "$FAKE_MEFISTO/.mefisto/pipeline/herdr-report-panes.txt"
-export MEFISTO_RUNTIME=opencode
+printf 'w1:p8 fake\nw1:p9 fake\nw1:p7 claude\n' > "$FAKE_MEFISTO/.mefisto/pipeline/herdr-report-panes.txt"
+export MEFISTO_RUNTIME=fake
 HERDR_STUB_FREE=true run_herdr --tooling 872
 unset MEFISTO_RUNTIME
 if [ "$LAST_RC" -eq 0 ]; then pass "corre sin abortar (rc=$LAST_RC)"; else fail "no deberia abortar (rc=$LAST_RC, stderr: $LAST_STDERR)"; fi
@@ -610,12 +604,12 @@ else
     pass "no crea un pane nuevo (reusa uno libre del mismo runtime)"
 fi
 if grep -qF "pane run w1:p8" "$HERDR_STUB_LOG"; then
-    pass "reutiliza w1:p8 (opencode)"
+    pass "reutiliza w1:p8 (fake)"
 else
     fail "no reutilizo w1:p8 -- log: $(cat "$HERDR_STUB_LOG")"
 fi
 if grep -qF "pane close w1:p9" "$HERDR_STUB_LOG"; then
-    pass "cierra el sobrante w1:p9 (opencode)"
+    pass "cierra el sobrante w1:p9 (fake)"
 else
     fail "no cerro el sobrante w1:p9 -- log: $(cat "$HERDR_STUB_LOG")"
 fi
@@ -630,10 +624,10 @@ if printf '%s\n' "$POOL_CONTENT" | grep -qxF "w1:p7 claude"; then
 else
     fail "w1:p7 claude salio del pool -- contenido: '$POOL_CONTENT'"
 fi
-if printf '%s\n' "$POOL_CONTENT" | grep -qxF "w1:p9 opencode"; then
-    fail "w1:p9 opencode deberia haber salido del pool tras cerrarse -- contenido: '$POOL_CONTENT'"
+if printf '%s\n' "$POOL_CONTENT" | grep -qxF "w1:p9 fake"; then
+    fail "w1:p9 fake deberia haber salido del pool tras cerrarse -- contenido: '$POOL_CONTENT'"
 else
-    pass "w1:p9 opencode ya no esta en el pool"
+    pass "w1:p9 fake ya no esta en el pool"
 fi
 
 echo ""
@@ -804,11 +798,11 @@ fi
 # mefisto_resolve_runtime -- un default literal incrustado aqui (p. ej.
 # "${MEFISTO_RUNTIME:-claude}") degradaria en silencio a un unico runtime
 # fijo, exactamente lo que el pool con clave de runtime deja de tolerar.
-if grep -qE ':-(claude|opencode)' "$CANON_HERDR"; then
+if grep -qE ':-claude' "$CANON_HERDR"; then
     fail "el canonico incrusta un default literal de runtime"
-    grep -nE ':-(claude|opencode)' "$CANON_HERDR"
+    grep -nE ':-claude' "$CANON_HERDR"
 else
-    pass "cero defaults literales de runtime (':-(claude|opencode)')"
+    pass "cero defaults literales de runtime (':-claude')"
 fi
 if grep -qF 'source "$(cd "$SCRIPT_DIR/../../runtime/lib" && pwd)/mefisto-runtime.sh"' "$CANON_HERDR" \
    && grep -qF 'runtime=$(mefisto_resolve_runtime)' "$CANON_HERDR"; then
@@ -1075,8 +1069,8 @@ for mode in "--tooling 2284" "--batch 2284 2285"; do
 done
 
 echo ""
-echo "[35] CA-2 (#2284): runtime opencode conserva el split a la derecha de HERDR_PANE_ID"
-run_wrapper MEFISTO_RUNTIME=opencode "$WRAPPER" --tooling 2284
+echo "[35] CA-2 (#2284): runtime fake conserva el split a la derecha de HERDR_PANE_ID"
+run_wrapper MEFISTO_RUNTIME=fake "$WRAPPER" --tooling 2284
 if grep -qF "pane split --pane w1:p0 --direction right" "$HERDR_STUB_LOG"; then pass "split a la derecha de w1:p0"; else fail "sin split esperado -- log: $(cat "$HERDR_STUB_LOG")"; fi
 
 echo ""
@@ -1088,7 +1082,7 @@ if grep -qF "tmux new-session" "$HERDR_STUB_LOG" && no_pane_calls; then pass "ME
 
 echo ""
 echo "[37] CA-4 (#2284): pane heredado/ajeno aborta sin tocar panes"
-HERDR_STUB_OWNER_PID=999999 run_wrapper MEFISTO_RUNTIME=opencode "$WRAPPER" --tooling 2284
+HERDR_STUB_OWNER_PID=999999 run_wrapper MEFISTO_RUNTIME=fake "$WRAPPER" --tooling 2284
 if [ "$LAST_RC" -ne 0 ]; then pass "exit != 0"; else fail "deberia abortar"; fi
 if printf '%s' "$LAST_STDERR" | grep -q "heredado"; then pass "mensaje del guard"; else fail "mensaje inesperado: $LAST_STDERR"; fi
 if no_pane_calls; then pass "cero pane split|run|close"; else fail "toco panes -- log: $(cat "$HERDR_STUB_LOG")"; fi

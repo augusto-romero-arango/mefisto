@@ -11,8 +11,8 @@
 #
 # Uso: `source`ado por .claude/scripts/_mefisto-common.sh -- ningun caller lo
 # sourcea directamente. Nace en src/internal/scripts/lib/ (layout canonico de
-# MEF-ADR-0049, issue #851) para no tener que moverlo despues, cuando el
-# adaptador OpenCode empiece a generarse a partir de esta misma fuente.
+# MEF-ADR-0049, issue #851) para no tener que moverlo despues, cuando otro
+# adaptador empiece a generarse a partir de esta misma fuente.
 #
 # Punto de extension: el archivo queda preparado para exportar mas variables
 # (MEFISTO_RUNTIME y el mapping de modelos de #857/#858), sin implementarlas

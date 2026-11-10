@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Contrato del comando batch-stop neutral y sus dos proyecciones publicadas
+# Contrato del comando batch-stop neutral y su proyeccion publicada
 # (issue #1596: migracion desde el formato Claude-only commands/batch-stop.md).
 set -uo pipefail
 export LC_ALL=C
@@ -7,7 +7,6 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
 REPO_ROOT="$(cd "$HERE/../../../.." && pwd -P)"
 SOURCE="$REPO_ROOT/src/published/commands/batch-stop.md"
 CLAUDE="$REPO_ROOT/dist/claude/commands/batch-stop.md"
-OPENCODE="$REPO_ROOT/dist/opencode/commands/mefisto:batch-stop.md"
 MIRROR="$REPO_ROOT/commands/batch-stop.md"
 GENERATOR="$REPO_ROOT/src/published/scripts/generate-published-adapters.sh"
 # Forma previa a #2206: la raiz de la senal era --show-toplevel sin pasar por --git-common-dir.
@@ -46,22 +45,19 @@ contains "$body" 'pgrep -f "[s]cripts/batch-pipeline\.sh"' 'patron de deteccion 
 contains "$body" 'pipeline-state/batch-stop' 'ruta de la senal relativa a la raiz del repo'
 contains "$body" 'git -C "$REPO_ROOT" rev-parse --git-common-dir' 'la raiz de la senal sale de --git-common-dir (#2206)'
 absent "$body" "$SOLO_TOPLEVEL" 'la fuente ya no escribe la senal en --show-toplevel a secas (#2206)'
-for forbidden in 'Claude' 'OpenCode' '.claude/' '.opencode/' 'cache' 'model:' 'tools:' 'allowed-tools:' 'permission:' '.claude-plugin' 'CLAUDE_' '/mefisto-batch-stop'; do absent "$body" "$forbidden" "fuente no publica token prohibido: $forbidden"; done
+for forbidden in 'Claude' '.claude/' 'cache' 'model:' 'tools:' 'allowed-tools:' 'permission:' '.claude-plugin' 'CLAUDE_' '/mefisto-batch-stop'; do absent "$body" "$forbidden" "fuente no publica token prohibido: $forbidden"; done
 
-echo '[salidas] adaptadores y mirror'
-for file in "$CLAUDE" "$OPENCODE"; do [ -f "$file" ] && pass "existe ${file#"$REPO_ROOT/"}" || fail "falta ${file#"$REPO_ROOT/"}"; done
-for label in claude opencode; do
-    case "$label" in claude) content="$(< "$CLAUDE")" ;; opencode) content="$(< "$OPENCODE")" ;; esac
-    contains "$content" 'pgrep -f "[s]cripts/batch-pipeline\.sh"' "$label conserva el patron de deteccion (CA-5a)"
-    contains "$content" 'pipeline-state/batch-stop' "$label conserva la ruta de la senal (CA-5a)"
-    contains "$content" 'git -C "$REPO_ROOT" rev-parse --git-common-dir' "$label usa --git-common-dir para la raiz de la senal (#2206)"
-    absent "$content" "$SOLO_TOPLEVEL" "$label ya no escribe la senal en --show-toplevel a secas (#2206)"
-    absent_word "$content" kill "$label no invoca kill (CA-5b)"
-    absent_word "$content" pkill "$label no invoca pkill (CA-5b)"
-    absent_word "$content" rm "$label no invoca rm (CA-5b)"
-done
+echo '[salidas] adaptador y mirror'
+[ -f "$CLAUDE" ] && pass "existe ${CLAUDE#"$REPO_ROOT/"}" || fail "falta ${CLAUDE#"$REPO_ROOT/"}"
+content="$(< "$CLAUDE")"
+contains "$content" 'pgrep -f "[s]cripts/batch-pipeline\.sh"' "claude conserva el patron de deteccion (CA-5a)"
+contains "$content" 'pipeline-state/batch-stop' "claude conserva la ruta de la senal (CA-5a)"
+contains "$content" 'git -C "$REPO_ROOT" rev-parse --git-common-dir' "claude usa --git-common-dir para la raiz de la senal (#2206)"
+absent "$content" "$SOLO_TOPLEVEL" "claude ya no escribe la senal en --show-toplevel a secas (#2206)"
+absent_word "$content" kill "claude no invoca kill (CA-5b)"
+absent_word "$content" pkill "claude no invoca pkill (CA-5b)"
+absent_word "$content" rm "claude no invoca rm (CA-5b)"
 contains "$(< "$CLAUDE")" 'model: "haiku"' 'Claude materializa el perfil fast (CA-5c)'
-absent "$(< "$OPENCODE")" 'model:' 'OpenCode no emite model (CA-5c)'
 if cmp -s "$MIRROR" "$CLAUDE"; then pass 'mirror Claude coincide byte a byte'; else fail 'mirror Claude diverge'; fi
 contains "$(< "$MIRROR")" '<!-- GENERADO por src/published/scripts/generate-published-adapters.sh desde src/published/commands/batch-stop.md. No editar a mano. -->' 'mirror conserva marcador generado'
 if "$GENERATOR" --check >/dev/null; then pass 'generate-published-adapters --check esta al dia'; else fail 'generate-published-adapters --check detecto divergencias'; fi

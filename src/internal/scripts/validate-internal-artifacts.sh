@@ -11,7 +11,7 @@
 # expresar porque no dependen solo del frontmatter:
 #   - frontmatter ausente, sin cierre o no-JSON (estructura del archivo);
 #   - `id` comparado contra el nombre del archivo;
-#   - neutralidad del body (CA-1: no nombra `claude` ni `opencode`).
+#   - neutralidad del body (CA-1: no nombra un runtime concreto).
 #
 # Uso: validate-internal-artifacts.sh [archivo...]
 #   Sin argumentos: valida todo src/internal/{agents,commands}/*.md (orden
@@ -50,19 +50,19 @@ source "$FRONTMATTER_LIB"
 
 # body_runtime_references <archivo> -- imprime el numero de linea (relativo al
 # archivo) de cada linea del body que nombra un runtime concreto. CA-1: la
-# fuente neutral describe intenciones, nunca `claude`/`opencode` ni sus
+# fuente neutral describe intenciones, nunca `claude` ni sus
 # directorios; esas referencias las introduce el generador (#854) o el
 # adaptador. Sin este chequeo, la mitad de CA-1 quedaria documentada pero no
 # verificada, justo cuando #865-#867 migraron los artefactos reales.
 #
 # Dos excepciones literales (issue #866, CA-2/CA-3): `.claude-plugin/` es el
 # manifiesto fisico del Claude Code Plugin, identico e indispensable en
-# ambos runtimes -- no un nombre de runtime, y el "guard inverso" que abre
+# cualquier runtime -- no un nombre de runtime, y el "guard inverso" que abre
 # todo comando lo cita tal cual. `.claude/scripts/` es la superficie estable
 # de invocacion de los pipelines internos (ver README.md, "Directivas de
-# body"): el propio adaptador emite ese mismo prefijo para los dos runtimes,
+# body"): el propio adaptador emite ese mismo prefijo,
 # asi que citarlo en prosa no filtra ninguna decision especifica de runtime.
-# Ninguna otra forma de "claude"/"opencode" (bare, la ruta de estado legacy
+# Ninguna otra forma de "claude" (bare, la ruta de estado legacy
 # previa a la migracion, `.claude/agents`, `.claude/commands`, etc.) entra en
 # esta excepcion.
 body_runtime_references() {
@@ -73,7 +73,7 @@ body_runtime_references() {
             line = $0
             gsub(/\.claude-plugin/, "", line)
             gsub(/\.claude\/scripts/, "", line)
-            if (tolower(line) ~ /claude|opencode/) print NR
+            if (tolower(line) ~ /claude/) print NR
         }
     ' "$1"
 }
@@ -145,7 +145,7 @@ validate_file() {
     local line
     while IFS= read -r line; do
         [ -n "$line" ] || continue
-        echo "$rel: body: linea $line nombra un runtime concreto (claude/opencode); la fuente neutral es agnostica (CA-1)"
+        echo "$rel: body: linea $line nombra un runtime concreto; la fuente neutral es agnostica (CA-1)"
         status=1
     done < <(body_runtime_references "$file")
 
@@ -156,7 +156,7 @@ validate_file() {
 # src/internal/skills/<id>/SKILL.md (issue #1685, MEF-ADR-0033): `name` igual
 # al directorio, `description` presente, sin `allowed-tools`. Es un chequeo
 # textual sobre las claves de primer nivel; el body de un Skill no pasa por la
-# regla de neutralidad de agentes/comandos (documenta ambos runtimes).
+# regla de neutralidad de agentes/comandos (documenta los adaptadores).
 validate_skill() {
     local file="$1"
     local rel="${file#"$REPO_ROOT"/}"

@@ -71,7 +71,7 @@ for agent in tooling-writer tooling-reviewer; do
     agent_body="$(body "$source")"
     contains "$agent_body" '{{mefisto:assert-consumer-repo}}' "$agent conserva el guard"
     contains "$agent_body" 'archivo de summary' "$agent declara el summary entregado"
-    for token in '.claude/' '.opencode/' '.mefisto/' 'Claude' 'OpenCode' 'model:' 'tools:' 'permission:'; do
+    for token in '.claude/' '.mefisto/' 'Claude' 'model:' 'tools:' 'permission:'; do
         absent "$agent_body" "$token" "$agent no fija token de runtime o ruta de estado: $token"
     done
 done
@@ -97,22 +97,15 @@ for role in "$writer" "$reviewer"; do
 done
 
 echo '[salidas] snapshots y capacidades derivadas'
-for runtime in claude opencode; do
-    for agent in tooling-writer tooling-reviewer; do
-        actual="$REPO_ROOT/dist/$runtime/agents/$agent.md"
-        expected="$FIXTURES/expected-$runtime-$agent.md"
-        if cmp -s "$expected" "$actual"; then pass "$runtime/$agent coincide con el snapshot"; else fail "$runtime/$agent difiere del snapshot"; fi
-        rendered="$(< "$actual")"
-        contains "$rendered" 'Antes de continuar, aborta si existe' "$runtime/$agent traduce el guard"
-        absent "$rendered" '{{mefisto:' "$runtime/$agent no conserva directivas"
-        case "$rendered" in *[Mm][Cc][Pp]*) fail "$runtime/$agent omite MCP" ;; *) pass "$runtime/$agent omite MCP" ;; esac
-        if [ "$runtime" = claude ]; then
-            contains "$rendered" 'skills: ["code-comments"]' "$runtime/$agent conserva skills"
-        else
-            contains "$rendered" '"skill":{"*":"deny","mefisto-code-comments":"allow"}' "$runtime/$agent habilita solo code-comments"
-            contains "$rendered" 'en este orden: `mefisto-code-comments`.' "$runtime/$agent precarga code-comments"
-        fi
-    done
+for agent in tooling-writer tooling-reviewer; do
+    actual="$REPO_ROOT/dist/claude/agents/$agent.md"
+    expected="$FIXTURES/expected-claude-$agent.md"
+    if cmp -s "$expected" "$actual"; then pass "claude/$agent coincide con el snapshot"; else fail "claude/$agent difiere del snapshot"; fi
+    rendered="$(< "$actual")"
+    contains "$rendered" 'Antes de continuar, aborta si existe' "claude/$agent traduce el guard"
+    absent "$rendered" '{{mefisto:' "claude/$agent no conserva directivas"
+    case "$rendered" in *[Mm][Cc][Pp]*) fail "claude/$agent omite MCP" ;; *) pass "claude/$agent omite MCP" ;; esac
+    contains "$rendered" 'skills: ["code-comments"]' "claude/$agent conserva skills"
 done
 claude_writer="$(< "$REPO_ROOT/dist/claude/agents/tooling-writer.md")"
 claude_reviewer="$(< "$REPO_ROOT/dist/claude/agents/tooling-reviewer.md")"
@@ -145,18 +138,6 @@ for agent in tooling-writer tooling-reviewer; do
         absent "$(< "$mirror")" "$forbidden" "mirror raiz de $agent omite $forbidden"
     done
 done
-opencode_writer="$(< "$REPO_ROOT/dist/opencode/agents/tooling-writer.md")"
-opencode_reviewer="$(< "$REPO_ROOT/dist/opencode/agents/tooling-reviewer.md")"
-for rendered in "$opencode_writer" "$opencode_reviewer"; do
-    contains "$rendered" 'mode: "all"' 'OpenCode conserva mode all'
-    contains "$rendered" '"read":{"*":"allow"' 'OpenCode permite lectura'
-    contains "$rendered" '"edit":{"*":"allow"' 'OpenCode permite edicion'
-    contains "$rendered" '"bash":{"*":"deny"' 'OpenCode mantiene shell deny por defecto'
-    contains "$rendered" '"webfetch":"deny"' 'OpenCode deniega web'
-    contains "$rendered" '"skill":{"*":"deny","mefisto-code-comments":"allow"}' 'OpenCode habilita solo code-comments'
-    contains "$rendered" '"task":"deny"' 'OpenCode deniega delegacion'
-    absent "$rendered" 'model:' 'OpenCode hereda modelo'
-done
 
 echo '[clausura] TOOLING_CLOSURE_ASSETS declara los scripts que arrancan TDD publicado'
 [ "$CLOSURE_COUNT" -gt 0 ] && pass "se derivaron $CLOSURE_COUNT assets de clausura" || fail 'no se pudo derivar TOOLING_CLOSURE_ASSETS'
@@ -164,7 +145,7 @@ for required in scripts/tdd-pipeline.sh src/runtime/lib/mefisto-process.sh; do
     if closure_has "$required"; then pass "la clausura declara $required"; else fail "la clausura no declara $required"; fi
 done
 
-echo '[integracion] generacion de las cuatro salidas y check limpio'
+echo '[integracion] generacion de las dos salidas y check limpio'
 if "$GENERATOR" --out "$WORK" \
     "$REPO_ROOT/src/published/agents/tooling-writer.md" \
     "$REPO_ROOT/src/published/agents/tooling-reviewer.md" >/dev/null; then
@@ -172,59 +153,49 @@ if "$GENERATOR" --out "$WORK" \
 else
     fail 'el generador no proceso ambos agentes en conjunto'
 fi
-# El inventario de cada distribucion es la unica autoridad sobre lo generado:
+# El inventario de la distribucion es la unica autoridad sobre lo generado:
 # en disco deben estar exactamente sus destinos, mas el propio inventario y
 # los dos agentes renderizados que esta suite somete a prueba. No queda ningun
-# conteo base manual: todo sale de la clausura derivada y de los inventarios.
+# conteo base manual: todo sale de la clausura derivada y del inventario.
 closure_expected="$(for i in "${!CLOSURE_SOURCES[@]}"; do printf '%s|%s\n' "${CLOSURE_SOURCES[$i]}" "${CLOSURE_MODES[$i]}"; done | sort)"
-skill_expected="$(cd "$REPO_ROOT/skills" && find . -type f | sed 's|^\./||' | sed 's|^\(.*\)$|skills/\1 skills/mefisto-\1|' | sort)"
-for runtime in claude opencode; do
-    inventory="$WORK/dist/$runtime/.mefisto-generated-assets.json"
-    expected_files="$({ jq -r '.assets[].destination' "$inventory"; printf '%s\n' '.mefisto-generated-assets.json'; } | sort)"
-    actual_files="$(cd "$WORK/dist/$runtime" && find . -type f | sed 's|^\./||' | sort)"
-    if [ "$expected_files" = "$actual_files" ]; then
-        pass "$runtime genera exactamente sus assets inventariados, su inventario y los dos agentes bajo prueba"
+inventory="$WORK/dist/claude/.mefisto-generated-assets.json"
+expected_files="$({ jq -r '.assets[].destination' "$inventory"; printf '%s\n' '.mefisto-generated-assets.json'; } | sort)"
+actual_files="$(cd "$WORK/dist/claude" && find . -type f | sed 's|^\./||' | sort)"
+if [ "$expected_files" = "$actual_files" ]; then
+    pass 'claude genera exactamente sus assets inventariados, su inventario y los dos agentes bajo prueba'
+else
+    fail "claude difiere entre disco e inventario: $(diff <(printf '%s\n' "$expected_files") <(printf '%s\n' "$actual_files") | tr '\n' ' ')"
+fi
+if jq -e '.schemaVersion == 1' "$inventory" >/dev/null; then pass 'claude inventaria con schemaVersion 1'; else fail 'claude no inventaria con schemaVersion 1'; fi
+closure_actual="$(jq -r '.assets[] | select(.adapter == "tooling-closure") | "\(.source)|\(.mode)"' "$inventory" | sort)"
+if [ "$closure_actual" = "$closure_expected" ]; then
+    pass "claude inventaria la clausura completa derivada de TOOLING_CLOSURE_ASSETS ($CLOSURE_COUNT assets)"
+else
+    fail 'claude no inventaria la clausura derivada de TOOLING_CLOSURE_ASSETS'
+fi
+for i in "${!CLOSURE_SOURCES[@]}"; do
+    closure_source="${CLOSURE_SOURCES[$i]}"
+    closure_mode="${CLOSURE_MODES[$i]}"
+    actual_file="$WORK/dist/claude/$closure_source"
+    if [ -f "$actual_file" ]; then expected_sha="$(sha256 "$actual_file")"; else expected_sha=''; fi
+    if jq -e --arg source "$closure_source" --arg mode "$closure_mode" --arg sha "$expected_sha" \
+        'any(.assets[]; .adapter == "tooling-closure" and .source == $source and .destination == $source and .mode == $mode and .sha256 == $sha)' \
+        "$inventory" >/dev/null; then
+        pass "claude inventaria $closure_source con source/destination/mode/sha256"
     else
-        fail "$runtime difiere entre disco e inventario: $(diff <(printf '%s\n' "$expected_files") <(printf '%s\n' "$actual_files") | tr '\n' ' ')"
+        fail "claude no inventaria $closure_source con source/destination/mode/sha256"
     fi
-    if jq -e '.schemaVersion == 1' "$inventory" >/dev/null; then pass "$runtime inventaria con schemaVersion 1"; else fail "$runtime no inventaria con schemaVersion 1"; fi
-    closure_actual="$(jq -r '.assets[] | select(.adapter == "tooling-closure") | "\(.source)|\(.mode)"' "$inventory" | sort)"
-    if [ "$closure_actual" = "$closure_expected" ]; then
-        pass "$runtime inventaria la clausura completa derivada de TOOLING_CLOSURE_ASSETS ($CLOSURE_COUNT assets)"
-    else
-        fail "$runtime no inventaria la clausura derivada de TOOLING_CLOSURE_ASSETS"
-    fi
-    for i in "${!CLOSURE_SOURCES[@]}"; do
-        closure_source="${CLOSURE_SOURCES[$i]}"
-        closure_mode="${CLOSURE_MODES[$i]}"
-        actual_file="$WORK/dist/$runtime/$closure_source"
-        if [ -f "$actual_file" ]; then expected_sha="$(sha256 "$actual_file")"; else expected_sha=''; fi
-        if jq -e --arg source "$closure_source" --arg mode "$closure_mode" --arg sha "$expected_sha" \
-            'any(.assets[]; .adapter == "tooling-closure" and .source == $source and .destination == $source and .mode == $mode and .sha256 == $sha)' \
-            "$inventory" >/dev/null; then
-            pass "$runtime inventaria $closure_source con source/destination/mode/sha256"
-        else
-            fail "$runtime no inventaria $closure_source con source/destination/mode/sha256"
-        fi
-    done
 done
-# Lo no-clausura de cada distribucion se afirma como conjunto semantico: el
-# manifiesto en Claude, y esfuerzos + observabilidad + MCP + todo el arbol de Skills en
-# OpenCode, derivado de skills/ en vez de muestrear dos archivos sueltos.
-claude_extra="$(jq -r '.assets[] | select(.adapter != "tooling-closure" and .adapter != "tooling-knowledge" and (.source | startswith("src/published/agents/") | not)) | "\(.id) \(.destination)"' "$WORK/dist/claude/.mefisto-generated-assets.json" | sort)"
-opencode_extra="$(jq -r '.assets[] | select(.adapter != "tooling-closure" and .adapter != "tooling-knowledge" and (.source | startswith("src/published/agents/") | not)) | "\(.id) \(.destination)"' "$WORK/dist/opencode/.mefisto-generated-assets.json" | sort)"
-opencode_extra_expected="$(printf '%s\n%s\n%s\n%s\n' 'efforts-config plugins/mefisto-efforts.js' 'interactive-observability plugins/mefisto-observability.js' 'mcp-config plugins/mefisto-mcp.js' "$skill_expected" | sort)"
+# Lo no-clausura se afirma como conjunto semantico: solo el manifiesto.
+claude_extra="$(jq -r '.assets[] | select(.adapter != "tooling-closure" and .adapter != "tooling-knowledge" and (.source | startswith("src/published/agents/") | not)) | "\(.id) \(.destination)"' "$inventory" | sort)"
 [ "$claude_extra" = 'mefisto-manifest mefisto-manifest.json' ] && pass 'Claude inventaria el manifiesto fuera de las clausuras compartidas' || fail "Claude inventaria assets inesperados fuera de las clausuras: $claude_extra"
-[ "$opencode_extra" = "$opencode_extra_expected" ] && pass 'OpenCode inventaria observabilidad, MCP y todos los archivos de Skills' || fail 'OpenCode no inventaria observabilidad, MCP y todos los archivos de Skills'
 [ ! -e "$WORK/dist/claude/skills" ] && pass 'Claude no recibe Skills adaptados ni internos' || fail 'Claude recibio un arbol de Skills adaptado'
-for runtime in claude opencode; do
-    for agent in tooling-writer tooling-reviewer; do
-        if cmp -s "$FIXTURES/expected-$runtime-$agent.md" "$WORK/dist/$runtime/agents/$agent.md"; then
-            pass "integracion $runtime/$agent coincide con el snapshot"
-        else
-            fail "integracion $runtime/$agent difiere del snapshot"
-        fi
-    done
+for agent in tooling-writer tooling-reviewer; do
+    if cmp -s "$FIXTURES/expected-claude-$agent.md" "$WORK/dist/claude/agents/$agent.md"; then
+        pass "integracion claude/$agent coincide con el snapshot"
+    else
+        fail "integracion claude/$agent difiere del snapshot"
+    fi
 done
 for agent in tooling-writer tooling-reviewer; do
     if cmp -s "$WORK/agents/$agent.md" "$WORK/dist/claude/agents/$agent.md"; then

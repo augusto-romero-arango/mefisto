@@ -6,7 +6,7 @@
 #   [pre]           El gate existe, es ejecutable y tiene sintaxis valida.
 #   [clean]         Un arbol positivo (shims conformes, salidas con marcador,
 #                   una excepcion de la allowlist realmente filtrada, prosa
-#                   "opencode runtime" que NO es invocacion, sin fugas)
+#                   "claude runtime" que NO es invocacion, sin fugas)
 #                   termina en exit 0 sin imprimir nada.
 #   [R1]-[R4]       Un negativo por regla, cada uno con la linea
 #                   "<ruta>:<linea>: <regla>" esperada; R1 anade un id de
@@ -205,7 +205,7 @@ write_allowlist "$DIR_CLEAN" '{
 }'
 mkdir -p "$DIR_CLEAN/src/internal/scripts/lib"
 printf '#!/usr/bin/env bash\n# menciona el modelo sonnet a proposito (cubierto por la excepcion)\necho ok\n' > "$DIR_CLEAN/src/internal/scripts/lib/fx-allowed-model.sh"
-printf '#!/usr/bin/env bash\n# el opencode runtime lo resuelve el runner neutral: esto es prosa, no una invocacion\necho ok\n' > "$DIR_CLEAN/src/internal/scripts/lib/fx-clean.sh"
+printf '#!/usr/bin/env bash\n# el claude runtime lo resuelve el runner neutral: esto es prosa, no una invocacion\necho ok\n' > "$DIR_CLEAN/src/internal/scripts/lib/fx-clean.sh"
 printf '#!/usr/bin/env bash\n# lee .claude-plugin/plugin.json (manifiesto fisico del plugin, no un id de modelo)\necho ok\n' > "$DIR_CLEAN/src/internal/scripts/lib/fx-plugin-manifest.sh"
 printf 'doctrina neutral de ejemplo, sin fugas.\n' > "$DIR_CLEAN/AGENTS.md"
 write_generic_shim "$DIR_CLEAN/.claude/scripts/fx-shim.sh"

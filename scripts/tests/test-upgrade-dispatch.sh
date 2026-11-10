@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
-# Test de scripts/upgrade.sh (issue #1678): despacho por runtime, JSON de --status,
-# secuencia de auto-actualizacion OpenCode y poda. gh, launcher y update-plugin.sh son stubs.
+# Test de scripts/upgrade.sh (issue #1678): JSON de --status, delegacion en
+# update-plugin.sh, argumentos rechazados, runtime no soportado y guard del repo
+# de Mefisto. update-plugin.sh es un stub.
 set -uo pipefail
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd -P)"
 PASS=0; FAIL=0
@@ -11,54 +12,37 @@ has() { case "$1" in *"$2"*) return 0 ;; *) return 1 ;; esac; }
 command -v jq >/dev/null 2>&1 || { echo "jq requerido"; exit 1; }
 
 TMP=$(mktemp -d); trap 'rm -rf "$TMP"' EXIT
-CONSUMER="$TMP/consumer"; STUBS="$TMP/scripts"; BIN="$TMP/bin"
-mkdir -p "$CONSUMER/.claude/pipeline" "$STUBS" "$BIN"
+CONSUMER="$TMP/consumer"; STUBS="$TMP/scripts"
+mkdir -p "$CONSUMER/.claude/pipeline" "$STUBS"
 git -C "$CONSUMER" init -q
-cp "$REPO_ROOT/scripts/upgrade.sh" "$REPO_ROOT/scripts/_plugin-scopes.sh" "$STUBS/"
+cp "$REPO_ROOT/scripts/upgrade.sh" "$STUBS/"
 printf '/x/cache/mkt/mefisto/1.0.0' > "$CONSUMER/.claude/pipeline/.plugin-root"
 
 cat > "$STUBS/update-plugin.sh" <<'S'
 #!/usr/bin/env bash
 echo "update-plugin $*" >> "$STUB_LOG"
+exit "${STUB_UPDATE_RC:-0}"
 S
-cat > "$BIN/gh" <<'S'
-#!/usr/bin/env bash
-echo "gh $*" >> "$STUB_LOG"
-printf '%s\n' "${STUB_GH_TAG:-v1.1.0}"
-S
-cat > "$BIN/claude" <<'S'
-#!/usr/bin/env bash
-echo "unexpected"; exit 2
-S
-LAUNCHER="$TMP/mefisto-opencode"
-cat > "$LAUNCHER" <<'S'
-#!/usr/bin/env bash
-echo "launcher $*" >> "$STUB_LOG"
-case "$1" in
-    projection-status)
-        printf '{"schemaVersion":1,"status":"%s","configRoot":"/c","activeVersion":"%s","ledgerRelease":"%s"}\n' \
-            "${STUB_PROJ:-enabled}" "${STUB_ACTIVE:-1.0.0}" "${STUB_ACTIVE:-1.0.0}" ;;
-    prune) echo "No hay releases podables." ;;
-esac
-exit 0
-S
-chmod +x "$STUBS"/*.sh "$BIN/gh" "$BIN/claude" "$LAUNCHER"
-mkdir -p "$TMP/xdg"
-export STUB_LOG="$TMP/log" MEFISTO_OPENCODE_LAUNCHER="$LAUNCHER" PATH="$BIN:$PATH" XDG_CONFIG_HOME="$TMP/xdg"
-run() { : > "$STUB_LOG"; (cd "$CONSUMER" && "$STUBS/upgrade.sh" "$@" 2>&1); }
+chmod +x "$STUBS"/*.sh
+export STUB_LOG="$TMP/log"
+run_in() { local dir="$1"; shift; : > "$STUB_LOG"; (cd "$dir" && "$STUBS/upgrade.sh" "$@" 2>&1); }
+run() { run_in "$CONSUMER" "$@"; }
 log() { cat "$STUB_LOG"; }
 
-echo "[a] claude: delegacion y traduccion de flags"
+echo "[a] delegacion en update-plugin.sh"
 MEFISTO_RUNTIME=claude run >/dev/null; [ "$(log)" = "update-plugin " ] && ok "sin flags" || ko "sin flags: $(log)"
-MEFISTO_RUNTIME=claude run --align-peer >/dev/null; has "$(log)" "update-plugin --align-opencode" && ok "--align-peer" || ko "--align-peer"
 MEFISTO_RUNTIME=claude run --prune --only 0.8.0 --loaded 0.9.0 >/dev/null; [ "$(log)" = "update-plugin --prune --only 0.8.0 --loaded 0.9.0" ] && ok "--prune --loaded" || ko "--prune --loaded: $(log)"
 MEFISTO_RUNTIME=claude run --prune --only 0.43.0,0.44.0 >/dev/null; [ "$(log)" = "update-plugin --prune --only 0.43.0,0.44.0" ] && ok "--prune reenvia --only y sin --loaded no lo infiere de .plugin-root" || ko "--prune: $(log)"
+MEFISTO_RUNTIME=claude run --disable-user >/dev/null; [ "$(log)" = "update-plugin --disable-user" ] && ok "--disable-user" || ko "--disable-user: $(log)"
+STUB_UPDATE_RC=7 MEFISTO_RUNTIME=claude run >/dev/null; rc=$?
+[ "$rc" -eq 7 ] && ok "propaga el exit code de update-plugin.sh" || ko "exit code: $rc"
+STUB_UPDATE_RC=7 MEFISTO_RUNTIME=claude run --disable-user >/dev/null; rc=$?
+[ "$rc" -eq 7 ] && ok "--disable-user propaga el exit code" || ko "exit code --disable-user: $rc"
 
 LR="$TMP/cache/mefisto"
 for v in 0.44.0 0.44.1; do mkdir -p "$LR/$v/.claude-plugin"; printf '{"name":"mefisto","version":"%s"}' "$v" > "$LR/$v/.claude-plugin/plugin.json"; done
 mkdir -p "$TMP/cache/otro/9.9.9/.claude-plugin"; printf '{"name":"otro","version":"9.9.9"}' > "$TMP/cache/otro/9.9.9/.claude-plugin/plugin.json"
-MEFISTO_LOADED_ROOT="$LR/0.44.1" MEFISTO_RUNTIME=claude run >/dev/null; has "$(log)" "--loaded 0.44.1" && ok "MEFISTO_LOADED_ROOT valida reenvia --loaded (actualizar)" || ko "loaded actualizar: $(log)"
-MEFISTO_LOADED_ROOT="$LR/0.44.1" MEFISTO_RUNTIME=claude run --align-peer >/dev/null; [ "$(log)" = "update-plugin --align-opencode --loaded 0.44.1" ] && ok "--align-peer reenvia --loaded" || ko "align loaded: $(log)"
+MEFISTO_LOADED_ROOT="$LR/0.44.1" MEFISTO_RUNTIME=claude run >/dev/null; [ "$(log)" = "update-plugin --loaded 0.44.1" ] && ok "MEFISTO_LOADED_ROOT valida reenvia --loaded (actualizar)" || ko "loaded actualizar: $(log)"
 MEFISTO_LOADED_ROOT="$LR/0.44.1" MEFISTO_RUNTIME=claude run --prune --only 0.43.0 >/dev/null; [ "$(log)" = "update-plugin --prune --only 0.43.0 --loaded 0.44.1" ] && ok "--prune reenvia --loaded desde MEFISTO_LOADED_ROOT" || ko "prune loaded: $(log)"
 MEFISTO_LOADED_ROOT="$LR/0.44.1" MEFISTO_RUNTIME=claude run --prune --only 0.8.0 --loaded 0.9.0 >/dev/null; [ "$(log)" = "update-plugin --prune --only 0.8.0 --loaded 0.9.0" ] && ok "--loaded explicito gana" || ko "explicito: $(log)"
 for bad in "" '${CLAUDE_PLUGIN_ROOT}' "$LR/0.44.0/../0.44.1" "$LR/9.9.9" "$TMP/cache/otro/9.9.9" "relativa/0.44.1"; do
@@ -66,37 +50,40 @@ for bad in "" '${CLAUDE_PLUGIN_ROOT}' "$LR/0.44.0/../0.44.1" "$LR/9.9.9" "$TMP/c
 done
 
 echo "[b] --status JSON"
-out=$(MEFISTO_RUNTIME=claude run --status)
-echo "$out" | jq -e '.schemaVersion==2 and .runtime=="claude" and .installedVersion=="1.0.0" and (has("loadedVersion")|not) and .peer.runtime=="opencode" and .peer.state=="enabled" and .peer.version=="1.0.0"' >/dev/null && ok "claude" || ko "claude: $out"
-out=$(MEFISTO_RUNTIME=opencode run --status)
-echo "$out" | jq -e '.schemaVersion==2 and .runtime=="opencode" and has("installedVersion") and (has("loadedVersion")|not) and .peer.runtime=="claude" and .peer.state=="unavailable" and .peer.version==null' >/dev/null && ok "opencode" || ko "opencode: $out"
+out=$(MEFISTO_RUNTIME=claude run --status); rc=$?
+[ "$rc" -eq 0 ] && echo "$out" | jq -e '. == {schemaVersion: 3, runtime: "claude", installedVersion: "1.0.0"}' >/dev/null && ok "schemaVersion 3 sin peer" || ko "status: rc=$rc $out"
+[ -z "$(log)" ] && ok "--status no delega en update-plugin.sh" || ko "--status delego: $(log)"
+SIN_ROOT="$TMP/consumer-sin-root"; mkdir -p "$SIN_ROOT"; git -C "$SIN_ROOT" init -q
+out=$(MEFISTO_RUNTIME=claude run_in "$SIN_ROOT" --status)
+echo "$out" | jq -e '.schemaVersion == 3 and .installedVersion == null' >/dev/null && ok "sin .plugin-root -> installedVersion null" || ko "sin .plugin-root: $out"
 
-echo "[c] opencode: secuencia con la version de gh"
-out=$(MEFISTO_RUNTIME=opencode run)
-seq=$(log | grep '^launcher' | awk '{print $2}' | grep -v projection-status | head -4 | tr '\n' ' ')
-[ "$seq" = "install activate status prune " ] && ok "secuencia sin proyeccion global (MEF-ADR-0053)" || ko "secuencia: $seq"
-mkdir -p "$TMP/xdg/opencode"; echo '{}' > "$TMP/xdg/opencode/.mefisto-projection.json"
-MEFISTO_RUNTIME=opencode run >/dev/null
-seq=$(log | grep '^launcher' | awk '{print $2}' | grep -v projection-status | head -4 | tr '\n' ' ')
-[ "$seq" = "install activate project status " ] && ok "con proyeccion global opt-in la refresca" || ko "secuencia con proyeccion: $seq"
-rm -f "$TMP/xdg/opencode/.mefisto-projection.json"
-out=$(MEFISTO_RUNTIME=opencode run)
-has "$(log)" "launcher install 1.1.0" && has "$(log)" "gh release view --repo augusto-romero-arango/mefisto" && ok "version de gh" || ko "version de gh"
-has "$out" "Version cargada en esta sesion: 1.0.0" && has "$out" "Version destino: 1.1.0" && ok "salida" || ko "salida: $out"
+echo "[c] argumentos desconocidos"
+for flag in --align-peer --keep; do
+    out=$(MEFISTO_RUNTIME=claude run "$flag"); rc=$?
+    [ "$rc" -ne 0 ] && has "$out" "argumento desconocido '$flag'" && ok "$flag se rechaza" || ko "$flag no se rechazo: rc=$rc $out"
+    [ -z "$(log)" ] && ok "$flag no delega" || ko "$flag delego: $(log)"
+done
+out=$(MEFISTO_RUNTIME=claude run --prune --keep 3); rc=$?
+[ "$rc" -ne 0 ] && [ -z "$(log)" ] && ok "--prune --keep no poda" || ko "--prune --keep: rc=$rc $(log)"
 
-echo "[d] ya en la ultima version"
-out=$(STUB_ACTIVE=1.1.0 MEFISTO_RUNTIME=opencode run)
-has "$(log)" "launcher install" && ko "mutó" || ok "sin install"
-has "$out" "Ya estas en la ultima version" && ok "lo reporta" || ko "no reporta: $out"
+echo "[d] runtime distinto de claude"
+for args in "--status" "" "--prune --only 0.8.0" "--disable-user"; do
+    # shellcheck disable=SC2086
+    out=$(MEFISTO_RUNTIME=fake run $args); rc=$?
+    [ "$rc" -ne 0 ] && has "$out" "runtime 'fake' no soportado" && [ -z "$(log)" ] && ok "aborta sin delegar (${args:-actualizar})" || ko "no aborta (${args:-actualizar}): rc=$rc $out $(log)"
+done
 
-echo "[e] --prune nunca pasa la version activa"
-MEFISTO_RUNTIME=opencode run --prune --keep 3 >/dev/null
-[ "$(log)" = "launcher prune --keep 3 --yes" ] && ok "delega en prune" || ko "prune: $(log)"
-has "$(log)" "1.0.0" && ko "paso version" || ok "sin version"
-
-echo "[f] runtime desconocido"
-out=$(MEFISTO_RUNTIME=zzz run --status); rc=$?
-[ "$rc" -ne 0 ] && has "$out" "no soportado" && ok "aborta" || ko "no aborta: $out"
+echo "[e] guard del repo de Mefisto"
+MEFISTO_REPO="$TMP/mefisto"; mkdir -p "$MEFISTO_REPO/.claude-plugin"; git -C "$MEFISTO_REPO" init -q
+printf '{"name":"mefisto"}' > "$MEFISTO_REPO/.claude-plugin/plugin.json"
+for args in "--status" "" "--disable-user"; do
+    # shellcheck disable=SC2086
+    out=$(MEFISTO_RUNTIME=claude run_in "$MEFISTO_REPO" $args); rc=$?
+    [ "$rc" -ne 0 ] && has "$out" "no aplica al repo de Mefisto" && [ -z "$(log)" ] && ok "se niega en el repo de Mefisto (${args:-actualizar})" || ko "guard (${args:-actualizar}): rc=$rc $out $(log)"
+done
+NO_GIT="$TMP/no-git"; mkdir -p "$NO_GIT"
+out=$(MEFISTO_RUNTIME=claude GIT_CEILING_DIRECTORIES="$TMP" run_in "$NO_GIT"); rc=$?
+[ "$rc" -ne 0 ] && has "$out" "no estas en un repositorio git" && [ -z "$(log)" ] && ok "fuera de un repo git aborta" || ko "fuera de git: rc=$rc $out"
 
 echo ""; echo "Resultado: $PASS pass, $FAIL fail"
 [ "$FAIL" -eq 0 ]
