@@ -22,15 +22,28 @@ Tomadas el 2026-11-10. El paso 1 las pasa a un ADR; a partir de ahí manda el AD
 
 - Este trabajo va fuera de los pipelines de Mefisto: sin issues ni `/mefisto-plan`. Sigue rigiendo
   el flujo de entrega de `AGENTS.md`: worktree, rama y PR a `main`.
-- Cada goal mergea sus propios PRs a `main` (squash y borrado de rama) cuando CI está en verde,
-  sin esperar al usuario. Con CI en rojo no se mergea: se corrige en el mismo PR.
+- Cada goal mergea sus propios PRs a `main` (squash y borrado de rama) cuando pasa la
+  verificación de abajo, sin esperar al usuario. Si falla no se mergea: se corrige en el mismo PR.
 - Un script se porta completo, con sus tests, en un PR. El `.sh` queda como shim
   (`exec node x.ts "$@"`) solo mientras tenga llamadores en bash.
-- Tests con `node --test`. `tsc --noEmit` corre en CI.
+- Tests con `node --test` y chequeo de tipos con `tsc --noEmit`.
 - Fragmentos de `changelog.d/`: como no hay issue, se nombran con el número del PR
   (`<pr>.<categoria>.md`).
 - El PR que cierra una fila de este archivo actualiza esa fila (estado y PR) y vuelve a medir la
   tabla de métricas, en la rama del PR.
+
+## Verificación antes de mergear
+
+Ningún PR dispara CI: por política de `.github/workflows/ci.yml` (issues #1743 y #1766) la suite
+corre en la nightly y a mano. Por eso la verificación la hace el goal antes de mergear:
+
+- PR solo de documentación: nada que correr.
+- PR que toca bash: los tests de lo tocado, en local. Al cerrar una fila, la suite completa en
+  local con `src/internal/scripts/mefisto-test-suite.sh`.
+- PR que toca TypeScript (desde el paso 3): `tsc --noEmit` y `node --test` en local, y el workflow
+  de los tres sistemas lanzado a mano sobre la rama (`gh workflow run <workflow> --ref <rama>`)
+  en verde.
+- Si una nightly queda en rojo por un PR del port, arreglarla va antes que el siguiente PR.
 
 ## Métricas
 
@@ -96,16 +109,17 @@ Primero OpenCode: al salir, el único uso de tmux que queda es el modo explícit
 | 2b | tmux: el modo sesión de los dos despachadores (que pasan a un nombre sin tmux), `--attach`, `--if-exists`, sus tests, `docs/tmux-cheatsheet.md` y el requisito en `README.md`. `MEFISTO_UI=tmux` da un error claro. Enmienda a MEF-ADR-0055 | pendiente | |
 
 Hecho cuando: M4 = 0 (2a) y M3 = 0 (2b), ningún archivo lleva `opencode` ni `tmux` en la ruta
-fuera de `dist/`, y la suite de tests pasa en CI.
+fuera de `dist/`, y la suite completa pasa en local.
 
 ### Paso 3: Base TypeScript
 
-Alcance: `tsconfig`; job de CI con `tsc --noEmit` y `node --test` sobre macOS, Linux y Windows;
-registro en los gates de scope (`is_path_in_mefisto_scope`, `is_path_in_consumer_blocklist`) de
+Alcance: `tsconfig`; workflow con `tsc --noEmit` y `node --test` sobre macOS, Linux y Windows,
+lanzable a mano sobre una rama y dentro de la nightly (si además corre en cada PR lo decide el ADR
+del paso 1); registro en los gates de scope (`is_path_in_mefisto_scope`, `is_path_in_consumer_blocklist`) de
 toda ruta nueva, en un PR anterior al que la puebla (MEF-ADR-0019, sección E); chequeo de
 Node >= 22.18 en `/onboard` y en `README.md`.
 
-Hecho cuando: el job de CI existe y pasa en los tres sistemas con al menos un test `.ts`.
+Hecho cuando: el workflow existe y pasa en los tres sistemas con al menos un test `.ts`.
 
 ### Paso 4: Hooks
 
@@ -154,7 +168,7 @@ la marca Mefisto (no el grupo de foreground de Unix), y el comando que se teclea
 `node <script>.ts <args>` sin sintaxis de shell. Cierre: se borran los shims, los comandos y
 agentes invocan `node`, y `README.md` y `/onboard` dejan de pedir bash, jq y tmux.
 
-Hecho cuando: M1a = 0, M1b = 0 y CI pasa en los tres sistemas.
+Hecho cuando: M1a = 0, M1b = 0 y el workflow de los tres sistemas pasa.
 
 ## Verificación manual en Windows
 
@@ -192,36 +206,36 @@ cuando el ADR está mergeado en main, ESTADO.md enlaza al ADR y la fila 1 está 
 ```
 Goal 2: Completa el paso 2 de docs/portabilidad/ESTADO.md (retirar OpenCode y luego tmux, en
 bash). Terminado cuando las métricas M4 y M3 dan 0 medidas con los comandos del archivo, la suite
-pasa en CI, y las filas 2a y 2b están en "hecho" con sus PRs mergeados en main.
+completa pasa en local, y las filas 2a y 2b están en "hecho" con sus PRs mergeados en main.
 ```
 
 ```
 Goal 3: Completa el paso 3 de docs/portabilidad/ESTADO.md (base TypeScript). Terminado cuando el
-job de CI con tsc --noEmit y node --test pasa en macOS, Linux y Windows, /onboard y README piden
+workflow con tsc --noEmit y node --test pasa en macOS, Linux y Windows, /onboard y README piden
 Node >= 22.18, y la fila 3 está en "hecho" con sus PRs mergeados en main.
 ```
 
 ```
 Goal 4: Completa el paso 4 de docs/portabilidad/ESTADO.md (hooks). Terminado cuando M5 da 0, los
-tests de los hooks pasan en CI en los tres sistemas, y la fila 4 está en "hecho" con sus PRs
+tests de los hooks pasan en el workflow de los tres sistemas, y la fila 4 está en "hecho" con sus PRs
 mergeados en main.
 ```
 
 ```
 Goal 5: Completa el paso 5 de docs/portabilidad/ESTADO.md (scripts sueltos). Terminado cuando las
-filas 5a, 5b y 5c están en "hecho" con sus PRs mergeados en main, CI pasa en los tres sistemas y la
-tabla de métricas está medida de nuevo.
+filas 5a, 5b y 5c están en "hecho" con sus PRs mergeados en main, el workflow de los tres sistemas pasa
+y la tabla de métricas está medida de nuevo.
 ```
 
 ```
 Goal 6: Completa el paso 6 de docs/portabilidad/ESTADO.md (librerías y pipelines). Terminado
-cuando las filas 6a a 6i están en "hecho" con sus PRs mergeados en main, M2 da 0, CI pasa en los
-tres sistemas y la tabla de métricas está medida de nuevo.
+cuando las filas 6a a 6i están en "hecho" con sus PRs mergeados en main, M2 da 0, el workflow de los
+tres sistemas pasa y la tabla de métricas está medida de nuevo.
 ```
 
 ```
 Goal 7: Completa el paso 7 de docs/portabilidad/ESTADO.md (despachador, herdr y cierre).
-Terminado cuando M1a y M1b dan 0, CI pasa en los tres sistemas, README y /onboard no piden bash,
+Terminado cuando M1a y M1b dan 0, el workflow de los tres sistemas pasa, README y /onboard no piden bash,
 jq ni tmux, y la fila 7 está en "hecho" con sus PRs mergeados en main. La verificación W1 a W7 la
 hace el usuario y no forma parte de este goal.
 ```
