@@ -635,6 +635,10 @@ adopt_workspace_rows() {
     fi
     mount_rows_from_base "$repo_root" "$label" "$planner_agent" "$root" 1 "$@"
     echo ""
+    if [ "$MOUNTED_ROW_COUNT" -eq 0 ]; then
+        warn "Workspace '$label' ($ws) no tenia panes de Mefisto y no se pudo montar ninguna fila debajo del pane raiz; vuelve a ejecutar el script."
+        return
+    fi
     success "Workspace '$label' ($ws) no tenia panes de Mefisto: se montaron $MOUNTED_ROW_COUNT fila(s) debajo del pane raiz."
 }
 

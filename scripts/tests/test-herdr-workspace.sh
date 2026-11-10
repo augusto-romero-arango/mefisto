@@ -148,6 +148,10 @@ case "${1:-} ${2:-}" in
         echo '{"result":{"workspace":{"workspace_id":"w1"},"root_pane":{"pane_id":"w1:p1"}}}'
         ;;
     "pane split")
+        if [ -n "${HERDR_STUB_FAIL_SPLIT:-}" ]; then
+            echo '{"error":"split rechazado"}' >&2
+            exit 73
+        fi
         n=$(cat "$HERDR_STUB_SPLIT_COUNTER")
         echo $((n + 1)) > "$HERDR_STUB_SPLIT_COUNTER"
         printf '{"result":{"pane":{"pane_id":"w1:p%s"}}}\n' "$n"
@@ -662,6 +666,17 @@ grep -qxF "herdr pane split --pane w1:p1 --direction down --cwd $FAKE_CONSUMER -
     && ! grep -qE 'pane rename w1:p1( |$)' "$HERDR_STUB_LOG" \
     && pass "N-9: un workspace solo con visores se adopta" \
     || fail "N-9: visores tratados como panes de rol: $(cat "$HERDR_STUB_LOG")"
+
+export HERDR_STUB_PANES='=w1:p1'
+export HERDR_STUB_FAIL_SPLIT=1
+run_workspace "$FAKE_CONSUMER"
+unset HERDR_STUB_FAIL_SPLIT
+[ "$LAST_RC" -eq 0 ] \
+    && ! grep -qE 'pane rename|agent start' "$HERDR_STUB_LOG" \
+    && printf '%s\n%s\n' "$LAST_STDOUT" "$LAST_STDERR" | grep -Fq 'no se pudo montar ninguna fila debajo del pane raiz' \
+    && ! printf '%s\n%s\n' "$LAST_STDOUT" "$LAST_STDERR" | grep -Fq 'se montaron 0 fila(s)' \
+    && pass "N-10: si ningun split prospera, avisa en vez de reportar exito" \
+    || fail "N-10: adopcion fallida reportada como exito: $(cat "$HERDR_STUB_LOG") $LAST_STDOUT$LAST_STDERR"
 
 echo ""
 echo "[N2] Dos workspaces con el mismo label: se prefiere el que tiene filas de Mefisto"
