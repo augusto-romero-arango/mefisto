@@ -1,4 +1,4 @@
-{"v":1,"type":"run.started","ts":"2026-09-05T10:00:00Z","runtime":"fake","agent":"mefisto-writer","model":"demo-model","cwd":"/tmp/worktree"}
+{"v":1,"type":"run.started","ts":"2026-09-05T10:00:00Z","runtime":"fake","agent":"mefisto-writer","model":"demo-model","effort":"high","cwd":"/tmp/worktree"}
 {"v":1,"type":"message","ts":"2026-09-05T10:00:01Z","role":"assistant","text":"Analizando el issue..."}
 {"v":1,"type":"tool.started","ts":"2026-09-05T10:00:02Z","tool":"Read","input_summary":null}
 {"v":1,"type":"tool.completed","ts":"2026-09-05T10:00:02Z","tool":"Read","ok":true,"duration_ms":42}

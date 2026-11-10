@@ -12,7 +12,7 @@
 # Uso:
 #   mefisto-run-agent.sh --agent <id> --cwd <dir> --prompt-file <f>
 #                         --event-log <jsonl>
-#                         [--runtime <id>] [--model <opaco>]
+#                         [--runtime <id>] [--model <opaco>] [--effort <opaco>]
 #                         [--system-file <f>] [--timeout <s>]
 #                         [--raw-log <f>] [--stderr-log <f>]
 #                         [--events-log <archivo>] [--resume-session <id>]
@@ -34,6 +34,12 @@
 #                         OpenCode, lo que sea). Vacio o ausente = heredar
 #                         (CA-1): NO llega al adaptador -- build_cmd nunca ve
 #                         el flag de modelo en ese caso.
+#   --effort <opaco>      Effort ya traducido a nombre nativo del runtime, opaco
+#                         para este runner (solo el adaptador lo traduce a su
+#                         mecanismo). Vacio o ausente = heredar: no se agrega
+#                         nada al argv ni al entorno del CLI. Siempre viaja como
+#                         7mo posicional de build_cmd (vacio si no se recibio) y
+#                         se registra en run.started.effort (null si vacio).
 #   --system-file <f>     Sustituto neutral de --append-system-prompt (debe
 #                         existir si se pasa). Cada adaptador decide como
 #                         inyectarlo.
@@ -102,13 +108,16 @@
 # lib/runtime-<id>.sh; este issue solo entrega runtime-fake.sh -- Claude Code
 # y OpenCode son #859/#860):
 #   runtime_<id>_build_cmd <agent> <cwd> <prompt_file> <model> <system_file>
-#                          [<resume_session_id>]
+#                          [<resume_session_id>] [<effort>]
 #     Rellena el array global MEFISTO_RUNTIME_CMD con el argv completo a
 #     invocar via run_agent_with_watchdog, SIN `eval`. <resume_session_id>
 #     (issue #968) es el ultimo argumento, OPCIONAL para el adaptador --
 #     ignorarlo es una implementacion valida (equivale a no soportar
 #     reanudacion); este runner SIEMPRE lo pasa (vacio si --resume-session no
-#     se recibio). Antes de invocarse, este runner ya expuso
+#     se recibio). <effort> (issue #2496) es el 7mo posicional, tambien OPCIONAL
+#     para el adaptador y opaco: este runner SIEMPRE lo pasa (vacio si --effort
+#     no se recibio); vacio = no agregar nada, no vacio lo aplica el adaptador
+#     con su mecanismo nativo. Antes de invocarse, este runner ya expuso
 #     MEFISTO_RUNTIME_WORK_DIR (directorio temporal de la corrida, se borra al
 #     cerrar) y dejo MEFISTO_RUNTIME_STDIN_FILE en "". Un adaptador puede
 #     materializar ahi un archivo (p. ej. el prompt) y fijar
@@ -151,7 +160,8 @@ PROCESS_LIB="$LIB_DIR/mefisto-process.sh"
 usage() {
     cat <<'EOF' >&2
 Uso: mefisto-run-agent.sh --agent <id> --cwd <dir> --prompt-file <f> --event-log <jsonl>
-                           [--runtime <id>] [--model <opaco>] [--system-file <f>]
+                           [--runtime <id>] [--model <opaco>] [--effort <opaco>]
+                           [--system-file <f>]
                            [--timeout <s>] [--raw-log <f>] [--stderr-log <f>]
                            [--events-log <archivo>] [--resume-session <id>]
                            [--redact-observability] [--help]
@@ -190,6 +200,7 @@ OPT_CWD=""
 OPT_PROMPT_FILE=""
 OPT_EVENT_LOG=""
 OPT_MODEL=""
+OPT_EFFORT=""
 OPT_SYSTEM_FILE=""
 OPT_TIMEOUT=""
 OPT_RAW_LOG=""
@@ -206,6 +217,7 @@ while [ $# -gt 0 ]; do
         --prompt-file) [ $# -ge 2 ] || abort_usage "--prompt-file requiere un valor"; OPT_PROMPT_FILE="$2"; shift 2 ;;
         --event-log)   [ $# -ge 2 ] || abort_usage "--event-log requiere un valor"; OPT_EVENT_LOG="$2"; shift 2 ;;
         --model)       [ $# -ge 2 ] || abort_usage "--model requiere un valor"; OPT_MODEL="$2"; shift 2 ;;
+        --effort)      [ $# -ge 2 ] || abort_usage "--effort requiere un valor"; OPT_EFFORT="$2"; shift 2 ;;
         --system-file) [ $# -ge 2 ] || abort_usage "--system-file requiere un valor"; OPT_SYSTEM_FILE="$2"; shift 2 ;;
         --timeout)     [ $# -ge 2 ] || abort_usage "--timeout requiere un valor"; OPT_TIMEOUT="$2"; shift 2 ;;
         --raw-log)     [ $# -ge 2 ] || abort_usage "--raw-log requiere un valor"; OPT_RAW_LOG="$2"; shift 2 ;;
@@ -335,7 +347,7 @@ trap cleanup EXIT
 # fallar rapido con un mensaje explicito.
 MEFISTO_RUNTIME_CMD=()
 MEFISTO_RUNTIME_STDIN_FILE=""
-"$BUILD_FN" "$OPT_AGENT" "$OPT_CWD" "$OPT_PROMPT_FILE" "$OPT_MODEL" "$OPT_SYSTEM_FILE" "$OPT_RESUME_SESSION"
+"$BUILD_FN" "$OPT_AGENT" "$OPT_CWD" "$OPT_PROMPT_FILE" "$OPT_MODEL" "$OPT_SYSTEM_FILE" "$OPT_RESUME_SESSION" "$OPT_EFFORT"
 if [ "${#MEFISTO_RUNTIME_CMD[@]}" -eq 0 ]; then
     echo "ERROR: $BUILD_FN no genero ningun comando (MEFISTO_RUNTIME_CMD vacio)" >&2
     exit 69
@@ -423,13 +435,15 @@ redact_observability_events() {
 # --- run.started (CA-3): lo emite el runner, no el adaptador ----------------
 
 RUN_STARTED_MODEL_JSON="$(model_json_or_null "$OPT_MODEL")"
+RUN_STARTED_EFFORT_JSON="$(model_json_or_null "$OPT_EFFORT")"
 jq -n -c \
     --arg ts "$(now_ts)" \
     --arg runtime "$RUNTIME_ID" \
     --arg agent "$OPT_AGENT" \
     --argjson model "$RUN_STARTED_MODEL_JSON" \
+    --argjson effort "$RUN_STARTED_EFFORT_JSON" \
     --arg cwd "$OPT_CWD" \
-    '{v: 1, type: "run.started", ts: $ts, runtime: $runtime, agent: $agent, model: $model, cwd: $cwd}' \
+    '{v: 1, type: "run.started", ts: $ts, runtime: $runtime, agent: $agent, model: $model, effort: $effort, cwd: $cwd}' \
     > "$OPT_EVENT_LOG"
 
 # --- Anexo en vivo de no terminales (CA-1/CA-3, issue #924) -----------------

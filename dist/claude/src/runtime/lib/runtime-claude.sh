@@ -13,7 +13,7 @@
 # Implementa la interfaz de funciones que todo adaptador de runtime debe
 # exponer (ver src/runtime/contract/README.md, "Interfaz de adaptador"):
 #   runtime_claude_build_cmd <agent> <cwd> <prompt_file> <model> <system_file>
-#                            [<resume_session_id>]
+#                            [<resume_session_id>] [<effort>]
 #     Rellena MEFISTO_RUNTIME_CMD con el argv de `claude -p` (sin `eval`,
 #     paridad con run_agent_with_watchdog -- ver #424/_mefisto-common.sh) y
 #     SIN prompt posicional (issue #1448; incidente de #1407): fija la
@@ -48,6 +48,12 @@
 #     #425) y `nonzero_exit` no son deducibles del stream de stdout. Vacios o
 #     ausentes, la clasificacion degrada a lo que el stream si permite
 #     afirmar, nunca inventa un veredicto.
+#
+# <effort> (issue #2496) es OPCIONAL y ya viene en nombre nativo: no vacio
+# antepone `env CLAUDE_CODE_EFFORT_LEVEL=<effort>` al argv (nunca `--effort`:
+# el nivel por variable de entorno prevalece sobre el campo `effort` del
+# frontmatter del agente, y el flag solo fija el de sesion); vacio/ausente no
+# agrega nada.
 #
 # Flags que compone build_cmd (CA-1): `--agent <agent>`, `--permission-mode
 # bypassPermissions` y `--output-format stream-json --verbose` siempre;
@@ -97,7 +103,7 @@ runtime_claude_default_effort() {
 # --- runtime_claude_build_cmd ------------------------------------------------
 
 runtime_claude_build_cmd() {
-    local agent="$1" cwd="$2" prompt_file="$3" model="$4" system_file="$5" resume_session_id="${6:-}"
+    local agent="$1" cwd="$2" prompt_file="$3" model="$4" system_file="$5" resume_session_id="${6:-}" effort="${7:-}"
 
     MEFISTO_RUNTIME_CMD=(claude -p --agent "$agent" --permission-mode bypassPermissions --output-format stream-json --verbose)
 
@@ -120,6 +126,10 @@ runtime_claude_build_cmd() {
     local package_root="${MEFISTO_AGENT_PACKAGE_ROOT:-}"
     if [ -n "$package_root" ] && [ -f "$package_root/.claude-plugin/plugin.json" ]; then
         MEFISTO_RUNTIME_CMD+=(--plugin-dir "$package_root")
+    fi
+
+    if [ -n "$effort" ]; then
+        MEFISTO_RUNTIME_CMD=(env "CLAUDE_CODE_EFFORT_LEVEL=$effort" "${MEFISTO_RUNTIME_CMD[@]}")
     fi
 
     # MEFISTO_RUNTIME_STDIN_FILE (issue #1448): <prompt_file> viaja tal cual,

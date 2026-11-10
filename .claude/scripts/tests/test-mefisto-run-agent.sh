@@ -891,6 +891,46 @@ else
     fail "I-3: --fake-resume aparecio sin que --resume-session se pasara: $(cat "$ARGS_FILE" 2>/dev/null)"
 fi
 
+echo ""
+echo "[J] CA-3/CA-5 (issue #2496): --effort se reenvia al adaptador y queda en run.started"
+
+EV="$TMP/j-effort.jsonl"
+ARGS_FILE="$TMP/j-effort.args"
+RC=$(MEFISTO_FAKE_ARGS_FILE="$ARGS_FILE" MEFISTO_FAKE_SCRIPT=success run_fake_scenario "$EV" --effort "high")
+if [ "$RC" = "0" ] && grep -A1 -xF -- "--fake-effort" "$ARGS_FILE" | tail -n1 | grep -qxF "high"; then
+    pass "J-1: --effort high llega al adaptador (--fake-effort high en el argv capturado)"
+else
+    fail "J-1: --effort no llego al adaptador (exit $RC): $(cat "$ARGS_FILE" 2>/dev/null)"
+fi
+if [ "$(head -n1 "$EV" | jq -c '.effort')" = '"high"' ] && grep -q '"effort":"high"' "$EV"; then
+    pass "J-2: run.started trae effort high y el CLI fake lo registra en su terminal"
+else
+    fail "J-2: effort high ausente de run.started/terminal: $(cat "$EV" 2>/dev/null)"
+fi
+
+for _eff_case in omitido vacio; do
+    EV="$TMP/j-effort-$_eff_case.jsonl"
+    ARGS_FILE="$TMP/j-effort-$_eff_case.args"
+    if [ "$_eff_case" = "omitido" ]; then
+        RC=$(MEFISTO_FAKE_ARGS_FILE="$ARGS_FILE" MEFISTO_FAKE_SCRIPT=success run_fake_scenario "$EV")
+    else
+        RC=$(MEFISTO_FAKE_ARGS_FILE="$ARGS_FILE" MEFISTO_FAKE_SCRIPT=success run_fake_scenario "$EV" --effort "")
+    fi
+    if [ "$RC" = "0" ] && ! grep -qxF -- "--fake-effort" "$ARGS_FILE" && [ "$(head -n1 "$EV" | jq -c '.effort')" = "null" ]; then
+        pass "J-3 ($_eff_case): sin effort no llega nada al adaptador y run.started trae effort null"
+    else
+        fail "J-3 ($_eff_case): comportamiento inesperado sin effort (exit $RC): $(cat "$ARGS_FILE" 2>/dev/null)"
+    fi
+done
+
+EV="$TMP/j-effort-noval.jsonl"
+RC=$(MEFISTO_FAKE_SCRIPT=success run_fake_scenario "$EV" --effort 2>/dev/null)
+if [ "$RC" = "64" ]; then
+    pass "J-4: --effort sin valor aborta con exit 64 (mismo error de uso que --model sin valor)"
+else
+    fail "J-4: --effort sin valor devolvio exit $RC (se esperaba 64)"
+fi
+
 
 echo ""
 echo "[G] El runner no depende del cwd del caller para encontrar sus propias libs"

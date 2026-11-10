@@ -1,2 +1,2 @@
-{"v":1,"type":"run.started","ts":"2026-09-04T10:00:00Z","runtime":"claude","agent":"mefisto-writer","model":"legacy-model","cwd":"/tmp/worktree"}
+{"v":1,"type":"run.started","ts":"2026-09-04T10:00:00Z","runtime":"claude","agent":"mefisto-writer","model":"legacy-model","effort":null,"cwd":"/tmp/worktree"}
 {"v":1,"type":"run.completed","ts":"2026-09-04T10:00:03Z","status":"success","runtime":"claude","model":"legacy-model","session_id":null,"duration_ms":3000,"tokens":{"input":1200,"output":340},"cost_usd":0.021,"turns":4,"denials":0,"ttft_ms":850,"api_duration_ms":2600,"error":null}

@@ -1,2 +1,2 @@
-{"v":1,"type":"run.started","ts":"2026-09-05T10:10:00Z","runtime":"fake","agent":"mefisto-writer","model":"demo-model","cwd":"/tmp/worktree"}
+{"v":1,"type":"run.started","ts":"2026-09-05T10:10:00Z","runtime":"fake","agent":"mefisto-writer","model":"demo-model","effort":"high","cwd":"/tmp/worktree"}
 {"v":1,"type":"run.failed","ts":"2026-09-05T10:40:00Z","status":"timeout","runtime":"fake","model":"demo-model","session_id":null,"duration_ms":1800000,"tokens":{"input":null,"output":null,"cache_read":null,"cache_write":null,"reasoning":null},"estimated_cost_usd":null,"turns":null,"denials":null,"ttft_ms":null,"api_duration_ms":null,"error":{"kind":"timeout","detail":"el watchdog mato el proceso tras superar 1800s"}}

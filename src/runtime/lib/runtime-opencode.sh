@@ -20,7 +20,7 @@
 # Implementa la interfaz de funciones que todo adaptador de runtime debe
 # exponer (ver src/runtime/contract/README.md, "Interfaz de adaptador"):
 #   runtime_opencode_build_cmd <agent> <cwd> <prompt_file> <model> <system_file>
-#                              [<resume_session_id>]
+#                              [<resume_session_id>] [<effort>]
 #     Rellena MEFISTO_RUNTIME_CMD con el argv de `opencode run` (sin `eval`,
 #     paridad con run_agent_with_watchdog) SIN mensaje posicional (issue
 #     #1448; incidente de #1407): `resolveRunInput` de OpenCode
@@ -76,6 +76,10 @@
 # not explicitly denied") es el UNICO flag de permisos que este adaptador
 # conoce -- la politica deny-por-defecto la genera #862 en el frontmatter del
 # agente, nunca este archivo.
+#
+# <effort> (issue #2496) es OPCIONAL y ya viene en nombre nativo: no vacio
+# agrega `--variant <effort>` (verificado en `opencode run --help` 1.18.34);
+# vacio/ausente no agrega nada.
 #
 # `--system-file` no tiene flag equivalente en `opencode run` (verificado:
 # `opencode run --help` no lista nada parecido a `--append-system-prompt`):
@@ -340,7 +344,7 @@ runtime_opencode_build_cmd() {
     # `opencode run` no tiene equivalente de `--append-system-prompt-file`,
     # asi que a diferencia de runtime-claude.sh este adaptador si tiene que
     # componer un archivo propio.
-    local agent="$1" cwd="$2" prompt_path="$3" model="$4" system_file="$5" resume_session_id="${6:-}"
+    local agent="$1" cwd="$2" prompt_path="$3" model="$4" system_file="$5" resume_session_id="${6:-}" effort="${7:-}"
 
     MEFISTO_RUNTIME_CMD=(opencode run --agent "$agent" --dir "$cwd" --format json --auto)
 
@@ -358,6 +362,10 @@ runtime_opencode_build_cmd() {
 
     if [ -n "$model" ]; then
         MEFISTO_RUNTIME_CMD+=(-m "$model")
+    fi
+
+    if [ -n "$effort" ]; then
+        MEFISTO_RUNTIME_CMD+=(--variant "$effort")
     fi
 
     if [ -n "$resume_session_id" ]; then
