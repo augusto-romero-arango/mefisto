@@ -155,7 +155,7 @@ nombre de workflow empiece con `Deploy `. La condicion identifica la clase "no d
 pruebo" sin enumerar dominios ni workflows, asi que no crece al scaffoldear un dominio nuevo. La espera
 cierra la carrera con un deploy **en vuelo**, pero no basta por si sola: que el job `deploy` ajeno haya
 terminado no prueba que el host sirva ya el binario nuevo. `Azure/functions-action` termina al subir el
-zip y el host se recicla despues; mientras tanto `/api/health` responde 200 con el binario viejo, el
+zip, y el reinicio del host que dispara el deploy **[1]** ocurre despues; mientras tanto `/api/health` responde 200 con el binario viejo, el
 warmup de "solo 200" abre la compuerta y la suite corre contra la instancia vieja hasta que el
 reciclaje la corta a mitad de la corrida (issue #2468, consumidor `Bitakora.ControlAsistencia`: la
 traza `Application started` de la instancia nueva aparecio 33, 76 y 104 s despues de que la guarda

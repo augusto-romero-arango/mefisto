@@ -726,6 +726,12 @@ if grep -qF 'id: guarda_deploys_ajenos' "$DS" && grep -qF 'echo "expected_sha=$S
 else
     fail "la guarda perdio 'id: guarda_deploys_ajenos' o la escritura de 'expected_sha' a \$GITHUB_OUTPUT en agents/domain-scaffolder.md"
 fi
+# La funcion definida no basta: si se pierde su invocacion tras la espera, el output nunca se escribe.
+if grep -qE '^[[:space:]]+promover_gate_por_sha$' "$DS"; then
+    pass "la guarda invoca promover_gate_por_sha tras la espera"
+else
+    fail "la guarda define promover_gate_por_sha pero ya no la invoca en la rama 'ningun deploy ajeno en vuelo' de agents/domain-scaffolder.md"
+fi
 if grep -qF 'Api__ExpectedSha: ${{ inputs.expected_sha != '"''"' && inputs.expected_sha || steps.guarda_deploys_ajenos.outputs.expected_sha }}' "$DS"; then
     pass "'Smoke tests' consume el expected_sha del input o el promovido por la guarda"
 else
