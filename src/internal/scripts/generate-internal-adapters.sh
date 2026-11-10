@@ -37,6 +37,14 @@
 # emite .opencode/skills/: duplicarlo cargaria el Skill dos veces. --check
 # aplica las mismas reglas faltante/distinta/huerfana/sin marcador.
 #
+# Agent Skills publicados proyectados (issue #2529, MEF-ADR-0019/0049): el
+# generador proyecta tambien, a .claude/skills/<id>/ y con el mismo tratamiento,
+# los Skills publicados de skills/<id>/ cuyo id esta en PUBLISHED_PROJECTED_SKILLS
+# (hoy solo `code-comments`): el plugin no se instala sobre si mismo, asi que
+# ningun runtime los carga aqui sin esa proyeccion, y la fuente sigue siendo una
+# sola. El resto (p. ej. `projections`) no se proyecta. Un id presente a la vez
+# en src/internal/skills/ y en esa lista aborta con un error que nombra el id.
+#
 # Plugin de efforts (issue #2505): ademas se genera
 # .opencode/plugins/mefisto-efforts.js, un unico archivo con {id, profile,
 # effort} de cada agente fuente y la tabla de nativos por defecto, que aplica
@@ -69,6 +77,7 @@ REPO_ROOT="$(cd "$SCRIPT_DIR/../../.." && pwd)"
 LIB_DIR="$SCRIPT_DIR/lib"
 VALIDATOR="$SCRIPT_DIR/validate-internal-artifacts.sh"
 MARKER_SOURCE_SCRIPT="src/internal/scripts/generate-internal-adapters.sh"
+PUBLISHED_PROJECTED_SKILLS="code-comments"
 
 for required in "$VALIDATOR" "$LIB_DIR/frontmatter.sh" "$LIB_DIR/adapter-claude.sh" "$LIB_DIR/adapter-opencode.sh"; do
     if [ ! -f "$required" ]; then
@@ -110,6 +119,26 @@ while [ $# -gt 0 ]; do
     esac
 done
 
+# Sin archivos explicitos: el scan por defecto del validador mas los Skills
+# publicados proyectados, que asi pasan por la misma validacion previa.
+if [ ${#FILES[@]} -eq 0 ]; then
+    while IFS= read -r f; do
+        [ -n "$f" ] && FILES+=("$f")
+    done < <(find "$REPO_ROOT/src/internal/agents" "$REPO_ROOT/src/internal/commands" -name '*.md' 2>/dev/null | sort)
+    while IFS= read -r f; do
+        [ -n "$f" ] && FILES+=("$f")
+    done < <(find "$REPO_ROOT/src/internal/skills" -type f 2>/dev/null | sort)
+    for pub_id in $PUBLISHED_PROJECTED_SKILLS; do
+        if [ ! -d "$REPO_ROOT/skills/$pub_id" ]; then
+            echo "ERROR: skills/$pub_id/ no existe pero esta en PUBLISHED_PROJECTED_SKILLS" >&2
+            exit 1
+        fi
+        while IFS= read -r f; do
+            [ -n "$f" ] && FILES+=("$f")
+        done < <(find "$REPO_ROOT/skills/$pub_id" -type f 2>/dev/null | sort)
+    done
+fi
+
 # --- CA-1: validar primero, sin escribir nada si falla -----------------------
 if [ ${#FILES[@]} -eq 0 ]; then
     VALIDATE_OUT="$("$VALIDATOR" 2>&1)"
@@ -122,16 +151,6 @@ if [ "$VALIDATE_RC" -ne 0 ]; then
     [ -n "$VALIDATE_OUT" ] && printf '%s\n' "$VALIDATE_OUT" >&2
     echo "ERROR: validacion previa (validate-internal-artifacts.sh) fallo; no se genero nada" >&2
     exit 1
-fi
-
-# Sin archivos explicitos: el mismo scan por defecto que el validador.
-if [ ${#FILES[@]} -eq 0 ]; then
-    while IFS= read -r f; do
-        [ -n "$f" ] && FILES+=("$f")
-    done < <(find "$REPO_ROOT/src/internal/agents" "$REPO_ROOT/src/internal/commands" -name '*.md' 2>/dev/null | sort)
-    while IFS= read -r f; do
-        [ -n "$f" ] && FILES+=("$f")
-    done < <(find "$REPO_ROOT/src/internal/skills" -type f 2>/dev/null | sort)
 fi
 
 # CA-5: con --check no se escribe nada, ni siquiera el directorio de salida
@@ -153,19 +172,43 @@ AGENTS_EFFORT_JSON="[]"
 EFFORTS_MARKER_LINE="// GENERADO por $MARKER_SOURCE_SCRIPT desde src/internal/agents/*.md. No editar a mano."
 
 # skill_rel_parts <ruta> -- imprime "<id>/<ruta-relativa-en-el-skill>" si la
-# ruta cae bajo src/internal/skills/<id>/, o nada. Acotado a esa raiz para que
-# un `skills/` en otra parte de la ruta no desvie un agente o comando.
+# ruta cae bajo src/internal/skills/<id>/ o bajo skills/<id>/ con <id> en
+# PUBLISHED_PROJECTED_SKILLS, o nada. Acotado a esas raices para que un `skills/`
+# en otra parte de la ruta no desvie un agente o comando.
 skill_rel_parts() {
+    local pub_id
     case "$1" in
-        src/internal/skills/*/*|*/src/internal/skills/*/*) printf '%s' "${1##*src/internal/skills/}" ;;
+        src/internal/skills/*/*|*/src/internal/skills/*/*) printf '%s' "${1##*src/internal/skills/}"; return ;;
     esac
+    for pub_id in $PUBLISHED_PROJECTED_SKILLS; do
+        case "$1" in
+            skills/"$pub_id"/*|*/skills/"$pub_id"/*) printf '%s/%s' "$pub_id" "${1##*skills/"$pub_id"/}"; return ;;
+        esac
+    done
 }
+
+# skill_is_internal <ruta> -- 0 si la ruta cae bajo src/internal/skills/.
+skill_is_internal() {
+    case "$1" in
+        src/internal/skills/*|*/src/internal/skills/*) return 0 ;;
+    esac
+    return 1
+}
+
+INTERNAL_SKILL_IDS=" "
+PUBLISHED_SKILL_IDS=" "
 
 for file in ${FILES[@]+"${FILES[@]}"}; do
     rel_source="${file#"$REPO_ROOT"/}"
 
     skill_part="$(skill_rel_parts "$file")"
     if [ -n "$skill_part" ]; then
+        skill_id="${skill_part%%/*}"
+        if skill_is_internal "$file"; then
+            INTERNAL_SKILL_IDS="$INTERNAL_SKILL_IDS$skill_id "
+        else
+            PUBLISHED_SKILL_IDS="$PUBLISHED_SKILL_IDS$skill_id "
+        fi
         skill_relpath=".claude/skills/$skill_part"
         mkdir -p "$(dirname "$STAGE_DIR/$skill_relpath")"
         if [ "${skill_part##*/}" = "SKILL.md" ]; then
@@ -188,6 +231,12 @@ for file in ${FILES[@]+"${FILES[@]}"}; do
         GENERATED_RELPATHS+=("$skill_relpath")
         continue
     fi
+
+    # Skill publicado fuera de la allowlist: no se proyecta. Se ancla a la ruta
+    # relativa para que un `skills/` ancestro del clon no salte agentes.
+    case "$rel_source" in
+        skills/*/*|/*/skills/*/*) continue ;;
+    esac
 
     fm="$(extract_frontmatter "$file")"
     if [ -z "$fm" ]; then
@@ -231,6 +280,19 @@ for file in ${FILES[@]+"${FILES[@]}"}; do
     if [ "$kind" = "agent" ]; then
         AGENTS_EFFORT_JSON="$(printf '%s' "$instance_json" | jq -c --argjson acc "$AGENTS_EFFORT_JSON" '$acc + [{id, profile, effort}]')"
     fi
+done
+
+for pub_id in $PUBLISHED_PROJECTED_SKILLS; do
+    case "$INTERNAL_SKILL_IDS" in
+        *" $pub_id "*)
+            case "$PUBLISHED_SKILL_IDS" in
+                *" $pub_id "*)
+                    echo "ERROR: el id de Skill '$pub_id' existe en src/internal/skills/ y en la lista de Skills publicados proyectados (skills/$pub_id/); renombra uno o quita el duplicado" >&2
+                    GEN_STATUS=1
+                    ;;
+            esac
+            ;;
+    esac
 done
 
 if [ "$GEN_STATUS" -eq 0 ] && [ "$AGENTS_EFFORT_JSON" != "[]" ]; then

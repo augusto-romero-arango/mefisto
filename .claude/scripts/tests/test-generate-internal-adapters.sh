@@ -28,6 +28,10 @@
 #   [check-no-write] CA-5: --check no crea ni el directorio de salida.
 #   [skills]/[skills-opencode] Issue #1685: generacion y --check de Agent Skills
 #         internos, validacion de su frontmatter y mapping de `skills` a OpenCode.
+#   [published-skills] Issue #2529: proyeccion del Skill publicado code-comments
+#         (CA-1 a CA-4): marcador, recurso identico, --check, solo la allowlist
+#         y conflicto de id con src/internal/skills/; [published-skills-default]
+#         lo mismo con el scan por defecto sobre un clon bajo un ancestro skills/.
 #
 # Uso: .claude/scripts/tests/test-generate-internal-adapters.sh
 # Exit code: 0 si todos los checks pasan, 1 si alguno falla.
@@ -612,6 +616,73 @@ sed -i.bak 's/"capabilities":\["read","skill"\]/"capabilities":["read"]/' "$SA"
 OC2="$WORKDIR/skill-agent-out2/.opencode/agents/mefisto-fx-skill-agent.md"
 assert_eq '"deny"' "$(grep '^permission: ' "$OC2" | sed 's/^permission: //' | jq -c '.skill')" "sin capacidad skill el permiso queda cerrado"
 grep -qF 'tool nativa `skill`' "$OC2" && fail "emitio instruccion de carga sin capacidad skill" || pass "sin capacidad skill no hay instruccion de carga"
+
+echo ""
+echo "[published-skills] Issue #2529: proyeccion de Skills publicados (allowlist)"
+PS_ROOT="$WORKDIR/pub-tree"
+mkdir -p "$PS_ROOT/skills/code-comments" "$PS_ROOT/skills/projections"
+printf -- '---\nname: code-comments\ndescription: Skill publicado de fixture\n---\n\n# Titulo\n' > "$PS_ROOT/skills/code-comments/SKILL.md"
+printf 'ejemplos\n' > "$PS_ROOT/skills/code-comments/ejemplos.md"
+printf -- '---\nname: projections\ndescription: No se proyecta\n---\n\n# P\n' > "$PS_ROOT/skills/projections/SKILL.md"
+PS_OUT="$WORKDIR/pub-out"
+"$GENERATOR" --out "$PS_OUT" "$PS_ROOT/skills/code-comments/SKILL.md" "$PS_ROOT/skills/code-comments/ejemplos.md" "$PS_ROOT/skills/projections/SKILL.md" >/dev/null 2>&1
+assert_eq "0" "$?" "CA-1: proyecta el Skill publicado (exit 0)"
+head -n 5 "$PS_OUT/.claude/skills/code-comments/SKILL.md" | grep -qF "<!-- GENERADO por src/internal/scripts/generate-internal-adapters.sh desde $PS_ROOT/skills/code-comments/SKILL.md. No editar a mano. -->" && pass "CA-1: SKILL.md lleva el marcador desde skills/code-comments/SKILL.md" || fail "CA-1: falta el marcador en SKILL.md"
+diff -q "$PS_ROOT/skills/code-comments/ejemplos.md" "$PS_OUT/.claude/skills/code-comments/ejemplos.md" >/dev/null 2>&1 && pass "CA-1: ejemplos.md identico a la fuente" || fail "CA-1: ejemplos.md difiere de la fuente"
+[ ! -e "$PS_OUT/.claude/skills/projections" ] && pass "CA-3: no proyecta .claude/skills/projections/" || fail "CA-3: proyecto un Skill fuera de la allowlist"
+[ ! -e "$PS_OUT/.opencode/skills" ] && pass "no emite .opencode/skills/" || fail "emitio .opencode/skills/"
+"$GENERATOR" --check --out "$PS_OUT" "$PS_ROOT/skills/code-comments/SKILL.md" "$PS_ROOT/skills/code-comments/ejemplos.md" >/dev/null 2>&1
+assert_eq "0" "$?" "CA-2: --check al dia con Skill publicado"
+printf 'edicion manual\n' >> "$PS_OUT/.claude/skills/code-comments/SKILL.md"
+OUT=$("$GENERATOR" --check --out "$PS_OUT" "$PS_ROOT/skills/code-comments/SKILL.md" "$PS_ROOT/skills/code-comments/ejemplos.md" 2>&1)
+RC=$?
+assert_eq "1" "$RC" "CA-2: --check falla tras editar a mano SKILL.md"
+printf '%s' "$OUT" | grep -qF ".claude/skills/code-comments/SKILL.md: distinta" && pass "CA-2: --check reporta SKILL.md distinta" || fail "CA-2: --check no reporto distinta: $OUT"
+"$GENERATOR" --out "$PS_OUT" "$PS_ROOT/skills/code-comments/SKILL.md" "$PS_ROOT/skills/code-comments/ejemplos.md" >/dev/null 2>&1
+"$GENERATOR" --check --out "$PS_OUT" "$PS_ROOT/skills/code-comments/SKILL.md" "$PS_ROOT/skills/code-comments/ejemplos.md" >/dev/null 2>&1
+assert_eq "0" "$?" "CA-2: --check pasa tras regenerar"
+
+mkdir -p "$PS_ROOT/src/internal/skills/code-comments"
+printf -- '---\nname: code-comments\ndescription: Duplicado interno\n---\n\n# Dup\n' > "$PS_ROOT/src/internal/skills/code-comments/SKILL.md"
+PS_OUT2="$WORKDIR/pub-out2"
+OUT=$("$GENERATOR" --out "$PS_OUT2" "$PS_ROOT/skills/code-comments/SKILL.md" "$PS_ROOT/src/internal/skills/code-comments/SKILL.md" 2>&1)
+RC=$?
+assert_eq "1" "$RC" "CA-4: id duplicado interno/publicado aborta (exit 1)"
+printf '%s' "$OUT" | grep -qF "code-comments" && pass "CA-4: el error nombra el id" || fail "CA-4: el error no nombra el id: $OUT"
+[ ! -e "$PS_OUT2/.claude/skills" ] && pass "CA-4: no escribe nada ante el conflicto" || fail "CA-4: escribio pese al conflicto"
+
+echo ""
+echo "[published-skills-default] Issue #2529: scan por defecto sobre un clon bajo un ancestro skills/"
+RT_ROOT="$WORKDIR/skills/anc"
+mkdir -p "$RT_ROOT/src/internal/scripts" "$RT_ROOT/src/internal/agents" "$RT_ROOT/skills/code-comments" "$RT_ROOT/skills/projections"
+cp "$GENERATOR" "$REPO_ROOT/src/internal/scripts/validate-internal-artifacts.sh" "$RT_ROOT/src/internal/scripts/"
+cp -R "$LIB_DIR" "$RT_ROOT/src/internal/scripts/lib"
+cp -R "$CONTRACT_DIR" "$RT_ROOT/src/internal/contract"
+cp -R "$REPO_ROOT/src/runtime" "$RT_ROOT/src/runtime"
+cp "$SRC_DIR/mefisto-fx-agent-basic.md" "$RT_ROOT/src/internal/agents/"
+cp "$PS_ROOT/skills/code-comments/SKILL.md" "$PS_ROOT/skills/code-comments/ejemplos.md" "$RT_ROOT/skills/code-comments/"
+cp "$PS_ROOT/skills/projections/SKILL.md" "$RT_ROOT/skills/projections/"
+RT_GEN="$RT_ROOT/src/internal/scripts/generate-internal-adapters.sh"
+RT_OUT="$WORKDIR/rt-out"
+OUT=$("$RT_GEN" --out "$RT_OUT" 2>&1)
+assert_eq "0" "$?" "scan por defecto proyecta sin error"
+[ -f "$RT_OUT/.claude/agents/mefisto-fx-agent-basic.md" ] && pass "un ancestro skills/ del clon no salta los agentes" || fail "el agente no se genero bajo un ancestro skills/: $OUT"
+head -n 5 "$RT_OUT/.claude/skills/code-comments/SKILL.md" 2>/dev/null | grep -qF "<!-- GENERADO por src/internal/scripts/generate-internal-adapters.sh desde skills/code-comments/SKILL.md. No editar a mano. -->" && pass "CA-1: marcador relativo desde skills/code-comments/SKILL.md" || fail "CA-1: falta el marcador relativo"
+[ ! -e "$RT_OUT/.claude/skills/projections" ] && pass "CA-3: el scan por defecto no proyecta projections" || fail "CA-3: el scan por defecto proyecto projections"
+"$RT_GEN" --check --out "$RT_OUT" >/dev/null 2>&1
+assert_eq "0" "$?" "CA-2: --check por defecto al dia"
+
+printf -- '---\nname: otro-nombre\ndescription: x\n---\n\n# T\n' > "$RT_ROOT/skills/code-comments/SKILL.md"
+OUT=$("$RT_GEN" --out "$WORKDIR/rt-out-bad" 2>&1)
+assert_eq "1" "$?" "el Skill publicado pasa por la validacion previa"
+printf '%s' "$OUT" | grep -qF "skills/code-comments/SKILL.md: name:" && pass "la validacion nombra el SKILL.md publicado" || fail "la validacion no nombro el SKILL.md publicado: $OUT"
+cp "$PS_ROOT/skills/code-comments/SKILL.md" "$RT_ROOT/skills/code-comments/SKILL.md"
+
+mkdir -p "$RT_ROOT/src/internal/skills/code-comments"
+cp "$PS_ROOT/src/internal/skills/code-comments/SKILL.md" "$RT_ROOT/src/internal/skills/code-comments/"
+OUT=$("$RT_GEN" --out "$WORKDIR/rt-out-dup" 2>&1)
+assert_eq "1" "$?" "CA-4: el scan por defecto aborta con id duplicado"
+printf '%s' "$OUT" | grep -qF "'code-comments'" && pass "CA-4: el error del scan por defecto nombra el id" || fail "CA-4: el error no nombra el id: $OUT"
 
 echo ""
 echo "RESULTADO: $PASS pasaron, $FAIL fallaron"
