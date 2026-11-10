@@ -139,7 +139,7 @@ Antes de escribir, define:
 
 ### 4. Escribir el HCL
 
-Los comentarios HCL siguen el Skill `code-comments` (MEF-ADR-0044): el porque de la topologia, las unidades, las dependencias con otros archivos y el comportamiento no obvio del provider con la URL de la doc oficial (o «sin verificar»). Nada que narre el bloque.
+Los comentarios HCL siguen el Skill `code-comments` (MEF-ADR-0044): el porque de la topologia, las unidades, las dependencias con otros archivos y el comportamiento no obvio del provider con la URL de la doc oficial (o «sin verificar»). Nada que narre el bloque; un comentario que tu cambio vuelve falso se corrige o se borra.
 
 **En modulos** (`infra/modules/<tipo>/main.tf`):
 - Los 8 modulos base ya existen si se corrio `/infra-base` (MEF-ADR-0021); reutilizalos antes de crear uno nuevo. Crea un modulo nuevo solo para recursos que la base no cubre.
