@@ -636,6 +636,12 @@ contains '"$PATCH_TW_MODEL_OVERRIDE" "$PATCH_TW_EFFORT_OVERRIDE"' '4b reenvia el
 contains '"$PATCH_IM_MODEL_OVERRIDE" "$PATCH_IM_EFFORT_OVERRIDE"' '4c reenvia el effort resuelto al helper'
 contains '"$LOG_SCAFFOLD" "$RESOLVED_TDD_MODEL" "$RESOLVED_TDD_EFFORT"' 'Stage 0 reenvia el effort resuelto al helper'
 contains 'MEFISTO_EFFORTS_ERROR=${PIPELINE_EFFORT_ERROR:-motivo desconocido}' 'un mapping de effort invalido aborta citando el agente y MEFISTO_EFFORTS_ERROR'
+EFFORT_CALLS=$(grep -cF -- 'resolve_tdd_effort "' "$PIPELINE" || true)
+if [ "$EFFORT_CALLS" -eq 4 ]; then
+    pass 'resolve_tdd_effort se invoca exactamente una vez por camino (run_agent, scaffold, 4b, 4c)'
+else
+    fail "resolve_tdd_effort deberia invocarse 4 veces (run_agent, scaffold, 4b, 4c), obtenido $EFFORT_CALLS"
+fi
 
 EFF_MODELS="$TMP/effort-models.json"
 EFF_MODELS_STD="$TMP/effort-models-std.json"
