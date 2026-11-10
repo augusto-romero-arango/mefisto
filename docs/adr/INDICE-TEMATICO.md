@@ -171,3 +171,8 @@ no necesita estar residente en cada sesión, solo cuando se busca en qué ADR vi
 | Superficie de observacion como mod: el aviso de tests ajustados por el reviewer pasa del issue al PR (enmienda de la superficie de observacion por mods) | MEF-ADR-0055 |
 | Modo de lanzamiento sin pane en el consumidor (`--parallel`) | MEF-ADR-0055 |
 | Raiz del paquete en artefactos Claude (sustitucion de `${CLAUDE_PLUGIN_ROOT}`) | MEF-ADR-0053 |
+| Promocion del gate por SHA en la guarda de deploys ajenos cuando el run ajeno desplego el FA bajo prueba | MEF-ADR-0031 |
+| Espera del job publish del worker de proyecciones del mismo commit en el smoke de dominio | MEF-ADR-0031 |
+| Retry en el bus de los fallos del handler en endpoints de Service Bus (abandono; dead letter solo para el mensaje ilegible) | MEF-ADR-0004, MEF-ADR-0026 |
+| Poll de la revision lista del worker de proyecciones con la imagen del SHA publicado | MEF-ADR-0031 |
+| Modo sin pane del lado interno decidido por el runtime resuelto; el hook del mod solo observa el lanzamiento | MEF-ADR-0055 |
