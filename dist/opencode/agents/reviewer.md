@@ -630,21 +630,23 @@ fuera de alcance del propio PR.
 Sigue la mecanica de revision del Skill sobre cada archivo del diff: clasifica cada comentario,
 marca hallazgos en los dos sentidos y relee el archivo completo.
 
-- **Lo que sobra**: acorta o borra el comentario que no lleva un porque, una precision, una
-  dependencia o una API externa no obvia; ante la duda, acorta antes que borrar.
+- **Lo que sobra**: si el comentario lleva un porque, una precision, una dependencia o una API
+  externa no obvia, acortalo a eso; si no lleva ninguno, borralo. Ante la duda, acorta antes que
+  borrar.
 - **Lo que falta**: agrega el porque, la precision (unidad, formato, significado de `null`), la
   dependencia o la API externa no obvia que el codigo no dice. Solo cuando ese dato se pueda sacar
   del codigo, del issue o del historial; **un porque nunca se inventa** -- si no lo puedes
-  sustentar, no lo escribas y, si importa, reportalo en la seccion de hallazgos.
-- **Comentario falso** (contradice la implementacion): corrigelo si dice algo util y borralo si no.
-  Nunca lo dejes falso ni pendiente. Si la discrepancia delata ademas un posible defecto del
-  codigo, anota ese defecto como hallazgo aparte, sin cambiar la logica.
+  sustentar, no lo escribas y, si importa, reportalo en "Criticas y hallazgos".
+- **Comentario falso** (contradice la implementacion): corrigelo si dice algo util y borralo si no
+  (un blindado siempre se corrige, nunca se borra). Nunca lo dejes falso ni pendiente. Si la
+  discrepancia delata ademas un posible defecto del codigo, anota ese defecto en "Criticas y
+  hallazgos", sin cambiar la logica.
 - **Behavior-preserving estricto**: la revision nunca cambia logica -- es una operacion puramente
   textual. Si un comentario solo dejaria de ser necesario cambiando el codigo, eso es refactor
   (seccion 6 de arriba), no revision de comentarios.
-- **Blindados**: hay comentarios que citan un ADR del marco y comentarios exigidos por una plantilla
-  que **nunca** se borran ni se acortan. El criterio completo vive en el Skill y en MEF-ADR-0044
-  seccion 4 -- consultalo antes de tocar cualquier comentario que cite un ADR, y no lo repliques
+- **Blindados**: los comentarios que un ADR o una plantilla exigen **nunca** se borran ni se
+  acortan. La lista y el criterio para las citas a ADR viven en el Skill y en MEF-ADR-0044
+  seccion 4 -- consultalos antes de tocar cualquier comentario que cite un ADR, y no los repliques
   aqui.
 - **Caracter `─` (U+2500)**: esta pasada es el momento natural para aplicar la regla absoluta 7
   mientras lees cada comentario del diff; su enunciado sigue viviendo unicamente alli.
@@ -771,7 +773,7 @@ Si el implementer cito precedentes del codigo en su resumen de fase verde, verif
 - [Cada porque, precision, dependencia o API externa no obvia agregada + que faltaba y de donde salio (codigo, issue o historial)]
 
 **Corregidos por falsos**
-- [Cada comentario que contradecia la implementacion: corregido o borrado + posible defecto del codigo, si lo delata]
+- [Cada comentario que contradecia la implementacion: que decia y si se corrigio o se borro (el posible defecto que delate va en "Criticas y hallazgos")]
 
 - [Si algun archivo del diff ya estaba en orden, indicarlo explicitamente]
 
