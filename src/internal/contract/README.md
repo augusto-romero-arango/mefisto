@@ -62,7 +62,30 @@ Mapeo principal:
 | `agent` de comando | directiva de body | `agent` + `subtask: true` |
 | `arguments` | `argument-hint` | se omite |
 | `profile` | modelo por tabla fija | se omite; el usuario configura el modelo interactivo |
-| `effort` (agente) | `effort` nativo por tabla fija (`runtime_claude_default_effort`), justo despues de `model` | se omite (se resuelve en #2505) |
+| `effort` (agente) | `effort` nativo por tabla fija (`runtime_claude_default_effort`), justo despues de `model` | se omite del agente; lo aplica el plugin generado `.opencode/plugins/mefisto-efforts.js` (ver abajo) |
+
+### Effort de los agentes internos en conversaciones OpenCode
+
+En OpenCode `variant` solo rige cuando el agente fija su propio `model`, y los
+agentes internos no lo fijan. `generate-internal-adapters.sh` genera por eso
+`.opencode/plugins/mefisto-efforts.js` (hook `config`, descubierto por OpenCode
+en todo `.opencode/plugins/`), con `{id, profile, effort}` de cada fuente
+`src/internal/agents/*.md` y la tabla de nativos por defecto
+(`adapter_opencode_default_effort`, que delega en
+`runtime_opencode_default_effort`) embebidos. No comparte codigo con el plugin
+publicado (MEF-ADR-0019). Lee `<worktree>/.mefisto/models.json` al arrancar:
+
+- Inyecta `agent.<id>.{model,variant}` solo si el mapping fija modelo para ese
+  agente (`opencode.agents.<id>`) o para su perfil (`opencode.profiles.<profile>`);
+  sin modelo local el agente sigue heredando el modelo interactivo.
+- Nivel: `opencode.efforts.agents.<id>` > nivel de fabrica. Nativo:
+  `opencode.efforts.levels.<nivel>` > tabla por defecto.
+- Si la config del usuario ya fija `model` o `variant` para ese agente, no la
+  sobreescribe y registra el conflicto. Un mapping ilegible no inyecta nada y
+  nunca rompe el arranque.
+
+`--check` lo trata como el resto de salidas: faltante, distinta, huerfana o sin
+marcador. Lo cubre `.claude/scripts/tests/test-internal-opencode-efforts-plugin.sh`.
 
 El mapping de modelos en ejecucion headless vive en los adaptadores y en
 `mefisto-models.sh`; el generador no lee `.mefisto/models.json`, porque eso

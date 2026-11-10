@@ -22,6 +22,88 @@ adapter_opencode_default_model() {
     runtime_opencode_default_model "$1"
 }
 
+# Traduccion de nivel neutral a variant nativo (issue #2505): la tabla vive en
+# el adaptador de ejecucion comun y aqui solo se delega, mismo patron que
+# adapter_opencode_default_model.
+adapter_opencode_default_effort() {
+    local runtime_lib="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/../../../runtime/lib/runtime-opencode.sh"
+    source "$runtime_lib"
+    runtime_opencode_default_effort "$1"
+}
+
+# OPENCODE_EFFORTS_PLUGIN_RELPATH -- ruta (relativa a la raiz de salida) del
+# plugin de efforts de los agentes internos (issue #2505).
+OPENCODE_EFFORTS_PLUGIN_RELPATH=".opencode/plugins/mefisto-efforts.js"
+
+# opencode_render_efforts_plugin <marker_line> <agents_json> -- imprime el
+# plugin de hook `config` que aplica el effort de fabrica de los agentes
+# internos en conversaciones (issue #2505). <agents_json> es un array
+# [{id, profile, effort}] ya ordenado por id; la tabla de nativos por defecto se
+# obtiene de adapter_opencode_default_effort. Sin lectura de
+# .mefisto/models.json en generacion: el plugin la lee en runtime, asi
+# --check sigue siendo determinista. No comparte codigo con el plugin
+# publicado (MEF-ADR-0019).
+opencode_render_efforts_plugin() {
+    local marker_line="$1" agents="$2" natives='{}' level native
+    for level in quick light standard thorough exhaustive; do
+        native="$(adapter_opencode_default_effort "$level")" || return 1
+        natives="$(jq -c --arg level "$level" --arg native "$native" '. + {($level): $native}' <<< "$natives")" || return 1
+    done
+    printf '%s\n' "$marker_line"
+    cat <<EOF
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+const agents = $agents;
+const natives = $natives;
+const owns = (object, key) => Object.prototype.hasOwnProperty.call(object, key);
+const isObject = (value) => value !== null && typeof value === "object" && !Array.isArray(value);
+const isText = (value) => typeof value === "string" && value.trim() !== "";
+const pick = (object, key) => (isObject(object) && owns(object, key) ? object[key] : undefined);
+const log = async (client, event, agent) => {
+  try { await client?.app?.log?.({ body: { service: "mefisto", level: "warn", message: event, extra: { event, agent } } }); } catch { /* failure: continue */ }
+};
+const validTextMap = (value) => value === undefined || (isObject(value) && Object.values(value).every(isText));
+const loadSection = (root) => {
+  let text;
+  try { text = readFileSync(join(root, ".mefisto", "models.json"), "utf8"); } catch (error) { return error?.code === "ENOENT" ? {} : null; }
+  try {
+    const mapping = JSON.parse(text);
+    if (!isObject(mapping)) return null;
+    const section = mapping.opencode === undefined ? {} : mapping.opencode;
+    if (!isObject(section)) return null;
+    const efforts = section.efforts;
+    if (!validTextMap(section.profiles) || !validTextMap(section.agents)) return null;
+    if (efforts !== undefined && (!isObject(efforts) || !validTextMap(efforts.agents) || !validTextMap(efforts.levels))) return null;
+    return section;
+  } catch { return null; }
+};
+
+export default async function mefistoInternalEfforts({ client, worktree, directory } = {}) {
+  return {
+    config: async (config) => {
+      try {
+        if (!isObject(config)) throw new Error("invalid_config");
+        const section = loadSection(worktree || directory || process.cwd());
+        if (section === null) { await log(client, "efforts_mapping_invalid"); return; }
+        if (config.agent !== undefined && !isObject(config.agent)) throw new Error("invalid_agent");
+        for (const { id, profile, effort } of agents) {
+          const model = pick(section.agents, id) ?? pick(section.profiles, profile);
+          if (model === undefined) continue;
+          const level = pick(section.efforts?.agents, id) ?? effort;
+          if (!owns(natives, level)) { await log(client, "efforts_level_invalid", id); continue; }
+          const variant = pick(section.efforts?.levels, level) ?? natives[level];
+          const actual = pick(config.agent, id);
+          if (isObject(actual) && (actual.model !== undefined || actual.variant !== undefined)) { await log(client, "efforts_config_conflict", id); continue; }
+          if (config.agent === undefined) config.agent = {};
+          config.agent[id] = { ...(isObject(actual) ? actual : {}), model, variant };
+        }
+      } catch { await log(client, "efforts_config_hook_failed"); }
+    },
+  };
+}
+EOF
+}
+
 # OPENCODE_PERMISSIONS_MAPPING -- ruta al mapping declarativo capacidad ->
 # permiso (issue #862), resuelta relativa a este propio archivo (mismo patron
 # BASH_SOURCE que mefisto-state.sh usa desde _mefisto-common.sh) para que
