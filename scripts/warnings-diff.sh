@@ -49,6 +49,19 @@
 # dos veces). Terraform no tiene mecanismo nativo para suprimir warnings de
 # validate y el marco no usa tflint: no hay patrones de supresion.
 #
+# Consola del build (dotnet, #2507): cada lado deja la salida de 'dotnet build'
+# (stdout+stderr) en <raiz>/.mefisto/pipeline/logs/warnings-diff-dotnet-<lado>.log
+# (<lado> = base o current; misma raiz que la cache; se sobreescribe en cada
+# corrida). Los warnings se siguen leyendo del file logger 'warningsonly'. Si un
+# lado no compila, tras el ERROR se imprimen por stderr hasta 20 lineas con
+# ': error ' del log (o sus ultimas 20 si no hay ninguna) y la ruta del log.
+# Con WARNINGS_DIFF_FIXTURE_DIR, <lado>.console (opcional) simula esa consola y
+# no se escribe nada en .mefisto/pipeline/logs/.
+#
+# Tiempos (toda toolchain): antes de la salida, por stderr, una linea
+# 'warnings-diff: base <N>s (cache|build), actual <N>s' para ver que fase fue
+# lenta. Stdout y los exit codes no cambian.
+#
 # Exit codes: 0 sin warnings nuevos; 1 error; 2 hay warnings nuevos.
 
 set -uo pipefail
@@ -134,8 +147,25 @@ suppression_patterns_shell() {
 DOTNET_PARSE_ROOT=""
 DOTNET_PARSE_ROOT_PHYS=""
 
+# Causa de un build fallido (#2507): hasta 20 lineas con ': error ' de la consola
+# (sin repetidas; MSBuild repite cada error en su resumen) o, si no hay ninguna,
+# sus ultimas 20 lineas, y la ruta del log completo. Todo por stderr.
+print_build_failure_excerpt() {
+    local log="$1"
+    if [ ! -s "$log" ]; then
+        echo "(la consola del build esta vacia) log: $log" >&2
+        return 0
+    fi
+    if grep -q ': error ' "$log"; then
+        grep ': error ' "$log" | awk '!seen[$0]++' | head -n 20 >&2
+    else
+        tail -n 20 "$log" >&2
+    fi
+    echo "log completo del build: $log" >&2
+}
+
 run_dotnet() {
-    local root="$1" side="$2" out="$3" rc=0
+    local root="$1" side="$2" out="$3" rc=0 console=""
     DOTNET_PARSE_ROOT="$root"
     DOTNET_PARSE_ROOT_PHYS=$(cd "$root" 2>/dev/null && pwd -P) || DOTNET_PARSE_ROOT_PHYS="$root"
     if [ -n "${WARNINGS_DIFF_FIXTURE_DIR:-}" ]; then
@@ -145,15 +175,18 @@ run_dotnet() {
         fi
         cat "$WARNINGS_DIFF_FIXTURE_DIR/$side.out" > "$out" 2>/dev/null || : > "$out"
         [ -f "$WARNINGS_DIFF_FIXTURE_DIR/$side.exitcode" ] && rc=$(head -n1 "$WARNINGS_DIFF_FIXTURE_DIR/$side.exitcode")
+        console="$WARNINGS_DIFF_FIXTURE_DIR/$side.console"
     else
         if ! command -v dotnet >/dev/null 2>&1; then
             echo "ERROR: dotnet no esta instalado" >&2
             return 1
         fi
         local target="$root" log="$TMP_WORK/build-$side.log"
+        console="$REPO_ROOT/.mefisto/pipeline/logs/warnings-diff-dotnet-$side.log"
+        mkdir -p "$(dirname "$console")" 2>/dev/null || console="$TMP_WORK/console-$side.log"
         [ -n "$SCOPE_PATH" ] && target="$root/$SCOPE_PATH"
         (cd "$root" && dotnet build "$target" -nologo --no-incremental -tl:off \
-            -fl "-flp:logfile=$log;warningsonly" >/dev/null 2>&1) || rc=$?
+            -fl "-flp:logfile=$log;warningsonly" >"$console" 2>&1) || rc=$?
         cat "$log" > "$out" 2>/dev/null || : > "$out"
     fi
     if [ "$rc" -ne 0 ]; then
@@ -162,6 +195,7 @@ run_dotnet() {
         else
             echo "ERROR: el arbol actual no compila: corrige los errores antes de medir warnings" >&2
         fi
+        print_build_failure_excerpt "$console"
         return 1
     fi
     return 0
@@ -313,8 +347,11 @@ BASE_KEYS="$TMP_WORK/base.keys"
 CACHE_DIR="$REPO_ROOT/.mefisto/pipeline/warnings-baseline"
 CACHE_FILE="$CACHE_DIR/$TOOLCHAIN-$BASE_SHA-$PATH_SLUG.txt"
 
+T_BASE_START=$(date +%s)
+BASE_SOURCE=build
 if [ -z "${WARNINGS_DIFF_FIXTURE_DIR:-}" ] && [ -f "$CACHE_FILE" ]; then
     cp "$CACHE_FILE" "$BASE_KEYS"
+    BASE_SOURCE=cache
 else
     if [ -n "${WARNINGS_DIFF_FIXTURE_DIR:-}" ]; then
         run_"$TOOLCHAIN" "$REPO_ROOT" base "$TMP_WORK/base.raw" || exit 1
@@ -334,8 +371,11 @@ fi
 
 # -------- Lado despues: arbol de trabajo --------
 
+T_CURRENT_START=$(date +%s)
+BASE_SECS=$((T_CURRENT_START - T_BASE_START))
 run_"$TOOLCHAIN" "$REPO_ROOT" current "$TMP_WORK/current.raw" || exit 1
 parse_"$TOOLCHAIN" < "$TMP_WORK/current.raw" | LC_ALL=C sort > "$TMP_WORK/current.keys"
+CURRENT_SECS=$(($(date +%s) - T_CURRENT_START))
 
 # Multiconjunto: comm sobre listas ordenadas con duplicados.
 LC_ALL=C comm -13 "$BASE_KEYS" "$TMP_WORK/current.keys" > "$TMP_WORK/new.keys"
@@ -385,6 +425,8 @@ scan_suppressions() {
 } | scan_suppressions >> "$TMP_WORK/new.keys"
 
 # -------- Salida --------
+
+echo "warnings-diff: base ${BASE_SECS}s ($BASE_SOURCE), actual ${CURRENT_SECS}s" >&2
 
 COUNT=0
 while IFS='|' read -r t file code msg; do
