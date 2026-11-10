@@ -106,6 +106,67 @@ _mefisto_models_resolve() {
     printf '%s\n' "$MEFISTO_RESOLVED_MODEL"
 }
 
+MEFISTO_EFFORTS_ERROR=""
+MEFISTO_RESOLVED_EFFORT=""
+
+_mefisto_effort_valid_level() {
+    case "$1" in
+        quick|light|standard|thorough|exhaustive) return 0 ;;
+        *) return 1 ;;
+    esac
+}
+
+# mefisto_resolve_effort <runtime> <agent-id> <nivel-fabrica> [mapping-file]
+#
+# Fija MEFISTO_RESOLVED_EFFORT y MEFISTO_EFFORTS_ERROR en el shell caller;
+# capturar con redirect a archivo, no con $(...).
+mefisto_resolve_effort() {
+    local runtime="${1:-}" agent_id="${2:-}" level="${3:-}" mapping_file="${4:-}"
+    local adapter fn native="" override=""
+    MEFISTO_EFFORTS_ERROR=""
+    MEFISTO_RESOLVED_EFFORT=""
+
+    if ! _mefisto_effort_valid_level "$level"; then
+        MEFISTO_EFFORTS_ERROR="nivel de fabrica: '$level' no esta en el vocabulario quick|light|standard|thorough|exhaustive"
+        return 1
+    fi
+    case "$runtime" in
+        ''|*[!a-z0-9_]*) MEFISTO_EFFORTS_ERROR="runtime invalido: '$runtime'"; return 1 ;;
+    esac
+    adapter="$MEFISTO_RUNTIME_LIB_DIR/runtime-$runtime.sh"
+    if [ ! -f "$adapter" ]; then
+        MEFISTO_EFFORTS_ERROR="runtime '$runtime' no tiene adaptador ($adapter)"
+        return 1
+    fi
+    fn="runtime_${runtime}_default_effort"
+    unset -f "$fn" 2>/dev/null || true
+    if ! source "$adapter"; then
+        MEFISTO_EFFORTS_ERROR="runtime '$runtime': no se pudo cargar el adaptador ($adapter)"
+        return 1
+    fi
+
+    if ! _mefisto_models_validate_mapping "$mapping_file"; then
+        MEFISTO_EFFORTS_ERROR="$MEFISTO_MODELS_ERROR"
+        return 1
+    fi
+    if [ -n "$mapping_file" ] && [ -f "$mapping_file" ] && [ -s "$mapping_file" ]; then
+        override="$(jq -r --arg runtime "$runtime" --arg agent "$agent_id" \
+            '.[$runtime].efforts.agents[$agent] // empty' "$mapping_file" 2>/dev/null)"
+        [ -n "$override" ] && level="$override"
+        native="$(jq -r --arg runtime "$runtime" --arg level "$level" \
+            '.[$runtime].efforts.levels[$level] // empty' "$mapping_file" 2>/dev/null)"
+    fi
+    if [ -z "$native" ] && declare -F "$fn" >/dev/null 2>&1; then
+        native="$($fn "$level")" || {
+            MEFISTO_EFFORTS_ERROR="$fn: no acepta el nivel '$level'"
+            return 1
+        }
+    fi
+
+    MEFISTO_RESOLVED_EFFORT="$native"
+    printf '%s\n' "$MEFISTO_RESOLVED_EFFORT"
+}
+
 mefisto_resolve_model() {
     _mefisto_models_resolve "$@"
 }

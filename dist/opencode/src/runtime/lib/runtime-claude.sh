@@ -83,6 +83,17 @@ runtime_claude_default_model() {
     esac
 }
 
+runtime_claude_default_effort() {
+    case "$1" in
+        quick) printf '%s' "low" ;;
+        light) printf '%s' "medium" ;;
+        standard) printf '%s' "high" ;;
+        thorough) printf '%s' "xhigh" ;;
+        exhaustive) printf '%s' "max" ;;
+        *) return 1 ;;
+    esac
+}
+
 # --- runtime_claude_build_cmd ------------------------------------------------
 
 runtime_claude_build_cmd() {

@@ -209,3 +209,21 @@ explicito, agente, perfil, `runtime_<id>_default_model` y herencia (cadena
 vacia). Una ruta omitida, inexistente o vacia equivale a no tener mapping; JSON
 o forma invalidos fallan como `<archivo>: <campo>: <motivo>`. El nucleo no
 deriva la ruta ni consulta estado, Git o cwd.
+
+### Bloque `efforts`
+
+Cada runtime admite ademas `efforts` con dos claves opcionales:
+`efforts.agents.<agent-id>` (nivel **neutral** que reemplaza el de fabrica del
+agente) y `efforts.levels.<nivel>` (valor **nativo**, string opaco no vacio, que
+reemplaza la traduccion del adaptador para ese nivel). El vocabulario neutral es
+`quick | light | standard | thorough | exhaustive`; cualquier otro nivel o campo
+se rechaza como `<ruta>: <motivo>`.
+
+`mefisto_resolve_effort <runtime> <agent-id> <nivel-fabrica> [mapping-file]`
+fija `MEFISTO_RESOLVED_EFFORT` (y lo imprime); el error queda en
+`MEFISTO_EFFORTS_ERROR`. Precedencia del nivel: `efforts.agents[<id>]` > nivel
+de fabrica del caller (vacio o fuera del vocabulario retorna `1`). Precedencia
+del valor nativo: `efforts.levels[<nivel>]` > `runtime_<id>_default_effort
+<nivel>` (quick->low, light->medium, standard->high, thorough->xhigh,
+exhaustive->max en los adaptadores actuales) > vacio (heredar). Capturar el
+resultado con redirect a archivo, nunca con `$(...)`.

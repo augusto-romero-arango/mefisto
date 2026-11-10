@@ -100,6 +100,17 @@ runtime_opencode_default_model() {
     esac
 }
 
+runtime_opencode_default_effort() {
+    case "$1" in
+        quick) printf '%s' "low" ;;
+        light) printf '%s' "medium" ;;
+        standard) printf '%s' "high" ;;
+        thorough) printf '%s' "xhigh" ;;
+        exhaustive) printf '%s' "max" ;;
+        *) return 1 ;;
+    esac
+}
+
 # --- Catalogo de tarifas Models.dev ------------------------------------------
 #
 # La estimacion es telemetria auxiliar: este adaptador conserva una copia
