@@ -136,7 +136,10 @@ case "${1:-} ${2:-}" in
     "status server") exit 0 ;;
     "workspace list")
         if [ -n "${HERDR_STUB_EXISTING_LABEL:-}" ]; then
-            printf '{"result":{"workspaces":[{"workspace_id":"w1","label":"%s"}]}}\n' "$HERDR_STUB_EXISTING_LABEL"
+            second=""
+            [ -n "${HERDR_STUB_SECOND_WS:-}" ] \
+                && second=$(printf ',{"workspace_id":"w2","label":"%s"}' "$HERDR_STUB_EXISTING_LABEL")
+            printf '{"result":{"workspaces":[{"workspace_id":"w1","label":"%s"}%s]}}\n' "$HERDR_STUB_EXISTING_LABEL" "$second"
         else
             echo '{"result":{"workspaces":[]}}'
         fi
@@ -145,6 +148,10 @@ case "${1:-} ${2:-}" in
         echo '{"result":{"workspace":{"workspace_id":"w1"},"root_pane":{"pane_id":"w1:p1"}}}'
         ;;
     "pane split")
+        if [ -n "${HERDR_STUB_FAIL_SPLIT:-}" ]; then
+            echo '{"error":"split rechazado"}' >&2
+            exit 73
+        fi
         n=$(cat "$HERDR_STUB_SPLIT_COUNTER")
         echo $((n + 1)) > "$HERDR_STUB_SPLIT_COUNTER"
         printf '{"result":{"pane":{"pane_id":"w1:p%s"}}}\n' "$n"
@@ -153,7 +160,12 @@ case "${1:-} ${2:-}" in
         printf '{"result":{"panes":['
         first=1
         items=()
-        IFS=';' read -ra items <<< "${HERDR_STUB_PANES:-}"
+        list_ws=$(option_value --workspace "$@" || true)
+        if [ "$list_ws" = "w2" ]; then
+            IFS=';' read -ra items <<< "${HERDR_STUB_PANES_W2:-}"
+        else
+            IFS=';' read -ra items <<< "${HERDR_STUB_PANES:-}"
+        fi
         for item in "${items[@]+"${items[@]}"}"; do
             [ -n "$item" ] || continue
             label="${item%%=*}"
@@ -578,6 +590,122 @@ cmp -s "$REPO_ROOT/dist/opencode/scripts/herdr-workspace.sh" "$TARGET" \
     && pass "M-5: dist/{claude,opencode} contienen el script fuente" \
     || fail "M-5: dist diverge del script fuente"
 unset WORKSPACE_TARGET
+
+echo ""
+echo "[N] Workspace del repo sin panes de Mefisto: se adopta y se montan las filas (issue #2493)"
+export WORKSPACE_TARGET="$FAKE_PACKAGE/scripts/herdr-workspace.sh"
+unset MEFISTO_RUNTIMES MEFISTO_RUNTIME
+export HERDR_STUB_EXISTING_LABEL='fake consumer repo'
+export HERDR_STUB_PANES='=w1:p1'
+run_workspace "$FAKE_CONSUMER"
+[ "$LAST_RC" -eq 0 ] \
+    && grep -qxF "herdr pane split --pane w1:p1 --direction down --cwd $FAKE_CONSUMER --no-focus --env MEFISTO_RUNTIME=opencode" "$HERDR_STUB_LOG" \
+    && grep -qxF "herdr pane split --pane w1:p1 --direction down --cwd $FAKE_CONSUMER --no-focus --env MEFISTO_RUNTIME=claude" "$HERDR_STUB_LOG" \
+    && grep -qxF "herdr pane split --pane w1:p3 --direction right --cwd $FAKE_CONSUMER --no-focus --env MEFISTO_RUNTIME=claude" "$HERDR_STUB_LOG" \
+    && grep -qxF "herdr pane split --pane w1:p2 --direction right --cwd $FAKE_CONSUMER --no-focus --env MEFISTO_RUNTIME=opencode" "$HERDR_STUB_LOG" \
+    && [ "$(grep -c -- '--direction down' "$HERDR_STUB_LOG")" -eq 2 ] \
+    && [ "$(grep -c -- '--direction right' "$HERDR_STUB_LOG")" -eq 2 ] \
+    && pass "N-1: consumidor, monta dos filas con down desde la raiz y right desde cada planner" \
+    || fail "N-1: splits inesperados: $(cat "$HERDR_STUB_LOG") $LAST_STDOUT$LAST_STDERR"
+LAST_DOWN_LINE=$(grep -nF ' --direction down ' "$HERDR_STUB_LOG" | cut -d: -f1 | tail -1)
+FIRST_RIGHT_LINE=$(grep -nF ' --direction right ' "$HERDR_STUB_LOG" | cut -d: -f1 | head -1)
+[ "$LAST_DOWN_LINE" -lt "$FIRST_RIGHT_LINE" ] \
+    && pass "N-2: todos los down ocurren antes de cualquier right" \
+    || fail "N-2: un right ocurrio antes de terminar los down"
+grep -qxF 'herdr pane rename w1:p3 planner [claude]' "$HERDR_STUB_LOG" \
+    && grep -qxF 'herdr pane rename w1:p4 ejecucion [claude]' "$HERDR_STUB_LOG" \
+    && grep -qxF 'herdr pane rename w1:p2 planner [opencode]' "$HERDR_STUB_LOG" \
+    && grep -qxF 'herdr pane rename w1:p5 ejecucion [opencode]' "$HERDR_STUB_LOG" \
+    && grep -qF 'herdr agent start planner-fake-consumer-r-claude --kind claude --pane w1:p3 --timeout 90000 -- --agent mefisto:planner' "$HERDR_STUB_LOG" \
+    && grep -qF 'herdr agent start ejecucion-fake-consumer-r-claude --kind claude --pane w1:p4 ' "$HERDR_STUB_LOG" \
+    && grep -qF 'herdr agent start planner-fake-consumer-opencode --kind opencode --pane w1:p2 ' "$HERDR_STUB_LOG" \
+    && grep -qF 'herdr agent start ejecucion-fake-consumer-opencode --kind opencode --pane w1:p5 ' "$HERDR_STUB_LOG" \
+    && [ "$(grep -c 'agent start' "$HERDR_STUB_LOG")" -eq 4 ] \
+    && pass "N-3: etiqueta y arranca los cuatro panes nuevos" \
+    || fail "N-3: labels o agentes inesperados: $(cat "$HERDR_STUB_LOG")"
+if grep -qE 'pane rename w1:p1( |$)|--pane w1:p1 --timeout|pane split --pane w1:p1 --direction right' "$HERDR_STUB_LOG"; then
+    fail "N-4: toco el pane raiz: $(cat "$HERDR_STUB_LOG")"
+else
+    pass "N-4: el pane raiz queda intacto (sin rename ni agent start)"
+fi
+printf '%s\n%s\n' "$LAST_STDOUT" "$LAST_STDERR" | grep -Fq "no tenia panes de Mefisto: se montaron 2 fila(s) debajo del pane raiz." \
+    && grep -qxF 'herdr workspace focus w1' "$HERDR_STUB_LOG" \
+    && ! printf '%s\n%s\n' "$LAST_STDOUT" "$LAST_STDERR" | grep -Fq 'no contiene' \
+    && pass "N-5: enfoca y avisa la adopcion" \
+    || fail "N-5: mensaje de adopcion ausente: $LAST_STDOUT$LAST_STDERR"
+assert_no_anchor_protocol N-6
+
+export HERDR_STUB_EXISTING_LABEL=fake-mefisto-repo
+export WORKSPACE_TARGET="$TARGET"
+run_workspace "$FAKE_MEFISTO"
+[ "$LAST_RC" -eq 0 ] \
+    && grep -qxF "herdr pane split --pane w1:p1 --direction down --cwd $FAKE_MEFISTO --no-focus --env MEFISTO_RUNTIME=opencode" "$HERDR_STUB_LOG" \
+    && grep -qxF "herdr pane split --pane w1:p1 --direction down --cwd $FAKE_MEFISTO --no-focus --env MEFISTO_RUNTIME=claude" "$HERDR_STUB_LOG" \
+    && grep -qxF "herdr pane split --pane w1:p3 --direction right --cwd $FAKE_MEFISTO --no-focus --env MEFISTO_RUNTIME=claude" "$HERDR_STUB_LOG" \
+    && grep -qxF "herdr pane split --pane w1:p2 --direction right --cwd $FAKE_MEFISTO --no-focus --env MEFISTO_RUNTIME=opencode" "$HERDR_STUB_LOG" \
+    && grep -qF 'herdr agent start planner-fake-mefisto-re-claude --kind claude --pane w1:p3 --timeout 90000 -- --agent mefisto-planner' "$HERDR_STUB_LOG" \
+    && ! grep -qE 'pane rename w1:p1( |$)|--pane w1:p1 --timeout' "$HERDR_STUB_LOG" \
+    && ! printf '%s\n%s\n' "$LAST_STDOUT" "$LAST_STDERR" | grep -Fq 'no contiene ningun planner' \
+    && pass "N-7: repo de Mefisto, monta las filas de runtimes_for_repo bajo la raiz sin tocarla" \
+    || fail "N-7: adopcion en Mefisto inesperada: $(cat "$HERDR_STUB_LOG") $LAST_STDOUT$LAST_STDERR"
+
+export MEFISTO_RUNTIMES=claude
+run_workspace "$FAKE_MEFISTO"
+unset MEFISTO_RUNTIMES
+grep -qxF "herdr pane split --pane w1:p1 --direction down --cwd $FAKE_MEFISTO --no-focus --env MEFISTO_RUNTIME=claude" "$HERDR_STUB_LOG" \
+    && grep -qxF "herdr pane split --pane w1:p2 --direction right --cwd $FAKE_MEFISTO --no-focus --env MEFISTO_RUNTIME=claude" "$HERDR_STUB_LOG" \
+    && ! grep -qE 'pane rename w1:p1( |$)' "$HERDR_STUB_LOG" \
+    && pass "N-8: con una sola fila tambien se monta debajo de la raiz" \
+    || fail "N-8: una fila adoptada inesperada: $(cat "$HERDR_STUB_LOG")"
+
+export WORKSPACE_TARGET="$FAKE_PACKAGE/scripts/herdr-workspace.sh"
+export HERDR_STUB_EXISTING_LABEL='fake consumer repo'
+export HERDR_STUB_PANES='[ok] mefisto-tooling #12=w1:p1;=w1:p2'
+run_workspace "$FAKE_CONSUMER"
+grep -qxF "herdr pane split --pane w1:p1 --direction down --cwd $FAKE_CONSUMER --no-focus --env MEFISTO_RUNTIME=opencode" "$HERDR_STUB_LOG" \
+    && ! grep -qE 'pane rename w1:p1( |$)' "$HERDR_STUB_LOG" \
+    && pass "N-9: un workspace solo con visores se adopta" \
+    || fail "N-9: visores tratados como panes de rol: $(cat "$HERDR_STUB_LOG")"
+
+export HERDR_STUB_PANES='=w1:p1'
+export HERDR_STUB_FAIL_SPLIT=1
+run_workspace "$FAKE_CONSUMER"
+unset HERDR_STUB_FAIL_SPLIT
+[ "$LAST_RC" -eq 0 ] \
+    && ! grep -qE 'pane rename|agent start' "$HERDR_STUB_LOG" \
+    && printf '%s\n%s\n' "$LAST_STDOUT" "$LAST_STDERR" | grep -Fq 'no se pudo montar ninguna fila debajo del pane raiz' \
+    && ! printf '%s\n%s\n' "$LAST_STDOUT" "$LAST_STDERR" | grep -Fq 'se montaron 0 fila(s)' \
+    && pass "N-10: si ningun split prospera, avisa en vez de reportar exito" \
+    || fail "N-10: adopcion fallida reportada como exito: $(cat "$HERDR_STUB_LOG") $LAST_STDOUT$LAST_STDERR"
+
+echo ""
+echo "[N2] Dos workspaces con el mismo label: se prefiere el que tiene filas de Mefisto"
+export HERDR_STUB_SECOND_WS=1
+export HERDR_STUB_PANES='=w1:p1'
+export HERDR_STUB_PANES_W2='planner [claude]=w2:p1;ejecucion [claude]=w2:p2;planner [opencode]=w2:p3;ejecucion [opencode]=w2:p4'
+run_workspace "$FAKE_CONSUMER"
+[ "$LAST_RC" -eq 0 ] \
+    && grep -qxF 'herdr workspace focus w2' "$HERDR_STUB_LOG" \
+    && ! grep -qE 'pane split|pane rename|agent start|workspace focus w1' "$HERDR_STUB_LOG" \
+    && pass "N2-1: enfoca el workspace con filas y no monta nada nuevo" \
+    || fail "N2-1: eligio el workspace equivocado o duplico filas: $(cat "$HERDR_STUB_LOG")"
+unset HERDR_STUB_SECOND_WS HERDR_STUB_PANES_W2
+
+echo ""
+echo "[N3] Workspaces con panes de rol conservan su comportamiento"
+export HERDR_STUB_PANES='planner=w1:p1'
+run_workspace "$FAKE_CONSUMER"
+grep -qxF 'herdr pane rename w1:p1 planner [claude]' "$HERDR_STUB_LOG" \
+    && ! grep -qE 'pane split|agent start' "$HERDR_STUB_LOG" \
+    && pass "N3-1: legacy se normaliza sin montar filas" \
+    || fail "N3-1: comportamiento legacy cambio: $(cat "$HERDR_STUB_LOG")"
+export HERDR_STUB_PANES='planner [claude]=w1:p1;ejecucion [claude]=w1:p3'
+run_workspace "$FAKE_CONSUMER" 4
+grep -qxF "herdr pane split --pane w1:p1 --direction down --cwd $FAKE_CONSUMER --no-focus --env MEFISTO_RUNTIME=opencode" "$HERDR_STUB_LOG" \
+    && ! grep -qE 'rename w1:p1|rename w1:p3' "$HERDR_STUB_LOG" \
+    && pass "N3-2: una fila canonica solo suma la faltante" \
+    || fail "N3-2: agregado de fila faltante cambio: $(cat "$HERDR_STUB_LOG")"
+unset HERDR_STUB_EXISTING_LABEL HERDR_STUB_PANES WORKSPACE_TARGET
 
 echo ""
 echo "[Z] Protocolo retirado del script"
