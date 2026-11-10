@@ -85,7 +85,7 @@ Estados: `pendiente`, `en curso`, `hecho`.
 
 | Paso | Qué | Estado | PR |
 |---|---|---|---|
-| 1 | ADR de portabilidad | pendiente | |
+| 1 | ADR de portabilidad | hecho | #2547 |
 | 2a | Retirar OpenCode | pendiente | |
 | 2b | Retirar tmux | pendiente | |
 | 3 | Base TypeScript | pendiente | |
