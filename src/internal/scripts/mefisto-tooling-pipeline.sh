@@ -43,6 +43,7 @@ RUN_AGENT_BIN_DEFAULT="$RUNTIME_DIR/mefisto-run-agent.sh"
 INTERNAL_MODELS_FILE="${MEFISTO_MODELS_FILE:-${MEFISTO_LAUNCH_ROOT:-$MEFISTO_REPO_ROOT}/.mefisto/models.json}"
 source "$RUNTIME_LIB_DIR/mefisto-runtime.sh"
 source "$RUNTIME_LIB_DIR/mefisto-models.sh"
+source "$SCRIPT_DIR/lib/frontmatter.sh"
 
 # Version y SHA del propio plugin que corre esta corrida (issue #662),
 # calculados UNA sola vez aqui -- ANTES de crear el worktree del issue. En una
@@ -411,6 +412,42 @@ MODEL_WRITER="$MEFISTO_STAGE_MODEL_RESUELTO"
 resolve_pipeline_stage_model "reviewer" "mefisto-reviewer" "deep"
 MODEL_REVIEWER="$MEFISTO_STAGE_MODEL_RESUELTO"
 
+# --- Resolver el effort de cada agente (issue #2499) ----------------------
+# Mismo momento y criterio que el modelo: ANTES del worktree. El nivel de
+# fabrica se lee del campo `effort` de la fuente neutral del agente, junto al
+# codigo que se ejecuta (en un batch aislado, el snapshot). El stage merge
+# reusa el effort del writer; reintentos y reanudacion reenvian el mismo.
+EFFORT_WRITER=""
+EFFORT_REVIEWER=""
+
+# resolve_pipeline_stage_effort <clave-de-stage> <agent-id-neutral>
+# Deja el nativo en MEFISTO_STAGE_EFFORT_RESUELTO (vacio = heredar).
+MEFISTO_STAGE_EFFORT_RESUELTO=""
+resolve_pipeline_stage_effort() {
+    local stage_key="$1" agent_id="$2"
+    local agent_file="$SCRIPT_DIR/../agents/$agent_id.md" level=""
+
+    level="$(extract_frontmatter "$agent_file" 2>/dev/null | jq -r '.effort // empty' 2>/dev/null)" || level=""
+    [ -n "$level" ] || abort "No se pudo resolver el effort de $agent_id: la fuente $agent_file no declara 'effort' o es ilegible (MEFISTO_EFFORTS_ERROR: sin nivel de fabrica)"
+
+    # Redirect a archivo, nunca "$(...)": MEFISTO_EFFORTS_ERROR se perderia en
+    # el subshell (misma trampa que resolve_pipeline_stage_model).
+    local out_file
+    out_file="$(mktemp)"
+    if ! mefisto_resolve_effort "$MEFISTO_RUNTIME_RESUELTO" "$agent_id" "$level" "$INTERNAL_MODELS_FILE" > "$out_file"; then
+        rm -f "$out_file"
+        abort "No se pudo resolver el effort de $agent_id (nivel $level): MEFISTO_EFFORTS_ERROR=${MEFISTO_EFFORTS_ERROR:-motivo desconocido}"
+    fi
+    MEFISTO_STAGE_EFFORT_RESUELTO="$(cat "$out_file")"
+    rm -f "$out_file"
+    echo "[$(date +%H:%M:%S)] EFFORTS: $stage_key -> ${MEFISTO_STAGE_EFFORT_RESUELTO:-<heredado>} (nivel $level)" >> "$EVENTS_LOG_ABS"
+}
+
+resolve_pipeline_stage_effort "writer" "mefisto-writer"
+EFFORT_WRITER="$MEFISTO_STAGE_EFFORT_RESUELTO"
+resolve_pipeline_stage_effort "reviewer" "mefisto-reviewer"
+EFFORT_REVIEWER="$MEFISTO_STAGE_EFFORT_RESUELTO"
+
 # --- Anunciar el modo variante (issue #711) -------------------------------
 # El label ya se valido y ya derivo los nombres de archivo arriba, junto al
 # parseo de argumentos; aqui solo se anuncia, que es lo primero que se puede
@@ -621,10 +658,10 @@ run_agent() {
     # por rol. El stage de resolucion de conflictos corre como
     # `run_agent "merge" "writer"` y por eso cae en la rama de escritura --
     # mismo agente y mismo modelo que el writer de Stage 1.
-    local MEFISTO_AGENT_ID AGENT_MODEL
+    local MEFISTO_AGENT_ID AGENT_MODEL AGENT_EFFORT
     case "$agent" in
-        reviewer) MEFISTO_AGENT_ID="mefisto-reviewer"; AGENT_MODEL="$MODEL_REVIEWER" ;;
-        *)        MEFISTO_AGENT_ID="mefisto-writer";   AGENT_MODEL="$MODEL_WRITER" ;;
+        reviewer) MEFISTO_AGENT_ID="mefisto-reviewer"; AGENT_MODEL="$MODEL_REVIEWER"; AGENT_EFFORT="$EFFORT_REVIEWER" ;;
+        *)        MEFISTO_AGENT_ID="mefisto-writer";   AGENT_MODEL="$MODEL_WRITER";   AGENT_EFFORT="$EFFORT_WRITER" ;;
     esac
     update_status "$stage-$agent" "running"
     log_agent_model_invocation "$agent" "$AGENT_MODEL"
@@ -735,6 +772,7 @@ run_agent() {
             --timeout "$AGENT_TIMEOUT_SECONDS"
         )
         [ -n "$AGENT_MODEL" ] && RUN_AGENT_ARGS+=(--model "$AGENT_MODEL")
+        [ -n "$AGENT_EFFORT" ] && RUN_AGENT_ARGS+=(--effort "$AGENT_EFFORT")
         [ -n "$RESUME_SESSION_ID" ] && RUN_AGENT_ARGS+=(--resume-session "$RESUME_SESSION_ID")
 
         # Diagnostico propio del runner (uso invalido, avisos best-effort de

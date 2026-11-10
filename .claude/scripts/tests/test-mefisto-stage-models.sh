@@ -184,8 +184,8 @@ else
     fail "orden incorrecto: resolucion de modelo=$model_line, git worktree add=$worktree_line"
 fi
 # run_agent ya no resuelve nada: solo selecciona el modelo ya resuelto por rol.
-if grep -qF 'reviewer) MEFISTO_AGENT_ID="mefisto-reviewer"; AGENT_MODEL="$MODEL_REVIEWER" ;;' "$PIPE_PATH" \
-    && grep -qF '*)        MEFISTO_AGENT_ID="mefisto-writer";   AGENT_MODEL="$MODEL_WRITER" ;;' "$PIPE_PATH"; then
+if grep -qF 'reviewer) MEFISTO_AGENT_ID="mefisto-reviewer"; AGENT_MODEL="$MODEL_REVIEWER";' "$PIPE_PATH" \
+    && grep -qF '*)        MEFISTO_AGENT_ID="mefisto-writer";   AGENT_MODEL="$MODEL_WRITER";' "$PIPE_PATH"; then
     pass "run_agent selecciona el modelo ya resuelto (writer/merge -> MODEL_WRITER, reviewer -> MODEL_REVIEWER)"
 else
     fail "run_agent no selecciona el modelo ya resuelto por rol"
@@ -242,6 +242,74 @@ if grep -qF '[ -n "$AGENT_MODEL" ] && RUN_AGENT_ARGS+=(--model "$AGENT_MODEL")' 
 else
     fail "el anuncio altero el argv condicional del runner"
 fi
+
+# --- Effort por agente (issue #2499) ------------------------------------
+echo ""
+echo "[25] el effort se resuelve ANTES del worktree y run_agent lo pasa por rol solo si no es vacio"
+effort_line=$(grep -n '^resolve_pipeline_stage_effort "writer"' "$PIPE_PATH" | head -n1 | cut -d: -f1)
+if [ -n "$effort_line" ] && [ "$effort_line" -lt "$worktree_line" ]; then pass "resolucion del effort (linea $effort_line) antes del worktree (linea $worktree_line)"; else fail "orden incorrecto: effort=$effort_line worktree=$worktree_line"; fi
+if grep -qF '[ -n "$AGENT_EFFORT" ] && RUN_AGENT_ARGS+=(--effort "$AGENT_EFFORT")' "$PIPE_PATH" \
+    && grep -qF 'AGENT_EFFORT="$EFFORT_REVIEWER"' "$PIPE_PATH" && grep -qF 'AGENT_EFFORT="$EFFORT_WRITER"' "$PIPE_PATH"; then
+    pass "run_agent selecciona el effort por rol y lo pasa condicionalmente"
+else
+    fail "run_agent no cablea --effort por rol"
+fi
+
+# Ejecuta la funcion real contra el adaptador fake. Args: models.json, dir de agentes.
+E_TMP="$(mktemp -d)"
+E_RES=""
+run_effort_case() {
+    local mapping="$1" agents_dir="${2:-$REPO_ROOT/src/internal/agents}"
+    local fakescripts="$E_TMP/src/internal/scripts"
+    rm -rf "$E_TMP/src"; mkdir -p "$fakescripts"
+    ln -s "$agents_dir" "$E_TMP/src/internal/agents"
+    : > "$E_TMP/events.log"
+    E_RES="$(
+        SCRIPT_DIR="$fakescripts"
+        EVENTS_LOG_ABS="$E_TMP/events.log"
+        MEFISTO_RUNTIME_RESUELTO=fake
+        INTERNAL_MODELS_FILE="$mapping"
+        abort() { echo "ABORT: $*"; exit 1; }
+        source "$REPO_ROOT/src/runtime/lib/mefisto-models.sh"
+        source "$REPO_ROOT/src/internal/scripts/lib/frontmatter.sh"
+        eval "$(awk '/^resolve_pipeline_stage_effort\(\) \{/{p=1} p{print} p && /^}/{p=0}' "$PIPE_PATH")"
+        resolve_pipeline_stage_effort writer mefisto-writer || exit 1
+        w="$MEFISTO_STAGE_EFFORT_RESUELTO"
+        resolve_pipeline_stage_effort reviewer mefisto-reviewer || exit 1
+        echo "W=$w R=$MEFISTO_STAGE_EFFORT_RESUELTO"
+    )"
+}
+cat > "$E_TMP/models.json" <<'JSON'
+{"fake":{"efforts":{"levels":{"light":"fake-light","standard":"fake-standard","thorough":"fake-thorough"}}}}
+JSON
+cat > "$E_TMP/models-light.json" <<'JSON'
+{"fake":{"efforts":{"levels":{"light":"fake-light","standard":"fake-standard","thorough":"fake-thorough"},"agents":{"mefisto-writer":"light"}}}}
+JSON
+echo '{"fake":{"efforts":{"agents":{"mefisto-writer":"extremo"}}}}' > "$E_TMP/models-bad.json"
+
+echo ""
+echo "[26] sin mapping de agente: writer recibe el nativo de standard y reviewer el de thorough; events.log registra EFFORTS"
+run_effort_case "$E_TMP/models.json"
+if [ "$E_RES" = "W=fake-standard R=fake-thorough" ]; then pass "writer=standard, reviewer=thorough"; else fail "esperaba W=fake-standard R=fake-thorough (obtenido '$E_RES')"; fi
+if grep -qF 'EFFORTS: writer -> fake-standard (nivel standard)' "$E_TMP/events.log" \
+    && grep -qF 'EFFORTS: reviewer -> fake-thorough (nivel thorough)' "$E_TMP/events.log"; then pass "linea EFFORTS por stage"; else fail "events.log sin lineas EFFORTS: $(cat "$E_TMP/events.log")"; fi
+
+echo ""
+echo "[27] efforts.agents.mefisto-writer=light: el writer cambia, el reviewer no"
+run_effort_case "$E_TMP/models-light.json"
+if [ "$E_RES" = "W=fake-light R=fake-thorough" ]; then pass "writer=light, reviewer intacto"; else fail "obtenido '$E_RES'"; fi
+
+echo ""
+echo "[28] fuente sin effort y mapping invalido abortan citando agente y MEFISTO_EFFORTS_ERROR (antes del worktree)"
+mkdir -p "$E_TMP/agents-noeffort"
+for a in mefisto-writer mefisto-reviewer; do
+    grep -v '"effort"' "$REPO_ROOT/src/internal/agents/$a.md" > "$E_TMP/agents-noeffort/$a.md"
+done
+run_effort_case "$E_TMP/models.json" "$E_TMP/agents-noeffort"
+if printf '%s' "$E_RES" | grep -q 'ABORT:.*mefisto-writer.*MEFISTO_EFFORTS_ERROR'; then pass "fuente sin effort aborta citando el agente"; else fail "obtenido '$E_RES'"; fi
+run_effort_case "$E_TMP/models-bad.json"
+if printf '%s' "$E_RES" | grep -q 'ABORT:.*mefisto-writer.*MEFISTO_EFFORTS_ERROR='; then pass "mapping invalido aborta citando agente y MEFISTO_EFFORTS_ERROR"; else fail "obtenido '$E_RES'"; fi
+rm -rf "$E_TMP"
 
 # --- mefisto-tmux-pipeline.sh / mefisto-herdr-pipeline.sh: reenvio/rechazo --
 #
