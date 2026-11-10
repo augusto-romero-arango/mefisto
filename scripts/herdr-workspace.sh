@@ -122,6 +122,15 @@ workspace_slug() {
 # ("ejecucion-", 10 caracteres) + "-<kind>", para que planner y ejecucion
 # compartan el mismo slug pase lo que pase con <rol>. Los nombres de agente
 # de herdr admiten [a-z][a-z0-9_-]{0,31} (32 caracteres).
+#
+# Anti-colision (issue #2502): si el slug completo no cabe en ese tope, dos
+# labels con prefijo comun (Cosmos.ControlPlane y Cosmos.ControlPlane.Front)
+# producirian el mismo nombre y `herdr agent start` rechazaria el segundo con
+# agent_name_taken. Entonces el slug se recorta 5 caracteres mas y se le agrega
+# "-<hhhh>": 4 hex del cksum POSIX del label completo (modulo 65536). El nombre
+# queda "<rol>-<slug-recortado>-<hhhh>-<kind>", de 32 caracteres o menos, es
+# determinista (mismo label, mismo nombre) y no consulta herdr. Si el slug
+# cabe, el nombre no cambia; el formato legacy sin <kind> tampoco.
 agent_name_for_role() {
     local rol="$1" label="$2" kind="$3"
     local max=20
@@ -132,6 +141,19 @@ agent_name_for_role() {
     # `herdr agent start` falla y el pane conserva su shell.
     [ "$max" -lt 1 ] && max=1
     local slug
+    if [ -n "$kind" ]; then
+        local full
+        full=$(workspace_slug "$label" 1000)
+        if [ "${#full}" -gt "$max" ]; then
+            local crc hash short=$((max - 5))
+            [ "$short" -lt 1 ] && short=1
+            crc=$(printf '%s' "$label" | cksum | awk '{print $1}')
+            hash=$(printf '%04x' $((crc % 65536)))
+            slug="$(workspace_slug "$label" "$short")-${hash}"
+            echo "${rol}-${slug}-${kind}"
+            return 0
+        fi
+    fi
     slug=$(workspace_slug "$label" "$max")
     echo "${rol}-${slug}${kind:+-$kind}"
 }
