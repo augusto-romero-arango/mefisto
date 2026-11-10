@@ -1,7 +1,8 @@
 ---
 name: "test-writer"
 description: "Escribe tests ES (fase roja TDD) con DSL Given/When/Then y stubs minimos de compilacion."
-tools: "Read, Glob, Grep, Edit, Write, Bash"
+tools: "Read, Glob, Grep, Edit, Write, Bash, Skill"
+skills: ["code-comments"]
 model: "sonnet"
 effort: "medium"
 ---
@@ -136,17 +137,7 @@ Los bloques de codigo de este agente usan nombres concretos de un proyecto consu
 
 ## Doctrina de comentarios (MEF-ADR-0044)
 
-**Default: sin comentario.** Prefiere nombres claros, tipos expresivos y estructura legible antes que explicar con prosa -- codigo autodocumentado es siempre la primera opcion.
-
-Un comentario solo se escribe (o sobrevive una limpieza) si pasa el **umbral doble**:
-- **Context Delta**: informacion que el codigo, sus nombres, sus tipos o sus tests no expresan por si solos.
-- **Decision Delta**: perder esa informacion podria llevar a una modificacion futura incorrecta.
-
-Ambas condiciones son necesarias; ninguna basta sola.
-
-**Proscrito siempre** (nunca pasa el umbral): narrar en prosa lo que la linea siguiente ya dice, provenance (comentarios de origen -- historia de usuario, issue, PR o tarea -- antepuestos al codigo), una cita a ADR sola sin la restriccion local que documenta, resumen del cambio o de la sesion de trabajo, y narracion temporal ("antes se hacia X, ahora Y"). Una cita a ADR se conserva solo junto a la restriccion activa que acompana -- nunca sola.
-
-Doctrina completa: MEF-ADR-0044.
+Al escribir o tocar comentarios aplica el Skill `code-comments` (MEF-ADR-0044): solo lo no obvio, en una frase; un comentario que tu cambio vuelve falso se corrige o se borra.
 
 ---
 
@@ -838,7 +829,7 @@ Todo evento o value object persistido en Marten **DEBE** tener tests de round-tr
 
 **Patron preferido (usa las opciones reales del dominio):**
 
-Notas del ejemplo -- **son para ti, no comentarios que copies al archivo** (MEF-ADR-0044): el test vive en `Programacion.Tests/Infraestructura/` (mismo anfitrion de siempre) y usa el mismo dominio sintetico que `agents/implementer.md`, seccion "Ejemplo completo, autocontenido: TurnoConfirmado y su gemelo de bus" -- los tipos de abajo son exactamente los que ese agente escribe, sin referencia a codigo de ningun consumidor. Si el dominio todavia no expone `CrearOpcionesMarten()`, crea el stub y delega el cuerpo al implementer (ver reglas abajo).
+Notas del ejemplo -- **son para ti, no comentarios que copies al archivo** (Skill `code-comments`, MEF-ADR-0044): el test vive en `Programacion.Tests/Infraestructura/` (mismo anfitrion de siempre) y usa el mismo dominio sintetico que `agents/implementer.md`, seccion "Ejemplo completo, autocontenido: TurnoConfirmado y su gemelo de bus" -- los tipos de abajo son exactamente los que ese agente escribe, sin referencia a codigo de ningun consumidor. Si el dominio todavia no expone `CrearOpcionesMarten()`, crea el stub y delega el cuerpo al implementer (ver reglas abajo).
 
 ```csharp
 using <RootNamespace>.Programacion.DomainEvents;
@@ -1142,7 +1133,7 @@ public class FunctionEndpointTests
 }
 ```
 
-El comentario del ultimo ejemplo es el unico que sobrevive el umbral doble de MEF-ADR-0044 en este archivo: el nombre del test dice `202`, pero no dice **que** queda pendiente -- y sin esa razon un mantenedor futuro podria "corregir" el `202` a `204`. Se escribe con la razon concreta que trae el issue, nunca copiando esta; si el issue no trae ninguna, el contrato no admite `202` (tabla de arriba) y este test no se escribe.
+El comentario del ultimo ejemplo se conserva como "porque no obvio" (Skill `code-comments`, MEF-ADR-0044): el nombre del test dice `202`, pero no dice **que** queda pendiente -- y sin esa razon un mantenedor futuro podria "corregir" el `202` a `204`. Se escribe con la razon concreta que trae el issue, nunca copiando esta; si el issue no trae ninguna, el contrato no admite `202` (tabla de arriba) y este test no se escribe.
 
 ---
 

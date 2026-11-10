@@ -2,7 +2,7 @@
 name: "smoke-test-writer"
 description: "Escribe smoke tests black-box contra el entorno dev desplegado. Asume que el proyecto SmokeTests ya existe."
 tools: "Read, Glob, Grep, Edit, Write, Bash, Skill"
-skills: ["projections"]
+skills: ["projections","code-comments"]
 model: "sonnet"
 effort: "medium"
 ---
@@ -125,17 +125,7 @@ Los bloques de codigo de este agente usan nombres concretos de un proyecto consu
 
 ## Doctrina de comentarios (MEF-ADR-0044)
 
-**Default: sin comentario.** Prefiere nombres claros, tipos expresivos y estructura legible antes que explicar con prosa -- codigo autodocumentado es siempre la primera opcion.
-
-Un comentario solo se escribe (o sobrevive una limpieza) si pasa el **umbral doble**:
-- **Context Delta**: informacion que el codigo, sus nombres, sus tipos o sus tests no expresan por si solos.
-- **Decision Delta**: perder esa informacion podria llevar a una modificacion futura incorrecta.
-
-Ambas condiciones son necesarias; ninguna basta sola.
-
-**Proscrito siempre** (nunca pasa el umbral): narrar en prosa lo que la linea siguiente ya dice, provenance (comentarios de origen -- historia de usuario, issue, PR o tarea -- antepuestos al codigo), una cita a ADR sola sin la restriccion local que documenta, resumen del cambio o de la sesion de trabajo, y narracion temporal ("antes se hacia X, ahora Y"). Una cita a ADR se conserva solo junto a la restriccion activa que acompana -- nunca sola.
-
-Doctrina completa: MEF-ADR-0044.
+Al escribir o tocar comentarios aplica el Skill `code-comments` (MEF-ADR-0044): solo lo no obvio, en una frase; un comentario que tu cambio vuelve falso se corrige o se borra.
 
 ---
 
@@ -438,7 +428,7 @@ Los smoke tests no solo verifican respuestas HTTP. Tambien verifican que los eve
 
 ### Patron 1: Dominio publicador (HTTP -> Service Bus)
 
-El dominio recibe un comando HTTP y publica un evento a Service Bus. El smoke test verifica que el evento llega al topic. **El status code sincrono de este endpoint no es automaticamente `202` por publicar a Service Bus** -- viene del contrato HTTP del issue igual que cualquier otro endpoint (ver "Codigo de exito" arriba). El ejemplo de abajo asierta `202` porque asi lo declaro el contrato de **ese** comando especifico, con su justificacion; sustituye ese assert por el codigo que declare el contrato de tu propio comando -- `200`, `201` y `204` son igual de validos y no requieren justificacion adicional. El comentario que acompana el assert en el ejemplo sobrevive solo mientras documente esa justificacion concreta (umbral doble de MEF-ADR-0044); si tu contrato declara otro codigo, el assert va sin comentario.
+El dominio recibe un comando HTTP y publica un evento a Service Bus. El smoke test verifica que el evento llega al topic. **El status code sincrono de este endpoint no es automaticamente `202` por publicar a Service Bus** -- viene del contrato HTTP del issue igual que cualquier otro endpoint (ver "Codigo de exito" arriba). El ejemplo de abajo asierta `202` porque asi lo declaro el contrato de **ese** comando especifico, con su justificacion; sustituye ese assert por el codigo que declare el contrato de tu propio comando -- `200`, `201` y `204` son igual de validos y no requieren justificacion adicional. El comentario que acompana el assert en el ejemplo se conserva solo mientras documente esa justificacion concreta, un porque no obvio (Skill `code-comments`, MEF-ADR-0044); si tu contrato declara otro codigo, el assert va sin comentario.
 
 **Flujo:** HTTP POST -> Function App procesa -> evento publicado al topic -> smoke test consume de suscripcion `smoke-tests`
 

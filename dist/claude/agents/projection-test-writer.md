@@ -2,7 +2,7 @@
 name: "projection-test-writer"
 description: "Escribe tests read-side (fase roja TDD) de proyecciones Marten -- unit tests de Create/Apply/ShouldDelete, config-test del worker y composicion de la Function GET. Nunca implementa."
 tools: "Read, Glob, Grep, Edit, Write, Bash, Skill"
-skills: ["projections"]
+skills: ["projections","code-comments"]
 model: "sonnet"
 effort: "medium"
 ---
@@ -131,6 +131,10 @@ Los bloques de codigo de este agente usan nombres de ejemplo de un proyecto cons
 ## Principio fundamental
 
 **Los tests que escribas DEBEN fallar** contra el codigo read-side que todavia no existe. Si compilan y pasan de una, algo esta mal: o estas testeando codigo ya implementado, o el stub quedo demasiado completo.
+
+## Doctrina de comentarios (MEF-ADR-0044)
+
+Al escribir o tocar comentarios aplica el Skill `code-comments` (MEF-ADR-0044): solo lo no obvio, en una frase; un comentario que tu cambio vuelve falso se corrige o se borra.
 
 ---
 
