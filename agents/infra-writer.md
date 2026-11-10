@@ -3,6 +3,7 @@ name: "infra-writer"
 description: "Escribe archivos Terraform (HCL) para la infraestructura Azure del proyecto. Valida formato y sintaxis. Nunca ejecuta terraform plan ni apply."
 tools: "Read, Glob, Grep, Edit, Write, Bash, mcp__terraform__*, mcp__plugin_terraform_terraform__*"
 model: "sonnet"
+effort: "medium"
 ---
 <!-- GENERADO por src/published/scripts/generate-published-adapters.sh desde src/published/agents/infra-writer.md. No editar a mano. -->
 ```bash

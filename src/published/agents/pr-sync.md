@@ -5,6 +5,7 @@
   "description": "Sincroniza ramas de PRs abiertos del consumidor con main, resuelve conflictos, corre tests y opcionalmente mergea a main.",
   "mode": "all",
   "profile": "balanced",
+  "effort": "light",
   "capabilities": ["shell"]
 }
 ---

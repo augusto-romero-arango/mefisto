@@ -3,6 +3,7 @@ name: "tooling-investigator"
 description: "Investigador conversacional de errores en la infraestructura local del proyecto (pipelines, skills, agentes, scripts). Diagnostica problemas y propone acciones."
 tools: "Read, Glob, Grep, Edit, Write, Bash"
 model: "opus"
+effort: "xhigh"
 ---
 <!-- GENERADO por src/published/scripts/generate-published-adapters.sh desde src/published/agents/tooling-investigator.md. No editar a mano. -->
 ```bash

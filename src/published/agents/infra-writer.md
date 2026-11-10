@@ -5,6 +5,7 @@
   "description": "Escribe archivos Terraform (HCL) para la infraestructura Azure del proyecto. Valida formato y sintaxis. Nunca ejecuta terraform plan ni apply.",
   "mode": "all",
   "profile": "balanced",
+  "effort": "light",
   "capabilities": ["read", "edit", "shell"],
   "mcp": ["terraform"]
 }

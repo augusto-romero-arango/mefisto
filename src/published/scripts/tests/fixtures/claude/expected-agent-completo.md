@@ -4,6 +4,7 @@ description: "Lee: \"edita\"."
 tools: "Read, Glob, Grep, Edit, Write, Bash, WebFetch, WebSearch, Skill, Task, mcp__microsoft-learn__*, mcp__plugin_mefisto_microsoft-learn__*, mcp__terraform__*, mcp__plugin_terraform_terraform__*"
 skills: ["projections"]
 model: "sonnet"
+effort: "medium"
 ---
 <!-- GENERADO por prueba desde fixture. No editar a mano. -->
 ```bash

@@ -18,6 +18,7 @@ objetos rechazan propiedades adicionales.
 | `description` | requerido | requerido | `description` | `description` |
 | `mode` | requerido | no | selecciona la forma de ejecución; no se emite | `mode` |
 | `profile` | sí | sí | `model` resuelto por tabla del adaptador | no se emite `model`; hereda la configuración interactiva del usuario |
+| `effort` | requerido | no (rechazado) | `effort` nativo por tabla del adaptador (`quick`->`low`, `light`->`medium`, `standard`->`high`, `thorough`->`xhigh`, `exhaustive`->`max`), justo después de `model` | no se emite (se resuelve en #2501) |
 | `capabilities` (`read`, `edit`, `shell`, `web`, `skill`, `task`, `ask`) | sí | sí | `tools`/`allowed-tools` generados (`ask` -> `AskUserQuestion`) | `permission` generado (`ask` -> `question: allow` solo en `primary`/`all`) |
 | `skills` | sí | sí | `skills` con ids fuente, sin prefijo | preámbulo que solicita la carga nativa on-demand de `mefisto-<id>` |
 | `mcp` | sí | sí | matcher scoped por id lógico | en agentes, política `tools` cerrada por servidor; en comandos, se materializa mediante el agente delegado |

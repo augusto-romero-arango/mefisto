@@ -5,6 +5,7 @@
   "description": "Escribe tests ES (fase roja TDD) con DSL Given/When/Then y stubs minimos de compilacion.",
   "mode": "all",
   "profile": "balanced",
+  "effort": "light",
   "capabilities": ["read", "edit", "shell"]
 }
 ---

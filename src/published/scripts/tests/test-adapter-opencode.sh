@@ -18,7 +18,7 @@ render() { "$ADAPTER" render "$1" '<!-- GENERADO por prueba desde fixture. No ed
 extract_preamble() { awk '/^```bash$/{inside=1; next} /^```$/{if (inside) exit} inside' "$1"; }
 make_agent() {
     local name="$1" capabilities="$2" extras="${3:-}"
-    printf '%s\n' '---' "{\"kind\":\"agent\",\"id\":\"$name\",\"description\":\"Prueba.\",\"mode\":\"subagent\",\"capabilities\":$capabilities$extras}" '---' '{{mefisto:assert-consumer-repo}}' > "$WORK/$name.md"
+    printf '%s\n' '---' "{\"kind\":\"agent\",\"effort\":\"light\",\"id\":\"$name\",\"description\":\"Prueba.\",\"mode\":\"subagent\",\"capabilities\":$capabilities$extras}" '---' '{{mefisto:assert-consumer-repo}}' > "$WORK/$name.md"
 }
 permission_of() {
     render "$1" | while IFS= read -r line; do
@@ -378,7 +378,7 @@ out="$(cd "$MCP_ROOT" && src/published/scripts/validate-published-artifacts.sh s
 out="$("$MCP_ARTIFACT_VALIDATOR" "$MCP_ROOT/src/published/commands/command-mcp-invalido.md" 2>&1)"; rc=$?
 [ "$rc" -ne 0 ] && assert_contains "$out" 'no delega a un agente neutral' 'fixture de comando MCP rechaza ausencia de agente' || fail 'fixture de comando sin agente debio fallar'
 write_mcp_agent() {
-    printf '%s\n' '---' '{"kind":"agent","id":"ejecutor-mcp","description":"Ejecutor.","mode":"subagent","mcp":["microsoft-learn","terraform"]}' '---' '{{mefisto:assert-consumer-repo}}' > "$MCP_ROOT/src/published/agents/ejecutor-mcp.md"
+    printf '%s\n' '---' '{"kind":"agent","effort":"light","id":"ejecutor-mcp","description":"Ejecutor.","mode":"subagent","mcp":["microsoft-learn","terraform"]}' '---' '{{mefisto:assert-consumer-repo}}' > "$MCP_ROOT/src/published/agents/ejecutor-mcp.md"
 }
 write_mcp_command() {
     local mcp="$1" agent="$2"
@@ -394,11 +394,11 @@ write_mcp_command '["microsoft-learn"]' ''
 out="$("$MCP_ARTIFACT_VALIDATOR" "$MCP_ROOT/src/published/commands/consulta-mcp.md" 2>&1)"; rc=$?
 [ "$rc" -ne 0 ] && assert_contains "$out" 'no delega a un agente neutral' 'comando MCP rechaza ausencia de agente' || fail 'comando sin agente debio fallar'
 write_mcp_command '["microsoft-learn"]' ejecutor-mcp
-printf '%s\n' '---' '{"kind":"agent","id":"ejecutor-mcp","description":"Ejecutor.","mode":"subagent","mcp":["terraform"]}' '---' '{{mefisto:assert-consumer-repo}}' > "$MCP_ROOT/src/published/agents/ejecutor-mcp.md"
+printf '%s\n' '---' '{"kind":"agent","effort":"light","id":"ejecutor-mcp","description":"Ejecutor.","mode":"subagent","mcp":["terraform"]}' '---' '{{mefisto:assert-consumer-repo}}' > "$MCP_ROOT/src/published/agents/ejecutor-mcp.md"
 out="$("$MCP_ARTIFACT_VALIDATOR" "$MCP_ROOT/src/published/commands/consulta-mcp.md" 2>&1)"; rc=$?
 [ "$rc" -ne 0 ] && assert_contains "$out" 'no declaran todos los ids requeridos' 'comando MCP rechaza subconjunto incumplido' || fail 'subconjunto MCP incumplido debio fallar'
 { printf '%s\n' '---' '{"kind":"command","id":"consulta-mcp","description":"x","mcp":["microsoft-learn","terraform"]}' '---' '{{mefisto:assert-consumer-repo}}' '{{mefisto:launch-agent ejecutor-mcp Mensaje A}}'; } > "$MCP_ROOT/src/published/commands/consulta-mcp.md"
-printf '%s\n' '---' '{"kind":"agent","id":"otro-mcp","description":"Otro.","mode":"subagent","mcp":["microsoft-learn"]}' '---' '{{mefisto:assert-consumer-repo}}' > "$MCP_ROOT/src/published/agents/otro-mcp.md"
+printf '%s\n' '---' '{"kind":"agent","effort":"light","id":"otro-mcp","description":"Otro.","mode":"subagent","mcp":["microsoft-learn"]}' '---' '{{mefisto:assert-consumer-repo}}' > "$MCP_ROOT/src/published/agents/otro-mcp.md"
 out="$("$MCP_ARTIFACT_VALIDATOR" "$MCP_ROOT/src/published/commands/consulta-mcp.md" 2>&1)"; rc=$?
 [ "$rc" -ne 0 ] && pass 'MCP con una sola delegacion insuficiente falla' || fail 'MCP con una sola delegacion insuficiente debio fallar'
 { printf '%s\n' '---' '{"kind":"command","id":"consulta-mcp","description":"x","mcp":["microsoft-learn","terraform"]}' '---' '{{mefisto:assert-consumer-repo}}' '{{mefisto:launch-agent ejecutor-mcp Mensaje A}}' '{{mefisto:launch-agent otro-mcp Mensaje B}}'; } > "$MCP_ROOT/src/published/commands/consulta-mcp.md"
@@ -464,7 +464,7 @@ out="$("$MCP_ARTIFACT_VALIDATOR" "$MCP_ROOT/src/published/commands/consulta-mcp.
 
 printf '%s\n' '[ask] capacidad neutral ask'
 make_mode_agent() {
-    printf '%s\n' '---' "{\"kind\":\"agent\",\"id\":\"$1\",\"description\":\"Prueba.\",\"mode\":\"$2\",\"capabilities\":$3}" '---' '{{mefisto:assert-consumer-repo}}' > "$WORK/$1.md"
+    printf '%s\n' '---' "{\"kind\":\"agent\",\"effort\":\"light\",\"id\":\"$1\",\"description\":\"Prueba.\",\"mode\":\"$2\",\"capabilities\":$3}" '---' '{{mefisto:assert-consumer-repo}}' > "$WORK/$1.md"
 }
 make_mode_agent ask-all all '["read","ask"]'; assert_contains "$(permission_of "$WORK/ask-all.md")" '"question":"allow"' 'mode all con ask permite question'
 make_mode_agent ask-primary primary '["read","ask"]'; assert_contains "$(permission_of "$WORK/ask-primary.md")" '"question":"allow"' 'mode primary con ask permite question'

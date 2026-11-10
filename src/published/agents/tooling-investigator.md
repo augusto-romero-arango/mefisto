@@ -5,6 +5,7 @@
   "description": "Investigador conversacional de errores en la infraestructura local del proyecto (pipelines, skills, agentes, scripts). Diagnostica problemas y propone acciones.",
   "mode": "all",
   "profile": "deep",
+  "effort": "thorough",
   "capabilities": ["read", "edit", "shell"]
 }
 ---

@@ -4,6 +4,7 @@
 
 published_claude_error() { printf '%s: %s: %s\n' "$1" "$2" "$3" >&2; return 1; }
 published_claude_model() { case "$1" in fast) printf haiku ;; balanced) printf sonnet ;; deep) printf opus ;; *) return 1 ;; esac; }
+published_claude_effort() { case "$1" in quick) printf low ;; light) printf medium ;; standard) printf high ;; thorough) printf xhigh ;; exhaustive) printf max ;; *) return 1 ;; esac; }
 published_claude_capability_tools() { case "$1" in read) printf 'Read, Glob, Grep' ;; edit) printf 'Edit, Write' ;; shell) printf Bash ;; web) printf 'WebFetch, WebSearch' ;; skill) printf Skill ;; task) printf Task ;; ask) printf AskUserQuestion ;; *) return 1 ;; esac; }
 published_claude_mcp_tools() { case "$1" in microsoft-learn) printf 'mcp__microsoft-learn__*, mcp__plugin_mefisto_microsoft-learn__*' ;; terraform) printf 'mcp__terraform__*, mcp__plugin_terraform_terraform__*' ;; *) return 1 ;; esac; }
 
@@ -199,7 +200,7 @@ published_claude_translate_body() {
 }
 
 published_claude_render() {
-    local source="$1" marker="$2" repo_root="$3" rel fm instance kind raw_body translated preamble='' tools profile model model_line='' agent
+    local source="$1" marker="$2" repo_root="$3" rel fm instance kind raw_body translated preamble='' tools profile model model_line='' effort effort_line='' agent
     rel="${source#"$repo_root"/}"
     fm="$(awk 'NR == 1 { next } $0 == "---" { exit } { print }' "$source")" || { published_claude_error "$rel" frontmatter 'no se pudo extraer'; return 1; }
     instance="$(printf '%s\n' "$fm" | jq -c '.' 2>/dev/null)" || { published_claude_error "$rel" frontmatter 'no es JSON valido'; return 1; }
@@ -221,6 +222,11 @@ published_claude_render() {
         model="$(published_claude_model "$profile")" || { published_claude_error "$rel" profile "perfil '$profile' sin mapping Claude"; return 1; }
         [ -z "$model" ] || model_line="model: $(printf '%s' "$model" | jq -Rr '@json')"
     fi
+    effort="$(printf '%s' "$instance" | jq -r '.effort // empty')"
+    if [ "$kind" = agent ] && [ -n "$effort" ]; then
+        effort="$(published_claude_effort "$effort")" || { published_claude_error "$rel" effort "nivel '$(printf '%s' "$instance" | jq -r '.effort')' sin mapping Claude"; return 1; }
+        effort_line="effort: $(printf '%s' "$effort" | jq -Rr '@json')"
+    fi
     printf '%s\n' '---'
     if [ "$kind" = agent ]; then
         printf 'name: %s\ndescription: %s\n' "$(printf '%s' "$instance" | jq -r '.id | @json')" "$(printf '%s' "$instance" | jq -r '.description | @json')"
@@ -232,6 +238,7 @@ published_claude_render() {
         [ -z "$tools" ] || printf 'allowed-tools: %s\n' "$(printf '%s' "$tools" | jq -Rr '@json')"
     fi
     [ -z "$model_line" ] || printf '%s\n' "$model_line"
+    [ -z "$effort_line" ] || printf '%s\n' "$effort_line"
     printf '%s\n%s\n' '---' "$marker"
     [ -z "$preamble" ] || printf '%s\n' "$preamble"
     if [ "$kind" = command ]; then

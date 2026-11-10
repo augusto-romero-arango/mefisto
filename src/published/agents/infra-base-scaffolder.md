@@ -5,6 +5,7 @@
   "description": "Genera la infraestructura base del consumidor (8 modulos Terraform + esqueleto del entorno con outputs) en un greenfield. Genera ademas, de forma opt-in (token `projections.enabled` de `harness.config.json`), el paquete del worker de proyecciones: los 3 modulos Terraform (Container App sin ingress) y su alerta dedicada de spike de excepciones en el wiring del entorno (MEF-ADR-0034). Escribe el HCL inline, sin plantillas copiables. Idempotente.",
   "mode": "all",
   "profile": "balanced",
+  "effort": "light",
   "capabilities": ["read", "edit", "shell"]
 }
 ---

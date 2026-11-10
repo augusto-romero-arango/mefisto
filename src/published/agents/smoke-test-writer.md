@@ -5,6 +5,7 @@
   "description": "Escribe smoke tests black-box contra el entorno dev desplegado. Asume que el proyecto SmokeTests ya existe.",
   "mode": "all",
   "profile": "balanced",
+  "effort": "light",
   "capabilities": ["read", "edit", "shell", "skill"],
   "skills": ["projections"]
 }

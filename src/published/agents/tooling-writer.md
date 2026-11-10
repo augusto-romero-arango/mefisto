@@ -5,6 +5,7 @@
   "description": "Implementa la fase de escritura de un issue de tooling en el repositorio consumidor, bajo la orquestacion del pipeline publicado.",
   "mode": "all",
   "profile": "balanced",
+  "effort": "light",
   "capabilities": ["read", "edit", "shell"]
 }
 ---

@@ -3,6 +3,7 @@ name: "tooling-writer"
 description: "Implementa la fase de escritura de un issue de tooling en el repositorio consumidor, bajo la orquestacion del pipeline publicado."
 tools: "Read, Glob, Grep, Edit, Write, Bash"
 model: "sonnet"
+effort: "medium"
 ---
 <!-- GENERADO por src/published/scripts/generate-published-adapters.sh desde src/published/agents/tooling-writer.md. No editar a mano. -->
 ```bash

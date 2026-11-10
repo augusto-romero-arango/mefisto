@@ -4,6 +4,7 @@ description: "Agente de Knowledge Crunching y planificacion. Descubre el lenguaj
 tools: "Read, Glob, Grep, Edit, Write, Bash, Skill, AskUserQuestion, WebFetch, WebSearch, mcp__microsoft-learn__*, mcp__plugin_mefisto_microsoft-learn__*"
 skills: ["projections"]
 model: "opus"
+effort: "xhigh"
 ---
 <!-- GENERADO por src/published/scripts/generate-published-adapters.sh desde src/published/agents/planner.md. No editar a mano. -->
 ```bash

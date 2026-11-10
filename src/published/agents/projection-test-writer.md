@@ -5,6 +5,7 @@
   "description": "Escribe tests read-side (fase roja TDD) de proyecciones Marten -- unit tests de Create/Apply/ShouldDelete, config-test del worker y composicion de la Function GET. Nunca implementa.",
   "mode": "all",
   "profile": "balanced",
+  "effort": "light",
   "capabilities": ["read", "edit", "shell", "skill"],
   "skills": ["projections"]
 }

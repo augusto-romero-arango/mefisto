@@ -3,6 +3,7 @@ name: "workos-identity-scaffolder"
 description: "Genera en el dominio consumidor indicado el codigo de integracion con WorkOS -- puerto IIdentityProvider + DTOs planos, adapter WorkOsIdentityProvider, PackageReference WorkOS.net y el wiring (SetApiKey defensivo + AddSingleton) -- fiel a la implementacion de referencia de Cosmos.ControlPlane (MEF-ADR-0032). Idempotente; degrada a \"proponer\" si no puede reverificar el SDK por compilacion."
 tools: "Read, Glob, Grep, Edit, Write, Bash"
 model: "sonnet"
+effort: "medium"
 ---
 <!-- GENERADO por src/published/scripts/generate-published-adapters.sh desde src/published/agents/workos-identity-scaffolder.md. No editar a mano. -->
 ```bash

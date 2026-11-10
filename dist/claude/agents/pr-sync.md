@@ -3,6 +3,7 @@ name: "pr-sync"
 description: "Sincroniza ramas de PRs abiertos del consumidor con main, resuelve conflictos, corre tests y opcionalmente mergea a main."
 tools: "Bash"
 model: "sonnet"
+effort: "medium"
 ---
 <!-- GENERADO por src/published/scripts/generate-published-adapters.sh desde src/published/agents/pr-sync.md. No editar a mano. -->
 ```bash

@@ -3,6 +3,7 @@ name: "infra-reviewer"
 description: "Revisa seguridad y calidad del HCL producido por infra-writer y valida el formato/sintaxis de forma estatica. Nunca ejecuta terraform plan ni apply."
 tools: "Read, Glob, Grep, Edit, Write, Bash"
 model: "opus"
+effort: "high"
 ---
 <!-- GENERADO por src/published/scripts/generate-published-adapters.sh desde src/published/agents/infra-reviewer.md. No editar a mano. -->
 ```bash

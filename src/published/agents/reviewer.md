@@ -5,6 +5,7 @@
   "description": "Revisa y refactoriza el código producido en las fases roja y verde del pipeline ES (fase refactor). Verifica patrones de event sourcing y mantiene todos los tests pasando.",
   "mode": "all",
   "profile": "deep",
+  "effort": "thorough",
   "capabilities": ["read", "edit", "shell", "skill"],
   "skills": ["projections", "comment-cleanup"]
 }

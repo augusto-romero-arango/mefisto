@@ -5,6 +5,7 @@
   "description": "Genera el modulo APIM (Azure API Management, tier Consumption) que valida el JWT de WorkOS AuthKit en el borde y reenvia a las Function Apps del BC inyectando la host key, fiel al catalogo de trampas B1-B12 de MEF-ADR-0032, y el modulo `apim-mcp-api` que expone cada servidor MCP del BC detras del gateway con el gate OAuth de la variante MCP/Connect (MEF-ADR-0032 seccion 9, MEF-ADR-0047 decision 7, issue #820). Aditivo/idempotente.",
   "mode": "all",
   "profile": "balanced",
+  "effort": "light",
   "capabilities": ["read", "edit", "shell", "web"]
 }
 ---

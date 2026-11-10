@@ -3,6 +3,7 @@ name: "tooling-reviewer"
 description: "Audita y corrige la fase de revision de un issue de tooling en el repositorio consumidor, bajo la orquestacion del pipeline publicado."
 tools: "Read, Glob, Grep, Edit, Write, Bash"
 model: "opus"
+effort: "high"
 ---
 <!-- GENERADO por src/published/scripts/generate-published-adapters.sh desde src/published/agents/tooling-reviewer.md. No editar a mano. -->
 ```bash

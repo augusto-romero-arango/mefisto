@@ -5,6 +5,7 @@
   "description": "Implementa logica de negocio (fase verde TDD) con event sourcing. AggregateRoots, CommandHandlers, Service Bus.",
   "mode": "all",
   "profile": "balanced",
+  "effort": "standard",
   "capabilities": ["read", "edit", "shell"]
 }
 ---
