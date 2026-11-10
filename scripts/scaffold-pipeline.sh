@@ -268,7 +268,7 @@ mkdir -p "$(dirname "$WORKTREE_PATH")"
 # del consumidor, resuelto antes de crear el worktree; vacio = heredar.
 CONSUMER_MODELS_FILE="$REPO_ROOT/.mefisto/models.json"
 resolve_pipeline_agent_effort domain-scaffolder domain-scaffolder \
-    || abort "No se pudo resolver el effort de domain-scaffolder: ${PIPELINE_EFFORT_ERROR:-motivo desconocido} (MEFISTO_EFFORTS_ERROR)"
+    || abort "No se pudo resolver el effort de domain-scaffolder: MEFISTO_EFFORTS_ERROR=${PIPELINE_EFFORT_ERROR:-motivo desconocido}"
 SCAFFOLD_AGENT_EFFORT="$RESOLVED_PIPELINE_EFFORT"
 
 log "Creando worktree: $WORKTREE_PATH (base: origin/main)"

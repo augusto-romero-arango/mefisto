@@ -264,10 +264,10 @@ MODEL_REVIEWER="$RESOLVED_INFRA_MODEL"
 # Effort por agente (issue #2500): nivel de fabrica + mapping del consumidor,
 # resuelto antes de crear el worktree; vacio = heredar (sin --effort).
 resolve_pipeline_agent_effort infra-writer infra-writer \
-    || abort "No se pudo resolver el effort de infra-writer: ${PIPELINE_EFFORT_ERROR:-motivo desconocido} (MEFISTO_EFFORTS_ERROR)"
+    || abort "No se pudo resolver el effort de infra-writer: MEFISTO_EFFORTS_ERROR=${PIPELINE_EFFORT_ERROR:-motivo desconocido}"
 EFFORT_WRITER="$RESOLVED_PIPELINE_EFFORT"
 resolve_pipeline_agent_effort infra-reviewer infra-reviewer \
-    || abort "No se pudo resolver el effort de infra-reviewer: ${PIPELINE_EFFORT_ERROR:-motivo desconocido} (MEFISTO_EFFORTS_ERROR)"
+    || abort "No se pudo resolver el effort de infra-reviewer: MEFISTO_EFFORTS_ERROR=${PIPELINE_EFFORT_ERROR:-motivo desconocido}"
 EFFORT_REVIEWER="$RESOLVED_PIPELINE_EFFORT"
 
 # --- Obtener issue ---

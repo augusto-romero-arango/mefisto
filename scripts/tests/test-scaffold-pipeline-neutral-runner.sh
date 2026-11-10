@@ -231,10 +231,13 @@ if eff_args "$F_TMP/models.json" && grep -qx -- '--effort' "$F_TMP/args" && grep
 else
     fail "(f) domain-scaffolder: $(tr '\n' ' ' < "$F_TMP/args" 2>/dev/null)"
 fi
-if eff_args "$F_TMP/sin-agente.json" && ! grep -qx -- '--effort' "$F_TMP/args"; then
-    pass '(f) archivo de mapping ausente: hereda'
+cat > "$F_TMP/levels.json" <<'EOF'
+{"fake":{"efforts":{"levels":{"light":"n-light","standard":"n-standard"}}}}
+EOF
+if eff_args "$F_TMP/levels.json" && grep -qx -- '--effort' "$F_TMP/args" && grep -qx 'n-light' "$F_TMP/args"; then
+    pass '(f) sin override domain-scaffolder recibe el nativo de su nivel de fabrica (light)'
 else
-    fail '(f) mapping ausente debia heredar'
+    fail "(f) domain-scaffolder sin override: $(tr '\n' ' ' < "$F_TMP/args" 2>/dev/null)"
 fi
 rm -rf "$F_TMP"
 

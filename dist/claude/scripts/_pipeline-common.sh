@@ -682,7 +682,8 @@ resolve_pipeline_agent_effort() {
     RESOLVED_PIPELINE_EFFORT=""
     PIPELINE_EFFORT_ERROR=""
     if ! level="$(pipeline_agent_effort_level "$agent_id")"; then
-        PIPELINE_EFFORT_ERROR="agente '$agent_id' sin nivel de effort de fabrica en pipeline_agent_effort_level"
+        MEFISTO_EFFORTS_ERROR="agente '$agent_id' sin nivel de effort de fabrica en pipeline_agent_effort_level"
+        PIPELINE_EFFORT_ERROR="$MEFISTO_EFFORTS_ERROR"
         return 1
     fi
     output="$(mktemp)"

@@ -115,6 +115,7 @@ if resolve_pipeline_agent_effort x agente-inexistente; then
     fail 'agente desconocido debio retornar 1'
 else
     [ -n "$PIPELINE_EFFORT_ERROR" ] && [ -z "$RESOLVED_PIPELINE_EFFORT" ] \
+        && [ "$MEFISTO_EFFORTS_ERROR" = "$PIPELINE_EFFORT_ERROR" ] \
         && pass 'agente desconocido: retorna 1 con PIPELINE_EFFORT_ERROR' || fail 'agente desconocido sin motivo'
 fi
 cat > "$TMP/invalido.json" <<'JSON'

@@ -225,8 +225,8 @@ eff_args() {
     sed -i.bak "s/run_agent '1' 'infra-writer'/run_agent '1' '$agent'/" "$F_TMP/case.sh"
     bash "$F_TMP/case.sh"
 }
-if eff_args infra-writer "$F_TMP/ausente.json" && eff_args infra-reviewer "$F_TMP/ausente.json" \
-    && ! grep -qx -- '--effort' "$F_TMP/args"; then
+if eff_args infra-writer "$F_TMP/ausente.json" && ! grep -qx -- '--effort' "$F_TMP/args" \
+    && eff_args infra-reviewer "$F_TMP/ausente.json" && ! grep -qx -- '--effort' "$F_TMP/args"; then
     pass '(f) sin mapping ni default: no se pasa --effort (hereda)'
 else
     fail '(f) sin mapping no debia pasarse --effort'
