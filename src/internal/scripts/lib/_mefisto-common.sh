@@ -30,9 +30,8 @@
 # ni que archivo faltaba ni por que; y si el `cd` fallara, la ruta compuesta
 # seria un "/../../src/..." que despista mas de lo que informa. El `return 1`
 # corta el resto de este archivo a proposito -- deja is_path_in_mefisto_scope
-# sin definir, que es justo lo que el hook de scope detecta con `declare -F`
-# para degradar en silencio (mefisto-scope-hook.sh), mientras los pipelines
-# con `set -e` abortan de una con el motivo en stderr.
+# sin definir, mientras los pipelines con `set -e` abortan de una con el
+# motivo en stderr.
 _mefisto_common_state_lib="$(cd "$(dirname "${BASH_SOURCE[0]}")" 2>/dev/null && pwd)/mefisto-state.sh"
 if [ ! -f "$_mefisto_common_state_lib" ]; then
     echo "ERROR: no se encontro el helper de estado interno de Mefisto en '$_mefisto_common_state_lib' (issue #856)" >&2
@@ -345,6 +344,8 @@ get_harness_sha() {
 #                            EXACTAS de la raiz: LICENSE.txt, sub/LICENSE o docs2/NOTICE siguen
 #                            fuera. NO se replican en is_path_in_consumer_blocklist: el consumidor
 #                            tiene su propio LICENSE.
+# Gemela en TypeScript: src/internal/scripts/lib/mefisto-scope.mts (la usa el
+# hook de scope). Un cambio en la lista va en las dos.
 is_path_in_mefisto_scope() {
     local path="$1"
     [ -z "$path" ] && return 1

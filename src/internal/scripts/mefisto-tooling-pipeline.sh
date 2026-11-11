@@ -554,7 +554,7 @@ else
     #      y el bloque ECONOMIA DE TURNOS le pide justamente no re-inspeccionar
     #      el arbol, asi que nadie se enteraria hasta ver el PR vacio.
     #   3. La sustitucion no cambia nada: el unico hook de Mefisto
-    #      (mefisto-scope-hook.sh) no escribe a events.log.
+    #      (mefisto-scope-hook.mts) no escribe a events.log.
     #
     # Si algun dia un hook interno necesita la ruta absoluta del events.log
     # centralizado, hay que resolverlo sin `git checkout --` sobre un archivo

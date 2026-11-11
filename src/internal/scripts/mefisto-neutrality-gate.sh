@@ -267,7 +267,7 @@ exec "$(cd "$(dirname "$0")/../.." && pwd)/src/internal/scripts/$(basename "$0")
 
 MEFISTO_COMMON_SHIM_TEMPLATE='#!/usr/bin/env bash
 # Shim de compatibilidad (MEF-ADR-0049): la implementacion canonica vive en src/internal/scripts/lib/_mefisto-common.sh. No editar.
-# `source` (no `exec`): esta lib se sourcea desde otros scripts, nunca se ejecuta sola -- el gate de scope (mefisto-scope-hook.sh) sigue cargandola desde el checkout principal (MEF-ADR-0019 seccion E).
+# `source` (no `exec`): esta lib se sourcea desde otros scripts, nunca se ejecuta sola.
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)/src/internal/scripts/lib/_mefisto-common.sh"'
 
 # is_toplevel_claude_script <ruta> -- 0 si <ruta> es ".claude/scripts/*.sh" de

@@ -80,13 +80,6 @@
       "motivo": "Unica referencia legitima a ${CLAUDE_PROJECT_DIR}: la entrada de hook PostToolUse la necesita para resolver la ruta del hook en tiempo de ejecucion de Claude Code (MEF-ADR-0019 seccion E, issue #522)."
     },
     {
-      "path": ".claude/scripts/mefisto-scope-hook.sh",
-      "rules": [
-        "R3"
-      ],
-      "motivo": "Hook PostToolUse de scope temprano (issue #523): Claude Code lo lanza por la ruta fija de .claude/settings.json y documenta (nunca compone) la ruta ignorada por git .claude/pipeline/** que debe callar para mantener paridad con validate_mefisto_scope_changes -- el estado legacy que MEF-ADR-0049 seccion 3 deja sin migrar. Excepcion nombrada por el padre #873. Artefacto del adaptador Claude por naturaleza (MEF-ADR-0050)."
-    },
-    {
       "path": ".claude/agents/**",
       "rules": [
         "R2"
@@ -140,7 +133,7 @@
       "rules": [
         "R2"
       ],
-      "motivo": "Mods de Claude Code del propio Mefisto (MEF-ADR-0055): artefactos exclusivos del adaptador Claude, como mefisto-scope-hook.sh. Nombrar `claude --agent mefisto-planner` es su contrato: mefisto-planner-board se activa leyendo ese flag de la linea de comando de su proceso y lo documenta en su README y tests. Ningun pipeline los invoca."
+      "motivo": "Mods de Claude Code del propio Mefisto (MEF-ADR-0055): artefactos exclusivos del adaptador Claude, como mefisto-scope-hook.mts. Nombrar `claude --agent mefisto-planner` es su contrato: mefisto-planner-board se activa leyendo ese flag de la linea de comando de su proceso y lo documenta en su README y tests. Ningun pipeline los invoca."
     },
     {
       "path": "hooks/*.ts",
@@ -157,11 +150,5 @@
       "motivo": "Modulos del mod publicado bajo hooks/ (MEF-ADR-0055): artefactos exclusivos del paquete Claude. El tablero del planner se activa leyendo `--agent mefisto:planner` de la linea de comando del proceso, igual que .claude/mods/**. Ningun pipeline los invoca."
     }
   ],
-  "not_migrated": [
-    {
-      "path": ".claude/scripts/mefisto-scope-hook.sh",
-      "motivo": "Hook PostToolUse de scope temprano (issue #523), artefacto del adaptador Claude: Claude Code lo invoca por ruta fija desde .claude/settings.json y MEF-ADR-0019 seccion E exige que el gate de scope se siga cargando desde el checkout principal. No se traslada a src/internal/scripts/.",
-      "issue": null
-    }
-  ]
+  "not_migrated": []
 }
