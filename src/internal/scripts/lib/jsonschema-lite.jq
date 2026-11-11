@@ -1,7 +1,6 @@
 # jsonschema-lite.jq -- Subconjunto de JSON Schema implementado como programa jq
 # (MEF-ADR-0049 CA-6, issue #853): un filtro jq que devuelve la lista de
-# motivos, no un validador JSON Schema externo. Lo usan test-mefisto-run-agent.sh
-# y test-runtime-claude.sh contra el schema de eventos.
+# motivos, no un validador JSON Schema externo.
 #
 # Gemela de lib/jsonschema-lite.mts, la que usa validate-internal-artifacts.mts
 # (MEF-ADR-0057); validate-internal-artifacts.test.mts compara las dos.

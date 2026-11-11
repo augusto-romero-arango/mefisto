@@ -4,7 +4,7 @@
 import { accessSync, constants, existsSync, readFileSync, statSync } from 'node:fs'
 import { join } from 'node:path'
 
-import { discoverRuntime } from './upgrade-runtime.mts'
+import { discoverRuntime } from '../../src/runtime/lib/mefisto-runtime.mts'
 
 export const CONTRACT_HEADINGS = ['Tokens del harness', 'Verificación de fuentes'] as const
 export const CONTRACT_TOKENS = [
@@ -98,7 +98,7 @@ export function resolveOnboardRuntime(
   if (fixed.length > 0) return fixed
   const override = env.MEFISTO_RUNTIME_LIB_DIR ?? ''
   const libDir = override.length > 0 ? override : join(scriptDir, '..', 'src', 'runtime', 'lib')
-  if (!isFile(join(libDir, 'mefisto-runtime.sh'))) return 'claude'
+  if (!isFile(join(libDir, 'mefisto-runtime.mts'))) return 'claude'
   const found = discoverRuntime(libDir, env, hasCommand)
   return 'runtime' in found ? found.runtime : 'claude'
 }

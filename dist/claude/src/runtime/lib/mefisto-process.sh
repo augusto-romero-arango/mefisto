@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 # Ejecucion vigilada neutral. Fuente unica del watchdog headless (issue #1045).
 # Preserva argv sin eval, separa stdout/stderr y aisla la terminal de control.
+# Gemela de lib/mefisto-process.mts, la que usa el runner (MEF-ADR-0057): un
+# cambio va en los dos lados.
 #
 # MEFISTO_RUNTIME_STDIN_FILE (issue #1447): variable global opcional, con
 # default "" == /dev/null (comportamiento de siempre). Si un adaptador la fija

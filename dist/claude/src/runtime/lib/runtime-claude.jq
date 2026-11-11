@@ -5,6 +5,10 @@
 # `--arg exit_code` (exit code del proceso, "" si el caller no lo conoce) y
 # `--rawfile stderr_text` (stderr crudo del proceso, "" si no hubo).
 #
+# Gemela de `translateStream` (lib/runtime-claude.mts), la que usa el runner
+# (MEF-ADR-0057): un cambio va en los dos lados; runtime-claude.test.mts las
+# compara.
+#
 # Mapeo (CA-2): `assistant` con bloques `text` -> `message{role:"assistant"}`;
 # bloques `tool_use` -> `tool.started{tool, input_summary}` (issue #863: para
 # los tools de archivo -- Edit, Write, Read -- `input_summary` es

@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Resolucion comun de modelos. El caller entrega tanto el override como el
 # mapping: este nucleo no conoce estado, cwd, Git ni stages (MEF-ADR-0019).
+# Gemela de lib/mefisto-models.mts (MEF-ADR-0057): un cambio va en los dos lados.
 
 _mefisto_models_lib_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 : "${MEFISTO_RUNTIME_LIB_DIR:=$_mefisto_models_lib_dir}"

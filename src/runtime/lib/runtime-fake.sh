@@ -5,6 +5,9 @@
 # invocar un CLI real, guionando escenarios (exito, fallo, cuelgue, protocolo
 # invalido) por variable de entorno.
 #
+# Gemela de lib/runtime-fake.mts, la que usa el runner (MEF-ADR-0057): un
+# cambio de guion va en los dos lados.
+#
 # Implementa la interfaz de funciones que todo adaptador de runtime debe
 # exponer (ver src/runtime/contract/README.md, "Interfaz de adaptador"):
 #   runtime_fake_build_cmd <agent> <cwd> <prompt_file> <model> <system_file>
