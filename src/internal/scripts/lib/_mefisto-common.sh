@@ -529,6 +529,7 @@ changelog_fragment_added() {
 # Aborta (exit 1) si algun fragmento no sigue el patron <issue>.<categoria>.md
 # con categoria valida -- mejor fallar el release que consolidar en silencio
 # un fragmento mal nombrado.
+# Gemela en TypeScript: src/internal/scripts/lib/mefisto-release-lib.mts. Un cambio va en las dos.
 consolidate_changelog_fragments() {
     local repo_root="$1"
     local dir="$repo_root/changelog.d"
@@ -653,6 +654,7 @@ PYEOF
 # propia rama de release.
 #
 # Sin changelog.d/ o sin fragmentos *.adr-index.md dentro, es un no-op.
+# Gemela en TypeScript: src/internal/scripts/lib/mefisto-release-lib.mts. Un cambio va en las dos.
 consolidate_adr_index_fragments() {
     local repo_root="$1"
     local dir="$repo_root/changelog.d"
@@ -1849,6 +1851,7 @@ caffeinate_prefix() {
 # excepcion en la allowlist es el ultimo recurso, solo para contenido correcto
 # y permanente (MEF-ADR-0019 seccion E); el de R4, el de adapters-check y el
 # de published-adapters-check son estructurales y no pasan por la allowlist.
+# Gemela en TypeScript: src/internal/scripts/lib/mefisto-release-lib.mts. Un cambio va en las dos.
 mefisto_neutrality_remedy() {
     local raw
     raw="$(cat)"
