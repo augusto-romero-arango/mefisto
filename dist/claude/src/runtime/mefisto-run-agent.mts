@@ -342,10 +342,17 @@ export async function runAgent(argv: string[], env: NodeJS.ProcessEnv, warn: War
     throw unavailable('no se pudo crear el directorio temporal de la corrida')
   }
   let tree: ProcessTree | null = null
+  const removeWorkDir = (): void => {
+    try {
+      rmSync(workDir, { recursive: true, force: true, maxRetries: 2 })
+    } catch {
+      // Un proceso que sobrevive puede retener un archivo abierto; no cambia el desenlace.
+    }
+  }
   const onSignal = (signal: NodeJS.Signals): void => {
     // El watchdog vive en este proceso: si el runner muere, el agente no puede quedar sin limite.
     tree?.kill()
-    rmSync(workDir, { recursive: true, force: true })
+    removeWorkDir()
     process.exit(SIGNAL_EXIT[signal] ?? 1)
   }
   for (const signal of SIGNALS) process.on(signal, onSignal)
@@ -558,7 +565,7 @@ export async function runAgent(argv: string[], env: NodeJS.ProcessEnv, warn: War
     return exitCode
   } finally {
     for (const signal of SIGNALS) process.off(signal, onSignal)
-    rmSync(workDir, { recursive: true, force: true })
+    removeWorkDir()
   }
 }
 
