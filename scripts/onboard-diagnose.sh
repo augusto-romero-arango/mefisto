@@ -146,6 +146,27 @@ _check_claude_version() {
     return 0
 }
 
+# _check_node_version [version_output]
+# Node minimo para los scripts TypeScript del plugin (MEF-ADR-0057 decision 9):
+# los hooks de hooks.json corren con `node`. Deja NODE_VERSION_STATE/_DETAIL.
+# Sin argumento consulta "node --version" (binario del PATH).
+NODE_MIN_VERSION="22.18.0"
+_check_node_version() {
+    local out="" rc
+    if [ "$#" -ge 1 ]; then
+        out="$1"
+    elif command -v node >/dev/null 2>&1; then
+        out=$(node --version 2>/dev/null) || out=""
+    fi
+    _claude_version_meets "$out" "$NODE_MIN_VERSION"; rc=$?
+    case "$rc" in
+        0) NODE_VERSION_STATE="OK"; NODE_VERSION_DETAIL="Node $(printf '%s' "$out" | grep -Eo '[0-9]+\.[0-9]+\.[0-9]+' | head -n1) >= ${NODE_MIN_VERSION}" ;;
+        1) NODE_VERSION_STATE="FALTA"; NODE_VERSION_DETAIL="Node $(printf '%s' "$out" | grep -Eo '[0-9]+\.[0-9]+\.[0-9]+' | head -n1) < ${NODE_MIN_VERSION}: los hooks de Mefisto no corren" ;;
+        *) NODE_VERSION_STATE="FALTA"; NODE_VERSION_DETAIL="node no esta en el PATH o su salida no trae version: los hooks de Mefisto no corren" ;;
+    esac
+    return 0
+}
+
 # _check_repo_activation [runtime] [toplevel]
 # Mefisto se instala por usuario e inerte y cada consumidor lo activa con archivos
 # commiteados (MEF-ADR-0053 decision 2): .claude/settings.json bajo claude. Deja
@@ -484,6 +505,16 @@ main() {
     row "$CLAUDE_VERSION_STATE" "$CLAUDE_VERSION_DETAIL"
     if [ "$CLAUDE_VERSION_STATE" = "FALTA" ]; then
         ACTIONS="${ACTIONS}  - Actualiza Claude Code a ${CLAUDE_MIN_VERSION} o superior (\`claude update\`).
+"
+    fi
+
+    # --- 1b-bis. Version minima de Node (MEF-ADR-0057 decision 9) ---
+    echo ""
+    echo "Version de Node (minima ${NODE_MIN_VERSION}):"
+    _check_node_version
+    row "$NODE_VERSION_STATE" "$NODE_VERSION_DETAIL"
+    if [ "$NODE_VERSION_STATE" = "FALTA" ]; then
+        ACTIONS="${ACTIONS}  - Instala Node ${NODE_MIN_VERSION} o superior (https://nodejs.org/en/download): los hooks de Mefisto lo requieren.
 "
     fi
 
