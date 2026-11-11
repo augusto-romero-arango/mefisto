@@ -59,13 +59,14 @@
 #
 # Lista de rutas relativas al repo_root, una por linea, que el carril
 # 'canonico-adicional' expone SIN pasar por un shim en scripts/tests/. Hoy
-# tiene una unica entrada (issue #1438); documentacion de como agregar otra:
+# esta vacio: su unica entrada (issue #1438) se porto a TypeScript y corre con
+# `node --test` (MEF-ADR-0057). Como agregar una:
 #
 #   1. Confirmar que un shim homonimo en scripts/tests/ duplicaria dentro de
 #      la suite publicada una prueba costosa/aislada (si no hay motivo para
 #      aislarla, preferir el shim -- es el camino por defecto, no este).
-#   2. Agregar una linea mas a _MEFISTO_TEST_INVENTORY_DEFAULT_ADDITIONAL_SOURCES
-#      con la ruta relativa de la nueva fuente, junto a las existentes.
+#   2. Agregar una linea a _MEFISTO_TEST_INVENTORY_DEFAULT_ADDITIONAL_SOURCES
+#      con la ruta relativa de la nueva fuente.
 #   3. mefisto_test_inventory_check_canonical_coverage exige que TODA fuente
 #      bajo src/published/scripts/tests/test-*.sh este cubierta por un shim
 #      homonimo o por este registro -- omitir ambas decisiones la deja roja.
@@ -73,7 +74,7 @@
 # MEFISTO_TEST_INVENTORY_ADDITIONAL_SOURCES permite override para pruebas
 # (test-mefisto-test-inventory.sh la sobreescribe contra un repo fixture);
 # sin override, se usa el registro real de Mefisto.
-_MEFISTO_TEST_INVENTORY_DEFAULT_ADDITIONAL_SOURCES='src/published/scripts/tests/test-generate-published-adapters.sh'
+_MEFISTO_TEST_INVENTORY_DEFAULT_ADDITIONAL_SOURCES=''
 
 # _mefisto_test_inventory_repo_root
 #
@@ -198,7 +199,7 @@ mefisto_test_inventory_validate() {
 
     local violations=()
     local seen=$'\n'
-    local count_publicado=0 count_interno=0 count_adicional=0
+    local count_publicado=0 count_interno=0
     local combined
     combined="$(mefisto_test_inventory_list "$repo_root")"
 
@@ -209,7 +210,6 @@ mefisto_test_inventory_validate() {
         case "$lane" in
             publicado) count_publicado=$((count_publicado + 1)) ;;
             interno) count_interno=$((count_interno + 1)) ;;
-            canonico-adicional) count_adicional=$((count_adicional + 1)) ;;
         esac
 
         case "$relpath" in
@@ -256,7 +256,6 @@ mefisto_test_inventory_validate() {
 
     [ "$count_publicado" -eq 0 ] && violations+=("carril 'publicado': no descubrio ninguna entrada en scripts/tests/")
     [ "$count_interno" -eq 0 ] && violations+=("carril 'interno': no descubrio ninguna entrada en .claude/scripts/tests/")
-    [ "$count_adicional" -eq 0 ] && violations+=("carril 'canonico-adicional': el registro esta vacio")
 
     if [ "${#violations[@]}" -gt 0 ]; then
         echo "ERROR: [inventario-tests] inventario invalido en '$repo_root':" >&2
