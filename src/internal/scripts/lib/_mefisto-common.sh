@@ -339,7 +339,7 @@ get_harness_sha() {
 #                            Registradas antes de poblarlas (MEF-ADR-0019 seccion E); el resto de
 #                            .github/ (p. ej. CODEOWNERS) sigue fuera. NO se replican en
 #                            is_path_in_consumer_blocklist: .github/ es territorio del consumidor.
-#   README.md, CHANGELOG.md, CLAUDE.md, .gitignore   Gobierno del repo
+#   README.md, CHANGELOG.md, CLAUDE.md, .gitignore, .gitattributes   Gobierno del repo
 #   LICENSE, NOTICE          Licencia y avisos de atribucion del repo (issue #2230). Entradas
 #                            EXACTAS de la raiz: LICENSE.txt, sub/LICENSE o docs2/NOTICE siguen
 #                            fuera. NO se replican en is_path_in_consumer_blocklist: el consumidor
@@ -357,7 +357,7 @@ is_path_in_mefisto_scope() {
         .claude/commands/*|.claude/skills/*|.claude/agents/*|.claude/scripts/*|.claude/mods/*) return 0 ;;
         .claude/settings.json) return 0 ;;
         .mcp.json) return 0 ;;
-        README.md|CHANGELOG.md|CLAUDE.md|.gitignore|AGENTS.md|LICENSE|NOTICE|mefisto-manifest.json) return 0 ;;
+        README.md|CHANGELOG.md|CLAUDE.md|.gitignore|.gitattributes|AGENTS.md|LICENSE|NOTICE|mefisto-manifest.json) return 0 ;;
         changelog.d/*) return 0 ;;
         .github/workflows/*|.github/rulesets/*) return 0 ;;
         *) return 1 ;;
@@ -401,7 +401,7 @@ validate_mefisto_scope_changes() {
         echo "hooks/, docs/, .claude-plugin/, .claude/{commands,skills,agents,scripts,mods}/," >&2
         echo ".claude/settings.json, .mcp.json, src/{internal,published,runtime}/, dist/," >&2
         echo ".github/{workflows,rulesets}/, AGENTS.md," >&2
-        echo "changelog.d/, README.md, CHANGELOG.md, CLAUDE.md, .gitignore, LICENSE, NOTICE" >&2
+        echo "changelog.d/, README.md, CHANGELOG.md, CLAUDE.md, .gitignore, .gitattributes, LICENSE, NOTICE" >&2
         return 1
     fi
 }
@@ -419,7 +419,7 @@ validate_mefisto_scope_changes() {
 #   CLAUDE.md          Instrucciones de gobierno
 #   AGENTS.md          Doctrina canonica neutral (MEF-ADR-0049, issue #852) -- mismo
 #                      tratamiento de gobierno que CLAUDE.md
-#   .gitignore         Configuracion de gobierno
+#   .gitignore, .gitattributes   Configuracion de gobierno
 #
 # Todo lo demas dentro del scope de Mefisto (commands/, agents/, scripts/, hooks/,
 # docs/adr/, docs/ no-bitacora, .claude-plugin/, .claude/{commands,agents,scripts}/,
@@ -430,7 +430,7 @@ is_path_changelog_exempt() {
 
     case "$path" in
         docs/bitacora/*) return 0 ;;
-        README.md|CLAUDE.md|AGENTS.md|.gitignore) return 0 ;;
+        README.md|CLAUDE.md|AGENTS.md|.gitignore|.gitattributes) return 0 ;;
         *) return 1 ;;
     esac
 }
