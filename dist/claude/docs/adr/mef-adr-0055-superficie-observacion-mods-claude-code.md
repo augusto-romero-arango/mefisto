@@ -64,7 +64,7 @@ El pane de detalle (stages y live log) es secundario. `/mefisto-divine-wager` lo
 
 ### 4. Ubicacion: una por lado
 
-Un mod es un artefacto **exclusivo del adaptador Claude**, igual que `mefisto-scope-hook.sh` (MEF-ADR-0049 decision 2). Tiene dos ubicaciones, una por lado de MEF-ADR-0019:
+Un mod es un artefacto **exclusivo del adaptador Claude**, igual que `mefisto-scope-hook.mts` (MEF-ADR-0049 decision 2). Tiene dos ubicaciones, una por lado de MEF-ADR-0019:
 
 - **Interno**: `.claude/mods/<mod>/`, cargado desde un marketplace de carpeta en alcance `local` (detalle abajo).
 - **Publicado**: bajo `hooks/` del plugin `mefisto` (modulos, tipos y tsconfig). El `hooks/hooks.json` publicado es salida del generador del adaptador Claude (MEF-ADR-0049), y ese generador emite tambien `modules`. `hooks/*` ya esta cubierto por los gates de scope de ambos lados (MEF-ADR-0019).
@@ -194,6 +194,7 @@ Los mods de ambos lados no comparten codigo (MEF-ADR-0019), pero no deben diverg
 
 ## Control de cambios
 
+- 2026-11-10: decision 2: el hook de scope del adaptador Claude pasa a llamarse `mefisto-scope-hook.mts` al portarse a TypeScript (MEF-ADR-0057).
 - 2026-11-10: decision 5 y decision 6: sale tmux, que no existe en Windows nativo (MEF-ADR-0057 decision 5). Sin el mod la observacion es el pane de herdr o el visor `stream-watch` en otra terminal, y los lanzadores pasan a llamarse `launch-pipeline.sh` y `mefisto-launch-pipeline.sh`.
 - 2026-11-10: "Que queda fuera de este ADR", decision 4, decision 5 y decision 6: sale OpenCode, que deja de ser runtime soportado (MEF-ADR-0057 decision 7); sin el mod la observacion es el pane de herdr o la sesion tmux.
 - 2026-11-10: decision 6: en el lado interno el modo sin pane lo decide el runtime resuelto (`MEFISTO_RUNTIME=claude` sin `MEFISTO_UI`, #2284) y el hook `tool.call` del mod solo observa el lanzamiento, sin reescribir el comando; evita que el clasificador de auto mode quede sin veredicto (issue #2506).

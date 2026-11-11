@@ -6,7 +6,10 @@
         "hooks": [
           {
             "type": "command",
-            "command": "${CLAUDE_PROJECT_DIR}/.claude/scripts/mefisto-scope-hook.sh"
+            "command": "node",
+            "args": [
+              "${CLAUDE_PROJECT_DIR}/.claude/scripts/mefisto-scope-hook.mts"
+            ]
           }
         ]
       }
