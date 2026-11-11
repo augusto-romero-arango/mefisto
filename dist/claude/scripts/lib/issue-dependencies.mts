@@ -15,11 +15,18 @@ const SECTION_START = new RegExp(`^##${SPACE}*[Dd]ependencias`)
 const HEADING = new RegExp(`^##${SPACE}`)
 const FORWARD = new RegExp(`^${SPACE}*(?:[-*]${SPACE}+)?(?:Depende de|Bloqueado por)${SPACE}+#([0-9]+)`, 'i')
 
+// Como awk: un salto final cierra la ultima linea, no abre una vacia.
+function linesOf(body: string): string[] {
+  const lines = body.split('\n')
+  if (lines.at(-1) === '') lines.pop()
+  return lines
+}
+
 /** Lineas de la seccion, sin su encabezado; vacio si no existe. */
 export function dependenciesSection(body: string): string[] {
   const lines: string[] = []
   let inside = false
-  for (const line of body.split('\n')) {
+  for (const line of linesOf(body)) {
     if (SECTION_START.test(line)) {
       inside = true
       continue
@@ -45,5 +52,5 @@ export function forwardDependencies(body: string): string[] {
 
 /** `true` si el body declara la seccion '## Dependencias', aunque este vacia. */
 export function hasDependenciesSection(body: string): boolean {
-  return body.split('\n').some((line) => SECTION_START.test(line))
+  return linesOf(body).some((line) => SECTION_START.test(line))
 }
