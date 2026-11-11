@@ -319,12 +319,12 @@ else
     fail "G-6: jq dejo ruido por stderr: $(cat "$TMP/g-raro.stderr")"
 fi
 
-# --- [H] tdd/tooling/iac/scaffold consumen el JSONL neutral (issue #1624:
-# iac se sumo; issue #1644: scaffold se sumo, ultimo de los cuatro en
-# migrar) ---
+# --- [H] tdd/iac/scaffold consumen el JSONL neutral (issue #1624: iac se
+# sumo; issue #1644: scaffold se sumo). tooling-pipeline.mts lo cubre en
+# tooling-pipeline.test.mts ---
 echo ""
 echo "[H] derivacion de logs por frontera de ejecucion"
-for p in tdd-pipeline.sh tooling-pipeline.sh iac-pipeline.sh scaffold-pipeline.sh; do
+for p in tdd-pipeline.sh iac-pipeline.sh scaffold-pipeline.sh; do
     if grep -q 'mefisto-run-agent.sh' "$REPO_ROOT/scripts/$p" \
         && grep -q 'derive_stage_log_from_stream "$events_file"' "$REPO_ROOT/scripts/$p" \
         && ! grep -q -- '--output-format' "$REPO_ROOT/scripts/$p"; then

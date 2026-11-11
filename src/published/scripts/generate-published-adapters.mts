@@ -76,6 +76,7 @@ export const TOOLING_CLOSURE_ASSETS: readonly string[] = [
   'scripts/herdr-pipeline.sh|0755',
   'scripts/stream-watch.sh|0755',
   'scripts/tooling-pipeline.sh|0755',
+  'scripts/tooling-pipeline.mts|0644',
   'scripts/tdd-pipeline.sh|0755',
   'scripts/pr-sync.sh|0755',
   'scripts/worktree-clean.sh|0755',

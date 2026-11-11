@@ -5,7 +5,7 @@
 # Valida que:
 #   A) run_tests_projects y extract_test_count se resuelven desde
 #      _pipeline-common.sh (no quedan definiciones locales duplicadas en
-#      tdd-pipeline.sh / tooling-pipeline.sh / pr-sync.sh).
+#      tdd-pipeline.sh / pr-sync.sh).
 #   B) El glob tests/${HARNESS_NAMESPACE_PREFIX}.*.Tests/ de run_tests_projects
 #      EXCLUYE los directorios *.SmokeTests/, incluso cuando comparten el mismo
 #      prefijo de dominio (ej: Onboarding.Tests vs Onboarding.SmokeTests).
@@ -49,7 +49,7 @@ else
     fail "extract_test_count NO definida en _pipeline-common.sh"
 fi
 
-for script in tdd-pipeline.sh tooling-pipeline.sh pr-sync.sh; do
+for script in tdd-pipeline.sh pr-sync.sh; do
     path="$REPO_ROOT/scripts/$script"
     if grep -q '^run_tests_projects()' "$path"; then
         fail "$script: todavia define run_tests_projects() localmente (duplicado)"
@@ -254,7 +254,7 @@ else
     fail "F2: el fallo de bookkeeping no cumplio el contrato (rc=$rc)"
 fi
 
-for pipeline in "$REPO_ROOT/scripts/tdd-pipeline.sh" "$REPO_ROOT/scripts/tooling-pipeline.sh"; do
+for pipeline in "$REPO_ROOT/scripts/tdd-pipeline.sh"; do
     if grep -qF 'tests_val="$(tests_json_value "${PIPELINE_TESTS:-}")"' "$pipeline" \
         && grep -qF 'TESTS_JSON="$(tests_json_value "${PIPELINE_TESTS:-}")"' "$pipeline" \
         && grep -qF 'append_completed_history "$HISTORY_FILE" "$EVENTS_LOG_ABS"' "$pipeline"; then
