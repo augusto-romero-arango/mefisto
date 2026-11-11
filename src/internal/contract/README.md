@@ -157,19 +157,26 @@ el [contrato comun](../../runtime/contract/README.md).
 La seleccion de runtime respeta esta precedencia: `--runtime`,
 `MEFISTO_RUNTIME`, autodeteccion. La autodeteccion solo acepta exactamente un
 runtime disponible; cero o mas de uno exigen desambiguar. La libreria se
-descubre como `$MEFISTO_RUNTIME_LIB_DIR/runtime-<id>.sh`, sin una lista cerrada
+descubre como `$MEFISTO_RUNTIME_LIB_DIR/runtime-<id>.mts`, sin una lista cerrada
 de runtimes (MEF-ADR-0050).
 
 ### Interfaz de adaptador
 
-Cada `src/runtime/lib/runtime-<id>.sh` implementa:
+Cada `src/runtime/lib/runtime-<id>.mts` exporta (tipos en
+`src/runtime/lib/mefisto-runtime.mts`; solo `buildCmd` y `translate` son
+obligatorias):
 
 | Funcion | Contrato interno |
 |---|---|
-| `runtime_<id>_is_available` | Probe local usado solo en autodeteccion; no lee credenciales ni configuracion del proveedor |
-| `runtime_<id>_build_cmd <agent> <cwd> <prompt_file> <model> <system_file> [<resume_session_id>] [<effort>]` | Rellena el array global `MEFISTO_RUNTIME_CMD` sin `eval`; traduce opciones y omite las vacias. `<effort>` (issue #2496) llega ya en nombre nativo y opaco para el runner, que siempre lo pasa (vacio = heredar); cada adaptador lo aplica con su mecanismo nativo |
-| `runtime_<id>_translate <raw_file> <runtime_id> <model> [<exit_code>] [<stderr_file>]` | Emite por stdout el JSONL comun derivado del wire format; nunca emite `run.started` |
-| `runtime_<id>_supports_resume` | Devuelve 0 si soporta reanudacion y 1 en otro caso; ausente equivale a no soportada |
+| `isAvailable(env, hasCommand)` | Probe local usado solo en autodeteccion; no lee credenciales ni configuracion del proveedor |
+| `buildCmd(input)` | Devuelve `{ argv, env?, stdinFile? }` sin pasar por un shell; traduce opciones y omite las vacias. `input.effort` (issue #2496) llega ya en nombre nativo y opaco para el runner, que siempre lo pasa (vacio = heredar); cada adaptador lo aplica con su mecanismo nativo |
+| `translate(input)` | Devuelve los eventos del JSONL comun derivados del wire format; nunca emite `run.started` |
+| `supportsResume()` | `true` si soporta reanudacion; ausente equivale a no soportada |
+
+Mientras queden pipelines en bash, cada adaptador conserva su gemela
+`runtime-<id>.sh` (`runtime_<id>_is_available`, `runtime_<id>_build_cmd`,
+`runtime_<id>_translate`, `runtime_<id>_supports_resume`), que solo cargan esos
+pipelines y sus tests.
 
 El runner siempre entrega exit code y stderr al traductor para distinguir una
 muerte por senal o un error que el CLI no escribio en stdout. El traductor

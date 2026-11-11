@@ -188,9 +188,8 @@ Límites y deudas de lo portado:
 
 - `field-note` valida el glosario YAML con un validador que ya esté en el PATH (`python3` con
   PyYAML, `ruby` o `yq`). En Windows sin ninguno aborta con un mensaje y no stagea nada.
-- Sin `MEFISTO_RUNTIME`, `upgrade` descubre el runtime con una tabla de pruebas
-  (`scripts/lib/upgrade-runtime.mts`) en vez de cargar cada `runtime-<id>.sh`. Se unifica al portar
-  `src/runtime/` (6a).
+- El descubrimiento sincrono de runtime que usan `upgrade` y `onboard` sale de la tabla `PROBES` de
+  `src/runtime/lib/mefisto-runtime.mts`, que duplica el `isAvailable` de cada adaptador.
 - El parser de la salida de `dotnet` en `warnings-diff` solo está probado con fixtures; falta un
   build real en Windows, con rutas con `\`.
 - `mefisto-release` no se ha ejecutado contra el repo real: el primer release que lo use es su

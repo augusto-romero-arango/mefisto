@@ -23,7 +23,7 @@ import { basename, dirname, isAbsolute, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 import { CliError, commandExists, isEntryPoint, repoRoot } from './lib/cli.mts'
-import { discoverRuntime } from './lib/upgrade-runtime.mts'
+import { discoverRuntime } from '../src/runtime/lib/mefisto-runtime.mts'
 
 export interface UpgradeDeps {
   cwd: string
@@ -110,7 +110,7 @@ function resolveRuntime(deps: UpgradeDeps): string {
   const libDir = join(deps.scriptDir, '..', 'src', 'runtime', 'lib')
   let runtime = deps.env.MEFISTO_RUNTIME ?? ''
   if (runtime.length === 0) {
-    if (!isFile(join(libDir, 'mefisto-runtime.sh'))) throw new CliError('ERROR: fija MEFISTO_RUNTIME.')
+    if (!isFile(join(libDir, 'mefisto-runtime.mts'))) throw new CliError('ERROR: fija MEFISTO_RUNTIME.')
     const override = deps.env.MEFISTO_RUNTIME_LIB_DIR ?? ''
     const found = discoverRuntime(override.length > 0 ? override : libDir, deps.env, deps.hasCommand)
     if ('error' in found) throw new CliError('ERROR: no se pudo resolver el runtime')

@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
+# Resolucion de runtime y adaptador fake en bash. El runner y las gemelas TypeScript se prueban
+# en los *.test.mts de esta carpeta.
 set -uo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
-RUNNER="$ROOT/src/runtime/mefisto-run-agent.sh"
 RESOLVER="$ROOT/src/runtime/lib/mefisto-runtime.sh"
 PASS=0; FAIL=0
 pass() { PASS=$((PASS + 1)); }
@@ -49,36 +50,12 @@ else
 fi
 unset MEFISTO_FAKE_INTERACTIVE_REFRESH
 
-# Runner comun: no crea estado por omision y conserva outputs/opciones.
-mkdir -p "$TMP/wt" "$TMP/state"; printf 'prompt\n' > "$TMP/prompt"; printf 'system\n' > "$TMP/system"
-ARGS="$TMP/args"; EVENTS="$TMP/events.jsonl"; HUMAN="$TMP/human.log"
-MEFISTO_STATE_DIR="$TMP/state" MEFISTO_FAKE_SCRIPT=success MEFISTO_FAKE_ARGS_FILE="$ARGS" \
-    "$RUNNER" --runtime fake --agent a --cwd "$TMP/wt" --prompt-file "$TMP/prompt" \
-    --system-file "$TMP/system" --resume-session session-x --model provider/model \
-    --event-log "$EVENTS" --raw-log "$TMP/raw" --stderr-log "$TMP/stderr" >/dev/null 2>&1
-rc=$?
-[ "$rc" -eq 0 ] && pass || fail "runner success"
-[ -f "$TMP/raw" ] && [ -f "$TMP/stderr" ] && pass || fail "raw/stderr"
-[ ! -e "$TMP/state/events.log" ] && pass || fail "nucleo invento default de estado"
-grep -qx -- '--fake-resume' "$ARGS" && grep -qx -- 'session-x' "$ARGS" && grep -qx -- "$TMP/system" "$ARGS" && pass || fail "system/resume"
-[ "$(jq -r 'select(.type=="run.completed") | .model' "$EVENTS")" = provider/model ] && pass || fail "modelo opaco"
-
-MEFISTO_FAKE_SCRIPT=success "$RUNNER" --runtime fake --agent a --cwd "$TMP/wt" \
-    --prompt-file "$TMP/prompt" --event-log "$TMP/events-human.jsonl" --events-log "$HUMAN" >/dev/null 2>&1
-grep -q '\[stage\] a success' "$HUMAN" && pass || fail "telemetria explicita"
-
-HUMAN_TZ="$TMP/human-tz.log"
-TZ=America/Bogota MEFISTO_FAKE_SCRIPT=success "$RUNNER" --runtime fake --agent a --cwd "$TMP/wt" \
-    --prompt-file "$TMP/prompt" --event-log "$TMP/events-tz.jsonl" --events-log "$HUMAN_TZ" >/dev/null 2>&1
-TS_TERM="$(jq -r 'select(.type=="run.completed") | .ts' "$TMP/events-tz.jsonl" | head -1)"
-TS_EPOCH="$(TZ=UTC jq -nr --arg t "$TS_TERM" '$t | sub("\\.[0-9]+Z$"; "Z") | fromdateiso8601')"
-EXPECT_HMS="$(TZ=America/Bogota date -r "$TS_EPOCH" +%H:%M:%S 2>/dev/null || TZ=America/Bogota date -d "@$TS_EPOCH" +%H:%M:%S)"
-grep -q "^\[$EXPECT_HMS\]\[stage\] a success" "$HUMAN_TZ" && pass || fail "hora local en [stage] (esperada $EXPECT_HMS)"
-
-MEFISTO_FAKE_SCRIPT=hang "$RUNNER" --runtime fake --agent a --cwd "$TMP/wt" \
-    --prompt-file "$TMP/prompt" --event-log "$TMP/timeout.jsonl" --timeout 1 >/dev/null 2>&1
-rc=$?
-[ "$rc" -eq 124 ] && jq -e 'select(.type=="run.failed") | .status=="timeout" and .error.kind=="timeout"' "$TMP/timeout.jsonl" >/dev/null && pass || fail "timeout"
+# Un runtime explicito sin adaptador falla, y el fake resuelve contra la libreria real.
+MEFISTO_RUNTIME_LIB_DIR="$LIBS"
+if mefisto_resolve_runtime bogus >/dev/null; then fail "explicito sin adaptador debe fallar"; else case "$MEFISTO_RUNTIME_ERROR" in *bogus*"$LIBS/runtime-bogus.sh"*) pass ;; *) fail "sin adaptador no cita runtime y ruta" ;; esac; fi
+MEFISTO_RUNTIME_LIB_DIR="$ROOT/src/runtime/lib"
+mefisto_resolve_runtime fake >/dev/null && [ "$MEFISTO_RESOLVED_RUNTIME" = fake ] && pass || fail "fake contra la libreria real"
+unset MEFISTO_RUNTIME_LIB_DIR
 
 echo "RESULTADO runtime comun: $PASS pasaron, $FAIL fallaron"
 [ "$FAIL" -eq 0 ]

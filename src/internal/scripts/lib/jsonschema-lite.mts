@@ -1,8 +1,7 @@
 // Subconjunto de JSON Schema que valida el contrato neutral de agentes y comandos
 // (src/internal/contract/internal-artifact.schema.json).
 //
-// Gemela de `jsonschema-lite.jq`, que siguen usando test-mefisto-run-agent.sh y
-// test-runtime-claude.sh.
+// Gemela de `jsonschema-lite.jq`, que ya solo usa el test de paridad entre ambas.
 //
 // Palabras clave: type, required, properties, additionalProperties (solo `false`), enum, items,
 // pattern, minLength y oneOf. oneOf solo en su forma de despacho por `kind`: cada rama declara

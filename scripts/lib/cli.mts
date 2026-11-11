@@ -1,6 +1,7 @@
 // Utilidades comunes de los scripts: punto de entrada, procesos y mensajes.
 
-import { spawnSync } from 'node:child_process'
+import { spawn, spawnSync } from 'node:child_process'
+import type { ChildProcess, StdioOptions } from 'node:child_process'
 import { existsSync, realpathSync, statSync } from 'node:fs'
 import { delimiter, join } from 'node:path'
 import { pathToFileURL } from 'node:url'
@@ -106,6 +107,27 @@ export function capture(command: string, args: string[], options: CommandOptions
     windowsVerbatimArguments: target.verbatim,
   })
   return { status: result.status, stdout: result.stdout ?? '', stderr: result.stderr ?? '' }
+}
+
+export interface LaunchOptions {
+  cwd?: string
+  env?: NodeJS.ProcessEnv
+  stdio?: StdioOptions
+  /** Sesion y grupo de procesos propios (POSIX). */
+  detached?: boolean
+}
+
+/** Lanza un programa sin shell y sin esperarlo, con la misma resolucion de `capture`. */
+export function launch(command: string, args: string[], options: LaunchOptions = {}): ChildProcess {
+  const target = spawnTarget(command, args, options.env ?? process.env)
+  return spawn(target.command, target.args, {
+    cwd: options.cwd,
+    env: options.env,
+    stdio: options.stdio,
+    detached: options.detached,
+    windowsHide: true,
+    windowsVerbatimArguments: target.verbatim,
+  })
 }
 
 /** Salida de `git` sin el salto final, o `null` si falla. */
