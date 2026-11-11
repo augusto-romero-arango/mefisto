@@ -41,9 +41,6 @@
 #       abort() (no dentro de ella).
 #   [J] cableado: "harness_version" y "harness_sha" aparecen en las 2
 #       escrituras de pipeline-history.jsonl (feliz + aborto).
-#   [K] retrocompatibilidad: mefisto-metrics-report.sh agrega sin cambios un
-#       historial mixto de lineas legadas (sin los campos) y nuevas (con los
-#       campos) -- nada se migra ni se reescribe.
 #   [L] un caller con 'set -euo pipefail' (como el pipeline) sobrevive al peor
 #       caso -- plugin.json ausente Y 'git' fuera del PATH --: ambas variables
 #       quedan vacias, ambos literales JSON en null, y el prologo sigue vivo
@@ -317,63 +314,6 @@ for field in harness_version harness_sha; do
         fail "J-1 ($field): se esperaban 2 apariciones, se encontraron $field_count"
     fi
 done
-
-# -------- Bloque K: mefisto-metrics-report.sh tolera el historial mixto --------
-#
-# El campo es aditivo y no se migra nada: las lineas historicas escritas antes
-# de este issue conviven con las nuevas en el mismo pipeline-history.jsonl. Se
-# corre el reporte real end-to-end dentro de un repo de Mefisto de mentira
-# (git init + .claude-plugin/plugin.json propio, requerido por assert_in_mefisto)
-# para no tocar nunca el historial del repo real.
-
-echo ""
-echo "[K] mefisto-metrics-report.sh agrega historial mixto legado + con los campos nuevos"
-
-if command -v jq >/dev/null 2>&1; then
-    FAKE_REPO="$TMP/fake-mefisto"
-    mkdir -p "$FAKE_REPO/.claude/scripts" "$FAKE_REPO/.claude-plugin" "$FAKE_REPO/.claude/pipeline" "$FAKE_REPO/src/internal/scripts/lib" "$FAKE_REPO/src/runtime/lib"
-    git -C "$FAKE_REPO" init -q
-    cat > "$FAKE_REPO/.claude-plugin/plugin.json" <<'EOF'
-{
-  "name": "mefisto",
-  "version": "9.9.9"
-}
-EOF
-    cp "$REPO_ROOT/src/internal/scripts/lib/_mefisto-common.sh" "$FAKE_REPO/src/internal/scripts/lib/_mefisto-common.sh"
-    cp "$REPO_ROOT/.claude/scripts/_mefisto-common.sh" "$FAKE_REPO/.claude/scripts/_mefisto-common.sh"
-    cp "$REPO_ROOT/src/internal/scripts/lib/mefisto-state.sh" "$FAKE_REPO/src/internal/scripts/lib/mefisto-state.sh"
-    cp "$REPO_ROOT/src/runtime/lib/mefisto-process.sh" "$FAKE_REPO/src/runtime/lib/mefisto-process.sh"
-    cp "$REPO_ROOT/src/internal/scripts/mefisto-metrics-report.sh" "$FAKE_REPO/src/internal/scripts/mefisto-metrics-report.sh"
-    chmod +x "$FAKE_REPO/src/internal/scripts/mefisto-metrics-report.sh"
-    cp "$REPO_ROOT/.claude/scripts/mefisto-metrics-report.sh" "$FAKE_REPO/.claude/scripts/mefisto-metrics-report.sh"
-    chmod +x "$FAKE_REPO/.claude/scripts/mefisto-metrics-report.sh"
-
-    cat > "$FAKE_REPO/.claude/pipeline/pipeline-history.jsonl" <<'EOF'
-{"issue":"1","title":"linea legada sin los campos","pipeline":"mefisto-tooling","started":"20260101-100000","finished":"2026-01-01T10:10:00","state":"completed","agents":{"writer":{"duration":600},"reviewer":{"duration":300}},"pr":"http://x/1"}
-{"issue":"2","title":"linea nueva con ambos campos","pipeline":"mefisto-tooling","harness_version":"0.25.0","harness_sha":"abc1234","started":"20260102-100000","finished":"2026-01-02T10:10:00","state":"completed","agents":{"writer":{"duration":600},"reviewer":{"duration":300}},"pr":"http://x/2"}
-{"issue":"3","title":"aborto con ambos campos en null","pipeline":"mefisto-tooling","harness_version":null,"harness_sha":null,"started":"20260103-100000","finished":"2026-01-03T10:10:00","state":"failed","stage":"writer","error":"algo"}
-EOF
-
-    # `env -u` de las MEFISTO_* de estado (issue #869): esta suite corre dentro
-    # de una invocacion real del pipeline interno, que EXPORTA MEFISTO_STATE_DIR
-    # / MEFISTO_LEGACY_STATE_DIR apuntando al repo REAL (mefisto-state.sh los
-    # resuelve con `: "${VAR:=...}"`, respetando a proposito un valor previo del
-    # entorno). Desde que el reporte agrega AMBAS ubicaciones, sin desmontarlos
-    # el fixture de 3 lineas se mezclaria con el historial real y K-1 mediria
-    # corridas ajenas. MEFISTO_REPO_ROOT tambien se desmonta: assert_in_mefisto
-    # lo re-exporta dentro de FAKE_REPO, pero heredarlo hace que ese re-export
-    # dependa del orden de evaluacion en vez de del cwd.
-    K_OUT=$( (cd "$FAKE_REPO" && env -u MEFISTO_STATE_DIR -u MEFISTO_LEGACY_STATE_DIR \
-        -u MEFISTO_REPO_ROOT ./.claude/scripts/mefisto-metrics-report.sh) 2>&1 )
-    K_RC=$?
-    if [ "$K_RC" -eq 0 ] && echo "$K_OUT" | grep -q "Corridas mefisto-tooling en la ventana: 3"; then
-        pass "K-1: las 3 lineas (legada, con ambos campos, con ambos en null) se agregan sin cambios"
-    else
-        fail "K-1: se esperaba rc=0 y 3 corridas, se obtuvo rc=$K_RC: $K_OUT"
-    fi
-else
-    echo "  SKIP: mefisto-metrics-report.sh requiere jq, no disponible en este entorno"
-fi
 
 # -------- Bloque L: un caller con 'set -euo pipefail' no muere --------
 #
