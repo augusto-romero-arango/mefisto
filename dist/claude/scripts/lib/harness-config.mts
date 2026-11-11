@@ -514,11 +514,15 @@ export function upsertHarnessSecret(
     }
   }
 
-  // 0600 como el temporal de `mktemp` que la gemela mueve sobre el config.
-  const temporary = join(dirname(config), `.${basename(config)}.${process.pid}.tmp`)
+  replaceFile(config, content)
+}
+
+/** Reemplaza `path` de una vez; queda en 0600, como el temporal de `mktemp` que bash movia encima. */
+export function replaceFile(path: string, content: string): void {
+  const temporary = join(dirname(path), `.${basename(path)}.${process.pid}.tmp`)
   try {
     writeFileSync(temporary, content, { mode: 0o600 })
-    renameSync(temporary, config)
+    renameSync(temporary, path)
   } catch (error) {
     rmSync(temporary, { force: true })
     throw error
