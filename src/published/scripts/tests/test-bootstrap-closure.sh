@@ -11,7 +11,8 @@ PASS=0; FAIL=0
 pass() { printf '  PASS: %s\n' "$1"; PASS=$((PASS + 1)); }
 fail() { printf '  FAIL: %s\n' "$1"; FAIL=$((FAIL + 1)); }
 
-SCRIPTS=(azure-account-info bootstrap-backend setup-github-ci setup-github-labels)
+# bootstrap-backend y setup-github-ci: scripts/tests/{bootstrap-backend,setup-github-ci}.test.mts.
+SCRIPTS=(azure-account-info setup-github-labels)
 
 # Stubs az/gh: registran cada invocacion; el modo de az lo decide AZ_MODE.
 STUBS="$WORK/stubs"; mkdir -p "$STUBS"

@@ -63,17 +63,9 @@ ordered "$claude_body" 'claude respeta el orden evidencia -> dry-run -> confirma
 ```' 'gh run rerun'
 contains "$claude_body" 'model: "sonnet"' 'Claude materializa el perfil balanced'
 
-echo '[assets] purge-store.sh distribuido'
-SRC_SH="$REPO_ROOT/scripts/purge-store.sh"
-dist_sh="$REPO_ROOT/dist/claude/scripts/purge-store.sh"
-if [ -f "$dist_sh" ] && cmp -s "$SRC_SH" "$dist_sh"; then pass "dist/claude/scripts/purge-store.sh identico"; else fail "dist/claude/scripts/purge-store.sh ausente o distinto"; fi
-[ -x "$dist_sh" ] && pass "dist/claude purge-store.sh ejecutable" || fail "dist/claude purge-store.sh no ejecutable"
-[ -f "$REPO_ROOT/dist/claude/scripts/_pipeline-common.sh" ] && pass "dist/claude trae _pipeline-common.sh hermano" || fail "dist/claude sin _pipeline-common.sh"
-if jq -e '.assets[] | select(.destination == "scripts/purge-store.sh")' "$REPO_ROOT/dist/claude/.mefisto-generated-assets.json" >/dev/null 2>&1; then pass "inventario de dist/claude incluye purge-store.sh"; else fail "inventario de dist/claude sin purge-store.sh"; fi
+# La distribucion de purge-store.sh la cubre scripts/tests/purge-store.test.mts.
+echo '[assets] comando inventariado'
 if jq -e '.. | strings | select(. == "commands/purge-store.md")' "$REPO_ROOT/dist/claude/.mefisto-generated-assets.json" >/dev/null 2>&1; then pass "inventario de dist/claude incluye el comando"; else fail "inventario de dist/claude sin el comando"; fi
-# Resuelve _pipeline-common.sh desde dist/: el script sale por uso, no por fuente ausente.
-out="$(bash "$REPO_ROOT/dist/claude/scripts/purge-store.sh" --help 2>&1 < /dev/null || true)"
-case "$out" in *"_pipeline-common.sh: No such file"*) fail 'dist resuelve _pipeline-common.sh' ;; *) pass 'dist resuelve _pipeline-common.sh' ;; esac
 
 echo '[mirror]'
 if cmp -s "$MIRROR" "$CLAUDE"; then pass 'mirror Claude coincide byte a byte'; else fail 'mirror Claude diverge'; fi
