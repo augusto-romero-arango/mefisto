@@ -70,7 +70,7 @@ echo "[A] is_path_changelog_exempt clasifica rutas exentas vs notables"
 
 # AGENTS.md: doctrina canonica neutral (MEF-ADR-0049, issue #852) -- mismo
 # tratamiento de gobierno que CLAUDE.md, exenta de exigir fragmento.
-for exempt in "docs/bitacora/algo.md" "docs/bitacora/field-notes/2026-x.md" "README.md" "CLAUDE.md" "AGENTS.md" ".gitignore"; do
+for exempt in "docs/bitacora/algo.md" "docs/bitacora/field-notes/2026-x.md" "README.md" "CLAUDE.md" "AGENTS.md" ".gitattributes" ".gitignore"; do
     if is_path_changelog_exempt "$exempt"; then
         pass "'$exempt' exento (no exige fragmento)"
     else
