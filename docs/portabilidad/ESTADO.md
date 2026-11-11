@@ -88,7 +88,7 @@ Estados: `pendiente`, `en curso`, `hecho`.
 | 2a | Retirar OpenCode | hecho | #2551, #2552 |
 | 2b | Retirar tmux | hecho | #2555 |
 | 3 | Base TypeScript | hecho | #2556 |
-| 4 | Hooks | en curso | #PR4A (publicados); falta el hook de scope interno |
+| 4 | Hooks | en curso | #2557 (publicados); falta el hook de scope interno |
 | 5 | Scripts sueltos | pendiente | |
 | 6 | Librerías y pipelines | pendiente | |
 | 7 | Despachador, herdr y cierre | pendiente | |
@@ -129,7 +129,7 @@ Hecho cuando: el workflow existe y pasa en los tres sistemas con al menos un tes
 
 | Fila | Alcance | Estado | PR |
 |---|---|---|---|
-| 4a | Hooks publicados: los 7 comandos de `hooks/hooks.json` pasan a la forma exec de Claude Code (`command: "node"` más `args`, sin shell) sobre `scripts/interactive-hooks.mts`. Con ellos entra el requisito de Node >= 22.18 para el consumidor: chequeo en `/onboard` y línea en `README.md` (MEF-ADR-0057, decisión 9) | hecho | #PR4A |
+| 4a | Hooks publicados: los 7 comandos de `hooks/hooks.json` pasan a la forma exec de Claude Code (`command: "node"` más `args`, sin shell) sobre `scripts/interactive-hooks.mts`. Con ellos entra el requisito de Node >= 22.18 para el consumidor: chequeo en `/onboard` y línea en `README.md` (MEF-ADR-0057, decisión 9) | hecho | #2557 |
 | 4b | Hook de scope interno: `.claude/scripts/mefisto-scope-hook.sh` y la entrada de `.claude/settings.json` | pendiente | |
 
 `src/internal/githooks/pre-push` se queda en shell: Git ejecuta los hooks con su propio `sh` (se
