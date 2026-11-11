@@ -1900,7 +1900,7 @@ mefisto_neutrality_remedy() {
         echo "published-adapters-check: regenera la distribucion publicada con src/published/scripts/generate-published-adapters.sh (sin --check); su salida (dist/) no se edita a mano -- se edita la fuente publicada de src/published/ o src/runtime/ y se regenera."
     fi
     for rule in ${unknown_rules[@]+"${unknown_rules[@]}"}; do
-        echo "$rule: regla no reconocida por este remedio -- revisa la cabecera de src/internal/scripts/mefisto-neutrality-gate.sh."
+        echo "$rule: regla no reconocida por este remedio -- revisa la cabecera de src/internal/scripts/mefisto-neutrality-gate.mts."
     done
 
     return 0

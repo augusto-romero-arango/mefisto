@@ -288,7 +288,7 @@ describe('neutralityRemedy', () => {
     const unknown = lines(neutralityRemedy('src/internal/foo.md:1: R99'))
     assert.equal(unknown.length, 1)
     assert.ok(unknown[0]?.startsWith('R99: '))
-    assert.ok(unknown[0]?.includes('mefisto-neutrality-gate.sh'))
+    assert.ok(unknown[0]?.includes('mefisto-neutrality-gate.mts'))
     assert.equal(lines(neutralityRemedy('a.md:1: R1\nb.md:2: R99\nc.md:3: R99')).length, 2)
   })
 

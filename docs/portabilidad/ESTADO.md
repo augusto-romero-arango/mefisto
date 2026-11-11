@@ -62,8 +62,8 @@ repo (`--json` para la salida estructurada). `dist/` queda fuera porque lo regen
 
 | Id | Qué mide | Línea base (v0.56.0) | Actual | Meta |
 |---|---|---|---|---|
-| M1a | Archivos `.sh` | 408 | 353 | 0 |
-| M1b | Líneas en `.sh` | 104686 | 84498 | 0 |
+| M1a | Archivos `.sh` | 408 | 331 | 0 |
+| M1b | Líneas en `.sh` | 104686 | 71408 | 0 |
 | M2 | Archivos `.jq` | 21 | 19 | 0 |
 | M3 | Archivos que mencionan tmux | 96 | 6, todos excepción | 0 fuera de las excepciones |
 | M4 | Archivos que mencionan OpenCode | 283 | 11, todos excepción | 0 fuera de las excepciones |
@@ -89,7 +89,7 @@ Estados: `pendiente`, `en curso`, `hecho`.
 | 2b | Retirar tmux | hecho | #2555 |
 | 3 | Base TypeScript | hecho | #2556 |
 | 4 | Hooks | hecho | #2557, #2558 |
-| 5 | Scripts sueltos | en curso | #2559 a #2567 |
+| 5 | Scripts sueltos | en curso | #2559 a #2575 |
 | 6 | Librerías y pipelines | pendiente | |
 | 7 | Despachador, herdr y cierre | pendiente | |
 
@@ -145,8 +145,8 @@ Alcance: los scripts que no son pipeline ni librería de pipeline, con sus tests
 | Fila | Alcance (línea base, sin tests) | Estado | PR |
 |---|---|---|---|
 | 5a | `src/published/scripts/` (76 archivos, 9979 líneas antes de retirar OpenCode) | pendiente | |
-| 5b | `scripts/` que no son pipeline ni `_pipeline-common.sh` | en curso | #2559, #2560, #2563, #2565, #2566, #2567 |
-| 5c | `src/internal/scripts/` que no son pipeline ni `lib/_mefisto-common.sh` | en curso | #2560, #2564, #2566 |
+| 5b | `scripts/` que no son pipeline ni `_pipeline-common.sh` | en curso | #2559, #2560, #2563, #2565, #2566, #2567, #2570, #2573, #2574, #2575 |
+| 5c | `src/internal/scripts/` que no son pipeline ni `lib/_mefisto-common.sh` | en curso | #2560, #2564, #2566, #2569, #2575 |
 
 Al portar `generate-internal-adapters.sh` se enmienda MEF-ADR-0049, decisión 6 y alternativa a:
 hoy fijan bash + `jq` como toolchain del generador y descartan Node.
@@ -157,10 +157,19 @@ Ya portados (su `.sh` queda como shim hasta el paso 7):
   `scripts/lib/tfstate-naming.mts`, `scripts/lib/issue-dependencies.mts` y
   `src/internal/scripts/lib/mefisto-repo.mts`. `capture` lanza los `.cmd` y `.bat` de Windows
   (p. ej. `az.cmd`) a través de `cmd.exe` (#2565).
-- `scripts/`: `next-order`, `field-note`, `azure-account-info`, `worktree-clean`, `upgrade` y
-  `warnings-diff`.
+- `scripts/`: `next-order`, `field-note`, `azure-account-info`, `worktree-clean`, `upgrade`,
+  `warnings-diff`, `purge-store`, `setup-github-ci`, `bootstrap-backend`, `appinsights-query`,
+  `update-plugin`, `onboard-diagnose`, `onboard-activate-repo`, `register-harness-secret`,
+  `setup-github-labels`, `onboard-provision-appinsights`, `onboard-migrate-directives`,
+  `seed-secret`, `validate-dockerfile`, `metrics-report` y `work-status-collect`.
+  `_plugin-scopes.sh` se borró: su lógica vive en `scripts/lib/plugin-scopes.mts`.
 - `src/internal/scripts/`: `mefisto-next-order`, `mefisto-field-note`, `mefisto-nightly-report`,
-  `mefisto-validate-batch-deps`, `mefisto-worktree` y `mefisto-bitacora-worktree`.
+  `mefisto-validate-batch-deps`, `mefisto-worktree`, `mefisto-bitacora-worktree`,
+  `mefisto-release` y `mefisto-metrics-report`.
+
+Quedan en el paso 5: los generadores y validadores de `src/published/scripts/` y de
+`src/internal/scripts/` (con el gate de neutralidad), y los tests bash que verifican el texto de
+comandos y agentes. `scripts/pr-sync.sh` carga `_pipeline-common.sh` y se porta con el paso 6.
 
 El repo fija los finales de línea en LF con `.gitattributes` (#2561, #2562): con CRLF, en Windows
 fallaban los shims y las lecturas de texto.
@@ -174,6 +183,17 @@ Límites y deudas de lo portado:
   `src/runtime/` (6a).
 - El parser de la salida de `dotnet` en `warnings-diff` solo está probado con fixtures; falta un
   build real en Windows, con rutas con `\`.
+- `mefisto-release` no se ha ejecutado contra el repo real: el primer release que lo use es su
+  prueba de extremo a extremo. Sigue lanzando con `bash` el gate de neutralidad y el generador
+  publicado hasta que se porten, y su bloque de recuperación es una receta bash + `python3`.
+- Los scripts que lanzan un CLI externo muestran su salida cuando el comando termina, no en vivo
+  (`mefisto-release`, `update-plugin`, `setup-github-labels`).
+- Ningún script portado se ha probado contra Azure, GitHub ni `claude` reales: los tests inyectan
+  esos CLIs. Queda por ver en Windows `az.cmd` con argumentos que llevan `&&` y comillas (W3).
+- El shim de `onboard-diagnose` avisa si falta Node >= 22.18; los demás shims fallan con el error
+  de `node`.
+- Los defectos que ya tenía el bash se portaron tal cual y quedaron como borradores: #2571, #2572
+  y #2576.
 
 Hecho cuando: en esas rutas solo quedan pipelines, sus librerías y shims.
 

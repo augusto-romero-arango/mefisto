@@ -195,7 +195,7 @@ export function neutralityRemedy(gateOutput: string): string {
     ...known.map(([, remedy]) => remedy),
     ...unknown.map(
       (rule) =>
-        `${rule}: regla no reconocida por este remedio -- revisa la cabecera de src/internal/scripts/mefisto-neutrality-gate.sh.`,
+        `${rule}: regla no reconocida por este remedio -- revisa la cabecera de src/internal/scripts/mefisto-neutrality-gate.mts.`,
     ),
   ].join('\n')
 }

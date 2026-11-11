@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
 # frontmatter.sh -- Extraccion del frontmatter JSON y del body de un artefacto
 # neutral src/internal/{agents,commands}/<id>.md (MEF-ADR-0049 CA-6, issues
-# #853 y #854). Implementacion unica de la regla de corte del bloque '---':
-# la consumen por `source` tanto validate-internal-artifacts.sh (#853) como
-# generate-internal-adapters.sh (#854). Cualquier consumidor nuevo la toma de
-# aqui -- una segunda copia divergiria en silencio, que es justo lo que la
-# fuente neutral existe para evitar.
+# #853 y #854). Regla de corte del bloque '---' para los scripts en bash: la
+# carga por `source` mefisto-tooling-pipeline.sh.
+#
+# Gemela de lib/frontmatter.mts, la que usan el validador y el generador
+# (MEF-ADR-0057); validate-internal-artifacts.test.mts compara las dos.
 #
 # Uso: source "$(dirname "${BASH_SOURCE[0]}")/frontmatter.sh"
 
