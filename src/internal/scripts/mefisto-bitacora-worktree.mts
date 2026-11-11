@@ -13,7 +13,7 @@
 // Sale con 0 en exito y con 1 en cualquier fallo; el mensaje indica como recuperarse.
 
 import { mkdirSync, realpathSync, statSync } from 'node:fs'
-import { basename, join } from 'node:path'
+import { basename, join, resolve } from 'node:path'
 
 import { CliError, capture, commandExists, isEntryPoint, runMain } from '../../../scripts/lib/cli.mts'
 import type { CommandResult } from '../../../scripts/lib/cli.mts'
@@ -61,7 +61,7 @@ function summariesDir(root: string): string {
 function worktreeOfBranch(root: string, branch: string): string {
   let worktree = ''
   for (const line of git(root, ['worktree', 'list', '--porcelain']).stdout.split('\n')) {
-    if (line.startsWith('worktree ')) worktree = line.slice('worktree '.length)
+    if (line.startsWith('worktree ')) worktree = resolve(line.slice('worktree '.length))
     else if (line.startsWith('branch ') && line.split(/[ \t]+/)[1] === `refs/heads/${branch}`) return worktree
   }
   return ''

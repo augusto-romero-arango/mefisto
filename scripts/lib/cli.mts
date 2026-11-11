@@ -30,14 +30,80 @@ export interface CommandOptions {
   input?: string
 }
 
+const BATCH_FILE = /\.(cmd|bat)$/i
+const CMD_META = /([()\][%!^"`<>&|;, *?])/g
+
+function envValue(env: NodeJS.ProcessEnv, name: string): string | undefined {
+  if (env[name] !== undefined) return env[name]
+  // Fuera de `process.env`, las claves de Windows conservan su grafia (`Path`, `PathExt`).
+  const key = Object.keys(env).find((candidate) => candidate.toUpperCase() === name.toUpperCase())
+  return key === undefined ? undefined : env[key]
+}
+
+/** Ruta del archivo al que resuelve `command` en el PATH (como `command -v`), o `null`. */
+export function resolveCommand(
+  command: string,
+  env: NodeJS.ProcessEnv = process.env,
+  platform: NodeJS.Platform = process.platform,
+): string | null {
+  const extensions =
+    platform === 'win32' ? ['', ...(envValue(env, 'PATHEXT') ?? '.EXE;.CMD;.BAT;.COM').split(';')] : ['']
+  const isFile = (candidate: string): boolean => existsSync(candidate) && statSync(candidate).isFile()
+  const firstMatch = (base: string): string | null =>
+    extensions.map((extension) => base + extension).find(isFile) ?? null
+  if (/[\\/]/.test(command)) return firstMatch(command)
+  for (const dir of (envValue(env, 'PATH') ?? '').split(delimiter)) {
+    if (dir.length === 0) continue
+    const match = firstMatch(join(dir, command))
+    if (match !== null) return match
+  }
+  return null
+}
+
+/**
+ * Argumento listo para una linea de `cmd.exe` que invoca un `.cmd` o `.bat`. Lleva dos niveles
+ * de escape porque el archivo vuelve a interpretar la linea al reenviar `%*`. Un argumento con
+ * un par de `%` no sobrevive: dentro del archivo se expande como variable.
+ */
+export function escapeBatchArgument(arg: string): string {
+  const quoted = `"${arg.replace(/(\\*)"/g, '$1$1\\"').replace(/(\\*)$/, '$1$1')}"`
+  return quoted.replace(CMD_META, '^$1').replace(CMD_META, '^$1')
+}
+
+interface SpawnTarget {
+  command: string
+  args: string[]
+  verbatim: boolean
+}
+
+// Un `.cmd` o `.bat` (en Windows, `az` lo es) no se puede lanzar sin `cmd.exe`.
+export function spawnTarget(
+  command: string,
+  args: string[],
+  env: NodeJS.ProcessEnv = process.env,
+  platform: NodeJS.Platform = process.platform,
+): SpawnTarget {
+  if (platform !== 'win32') return { command, args, verbatim: false }
+  const resolved = resolveCommand(command, env, platform)
+  if (resolved === null || !BATCH_FILE.test(resolved)) return { command, args, verbatim: false }
+  const line = [resolved.replace(CMD_META, '^$1'), ...args.map(escapeBatchArgument)].join(' ')
+  return {
+    command: envValue(env, 'ComSpec') ?? 'cmd.exe',
+    args: ['/d', '/s', '/c', `"${line}"`],
+    verbatim: true,
+  }
+}
+
 /** Corre un programa con lista de argumentos, sin shell, y captura su salida. */
 export function capture(command: string, args: string[], options: CommandOptions = {}): CommandResult {
-  const result = spawnSync(command, args, {
+  const target = spawnTarget(command, args, options.env ?? process.env)
+  const result = spawnSync(target.command, target.args, {
     cwd: options.cwd,
     env: options.env,
     input: options.input,
     encoding: 'utf8',
     maxBuffer: 256 * 1024 * 1024,
+    windowsVerbatimArguments: target.verbatim,
   })
   return { status: result.status, stdout: result.stdout ?? '', stderr: result.stderr ?? '' }
 }
@@ -56,16 +122,7 @@ export function repoRoot(cwd: string = process.cwd()): string | null {
 
 /** `true` si `command` resuelve a un ejecutable del PATH (como `command -v`). */
 export function commandExists(command: string, env: NodeJS.ProcessEnv = process.env): boolean {
-  const extensions =
-    process.platform === 'win32' ? ['', ...(env.PATHEXT ?? '.EXE;.CMD;.BAT;.COM').split(';')] : ['']
-  for (const dir of (env.PATH ?? '').split(delimiter)) {
-    if (dir.length === 0) continue
-    for (const extension of extensions) {
-      const candidate = join(dir, command + extension)
-      if (existsSync(candidate) && statSync(candidate).isFile()) return true
-    }
-  }
-  return false
+  return resolveCommand(command, env) !== null
 }
 
 const ESC = '\u001b['

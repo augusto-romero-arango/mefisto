@@ -69,7 +69,7 @@ function worktreeDirs(mainRoot: string): string[] {
   return git(mainRoot, ['worktree', 'list', '--porcelain'])
     .stdout.split('\n')
     .filter((line) => line.startsWith('worktree '))
-    .map((line) => line.slice('worktree '.length))
+    .map((line) => resolve(line.slice('worktree '.length)))
 }
 
 export function worktreeBase(mainRoot: string): string {
