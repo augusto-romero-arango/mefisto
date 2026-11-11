@@ -40,7 +40,9 @@ Claude Code, con adaptador en el repo. La doctrina es neutral a runtime y el con
 
 ## Requisitos
 
-`bash` 3.2+, `jq`, `gh` autenticado, `git` 2.x con worktrees, `dotnet` 10.x y `terraform` 1.6+.
+`bash` 3.2+, `jq`, Node 22.18+, `gh` autenticado, `git` 2.x con worktrees, `dotnet` 10.x y `terraform` 1.6+.
+
+Los scripts se están portando de bash a TypeScript para correr también en Windows (MEF-ADR-0057). Los hooks ya corren con Node; el resto aún requiere bash y `jq`.
 
 ## Instalación rápida
 

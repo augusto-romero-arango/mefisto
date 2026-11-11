@@ -28,6 +28,12 @@ El destino lógico `legacy-release-marker` está reservado en exclusiva a `recor
 
 El fallo al mantener el mirror no invalida la sesión (`failure: continue`) ni autoriza dual-write para `.mefisto/pipeline/sessions.jsonl` o `.mefisto/pipeline/events.log`, que se escriben solo en el estado canónico. La excepción se retira únicamente con un issue posterior, después de un inventario verificable sin lectores de `.claude/pipeline/.plugin-root` ni `.claude/pipeline/.plugin-root.previous`; el cierre de #1054 no la retira implícitamente. Véanse MEF-ADR-0053, decisión 4, y la matriz de adaptación.
 
+## Adaptador Claude Code
+
+`hooks/hooks.json` lo genera `../scripts/generate-claude-hooks.sh`. Cada hook usa la forma exec de Claude Code: `command: "node"` más `args` con `${CLAUDE_PLUGIN_ROOT}/scripts/interactive-hooks.mts` y el id del binding. No interviene ningún shell, así que el hook corre igual en macOS, Linux y Windows (MEF-ADR-0057, decisión 3). `scripts/interactive-hooks.mts` implementa los siete bindings; su comportamiento lo cubre `scripts/tests/interactive-hooks.test.mts`.
+
+Requiere Node 22.18 o posterior en el `PATH` y Claude Code con la forma exec de hooks, disponible desde la versión 2.1.139 ([changelog de Claude Code](https://github.com/anthropics/claude-code/blob/main/CHANGELOG.md)).
+
 ## Matriz de adaptación
 
 Ver [adaptation-matrix.md](adaptation-matrix.md). La matriz es deliberadamente separada del descriptor: puede nombrar capacidades de runtime y debe conservar la evidencia oficial, mientras el JSON permanece neutral.

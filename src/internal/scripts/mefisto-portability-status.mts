@@ -120,6 +120,11 @@ export function hookCommandsOf(hooksJson: unknown): string[] {
   return commands
 }
 
+// `node` solo (forma exec, con `args`) o `node ...` (forma shell).
+export function isNodeCommand(command: string): boolean {
+  return command === 'node' || command.startsWith('node ')
+}
+
 export function collectStatus(root: string): PortabilityStatus {
   const shellFiles = trackedFiles(root, '*.sh')
   const shellLines = shellFiles.reduce(
@@ -136,7 +141,7 @@ export function collectStatus(root: string): PortabilityStatus {
     tmux: mentionMetric(root, 'tmux', true),
     opencode: mentionMetric(root, 'opencode', false),
     hookCommands: commands.length,
-    hookCommandsNotNode: commands.filter((command) => !command.startsWith('node ')).length,
+    hookCommandsNotNode: commands.filter((command) => !isNodeCommand(command)).length,
   }
 }
 

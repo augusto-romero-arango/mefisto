@@ -13,6 +13,7 @@ import {
   formatStatus,
   hookCommandsOf,
   isComplete,
+  isNodeCommand,
 } from '../../../src/internal/scripts/mefisto-portability-status.mts'
 
 const SCRIPT = join(
@@ -60,6 +61,13 @@ describe('funciones puras', () => {
     assert.equal(adrBody(adr).includes('historia'), false)
     assert.equal(adrBody(adr).includes('cuerpo'), true)
     assert.equal(adrBody('sin seccion\n'), 'sin seccion\n')
+  })
+
+  test('isNodeCommand acepta la forma exec y la forma shell', () => {
+    assert.equal(isNodeCommand('node'), true)
+    assert.equal(isNodeCommand('node hooks/stop.mts'), true)
+    assert.equal(isNodeCommand('nodejs'), false)
+    assert.equal(isNodeCommand('root="$(git rev-parse)"'), false)
   })
 
   test('hookCommandsOf recoge los comandos a cualquier profundidad', () => {

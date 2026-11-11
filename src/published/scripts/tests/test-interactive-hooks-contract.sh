@@ -132,7 +132,7 @@ else
 fi
 
 echo "[remind-field-notes] destino del recordatorio"
-claude_reminder="$(jq -r '.hooks.Stop[].hooks[].command | select(contains("field-notes-reminded"))' "$REPO_ROOT/hooks/hooks.json" | grep -o '\[recordatorio\][^"]*' | head -n 1)"
+claude_reminder="$(grep -o '\[recordatorio\][^'"'"']*' "$REPO_ROOT/scripts/interactive-hooks.mts" | head -n 1)"
 if [ -n "$claude_reminder" ] && printf '%s' "$claude_reminder" | grep -qF 'docs/bitacora/field-notes/'; then
     pass "el recordatorio apunta a docs/bitacora/field-notes/"
 else

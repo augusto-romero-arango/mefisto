@@ -38,29 +38,21 @@ EXPECTED='append-dotnet-test-result append-file-change append-session append-ses
 ACTUAL="$(jq -r '[.bindings[].id] | sort | join(" ")' "$CONTRACT")"
 [ "$ACTUAL" = "$EXPECTED" ] || usage_error "el contrato no contiene el conjunto exacto de siete bindings publicados"
 
-consumer_root='root="$(git rev-parse --show-toplevel 2>/dev/null)" || true; [ -n "$root" ] || exit 0'
-record_active_release="$consumer_root; [ -n \"\${CLAUDE_PLUGIN_ROOT:-}\" ] && mkdir -p \"\$root/.mefisto/pipeline\" \"\$root/.claude/pipeline\" 2>/dev/null && printf \"%s\" \"\${CLAUDE_PLUGIN_ROOT}\" > \"\$root/.mefisto/pipeline/.plugin-root\" 2>/dev/null && printf \"%s\" \"\${CLAUDE_PLUGIN_ROOT}\" > \"\$root/.claude/pipeline/.plugin-root\" 2>/dev/null && rm -f \"\$root/.claude/pipeline/.plugin-root.previous\" 2>/dev/null || true"
-release_identity='hr="${CLAUDE_PLUGIN_ROOT:-}"; hv=""; hc=""; if [ -n "$hr" ] && [ -f "$hr/mefisto-manifest.json" ]; then identity="$(jq -cer '\''if ((keys | sort) == ["commit","runtime","schemaVersion","version"] and .schemaVersion == 1 and .runtime == "claude" and (.version | type == "string" and test("^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)(-[0-9A-Za-z.-]+)?(\\+[0-9A-Za-z.-]+)?$")) and (.commit | type == "string" and test("^[0-9a-f]{40}$"))) then {version,commit} else empty end'\'' "$hr/mefisto-manifest.json" 2>/dev/null)" && hv="$(printf "%s" "$identity" | jq -r '\''.version'\'' 2>/dev/null)" && hc="$(printf "%s" "$identity" | jq -r '\''.commit'\'' 2>/dev/null)"; fi'
-append_session="$consumer_root; $release_identity; mkdir -p \"\$root/.mefisto/pipeline\" 2>/dev/null && jq -c --arg harness_version \"\$hv\" --arg harness_commit \"\$hc\" '{record_type: \"session.started\", session_id, transcript_path, cwd, source, timestamp: (now | strftime(\"%Y-%m-%dT%H:%M:%SZ\")), runtime: \"claude\", model: (.model | if type == \"string\" and length > 0 then . else null end), harness_version: (\$harness_version | if . == \"\" then null else . end), harness_commit: (\$harness_commit | if . == \"\" then null else . end)}' 2>/dev/null >> \"\$root/.mefisto/pipeline/sessions.jsonl\" || true"
-append_session_model="$consumer_root; payload=\"\$(jq -c '{session_id: (.session_id | if type == \"string\" and length > 0 then . else null end), transcript_path: (.transcript_path | if type == \"string\" and length > 0 then . else null end)}' 2>/dev/null)\"; sid=\"\$(printf '%s' \"\$payload\" | jq -r '.session_id // empty' 2>/dev/null)\"; transcript=\"\$(printf '%s' \"\$payload\" | jq -r '.transcript_path // empty' 2>/dev/null)\"; if [ -n \"\$sid\" ] && [ -n \"\$transcript\" ] && [ -f \"\$transcript\" ]; then model=\"\$(jq -r -s '[.[] | select(.type == \"assistant\") | .message.model? | select(type == \"string\" and length > 0)] | last // empty' \"\$transcript\" 2>/dev/null)\"; if [ -n \"\$model\" ]; then $release_identity; mkdir -p \"\$root/.mefisto/pipeline\" 2>/dev/null; previous=\"\$(jq -r --arg session_id \"\$sid\" '[select(.record_type == \"session.model-observed\" and .session_id == \$session_id and (.model | type) == \"string\" and (.model | length) > 0) | .model] | last // empty' \"\$root/.mefisto/pipeline/sessions.jsonl\" 2>/dev/null)\"; if [ \"\$model\" != \"\$previous\" ]; then jq -cn --arg session_id \"\$sid\" --arg model \"\$model\" --arg harness_version \"\$hv\" --arg harness_commit \"\$hc\" '{record_type: \"session.model-observed\", session_id: \$session_id, timestamp: (now | strftime(\"%Y-%m-%dT%H:%M:%SZ\")), runtime: \"claude\", model: \$model, harness_version: (\$harness_version | if . == \"\" then null else . end), harness_commit: (\$harness_commit | if . == \"\" then null else . end)}' >> \"\$root/.mefisto/pipeline/sessions.jsonl\" 2>/dev/null || true; fi; fi; fi; true"
-REMINDER_TEXT='[recordatorio] Si esta sesion tuvo descubrimientos de dominio, decisiones o alternativas descartadas, considera escribir field notes en docs/bitacora/field-notes/ antes de continuar.'
-remind_body='payload="$(cat)"; sid="$(printf "%s" "$payload" | jq -r ".session_id // empty" 2>/dev/null)"; transcript="$(printf "%s" "$payload" | jq -r ".transcript_path // empty" 2>/dev/null)"; case "$sid" in ""|*[!A-Za-z0-9_-]*) exit 0 ;; esac; marker="$root/.mefisto/pipeline/field-notes-reminded-$sid"; [ ! -e "$marker" ] || exit 0; [ -n "$transcript" ] && [ -f "$transcript" ] || exit 0; changed="$(jq -r -s "[.[] | select(.type == \"assistant\") | .message.content? | arrays | .[] | select(.type == \"tool_use\" and (.name == \"Write\" or .name == \"Edit\"))] | length" "$transcript" 2>/dev/null)"; [ "${changed:-0}" -gt 0 ] 2>/dev/null || exit 0; mkdir -p "$root/.mefisto/pipeline" 2>/dev/null && : > "$marker" 2>/dev/null || exit 0; jq -cn --arg m "__REMINDER__" "{systemMessage: \$m}" || true'
-remind_field_notes="$consumer_root; ${remind_body//__REMINDER__/$REMINDER_TEXT}"
-append_file_change="$consumer_root; mkdir -p \"\$root/.mefisto/pipeline\" 2>/dev/null && jq -r '\"[\" + (now | strftime(\"%H:%M:%S\")) + \"][archivo] \" + (.tool_input.file_path // .tool_input.path // \"(desconocido)\")' 2>/dev/null >> \"\$root/.mefisto/pipeline/events.log\" || true"
-append_dotnet_test="$consumer_root; mkdir -p \"\$root/.mefisto/pipeline\" 2>/dev/null && jq -r 'if (.tool_input.command // \"\") | test(\"dotnet test\") then \"[\" + (now | strftime(\"%H:%M:%S\")) + \"][test] \" + (if (.tool_result // \"\") | test(\"passed|Passed|Superado|Correctas\") then \"PASS\" else \"FAIL\" end) else empty end' 2>/dev/null >> \"\$root/.mefisto/pipeline/events.log\" || true"
-append_terraform="$consumer_root; mkdir -p \"\$root/.mefisto/pipeline\" 2>/dev/null && jq -r 'if (.tool_input.command // \"\") | test(\"terraform (plan|apply|init|validate)\") then \"[\" + (now | strftime(\"%H:%M:%S\")) + \"][terraform] \" + ((.tool_input.command | split(\" \") | .[1]) // \"?\") + \": \" + (if (.tool_result.exitCode // 0) == 0 then \"OK\" else \"ERROR\" end) else empty end' 2>/dev/null >> \"\$root/.mefisto/pipeline/events.log\" || true"
-
+# Forma exec de Claude Code: sin shell intermedio, igual en macOS, Linux y Windows. El binding
+# viaja como argumento del unico script que implementa los siete (MEF-ADR-0057 decision 3).
 STAGE="$(mktemp)" || usage_error "no se pudo crear el temporal"
 trap 'rm -f "$STAGE"' EXIT
-jq -n \
-    --arg record_active_release "$record_active_release" \
-    --arg append_session "$append_session" \
-    --arg append_session_model "$append_session_model" \
-    --arg remind_field_notes "$remind_field_notes" \
-    --arg append_file_change "$append_file_change" \
-    --arg append_dotnet_test "$append_dotnet_test" \
-    --arg append_terraform "$append_terraform" \
-    '{hooks: {SessionStart: [{hooks: [{type: "command", command: $record_active_release}, {type: "command", command: $append_session}]}], Stop: [{hooks: [{type: "command", command: $append_session_model}, {type: "command", command: $remind_field_notes}]}], PostToolUse: [{matcher: "Write|Edit", hooks: [{type: "command", command: $append_file_change}]}, {matcher: "Bash", hooks: [{type: "command", command: $append_dotnet_test}, {type: "command", command: $append_terraform}]}]}, modules: ["./index.tsx"]}' > "$STAGE" || usage_error "no se pudo renderizar hooks/hooks.json"
+jq -n '
+    def hook($binding): {type: "command", command: "node", args: ["${CLAUDE_PLUGIN_ROOT}/scripts/interactive-hooks.mts", $binding]};
+    {hooks: {
+        SessionStart: [{hooks: [hook("record-active-release"), hook("append-session")]}],
+        Stop: [{hooks: [hook("append-session-model"), hook("remind-field-notes")]}],
+        PostToolUse: [
+            {matcher: "Write|Edit", hooks: [hook("append-file-change")]},
+            {matcher: "Bash", hooks: [hook("append-dotnet-test-result"), hook("append-terraform-result")]}
+        ]
+    }, modules: ["./index.tsx"]}
+' > "$STAGE" || usage_error "no se pudo renderizar el adaptador Claude"
 
 # JSON y topologia se validan antes de que una salida existente pueda reemplazarse.
 jq -e '
@@ -77,8 +69,12 @@ jq -e '
   ([.hooks.PostToolUse[].hooks | type] | all(. == "array")) and
   ([.hooks.PostToolUse[] | .hooks[]] | length) == 3 and
   ([.hooks.SessionStart[0].hooks[], .hooks.Stop[0].hooks[], .hooks.PostToolUse[].hooks[]] |
-    all(keys == ["command", "type"] and .type == "command" and (.command | type) == "string" and
-        (has("async") | not) and (has("timeout") | not)))
+    all(keys == ["args", "command", "type"] and .type == "command" and .command == "node" and
+        (.args | type == "array" and length == 2) and
+        .args[0] == "${CLAUDE_PLUGIN_ROOT}/scripts/interactive-hooks.mts")) and
+  ([.hooks.SessionStart[0].hooks[], .hooks.Stop[0].hooks[], .hooks.PostToolUse[].hooks[]] | map(.args[1])) ==
+    ["record-active-release", "append-session", "append-session-model", "remind-field-notes",
+     "append-file-change", "append-dotnet-test-result", "append-terraform-result"]
 ' "$STAGE" >/dev/null || usage_error "el adaptador Claude renderizado no cumple la estructura de hooks"
 
 DESTINATION="$OUT_ROOT/hooks/hooks.json"

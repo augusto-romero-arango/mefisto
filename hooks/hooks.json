@@ -5,11 +5,19 @@
         "hooks": [
           {
             "type": "command",
-            "command": "root=\"$(git rev-parse --show-toplevel 2>/dev/null)\" || true; [ -n \"$root\" ] || exit 0; [ -n \"${CLAUDE_PLUGIN_ROOT:-}\" ] && mkdir -p \"$root/.mefisto/pipeline\" \"$root/.claude/pipeline\" 2>/dev/null && printf \"%s\" \"${CLAUDE_PLUGIN_ROOT}\" > \"$root/.mefisto/pipeline/.plugin-root\" 2>/dev/null && printf \"%s\" \"${CLAUDE_PLUGIN_ROOT}\" > \"$root/.claude/pipeline/.plugin-root\" 2>/dev/null && rm -f \"$root/.claude/pipeline/.plugin-root.previous\" 2>/dev/null || true"
+            "command": "node",
+            "args": [
+              "${CLAUDE_PLUGIN_ROOT}/scripts/interactive-hooks.mts",
+              "record-active-release"
+            ]
           },
           {
             "type": "command",
-            "command": "root=\"$(git rev-parse --show-toplevel 2>/dev/null)\" || true; [ -n \"$root\" ] || exit 0; hr=\"${CLAUDE_PLUGIN_ROOT:-}\"; hv=\"\"; hc=\"\"; if [ -n \"$hr\" ] && [ -f \"$hr/mefisto-manifest.json\" ]; then identity=\"$(jq -cer 'if ((keys | sort) == [\"commit\",\"runtime\",\"schemaVersion\",\"version\"] and .schemaVersion == 1 and .runtime == \"claude\" and (.version | type == \"string\" and test(\"^(0|[1-9][0-9]*)\\\\.(0|[1-9][0-9]*)\\\\.(0|[1-9][0-9]*)(-[0-9A-Za-z.-]+)?(\\\\+[0-9A-Za-z.-]+)?$\")) and (.commit | type == \"string\" and test(\"^[0-9a-f]{40}$\"))) then {version,commit} else empty end' \"$hr/mefisto-manifest.json\" 2>/dev/null)\" && hv=\"$(printf \"%s\" \"$identity\" | jq -r '.version' 2>/dev/null)\" && hc=\"$(printf \"%s\" \"$identity\" | jq -r '.commit' 2>/dev/null)\"; fi; mkdir -p \"$root/.mefisto/pipeline\" 2>/dev/null && jq -c --arg harness_version \"$hv\" --arg harness_commit \"$hc\" '{record_type: \"session.started\", session_id, transcript_path, cwd, source, timestamp: (now | strftime(\"%Y-%m-%dT%H:%M:%SZ\")), runtime: \"claude\", model: (.model | if type == \"string\" and length > 0 then . else null end), harness_version: ($harness_version | if . == \"\" then null else . end), harness_commit: ($harness_commit | if . == \"\" then null else . end)}' 2>/dev/null >> \"$root/.mefisto/pipeline/sessions.jsonl\" || true"
+            "command": "node",
+            "args": [
+              "${CLAUDE_PLUGIN_ROOT}/scripts/interactive-hooks.mts",
+              "append-session"
+            ]
           }
         ]
       }
@@ -19,11 +27,19 @@
         "hooks": [
           {
             "type": "command",
-            "command": "root=\"$(git rev-parse --show-toplevel 2>/dev/null)\" || true; [ -n \"$root\" ] || exit 0; payload=\"$(jq -c '{session_id: (.session_id | if type == \"string\" and length > 0 then . else null end), transcript_path: (.transcript_path | if type == \"string\" and length > 0 then . else null end)}' 2>/dev/null)\"; sid=\"$(printf '%s' \"$payload\" | jq -r '.session_id // empty' 2>/dev/null)\"; transcript=\"$(printf '%s' \"$payload\" | jq -r '.transcript_path // empty' 2>/dev/null)\"; if [ -n \"$sid\" ] && [ -n \"$transcript\" ] && [ -f \"$transcript\" ]; then model=\"$(jq -r -s '[.[] | select(.type == \"assistant\") | .message.model? | select(type == \"string\" and length > 0)] | last // empty' \"$transcript\" 2>/dev/null)\"; if [ -n \"$model\" ]; then hr=\"${CLAUDE_PLUGIN_ROOT:-}\"; hv=\"\"; hc=\"\"; if [ -n \"$hr\" ] && [ -f \"$hr/mefisto-manifest.json\" ]; then identity=\"$(jq -cer 'if ((keys | sort) == [\"commit\",\"runtime\",\"schemaVersion\",\"version\"] and .schemaVersion == 1 and .runtime == \"claude\" and (.version | type == \"string\" and test(\"^(0|[1-9][0-9]*)\\\\.(0|[1-9][0-9]*)\\\\.(0|[1-9][0-9]*)(-[0-9A-Za-z.-]+)?(\\\\+[0-9A-Za-z.-]+)?$\")) and (.commit | type == \"string\" and test(\"^[0-9a-f]{40}$\"))) then {version,commit} else empty end' \"$hr/mefisto-manifest.json\" 2>/dev/null)\" && hv=\"$(printf \"%s\" \"$identity\" | jq -r '.version' 2>/dev/null)\" && hc=\"$(printf \"%s\" \"$identity\" | jq -r '.commit' 2>/dev/null)\"; fi; mkdir -p \"$root/.mefisto/pipeline\" 2>/dev/null; previous=\"$(jq -r --arg session_id \"$sid\" '[select(.record_type == \"session.model-observed\" and .session_id == $session_id and (.model | type) == \"string\" and (.model | length) > 0) | .model] | last // empty' \"$root/.mefisto/pipeline/sessions.jsonl\" 2>/dev/null)\"; if [ \"$model\" != \"$previous\" ]; then jq -cn --arg session_id \"$sid\" --arg model \"$model\" --arg harness_version \"$hv\" --arg harness_commit \"$hc\" '{record_type: \"session.model-observed\", session_id: $session_id, timestamp: (now | strftime(\"%Y-%m-%dT%H:%M:%SZ\")), runtime: \"claude\", model: $model, harness_version: ($harness_version | if . == \"\" then null else . end), harness_commit: ($harness_commit | if . == \"\" then null else . end)}' >> \"$root/.mefisto/pipeline/sessions.jsonl\" 2>/dev/null || true; fi; fi; fi; true"
+            "command": "node",
+            "args": [
+              "${CLAUDE_PLUGIN_ROOT}/scripts/interactive-hooks.mts",
+              "append-session-model"
+            ]
           },
           {
             "type": "command",
-            "command": "root=\"$(git rev-parse --show-toplevel 2>/dev/null)\" || true; [ -n \"$root\" ] || exit 0; payload=\"$(cat)\"; sid=\"$(printf \"%s\" \"$payload\" | jq -r \".session_id // empty\" 2>/dev/null)\"; transcript=\"$(printf \"%s\" \"$payload\" | jq -r \".transcript_path // empty\" 2>/dev/null)\"; case \"$sid\" in \"\"|*[!A-Za-z0-9_-]*) exit 0 ;; esac; marker=\"$root/.mefisto/pipeline/field-notes-reminded-$sid\"; [ ! -e \"$marker\" ] || exit 0; [ -n \"$transcript\" ] && [ -f \"$transcript\" ] || exit 0; changed=\"$(jq -r -s \"[.[] | select(.type == \\\"assistant\\\") | .message.content? | arrays | .[] | select(.type == \\\"tool_use\\\" and (.name == \\\"Write\\\" or .name == \\\"Edit\\\"))] | length\" \"$transcript\" 2>/dev/null)\"; [ \"${changed:-0}\" -gt 0 ] 2>/dev/null || exit 0; mkdir -p \"$root/.mefisto/pipeline\" 2>/dev/null && : > \"$marker\" 2>/dev/null || exit 0; jq -cn --arg m \"[recordatorio] Si esta sesion tuvo descubrimientos de dominio, decisiones o alternativas descartadas, considera escribir field notes en docs/bitacora/field-notes/ antes de continuar.\" \"{systemMessage: \\$m}\" || true"
+            "command": "node",
+            "args": [
+              "${CLAUDE_PLUGIN_ROOT}/scripts/interactive-hooks.mts",
+              "remind-field-notes"
+            ]
           }
         ]
       }
@@ -34,7 +50,11 @@
         "hooks": [
           {
             "type": "command",
-            "command": "root=\"$(git rev-parse --show-toplevel 2>/dev/null)\" || true; [ -n \"$root\" ] || exit 0; mkdir -p \"$root/.mefisto/pipeline\" 2>/dev/null && jq -r '\"[\" + (now | strftime(\"%H:%M:%S\")) + \"][archivo] \" + (.tool_input.file_path // .tool_input.path // \"(desconocido)\")' 2>/dev/null >> \"$root/.mefisto/pipeline/events.log\" || true"
+            "command": "node",
+            "args": [
+              "${CLAUDE_PLUGIN_ROOT}/scripts/interactive-hooks.mts",
+              "append-file-change"
+            ]
           }
         ]
       },
@@ -43,11 +63,19 @@
         "hooks": [
           {
             "type": "command",
-            "command": "root=\"$(git rev-parse --show-toplevel 2>/dev/null)\" || true; [ -n \"$root\" ] || exit 0; mkdir -p \"$root/.mefisto/pipeline\" 2>/dev/null && jq -r 'if (.tool_input.command // \"\") | test(\"dotnet test\") then \"[\" + (now | strftime(\"%H:%M:%S\")) + \"][test] \" + (if (.tool_result // \"\") | test(\"passed|Passed|Superado|Correctas\") then \"PASS\" else \"FAIL\" end) else empty end' 2>/dev/null >> \"$root/.mefisto/pipeline/events.log\" || true"
+            "command": "node",
+            "args": [
+              "${CLAUDE_PLUGIN_ROOT}/scripts/interactive-hooks.mts",
+              "append-dotnet-test-result"
+            ]
           },
           {
             "type": "command",
-            "command": "root=\"$(git rev-parse --show-toplevel 2>/dev/null)\" || true; [ -n \"$root\" ] || exit 0; mkdir -p \"$root/.mefisto/pipeline\" 2>/dev/null && jq -r 'if (.tool_input.command // \"\") | test(\"terraform (plan|apply|init|validate)\") then \"[\" + (now | strftime(\"%H:%M:%S\")) + \"][terraform] \" + ((.tool_input.command | split(\" \") | .[1]) // \"?\") + \": \" + (if (.tool_result.exitCode // 0) == 0 then \"OK\" else \"ERROR\" end) else empty end' 2>/dev/null >> \"$root/.mefisto/pipeline/events.log\" || true"
+            "command": "node",
+            "args": [
+              "${CLAUDE_PLUGIN_ROOT}/scripts/interactive-hooks.mts",
+              "append-terraform-result"
+            ]
           }
         ]
       }
