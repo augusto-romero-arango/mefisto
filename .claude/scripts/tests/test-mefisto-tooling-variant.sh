@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # test-mefisto-tooling-variant.sh -- Tests del modo --variant (corridas
 # paralelas del mismo issue, issue #711) en .claude/scripts/_mefisto-common.sh,
-# .claude/scripts/mefisto-tooling-pipeline.sh, .claude/scripts/mefisto-tmux-pipeline.sh
+# .claude/scripts/mefisto-tooling-pipeline.sh, .claude/scripts/mefisto-launch-pipeline.sh
 # y .claude/scripts/mefisto-herdr-pipeline.sh.
 #
 # Contraparte interna de scripts/tests/test-tooling-variant.sh (issue #710,
@@ -14,10 +14,10 @@
 #       rechazado), caracteres validos ([a-z0-9-]) e invalidos (mayusculas,
 #       espacios, guion bajo, unicode), todos con el motivo en
 #       MEFISTO_VARIANT_LABEL_ERROR (CA-1).
-#   mefisto-tmux-pipeline.sh (bloques 7-10) -- --tooling reenvia --variant
-#       intacto al send-keys, combinado con --from-stage/--models en orden, el
-#       nombre de sesion tmux lleva el sufijo -<label> (CA-2), --variant sin
-#       valor aborta, y --batch lo rechaza (ambiguo sobre varios issues).
+#   mefisto-launch-pipeline.sh (bloques 7-10) -- --tooling reenvia --variant
+#       intacto al sub-pipeline desacoplado, combinado con --from-stage/--models
+#       en orden, --variant sin valor aborta, y --batch lo rechaza (ambiguo
+#       sobre varios issues).
 #   mefisto-herdr-pipeline.sh (bloques 11-14) -- misma superficie: --tooling
 #       reenvia --variant al pane run (solo y combinado con --models), sin
 #       valor aborta, y --batch lo rechaza.
@@ -94,11 +94,11 @@ echo "----------------------------------------"
 echo "  _mefisto-common.sh: $PASS pass, $FAIL fail (hasta aqui)"
 echo "----------------------------------------"
 
-# --- mefisto-tmux-pipeline.sh / mefisto-herdr-pipeline.sh: reenvio/rechazo --
+# --- mefisto-launch-pipeline.sh / mefisto-herdr-pipeline.sh: reenvio/rechazo --
 #
 # Mismo arnes que test-mefisto-stage-models.sh: fixture con
 # .claude-plugin/plugin.json (assert_in_mefisto lo exige) y copias de los
-# scripts reales bajo .claude/scripts/, mas un stub de tmux/herdr en PATH que
+# scripts reales bajo .claude/scripts/, mas un stub de herdr en PATH que
 # solo registra la invocacion sin tocar un servidor real.
 
 TMP_DIR="$(mktemp -d)"
@@ -129,10 +129,28 @@ cp -R "$REPO_ROOT/src/runtime" "$FAKE_MEFISTO/src/runtime"
 mkdir -p "$FAKE_MEFISTO/src/internal/prompts"
 cp "$REPO_ROOT/src/internal/prompts/noninteractive-system.md" "$FAKE_MEFISTO/src/internal/prompts/noninteractive-system.md"
 chmod +x "$FAKE_MEFISTO/src/runtime/mefisto-run-agent.sh"
-cp "$REPO_ROOT/.claude/scripts/mefisto-tmux-pipeline.sh" "$FAKE_MEFISTO/.claude/scripts/mefisto-tmux-pipeline.sh"
-cp "$REPO_ROOT/src/internal/scripts/mefisto-tmux-pipeline.sh" "$FAKE_MEFISTO/src/internal/scripts/mefisto-tmux-pipeline.sh"
+cp "$REPO_ROOT/.claude/scripts/mefisto-launch-pipeline.sh" "$FAKE_MEFISTO/.claude/scripts/mefisto-launch-pipeline.sh"
+cp "$REPO_ROOT/src/internal/scripts/mefisto-launch-pipeline.sh" "$FAKE_MEFISTO/src/internal/scripts/mefisto-launch-pipeline.sh"
 cp "$REPO_ROOT/.claude/scripts/mefisto-herdr-pipeline.sh" "$FAKE_MEFISTO/.claude/scripts/mefisto-herdr-pipeline.sh"
 cp "$REPO_ROOT/src/internal/scripts/mefisto-herdr-pipeline.sh" "$FAKE_MEFISTO/src/internal/scripts/mefisto-herdr-pipeline.sh"
+# Sub-pipelines stub: el modo desacoplado los ejecuta de verdad, asi que
+# registran su argv (una palabra por corchete) y el runtime que heredan.
+export SUBPIPE_STUB_LOG="$TMP_DIR/sub-pipeline.log"
+install_subpipeline_stubs() {
+    local sub
+    for sub in mefisto-tooling-pipeline.sh mefisto-batch-pipeline.sh; do
+        cat > "$FAKE_MEFISTO/src/internal/scripts/$sub" <<'STUB'
+#!/usr/bin/env bash
+{
+    echo "script: $(basename "$0")"
+    printf 'argv:'; printf ' [%s]' "$@"; printf '\n'
+    echo "runtime: ${MEFISTO_RUNTIME:-}"
+} > "$SUBPIPE_STUB_LOG"
+STUB
+        chmod +x "$FAKE_MEFISTO/src/internal/scripts/$sub"
+    done
+}
+install_subpipeline_stubs
 (cd "$FAKE_MEFISTO" && git init -q && git add . && git -c user.email="test@example.com" -c user.name="Test" commit -q -m "commit inicial" && git branch -M main)
 BARE_ORIGIN="$TMP_DIR/origin.git"
 PUBLISHER="$TMP_DIR/publisher"
@@ -150,47 +168,27 @@ exit 1
 STUB
 chmod +x "$FAKE_BIN/gh"
 
-cat > "$FAKE_BIN/tmux" <<'STUB'
-#!/usr/bin/env bash
-set -u
-echo "tmux $*" >> "$TMUX_STUB_LOG"
-case "${1:-}" in
-    has-session)
-        exit 1
-        ;;
-    list-panes)
-        for a in "$@"; do
-            if [ "$a" = "#{pane_dead}" ]; then
-                echo "0"
-                exit 0
-            fi
-        done
-        echo "%0"
-        ;;
-    split-window)
-        echo "%1"
-        ;;
-    *)
-        exit 0
-        ;;
-esac
-STUB
-chmod +x "$FAKE_BIN/tmux"
+LAUNCH_SCRIPT="$FAKE_MEFISTO/.claude/scripts/mefisto-launch-pipeline.sh"
+export MEFISTO_UI=mod
 
-export TMUX_STUB_LOG="$TMP_DIR/tmux.log"
-TMUX_SCRIPT="$FAKE_MEFISTO/.claude/scripts/mefisto-tmux-pipeline.sh"
-export MEFISTO_UI=tmux
+wait_for_subpipeline() {
+    for _ in $(seq 1 50); do
+        [ -s "$SUBPIPE_STUB_LOG" ] && return 0
+        sleep 0.1
+    done
+    return 1
+}
 
 LAST_STDOUT=""
 LAST_STDERR=""
 LAST_RC=0
 
 run_wrapper() {
-    : > "$TMUX_STUB_LOG"
+    rm -f "$SUBPIPE_STUB_LOG"
     local out="$TMP_DIR/stdout" err="$TMP_DIR/stderr"
     (
         cd "$FAKE_MEFISTO" || exit 99
-        PATH="$FAKE_BIN:$PATH" "$TMUX_SCRIPT" "$@"
+        PATH="$FAKE_BIN:$PATH" "$LAUNCH_SCRIPT" "$@"
     ) </dev/null >"$out" 2>"$err"
     LAST_RC=$?
     LAST_STDOUT=$(cat "$out")
@@ -198,74 +196,65 @@ run_wrapper() {
 }
 
 echo ""
-echo "[7] mefisto-tmux-pipeline.sh: --tooling reenvia --variant intacto al send-keys, y la sesion lleva el sufijo (CA-2)"
+echo "[7] mefisto-launch-pipeline.sh: --tooling reenvia --variant intacto al sub-pipeline"
 run_wrapper --tooling 711 --variant experimento-a
 if [ "$LAST_RC" -eq 0 ]; then pass "--tooling + --variant corre sin abortar (rc=$LAST_RC)"; else fail "--tooling + --variant no deberia abortar (rc=$LAST_RC, stderr: $LAST_STDERR)"; fi
-if grep -qF "711 --variant 'experimento-a'" "$TMUX_STUB_LOG"; then
-    pass "send-keys incluye el issue y --variant con comillas simples intacto"
+if wait_for_subpipeline && grep -qxF "script: mefisto-tooling-pipeline.sh" "$SUBPIPE_STUB_LOG" && grep -qxF "argv: [711] [--variant] [experimento-a]" "$SUBPIPE_STUB_LOG"; then
+    pass "el sub-pipeline recibe el issue y --variant intacto"
 else
-    fail "send-keys no compuso '711 --variant ...' -- log: $(cat "$TMUX_STUB_LOG")"
-fi
-if grep -qF "new-session -d -s mefisto-tooling-711-experimento-a" "$TMUX_STUB_LOG"; then
-    pass "la sesion tmux lleva el sufijo -experimento-a"
-else
-    fail "la sesion no lleva el sufijo -- log: $(cat "$TMUX_STUB_LOG")"
+    fail "el sub-pipeline no recibio '711 --variant ...' -- log: $(cat "$SUBPIPE_STUB_LOG" 2>/dev/null)"
 fi
 
 echo ""
-echo "[8] mefisto-tmux-pipeline.sh: --tooling combina --from-stage, --models y --variant en orden"
+echo "[8] mefisto-launch-pipeline.sh: --tooling combina --from-stage, --models y --variant en orden"
 run_wrapper --tooling 711 --from-stage 2 --models "reviewer=opus" --variant b
 if [ "$LAST_RC" -eq 0 ]; then pass "combinado corre sin abortar"; else fail "no deberia abortar (rc=$LAST_RC, stderr: $LAST_STDERR)"; fi
-if grep -qF "711 --from-stage 2 --models 'reviewer=opus' --variant 'b'" "$TMUX_STUB_LOG"; then
-    pass "send-keys combina los tres flags en orden"
+if wait_for_subpipeline && grep -qxF "argv: [711] [--from-stage] [2] [--models] [reviewer=opus] [--variant] [b]" "$SUBPIPE_STUB_LOG"; then
+    pass "el sub-pipeline recibe los tres flags en orden"
 else
-    fail "orden incorrecto -- log: $(cat "$TMUX_STUB_LOG")"
-fi
-if grep -qF "new-session -d -s mefisto-tooling-711-b" "$TMUX_STUB_LOG"; then
-    pass "la sesion tmux lleva el sufijo -b"
-else
-    fail "la sesion no lleva el sufijo -- log: $(cat "$TMUX_STUB_LOG")"
+    fail "orden incorrecto -- log: $(cat "$SUBPIPE_STUB_LOG" 2>/dev/null)"
 fi
 
 echo ""
-echo "[9] mefisto-tmux-pipeline.sh: --variant sin valor aborta con mensaje claro"
+echo "[9] mefisto-launch-pipeline.sh: --variant sin valor aborta con mensaje claro"
 run_wrapper --tooling 711 --variant
 if [ "$LAST_RC" -eq 1 ]; then pass "--variant sin valor aborta"; else fail "deberia abortar (rc=$LAST_RC)"; fi
 if printf '%s' "$LAST_STDERR" | grep -q "Falta el valor de --variant"; then pass "mensaje: falta el valor"; else fail "mensaje inesperado: $LAST_STDERR"; fi
 
 echo ""
-echo "[10] mefisto-tmux-pipeline.sh: --batch + --variant aborta (ambiguo sobre varios issues, nunca en silencio)"
+echo "[10] mefisto-launch-pipeline.sh: --batch + --variant aborta (ambiguo sobre varios issues, nunca en silencio)"
 run_wrapper --batch 711 712 --variant a
 if [ "$LAST_RC" -eq 1 ]; then pass "--batch + --variant aborta"; else fail "deberia abortar (rc=$LAST_RC)"; fi
 if printf '%s' "$LAST_STDERR" | grep -q "no es valido con --batch"; then pass "mensaje: no valido con --batch"; else fail "mensaje inesperado: $LAST_STDERR"; fi
 
 echo ""
-echo "[11] mefisto-tmux-pipeline.sh: --batch sucio aborta antes de tocar panes"
-git -C "$FAKE_MEFISTO" checkout -q -b feature-sucia-tmux
+echo "[11] mefisto-launch-pipeline.sh: --batch sucio aborta antes de lanzar"
+git -C "$FAKE_MEFISTO" checkout -q -b feature-sucia
 echo "nota pendiente" > "$FAKE_MEFISTO/nota-pendiente.txt"
 run_wrapper --batch 711 712
 rm -f "$FAKE_MEFISTO/nota-pendiente.txt"
 git -C "$FAKE_MEFISTO" checkout -q master 2>/dev/null || git -C "$FAKE_MEFISTO" checkout -q main
 if [ "$LAST_RC" -eq 1 ]; then pass "--batch sucio aborta"; else fail "deberia abortar (rc=$LAST_RC)"; fi
 if printf '%s' "$LAST_STDERR" | grep -qi "arbol.*limpio"; then pass "el error explica que solo se recupera con arbol limpio"; else fail "mensaje inesperado: $LAST_STDERR"; fi
-if [ -s "$TMUX_STUB_LOG" ]; then fail "no deberia crear, cerrar ni reutilizar panes -- log: $(cat "$TMUX_STUB_LOG")"; else pass "no toca tmux antes del preflight"; fi
+sleep 0.5
+if [ -e "$SUBPIPE_STUB_LOG" ]; then fail "no deberia lanzar el batch -- log: $(cat "$SUBPIPE_STUB_LOG")"; else pass "no lanza el batch antes del preflight"; fi
 
 echo ""
-echo "[12] mefisto-tmux-pipeline.sh: --batch limpio recupera y actualiza main antes del dispatch"
-git -C "$PUBLISHER" commit -q --allow-empty -m "origin avanza antes del preflight tmux"
+echo "[12] mefisto-launch-pipeline.sh: --batch limpio recupera y actualiza main antes del dispatch"
+git -C "$PUBLISHER" commit -q --allow-empty -m "origin avanza antes del preflight"
 git -C "$PUBLISHER" push -q origin main
 EXPECTED_MAIN=$(git -C "$PUBLISHER" rev-parse main)
-git -C "$FAKE_MEFISTO" checkout -q -b feature-limpia-tmux
+git -C "$FAKE_MEFISTO" checkout -q -b feature-limpia
 run_wrapper --batch 711 712
 CURRENT_BRANCH=$(git -C "$FAKE_MEFISTO" rev-parse --abbrev-ref HEAD)
 CURRENT_MAIN=$(git -C "$FAKE_MEFISTO" rev-parse main)
 if [ "$LAST_RC" -eq 0 ]; then pass "--batch limpio se despacha"; else fail "no deberia abortar (rc=$LAST_RC, stderr: $LAST_STDERR)"; fi
 if [ "$CURRENT_BRANCH" = main ] && [ "$CURRENT_MAIN" = "$EXPECTED_MAIN" ]; then pass "recupera a main actualizado"; else fail "rama/base inesperada: HEAD=$CURRENT_BRANCH main=$CURRENT_MAIN esperado=$EXPECTED_MAIN"; fi
-if grep -qF "mefisto-batch-pipeline.sh 711 712" "$TMUX_STUB_LOG"; then pass "despacha solo despues de recuperar la base"; else fail "no despacho el batch -- log: $(cat "$TMUX_STUB_LOG")"; fi
+if wait_for_subpipeline && grep -qxF "script: mefisto-batch-pipeline.sh" "$SUBPIPE_STUB_LOG" && grep -qxF "argv: [711] [712]" "$SUBPIPE_STUB_LOG"; then pass "despacha solo despues de recuperar la base"; else fail "no despacho el batch -- log: $(cat "$SUBPIPE_STUB_LOG" 2>/dev/null)"; fi
 
 echo ""
 echo "----------------------------------------"
-echo "  mefisto-tmux-pipeline.sh: $PASS pass, $FAIL fail (hasta aqui)"
+echo "  mefisto-launch-pipeline.sh: $PASS pass, $FAIL fail (hasta aqui)"
 echo "----------------------------------------"
 
 # --- mefisto-herdr-pipeline.sh: misma superficie, dentro de un pane herdr ---
@@ -516,28 +505,27 @@ else
 fi
 
 echo ""
-echo "[19] mefisto-tmux-pipeline.sh: --tooling propaga MEFISTO_RUNTIME al pane cuando el launcher lo hereda (issue #871, CA-2)"
-# El pane nace en un shell nuevo: no hereda el entorno del wrapper. Sin la
-# asignacion explicita en el send-keys, el sub-pipeline autodetectaria el
-# runtime y una corrida lanzada con otro runtime caeria en Claude Code sin
-# avisar. Se verifica sobre la LINEA del send-keys (no sobre el log entero)
-# para que la guarda no la satisfaga cualquier otra aparicion del nombre.
+echo "[19] mefisto-launch-pipeline.sh: --tooling propaga MEFISTO_RUNTIME al sub-pipeline cuando el launcher lo hereda (issue #871, CA-2)"
+# Sin la variable en el sub-pipeline, este autodetectaria el runtime y una
+# corrida lanzada con otro runtime caeria en Claude Code sin avisar. El
+# bloque [18] dejo el pipeline real en el fixture: se reinstala el stub.
+install_subpipeline_stubs
 MEFISTO_RUNTIME=fake run_wrapper --tooling 711
 if [ "$LAST_RC" -eq 0 ]; then pass "corre sin abortar con MEFISTO_RUNTIME heredado (rc=$LAST_RC)"; else fail "no deberia abortar (rc=$LAST_RC, stderr: $LAST_STDERR)"; fi
-if grep -qE 'send-keys -t %[0-9]+ MEFISTO_RUNTIME=fake .*mefisto-tooling-pipeline\.sh 711' "$TMUX_STUB_LOG"; then
-    pass "el send-keys de ejecucion antepone MEFISTO_RUNTIME=fake al pipeline"
+if wait_for_subpipeline && grep -qxF "argv: [711]" "$SUBPIPE_STUB_LOG" && grep -qxF "runtime: fake" "$SUBPIPE_STUB_LOG"; then
+    pass "el sub-pipeline corre con MEFISTO_RUNTIME=fake"
 else
-    fail "el pane no recibe MEFISTO_RUNTIME=fake -- log: $(cat "$TMUX_STUB_LOG")"
+    fail "el sub-pipeline no recibe MEFISTO_RUNTIME=fake -- log: $(cat "$SUBPIPE_STUB_LOG" 2>/dev/null)"
 fi
 
-# Contraparte negativa: sin la variable en el entorno del wrapper no se
-# antepone nada. Fijar un default aqui romperia la precedencia -- quien
-# resuelve el runtime ausente es el sub-pipeline, no el lanzador.
+# Contraparte negativa: sin la variable en el entorno del wrapper no se fija
+# ninguna. Un default aqui romperia la precedencia -- quien resuelve el
+# runtime ausente es el sub-pipeline, no el lanzador.
 (unset MEFISTO_RUNTIME MEFISTO_MODELS_FILE; run_wrapper --tooling 711)
-if grep -qF "MEFISTO_RUNTIME=" "$TMUX_STUB_LOG"; then
-    fail "sin MEFISTO_RUNTIME heredado el launcher igual lo fija -- log: $(cat "$TMUX_STUB_LOG")"
+if wait_for_subpipeline && grep -qxF "runtime: " "$SUBPIPE_STUB_LOG"; then
+    pass "sin MEFISTO_RUNTIME heredado el sub-pipeline corre sin runtime fijado"
 else
-    pass "sin MEFISTO_RUNTIME heredado no se antepone ninguna asignacion"
+    fail "sin MEFISTO_RUNTIME heredado el launcher igual lo fija -- log: $(cat "$SUBPIPE_STUB_LOG" 2>/dev/null)"
 fi
 
 echo ""

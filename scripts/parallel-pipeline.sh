@@ -825,10 +825,10 @@ echo ""
 if [ "$DEFERRED" -gt 0 ]; then
     warn "Parada solicitada: $DEFERRED issue(s) quedaron aplazados en esta corrida. No es un fallo del lote: el exit code no cambia por esto y ningun worktree lanzado quedo a medio pipeline."
     # Mismo formato que batch-pipeline.sh y que el motor interno (issue #966),
-    # pero apuntando al orquestador que se detuvo: /parallel lanza un pane por
-    # issue sin cola (tmux-pipeline.sh --parallel), asi que este scheduler solo
-    # corre cuando se invoca el script directo. Proponer /sequential aqui
-    # degradaria en silencio el lote paralelo a secuencial.
+    # pero apuntando al orquestador que se detuvo: este scheduler corre con
+    # /parallel desacoplado (launch-pipeline.sh --parallel) o invocado directo;
+    # en modo herdr /parallel lanza un pane por issue sin cola. Proponer
+    # /sequential aqui degradaria en silencio el lote paralelo a secuencial.
     echo -e "  Relanza los aplazados, en el mismo orden: ${BOLD}parallel-pipeline.sh ${DEFERRED_NUMS[*]}${NC}"
     echo ""
 fi

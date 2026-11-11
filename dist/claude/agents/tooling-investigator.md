@@ -125,8 +125,8 @@ MEFISTO_RUNTIME=claude "${MEFISTO_PACKAGE_ROOT}/scripts/work-status-collect.sh" 
 Razona sobre su salida (`DATA`): filas por `runtime`, `origin` (canonico o legacy), `activity` (`hold` con `cause`/`next_probe`/`ceiling`, `stale` o `stage`), `last_error`, `history[]` y la ruta `log` de cada fila. Usa el campo `log` tal cual para leer el final de un log; si es `null`, informalo sin inventar una ruta.
 
 ```bash
-# Sesiones tmux activas
-tmux list-sessions 2>/dev/null || echo "No hay sesiones tmux"
+# Pipelines en curso
+pgrep -fl "[s]cripts/[a-z]+-pipeline\.sh" || echo "No hay pipelines corriendo"
 
 # Estado git
 git status

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # test-tooling-variant.sh -- Tests del modo --variant (corridas paralelas del
-# mismo issue, issue #710) en scripts/_pipeline-common.sh, scripts/tmux-pipeline.sh
+# mismo issue, issue #710) en scripts/_pipeline-common.sh, scripts/launch-pipeline.sh
 # y scripts/herdr-pipeline.sh.
 #
 # Cubre:
@@ -10,21 +10,20 @@
 #                            los casos invalidos dejan el motivo en
 #                            PIPELINE_VARIANT_LABEL_ERROR (CA-1), sin imprimir
 #                            nada por si misma.
-#   tmux-pipeline.sh        - --tooling reenvia --variant intacto al send-keys,
-#                            combinado con --from-stage/--models en orden, y el
-#                            nombre de sesion tmux lleva el sufijo -<label>
-#                            (CA-2). --variant sin valor aborta. El enrutamiento
+#   launch-pipeline.sh      - --tooling reenvia --variant intacto al
+#                            sub-pipeline, combinado con --from-stage/--models
+#                            en orden (CA-2). --variant sin valor aborta. El enrutamiento
 #                            automatico de un unico issue (sin --tooling
 #                            explicito) TAMBIEN lo acepta y lo reenvia (issue
 #                            #713: tdd-pipeline.sh suma el flag, ya no es
 #                            exclusivo de --tooling/tooling-pipeline.sh) --
 #                            cubierto en detalle por test-tdd-variant.sh. El
 #                            resto de los modos (--infra, --scaffold, --batch,
-#                            --parallel, --attach, multiples issues) lo sigue
+#                            --parallel, multiples issues) lo sigue
 #                            rechazando con mensaje explicito: serian ambiguos
 #                            sobre un lote, o el sub-script destino no
 #                            implementa el flag.
-#   herdr-pipeline.sh       - misma superficie que tmux-pipeline.sh: --tooling
+#   herdr-pipeline.sh       - misma superficie que launch-pipeline.sh: --tooling
 #                            y el enrutamiento automatico reenvian --variant al
 #                            pane run (con --models combinado), y el resto de
 #                            los modos lo rechaza.
@@ -97,14 +96,12 @@ echo "----------------------------------------"
 echo "  _pipeline-common.sh: $PASS pass, $FAIL fail (hasta aqui)"
 echo "----------------------------------------"
 
-# --- tmux-pipeline.sh: reenvio/rechazo de --variant por modo (CA-2/CA-5) -----
+# --- launch-pipeline.sh: reenvio/rechazo de --variant por modo (CA-2/CA-5) ---
 #
 # Mismo arnes que test-stage-models.sh: consumidor falso (git init sin
-# .claude-plugin/plugin.json) para pasar el guard defensivo, stub de tmux en
-# PATH que nunca toca un servidor real, y MEFISTO_UI=tmux para no delegar a la
-# interfaz herdr si el test corre dentro de un pane herdr.
-export MEFISTO_UI=tmux
-TMUX_SCRIPT="$REPO_ROOT/scripts/tmux-pipeline.sh"
+# .claude-plugin/plugin.json) para pasar el guard defensivo y MEFISTO_UI=mod
+# para no delegar a la interfaz herdr si el test corre dentro de un pane herdr.
+export MEFISTO_UI=mod
 
 FAKE_CONSUMER="$(mktemp -d)"
 TMP_DIR="$(mktemp -d)"
@@ -114,79 +111,72 @@ trap 'rm -rf "$FAKE_CONSUMER" "$TMP_DIR"' EXIT
 
 (cd "$FAKE_CONSUMER" && git init -q)
 
-cat > "$FAKE_BIN/tmux" <<'STUB'
+# Copia del paquete con sub-pipelines stub que imprimen su argv, un argumento
+# por <>: el report log de cada corrida desacoplada deja ver que recibieron.
+LAUNCH_PKG="$TMP_DIR/pkg"
+mkdir -p "$LAUNCH_PKG/scripts" "$LAUNCH_PKG/src"
+cp "$REPO_ROOT"/scripts/*.sh "$LAUNCH_PKG/scripts/"
+ln -s "$REPO_ROOT/src/runtime" "$LAUNCH_PKG/src/runtime"
+for s in tdd tooling iac scaffold batch parallel; do
+    cat > "$LAUNCH_PKG/scripts/$s-pipeline.sh" <<STUB
 #!/usr/bin/env bash
-set -u
-echo "tmux $*" >> "$TMUX_STUB_LOG"
-case "${1:-}" in
-    has-session)
-        exit 1
-        ;;
-    list-panes)
-        for a in "$@"; do
-            if [ "$a" = "#{pane_dead}" ]; then
-                echo "0"
-                exit 0
-            fi
-        done
-        echo "%0"
-        ;;
-    split-window)
-        echo "%1"
-        ;;
-    *)
-        exit 0
-        ;;
-esac
+printf 'stub $s'; printf ' <%s>' "\$@"; echo
 STUB
-chmod +x "$FAKE_BIN/tmux"
-
-export TMUX_STUB_LOG="$TMP_DIR/tmux.log"
+done
+chmod +x "$LAUNCH_PKG"/scripts/*.sh
+LAUNCH_SCRIPT="$LAUNCH_PKG/scripts/launch-pipeline.sh"
 
 LAST_STDOUT=""
 LAST_STDERR=""
 LAST_RC=0
 
 run_wrapper() {
-    : > "$TMUX_STUB_LOG"
+    find "$FAKE_CONSUMER" -name '*.report.log' -delete 2>/dev/null
     local out="$TMP_DIR/stdout" err="$TMP_DIR/stderr"
     (
         cd "$FAKE_CONSUMER" || exit 99
-        PATH="$FAKE_BIN:$PATH" "$TMUX_SCRIPT" "$@"
+        # Hermetico: el pipeline exporta estas rutas y desviarian el estado fuera del consumidor falso.
+        unset MEFISTO_STATE_DIR MEFISTO_LEGACY_STATE_DIR MEFISTO_REPO_ROOT MEFISTO_MODELS_FILE
+        MEFISTO_RUNTIME=claude "$LAUNCH_SCRIPT" "$@"
     ) </dev/null >"$out" 2>"$err"
     LAST_RC=$?
     LAST_STDOUT=$(cat "$out")
     LAST_STDERR=$(cat "$err")
 }
 
+# launched_argv <prefijo>: argv que recibio el sub-pipeline de la corrida
+# <prefijo>-run-*.report.log, esperando a que el proceso desacoplado lo escriba.
+launched_argv() {
+    local i=0 f=""
+    while [ $i -lt 50 ]; do
+        f=$(find "$FAKE_CONSUMER" -name "$1-run-*.report.log" -size +0 2>/dev/null | head -n1)
+        [ -n "$f" ] && break
+        sleep 0.1
+        i=$((i+1))
+    done
+    [ -n "$f" ] && cat "$f"
+}
+
 echo ""
-echo "[7] --tooling reenvia --variant intacto al send-keys, y el nombre de sesion lleva el sufijo (CA-2)"
+echo "[7] --tooling reenvia --variant intacto al sub-pipeline (CA-2)"
 run_wrapper --tooling 253 --variant experimento-a
 if [ "$LAST_RC" -eq 0 ]; then pass "--tooling + --variant corre sin abortar (rc=$LAST_RC)"; else fail "--tooling + --variant no deberia abortar (rc=$LAST_RC, stderr: $LAST_STDERR)"; fi
-if grep -qF "253 --variant 'experimento-a'" "$TMUX_STUB_LOG"; then
-    pass "send-keys incluye el issue y --variant con comillas simples intacto"
+ARGV="$(launched_argv tooling-issue-253)"
+if printf '%s' "$ARGV" | grep -qF "stub tooling <253> <--variant> <experimento-a>"; then
+    pass "tooling-pipeline.sh recibe el issue y --variant con el valor intacto"
 else
-    fail "send-keys no compuso '253 --variant ...' -- log: $(cat "$TMUX_STUB_LOG")"
-fi
-if grep -qF "new-session -d -s tooling-253-experimento-a" "$TMUX_STUB_LOG"; then
-    pass "la sesion tmux lleva el sufijo -experimento-a"
-else
-    fail "la sesion no lleva el sufijo -- log: $(cat "$TMUX_STUB_LOG")"
+    fail "tooling-pipeline.sh no recibio '253 --variant ...' -- argv: $ARGV"
 fi
 
 echo ""
 echo "[8] --tooling combina --from-stage, --models y --variant en orden"
 run_wrapper --tooling 253 --from-stage 2 --models "reviewer=opus" --variant b
 if [ "$LAST_RC" -eq 0 ]; then pass "combinado corre sin abortar"; else fail "no deberia abortar (rc=$LAST_RC, stderr: $LAST_STDERR)"; fi
-if grep -qF "253 --from-stage 2 --models 'reviewer=opus' --variant 'b'" "$TMUX_STUB_LOG"; then
-    pass "send-keys combina los tres flags en orden"
+ARGV="$(launched_argv tooling-issue-253)"
+if printf '%s' "$ARGV" | grep -qF "stub tooling <253> <--from-stage> <2> <--models> <reviewer=opus> <--variant> <b>"; then
+    pass "tooling-pipeline.sh recibe los tres flags en orden"
 else
-    fail "orden incorrecto -- log: $(cat "$TMUX_STUB_LOG")"
-fi
-if grep -qF "new-session -d -s tooling-253-b" "$TMUX_STUB_LOG"; then
-    pass "la sesion tmux lleva el sufijo -b"
-else
-    fail "la sesion no lleva el sufijo -- log: $(cat "$TMUX_STUB_LOG")"
+    fail "orden incorrecto -- argv: $ARGV"
 fi
 
 echo ""
@@ -214,10 +204,6 @@ run_wrapper --parallel 253 254 --variant a --pipeline tooling
 if [ "$LAST_RC" -eq 1 ]; then pass "--parallel + --variant aborta"; else fail "deberia abortar (rc=$LAST_RC)"; fi
 if printf '%s' "$LAST_STDERR" | grep -q "no es valido con --parallel"; then pass "mensaje: no valido con --parallel"; else fail "mensaje inesperado: $LAST_STDERR"; fi
 
-run_wrapper --attach tooling-pipeline-253 --variant a
-if [ "$LAST_RC" -eq 1 ]; then pass "--attach + --variant aborta"; else fail "deberia abortar (rc=$LAST_RC)"; fi
-if printf '%s' "$LAST_STDERR" | grep -q "no aplica a --attach"; then pass "mensaje: no aplica a --attach"; else fail "mensaje inesperado: $LAST_STDERR"; fi
-
 run_wrapper 253 254 --variant a
 if [ "$LAST_RC" -eq 1 ]; then pass "multiples issues + --variant aborta"; else fail "deberia abortar (rc=$LAST_RC)"; fi
 if printf '%s' "$LAST_STDERR" | grep -q "no es valido con multiples issues"; then pass "mensaje: no valido con multiples issues"; else fail "mensaje inesperado: $LAST_STDERR"; fi
@@ -226,20 +212,16 @@ echo ""
 echo "[11] issue suelto (sin --tooling explicito), enrutado por --pipeline tooling, acepta --variant (issue #713: tdd-pipeline.sh tambien lo implementa, ya no es exclusivo de --tooling)"
 run_wrapper 253 --variant a --pipeline tooling
 if [ "$LAST_RC" -eq 0 ]; then pass "issue suelto + --pipeline tooling + --variant corre sin abortar (rc=$LAST_RC)"; else fail "no deberia abortar (rc=$LAST_RC, stderr: $LAST_STDERR)"; fi
-if grep -qF "253 --variant 'a'" "$TMUX_STUB_LOG"; then
-    pass "send-keys incluye --variant con el valor intacto"
+ARGV="$(launched_argv tooling-pipeline-issue-253)"
+if printf '%s' "$ARGV" | grep -qF "stub tooling <253> <--variant> <a>"; then
+    pass "tooling-pipeline.sh recibe --variant con el valor intacto"
 else
-    fail "send-keys no compuso '253 --variant ...' -- log: $(cat "$TMUX_STUB_LOG")"
-fi
-if grep -qF "new-session -d -s tooling-pipeline-253-a" "$TMUX_STUB_LOG"; then
-    pass "la sesion tmux lleva el sufijo -a"
-else
-    fail "la sesion no lleva el sufijo -- log: $(cat "$TMUX_STUB_LOG")"
+    fail "tooling-pipeline.sh no recibio '253 --variant ...' -- argv: $ARGV"
 fi
 
 echo ""
 echo "----------------------------------------"
-echo "  tmux-pipeline.sh: $PASS pass, $FAIL fail (hasta aqui)"
+echo "  launch-pipeline.sh: $PASS pass, $FAIL fail (hasta aqui)"
 echo "----------------------------------------"
 
 # --- herdr-pipeline.sh: misma superficie, dentro de un pane herdr -----------

@@ -16,15 +16,15 @@ Escribe la senal de parada suave de los orquestadores publicados de Mefisto (`ba
 La senal es cooperativa: solo la consulta un orquestador que **mantiene una cola de issues sin lanzar**. Son dos:
 
 - `batch-pipeline.sh` --- el motor que lanza {{mefisto:command sequential}}. Se detiene tras el eslabon en curso (pipeline -> PR -> merge).
-- `parallel-pipeline.sh` invocado directo (el camino de `--max-parallel` y de la serializacion de `tipo:projection`). Deja de lanzar pendientes; los worktrees ya en vuelo terminan.
+- `parallel-pipeline.sh` --- el scheduler que lanza {{mefisto:command parallel}} cuando corre sin panes, o invocado directo (el camino de `--max-parallel` y de la serializacion de `tipo:projection`). Deja de lanzar pendientes; los worktrees ya en vuelo terminan.
 
-{{mefisto:command parallel}} **no** entra aqui: delega en `tmux-pipeline.sh --parallel`, que abre un pane por issue de entrada y no deja ninguna cola pendiente. Si el usuario pide detener un {{mefisto:command parallel}} en modo pane, dile que ahi no hay nada que retener --- todos los issues ya estan en vuelo --- y que la unica via es cerrar los panes de los que aun no quiera (con el costo de dejarlos a medio pipeline).
+{{mefisto:command parallel}} en modo pane (Herdr) **no** entra aqui: abre un pane por issue de entrada y no deja ninguna cola pendiente. Si el usuario pide detener un {{mefisto:command parallel}} en modo pane, dile que ahi no hay nada que retener --- todos los issues ya estan en vuelo --- y que la unica via es cerrar los panes de los que aun no quiera (con el costo de dejarlos a medio pipeline).
 
 ## Proceso
 
 ### 1. Detectar si hay un orquestador corriendo
 
-Criterio: el proceso real de `batch-pipeline.sh` o `parallel-pipeline.sh` -- ni la sesion tmux ni un log activo distinguen una corrida activa de una ya terminada sin volver a parsear su contenido.
+Criterio: el proceso real de `batch-pipeline.sh` o `parallel-pipeline.sh` -- un log activo no distingue una corrida activa de una ya terminada sin volver a parsear su contenido.
 
 ```bash
 REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null) || { echo "ERROR: no estas en un repositorio git"; exit 1; }

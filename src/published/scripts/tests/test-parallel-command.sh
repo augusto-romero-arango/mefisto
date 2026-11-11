@@ -23,14 +23,16 @@ contains "$body" '{{mefisto:assert-consumer-repo}}' 'guard consumidor presente'
 guard_line="$(grep -nF '{{mefisto:assert-consumer-repo}}' "$SOURCE" | cut -d: -f1)"
 operation_line="$(awk '/gh issue view/ { print NR; exit }' "$SOURCE")"
 [ -n "$guard_line" ] && [ -n "$operation_line" ] && [ "$guard_line" -lt "$operation_line" ] && pass 'guard precede cualquier operacion' || fail 'guard no precede las operaciones'
-contains "$body" '{{mefisto:run tmux-pipeline.sh --parallel $ARGUMENTS}}' 'despacho neutral exacto'
-[ "$(grep -cF '{{mefisto:run tmux-pipeline.sh --parallel $ARGUMENTS}}' "$SOURCE")" -eq 1 ] && pass 'existe un unico despacho' || fail 'el despacho no es unico'
+contains "$body" '{{mefisto:run launch-pipeline.sh --parallel $ARGUMENTS}}' 'despacho neutral exacto'
+[ "$(grep -cF '{{mefisto:run launch-pipeline.sh --parallel $ARGUMENTS}}' "$SOURCE")" -eq 1 ] && pass 'existe un unico despacho' || fail 'el despacho no es unico'
 contains "$body" 'gh issue view' 'valida issues antes de lanzar'
 contains "$body" 'esta cerrado, informalo y excluyelo' 'excluye issues inexistentes o cerrados'
 contains "$body" 'Si no queda ningun issue valido, detente' 'se detiene sin issues validos'
 contains "$body" 'pasando `--pipeline` si el usuario lo proporciono' 'pasa --pipeline al wrapper'
 contains "$body" 'arranques escalonados de 30s' 'documenta arranque escalonado en Herdr'
-contains "$body" 'tmux -CC attach -t parallel-<timestamp>' 'documenta conexion tmux'
+contains "$body" 'sin pane: lo sigue la consola de Fausto' 'reconoce el modo desacoplado por la salida del wrapper'
+contains "$body" 'Pipeline paralelo corriendo sin panes. Para monitorear, en otra terminal:' 'documenta el seguimiento desacoplado fuera de Herdr'
+contains "$body" 'stream-watch.sh' 'remite al visor en otra terminal'
 contains "$body" '{{mefisto:state-path logs}}' 'documenta logs por issue'
 contains "$body" '{{mefisto:state-path events.log}}' 'documenta events.log'
 absent "$body" 'propio tab' 'describe correctamente panes, no tabs'
@@ -47,12 +49,12 @@ for forbidden in '.claude/' 'CLAUDE_' '.plugin-root' 'plugins/cache' 'model:' 't
 echo '[salidas] adaptador y mirror'
 [ -f "$CLAUDE" ] && pass "existe ${CLAUDE#"$REPO_ROOT/"}" || fail "falta ${CLAUDE#"$REPO_ROOT/"}"
 claude_body="$(< "$CLAUDE")"
-contains "$claude_body" 'MEFISTO_RUNTIME=claude "${MEFISTO_PACKAGE_ROOT}/scripts/tmux-pipeline.sh" --parallel $ARGUMENTS' 'Claude invoca tmux-pipeline.sh --parallel y fija su runtime'
+contains "$claude_body" 'MEFISTO_RUNTIME=claude "${MEFISTO_PACKAGE_ROOT}/scripts/launch-pipeline.sh" --parallel $ARGUMENTS' 'Claude invoca launch-pipeline.sh --parallel y fija su runtime'
 contains "$claude_body" 'model: "haiku"' 'Claude materializa el perfil fast'
 for command in merge batch-stop; do
     contains "$claude_body" "/mefisto:$command" "Claude resuelve $command"
 done
-claude_invocation="$(printf '%s\n' "$claude_body" | grep -F 'scripts/tmux-pipeline.sh" --parallel')"
+claude_invocation="$(printf '%s\n' "$claude_body" | grep -F 'scripts/launch-pipeline.sh" --parallel')"
 for forbidden_path in '.claude/pipeline/.plugin-root' 'plugins/cache'; do
     absent "$claude_invocation" "$forbidden_path" "invocacion Claude no reimplementa lookup legacy ($forbidden_path)"
 done

@@ -15,7 +15,7 @@
 # es una tty: sin terminal de control, SIGTTIN/SIGTTOU son imposibles.
 #
 # Casos cubiertos:
-#   [CA-3] Repro determinista dentro de una pty real (tmux): el guion
+#   [CA-3] Repro determinista dentro de una pty real: el guion
 #       'touch-tty' de runtime-fake.sh (message + read </dev/tty + stty -echo
 #       + read de stdin, terminal success) corre bajo
 #       mefisto-run-agent.sh --timeout 20 y jamas deja un proceso del arbol en
@@ -38,8 +38,10 @@
 #       en STAT=T, nunca imprime su evento terminal, y solo el kill de
 #       timeout lo termina -- demuestra que [945-CA-3] no pasa en vacio.
 #
-# Si `tmux` no esta en PATH, el test FALLA con un mensaje explicito -- nunca
-# se salta en silencio (CA-3): sin una pty real no hay forma de ejercitar
+# La pty real la da fixtures/pty-run.py (python3, modulo `pty`): corre cada
+# guion como lider de una sesion nueva con terminal de control. Si `python3`
+# no esta en PATH, el test FALLA con un mensaje explicito -- nunca se salta
+# en silencio (CA-3): sin una pty real no hay forma de ejercitar
 # SIGTTIN/SIGTTOU.
 #
 # Uso: .claude/scripts/tests/test-watchdog-tty-isolation.sh
@@ -53,30 +55,43 @@ LIB_DIR="$REPO_ROOT/src/runtime/lib"
 RUNNER="$REPO_ROOT/src/runtime/mefisto-run-agent.sh"
 FAKE_LIB="$LIB_DIR/runtime-fake.sh"
 COMMON_LIB="$REPO_ROOT/.claude/scripts/_mefisto-common.sh"
+PTY_RUN="$SCRIPT_DIR/fixtures/pty-run.py"
 
 PASS=0
 FAIL=0
 pass() { echo "  PASS: $1"; PASS=$((PASS+1)); }
 fail() { echo "  FAIL: $1"; FAIL=$((FAIL+1)); }
 
-if ! command -v tmux >/dev/null 2>&1; then
-    echo "FAIL: tmux no esta en PATH -- este test EXIGE una pty real para ejercitar SIGTTIN/SIGTTOU (issue #943); no puede saltarse en silencio" >&2
+if ! command -v python3 >/dev/null 2>&1; then
+    echo "FAIL: python3 no esta en PATH -- este test EXIGE una pty real para ejercitar SIGTTIN/SIGTTOU (issue #943); no puede saltarse en silencio" >&2
     exit 1
 fi
 
 TMP=$(mktemp -d)
-SESSION_A="mefisto-tty-a-$$"
-SESSION_CTRL="mefisto-tty-ctrl-$$"
-SESSION_STOP="mefisto-tty-stop-$$"
-SESSION_STOP_CTRL="mefisto-tty-stop-ctrl-$$"
+PTY_PIDS=()
 CTRL_PID=""
 CTRL_STOP_PID=""
 
+# pty_start <script> -- corre <script> en una pty real y deja en PTY_PID el
+# PID del envoltorio.
+pty_start() {
+    python3 "$PTY_RUN" -- "$1" </dev/null >/dev/null 2>&1 &
+    PTY_PID=$!
+    PTY_PIDS+=("$PTY_PID")
+}
+
+# pty_stop <pid> -- cierra la pty: el kernel manda SIGHUP a su sesion.
+pty_stop() {
+    kill "$1" 2>/dev/null
+    wait "$1" 2>/dev/null
+    return 0
+}
+
 cleanup() {
-    tmux kill-session -t "$SESSION_A" >/dev/null 2>&1 || true
-    tmux kill-session -t "$SESSION_CTRL" >/dev/null 2>&1 || true
-    tmux kill-session -t "$SESSION_STOP" >/dev/null 2>&1 || true
-    tmux kill-session -t "$SESSION_STOP_CTRL" >/dev/null 2>&1 || true
+    local pid
+    for pid in ${PTY_PIDS[@]+"${PTY_PIDS[@]}"}; do
+        pty_stop "$pid"
+    done
     [ -n "$CTRL_PID" ] && kill -9 -"$CTRL_PID" 2>/dev/null
     [ -n "$CTRL_STOP_PID" ] && kill -9 -"$CTRL_STOP_PID" 2>/dev/null
     rm -rf "$TMP"
@@ -98,7 +113,7 @@ any_stopped() {
 }
 
 # ============================================================================
-echo "[CA-3] mefisto-run-agent.sh + guion touch-tty dentro de una pty real (tmux)"
+echo "[CA-3] mefisto-run-agent.sh + guion touch-tty dentro de una pty real"
 
 WORKDIR_A="$TMP/wt-a"; mkdir -p "$WORKDIR_A"
 PROMPT_FILE="$TMP/prompt.txt"; echo "prompt de prueba" > "$PROMPT_FILE"
@@ -117,7 +132,8 @@ EOF
 chmod +x "$RUN_SCRIPT_A"
 
 START_A=$(date +%s)
-tmux new-session -d -s "$SESSION_A" "$RUN_SCRIPT_A"
+pty_start "$RUN_SCRIPT_A"
+PTY_A=$PTY_PID
 
 SEEN_T_A=false
 i=0
@@ -168,7 +184,7 @@ else
     fail "CA-3-5: no se encontro run.completed en --event-log: $(cat "$EVENT_LOG_A" 2>/dev/null)"
 fi
 
-tmux kill-session -t "$SESSION_A" >/dev/null 2>&1 || true
+pty_stop "$PTY_A"
 
 # ============================================================================
 echo ""
@@ -190,7 +206,8 @@ sleep 30
 EOF
 chmod +x "$RUN_SCRIPT_CTRL"
 
-tmux new-session -d -s "$SESSION_CTRL" "$RUN_SCRIPT_CTRL"
+pty_start "$RUN_SCRIPT_CTRL"
+PTY_CTRL=$PTY_PID
 
 SEEN_T_CTRL=false
 i=0
@@ -211,7 +228,7 @@ fi
 
 CTRL_PID="$(cat "$CTRL_PIDFILE" 2>/dev/null || echo "")"
 [ -n "$CTRL_PID" ] && kill -9 -"$CTRL_PID" 2>/dev/null
-tmux kill-session -t "$SESSION_CTRL" >/dev/null 2>&1 || true
+pty_stop "$PTY_CTRL"
 
 # ============================================================================
 echo ""
@@ -238,7 +255,8 @@ EOF
 chmod +x "$RUN_SCRIPT_STOP"
 
 START_STOP=$(date +%s)
-tmux new-session -d -s "$SESSION_STOP" "$RUN_SCRIPT_STOP"
+pty_start "$RUN_SCRIPT_STOP"
+PTY_STOP=$PTY_PID
 
 i=0
 while [ "$i" -lt 620 ]; do
@@ -248,7 +266,7 @@ while [ "$i" -lt 620 ]; do
 done
 END_STOP=$(date +%s)
 DURATION_STOP=$((END_STOP - START_STOP))
-tmux kill-session -t "$SESSION_STOP" >/dev/null 2>&1 || true
+pty_stop "$PTY_STOP"
 
 if [ -f "$DONE_STOP" ]; then
     pass "945-CA-3-1: la corrida termino dentro de la ventana de espera (< 31s)"
@@ -317,7 +335,8 @@ sleep 30
 EOF
 chmod +x "$RUN_SCRIPT_STOP_CTRL"
 
-tmux new-session -d -s "$SESSION_STOP_CTRL" "$RUN_SCRIPT_STOP_CTRL"
+pty_start "$RUN_SCRIPT_STOP_CTRL"
+PTY_STOP_CTRL=$PTY_PID
 
 SEEN_T_STOP_CTRL=false
 i=0
@@ -359,7 +378,7 @@ else
     fail "945-control-3: el guion self-stop imprimio su terminal pese a no recibir SIGCONT -- el control no es valido"
 fi
 
-tmux kill-session -t "$SESSION_STOP_CTRL" >/dev/null 2>&1 || true
+pty_stop "$PTY_STOP_CTRL"
 [ -n "$CTRL_STOP_PID" ] && kill -9 -"$CTRL_STOP_PID" 2>/dev/null
 
 # ============================================================================

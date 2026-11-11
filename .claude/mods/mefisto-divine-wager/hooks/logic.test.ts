@@ -3,9 +3,9 @@ import { expect, test } from 'claude-code/testing'
 import { RELEASE_STEPS, bumpVersion, currentReleaseStep, finishRelease, isConsolidated, releaseBranchOf, releaseChecklist, releaseHeader, releaseInvocationOf, releaseIssuesOf, releasePlan, releaseTagOf, withObservedSteps, bitacoraPrOf, fieldNoteNamesOf, pendingNotes, processedDirsOf, withProcessedNotes, finishMerge, ghMergeNumbersOf, isGhMergeRun, mergeCounts, mergeHeader, mergeOutcomesOf, mergePromptArgs, mergePrsOf, withMergeOutcomes, agentFlagOf, historianFrom, isAgentActive, liveTape, isReleasePrompt, isReleaseRun, holdOf, holdText, bitacoraPrompt, changelogOf, fieldNotesIn, releaseArgsOf, releaseOptions, mergeArgsOf, mergeOptions, parseOpenPrs, withoutHeredocs, fmtCost, issueStatsFromHistory, statsPending, fitTitle, summaryTitleWidth, statsTotal, currentRowParts, totalRowText, batchFromStatus, batchIssuesOf, batchPr, batchSummary, issueMark, newlyMerged, readyRows, titlesOf, toolingOf, waitingFace, cropGrid, pageOf, parseNextOrder, sequentialOf, finishedFromHistory, mascotPose, parseEvent, usedColumns, relative, pickEventsFile, steps, stampToMs, toolingIssueOf } from './logic'
 
 test('detecta el lanzamiento de /mefisto-tooling', async () => {
-  expect(toolingIssueOf('MEFISTO_RUNTIME=claude ./.claude/scripts/mefisto-tmux-pipeline.sh --tooling 2059')).toBe('2059')
-  expect(toolingIssueOf('./.claude/scripts/mefisto-tmux-pipeline.sh --tooling 2059 --models opus')).toBe('2059')
-  expect(toolingIssueOf('./.claude/scripts/mefisto-tmux-pipeline.sh --batch 1 2')).toBe(null)
+  expect(toolingIssueOf('MEFISTO_RUNTIME=claude ./.claude/scripts/mefisto-launch-pipeline.sh --tooling 2059')).toBe('2059')
+  expect(toolingIssueOf('./.claude/scripts/mefisto-launch-pipeline.sh --tooling 2059 --models opus')).toBe('2059')
+  expect(toolingIssueOf('./.claude/scripts/mefisto-launch-pipeline.sh --batch 1 2')).toBe(null)
   expect(toolingIssueOf('git status')).toBe(null)
 })
 
@@ -121,14 +121,14 @@ test('la lista muestra los lanzables con tecla y al final los bloqueados sin tec
 })
 
 test('detecta el lanzamiento del batch y sus issues en orden', async () => {
-  expect(batchIssuesOf('MEFISTO_UI=mod ./.claude/scripts/mefisto-tmux-pipeline.sh --batch 1746 2079 2080')).toEqual(['1746', '2079', '2080'])
-  expect(batchIssuesOf('./.claude/scripts/mefisto-tmux-pipeline.sh --tooling 2059')).toBe(null)
+  expect(batchIssuesOf('MEFISTO_UI=mod ./.claude/scripts/mefisto-launch-pipeline.sh --batch 1746 2079 2080')).toEqual(['1746', '2079', '2080'])
+  expect(batchIssuesOf('./.claude/scripts/mefisto-launch-pipeline.sh --tooling 2059')).toBe(null)
 })
 
 test('la redireccion 2>&1 tras el batch no cuenta como issue', async () => {
-  expect(batchIssuesOf('MEFISTO_RUNTIME=claude ./.claude/scripts/mefisto-tmux-pipeline.sh --batch 2260 2267 2>&1 | tail -15')).toEqual(['2260', '2267'])
-  expect(batchIssuesOf('./.claude/scripts/mefisto-tmux-pipeline.sh --batch 8 9; echo fin')).toEqual(['8', '9'])
-  expect(batchIssuesOf('./.claude/scripts/mefisto-tmux-pipeline.sh --batch 8 9 && echo ok')).toEqual(['8', '9'])
+  expect(batchIssuesOf('MEFISTO_RUNTIME=claude ./.claude/scripts/mefisto-launch-pipeline.sh --batch 2260 2267 2>&1 | tail -15')).toEqual(['2260', '2267'])
+  expect(batchIssuesOf('./.claude/scripts/mefisto-launch-pipeline.sh --batch 8 9; echo fin')).toEqual(['8', '9'])
+  expect(batchIssuesOf('./.claude/scripts/mefisto-launch-pipeline.sh --batch 8 9 && echo ok')).toEqual(['8', '9'])
 })
 
 test('el estado de un batch arrancado poco antes de que vuelva la llamada no se descarta', async () => {
@@ -192,14 +192,14 @@ test('el titulo de la fila del resumen se recorta con elipsis y conserva el anch
 })
 
 test('solo cuenta el wrapper que se ejecuta, no el que aparece como texto', async () => {
-  const heredoc = "python3 - <<'EOF'\nx = './.claude/scripts/mefisto-tmux-pipeline.sh --tooling 7'\n./.claude/scripts/mefisto-tmux-pipeline.sh --batch 8 9\nEOF\necho listo"
+  const heredoc = "python3 - <<'EOF'\nx = './.claude/scripts/mefisto-launch-pipeline.sh --tooling 7'\n./.claude/scripts/mefisto-launch-pipeline.sh --batch 8 9\nEOF\necho listo"
   expect(withoutHeredocs(heredoc)).toBe("python3 - <<heredoc\necho listo")
   expect(toolingIssueOf(heredoc)).toBe(null)
   expect(batchIssuesOf(heredoc)).toBe(null)
-  expect(toolingIssueOf('grep -n "mefisto-tmux-pipeline.sh --tooling 7" a.md')).toBe(null)
-  expect(toolingIssueOf("echo 'mefisto-tmux-pipeline.sh --tooling 7'")).toBe(null)
-  expect(toolingIssueOf('cd /repo && MEFISTO_RUNTIME=claude ./.claude/scripts/mefisto-tmux-pipeline.sh --tooling 7')).toBe('7')
-  expect(batchIssuesOf('a; rc=$?; [ "$rc" -eq 0 ] && X=1 ./.claude/scripts/mefisto-tmux-pipeline.sh --batch 8 9')).toEqual(['8', '9'])
+  expect(toolingIssueOf('grep -n "mefisto-launch-pipeline.sh --tooling 7" a.md')).toBe(null)
+  expect(toolingIssueOf("echo 'mefisto-launch-pipeline.sh --tooling 7'")).toBe(null)
+  expect(toolingIssueOf('cd /repo && MEFISTO_RUNTIME=claude ./.claude/scripts/mefisto-launch-pipeline.sh --tooling 7')).toBe('7')
+  expect(batchIssuesOf('a; rc=$?; [ "$rc" -eq 0 ] && X=1 ./.claude/scripts/mefisto-launch-pipeline.sh --batch 8 9')).toEqual(['8', '9'])
 })
 
 test('el merge desde la banda ofrece todos o los PRs mas recientes y arma los argumentos de /mefisto-merge', async () => {

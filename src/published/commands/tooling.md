@@ -2,7 +2,7 @@
 {
   "kind": "command",
   "id": "tooling",
-  "description": "Lanza el pipeline de tooling del consumidor para un issue de GitHub dentro de una sesion tmux.",
+  "description": "Lanza el pipeline de tooling del consumidor para un issue de GitHub.",
   "profile": "fast",
   "arguments": "<issue> [--models 'agente=modelo[,agente=modelo...]'] [--variant <label>]"
 }
@@ -10,7 +10,7 @@
 
 {{mefisto:assert-consumer-repo}}
 
-Lanza el pipeline de tooling para un issue de GitHub dentro de una sesion tmux. Comunicate en **espanol**.
+Lanza el pipeline de tooling para un issue de GitHub. Comunicate en **espanol**.
 
 **Alcance**: este comando solo lanza tareas de tooling del proyecto consumidor. No implementa logica de dominio ni cambia el plugin Mefisto. Si la causa pertenece a Mefisto, crea o enruta un draft en su repositorio y detiene esta ejecucion.
 
@@ -47,13 +47,13 @@ Solo cuando todas las dependencias canonicas declaradas cerraron (`CLOSED`) o se
 Muestra la informacion validada del issue y ejecuta exactamente:
 
 ```bash
-{{mefisto:run tmux-pipeline.sh --tooling $ARGUMENTS}}
+{{mefisto:run launch-pipeline.sh --tooling $ARGUMENTS}}
 ```
 
-Seguimiento por runtime: cuando el runtime activo trae su propia cinta de seguimiento (la consola `fausto-blood-pact`) y el usuario no fijo la interfaz, el wrapper no abre pane ni sesion tmux: corre desacoplado, imprime la ruta del log y el avance lo sigue esa consola desde esta misma sesion. En el resto de los runtimes (MEF-ADR-0050): dentro de Herdr, informa que el pipeline queda corriendo en un pane de este workspace con el visor en vivo. Fuera de Herdr, informa que fue lanzado en una sesion tmux y que el nombre usa `tooling-ISSUE_NUM`, con el sufijo de variante cuando aplique.
+Seguimiento por runtime: cuando el runtime activo trae su propia cinta de seguimiento (la consola `fausto-blood-pact`) y el usuario no fijo la interfaz, el wrapper no abre pane: corre desacoplado, imprime la ruta del log y el avance lo sigue esa consola desde esta misma sesion. En el resto de los runtimes (MEF-ADR-0050): dentro de Herdr, informa que el pipeline queda corriendo en un pane de este workspace con el visor en vivo. Fuera de Herdr tambien corre desacoplado, sin consola que lo siga (la salida del wrapper dice `sin pane` sin nombrar la consola): entrega la ruta del log y la linea de `stream-watch.sh` que imprime el wrapper para abrir el visor en otra terminal.
 
 ## Reglas
 
 - **No esperes a que termine.** Devuelve el control inmediatamente.
 - **No implementes nada tu mismo.** Solo valida y lanza el wrapper.
-- Si tmux no esta instalado fuera de Herdr, el wrapper muestra el error.
+- `MEFISTO_UI` admite `mod` (desacoplado) y `herdr` (panes, solo dentro de Herdr); con cualquier otro valor el wrapper aborta y muestra el error.

@@ -39,17 +39,18 @@ contains "$body" 'Con `--variant`, nunca mutas labels' 'variante no muta labels'
 contains "$body" 'claves de stage `writer` y `reviewer`' 'models conserva stages'
 contains "$body" 'no hace push, no abre PR ni muta el issue' 'variante conserva aislamiento sin efectos remotos'
 contains "$body" 'reenvia ambos flags intactos' 'forwarding de flags intacto'
-contains "$body" '{{mefisto:run tmux-pipeline.sh --tooling $ARGUMENTS}}' 'despacho neutral exacto'
-[ "$(grep -cF '{{mefisto:run tmux-pipeline.sh --tooling $ARGUMENTS}}' "$SOURCE")" -eq 1 ] && pass 'existe un unico despacho' || fail 'el despacho no es unico'
+contains "$body" '{{mefisto:run launch-pipeline.sh --tooling $ARGUMENTS}}' 'despacho neutral exacto'
+[ "$(grep -cF '{{mefisto:run launch-pipeline.sh --tooling $ARGUMENTS}}' "$SOURCE")" -eq 1 ] && pass 'existe un unico despacho' || fail 'el despacho no es unico'
 contains "$body" 'Herdr' 'documenta despacho Herdr'
-contains "$body" 'sesion tmux' 'documenta despacho tmux'
+contains "$body" 'la salida del wrapper dice `sin pane` sin nombrar la consola' 'documenta el seguimiento desacoplado fuera de Herdr'
+contains "$body" 'stream-watch.sh' 'remite al visor en otra terminal'
 contains "$body" '/mefisto:tooling' 'documenta el nombre canonico'
 for forbidden in 'Claude' '.claude/' 'cache' 'model:' 'tools:' 'allowed-tools:' 'permission:' '/work-status'; do absent "$body" "$forbidden" "fuente no publica token prohibido: $forbidden"; done
 
 echo '[salidas] adaptador y mirror'
 [ -f "$CLAUDE" ] && pass "existe ${CLAUDE#"$REPO_ROOT/"}" || fail "falta ${CLAUDE#"$REPO_ROOT/"}"
 contains "$(< "$CLAUDE")" 'model: "haiku"' 'Claude materializa el perfil fast'
-contains "$(< "$CLAUDE")" 'MEFISTO_RUNTIME=claude "${MEFISTO_PACKAGE_ROOT}/scripts/tmux-pipeline.sh" --tooling $ARGUMENTS' 'Claude cita package root con espacios y fija su runtime'
+contains "$(< "$CLAUDE")" 'MEFISTO_RUNTIME=claude "${MEFISTO_PACKAGE_ROOT}/scripts/launch-pipeline.sh" --tooling $ARGUMENTS' 'Claude cita package root con espacios y fija su runtime'
 if cmp -s "$MIRROR" "$CLAUDE"; then pass 'mirror Claude coincide byte a byte'; else fail 'mirror Claude diverge'; fi
 contains "$(< "$MIRROR")" '<!-- GENERADO por src/published/scripts/generate-published-adapters.sh desde src/published/commands/tooling.md. No editar a mano. -->' 'mirror conserva marcador generado'
 if "$GENERATOR" --check >/dev/null; then pass 'generate-published-adapters --check esta al dia'; else fail 'generate-published-adapters --check detecto divergencias'; fi

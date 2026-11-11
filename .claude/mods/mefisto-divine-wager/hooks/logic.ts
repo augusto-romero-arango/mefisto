@@ -15,7 +15,7 @@ export const statusPath = (issue: string) =>
 // El wrapper cuenta solo donde se ejecuta: al inicio de un comando (tras ; && || | ( then do o un salto de
 // linea), con asignaciones de entorno delante. Un texto que lo nombra (un heredoc, un grep, un echo) no lanza nada.
 const AT_COMMAND = String.raw`(?:^|[;&|(\n]|\bthen\b|\bdo\b)\s*(?:[A-Za-z_][A-Za-z0-9_]*=\S*\s+)*`
-const WRAPPER = String.raw`\S*mefisto-tmux-pipeline\.sh`
+const WRAPPER = String.raw`\S*mefisto-launch-pipeline\.sh`
 const LAUNCH = new RegExp(`${AT_COMMAND}${WRAPPER}\\s+--tooling\\s+#?(\\d+)`)
 
 const RELEASE_RUN = new RegExp(`${AT_COMMAND}\\S*mefisto-release\\.sh\\b`)
@@ -40,7 +40,7 @@ export function toolingIssueOf(command: string): string | null {
 // Cada issue es un argumento completo: el `2` de un `2>&1` posterior no es un issue.
 const BATCH_LAUNCH = new RegExp(`${AT_COMMAND}${WRAPPER}\\s+--batch((?:\\s+#?\\d+(?=\\s|$|[;&|)]))+)`)
 
-/** Los issues de un `mefisto-tmux-pipeline.sh --batch N M ...` (lo que corre /mefisto-sequential), en orden. */
+/** Los issues de un `mefisto-launch-pipeline.sh --batch N M ...` (lo que corre /mefisto-sequential), en orden. */
 export function batchIssuesOf(command: string): string[] | null {
   const m = BATCH_LAUNCH.exec(withoutHeredocs(command))
   return m?.[1] ? (m[1].match(/\d+/g) ?? []) : null

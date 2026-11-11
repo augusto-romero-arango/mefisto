@@ -28,7 +28,7 @@ contains "$body" '{{mefisto:run azure-account-info.sh 2>&1}}' 'directiva azure-a
 contains "$body" '{{mefisto:run bootstrap-backend.sh --subscription <id> --env <env>}}' 'directiva bootstrap-backend.sh'
 contains "$body" '{{mefisto:run setup-github-labels.sh 2>&1}}' 'directiva setup-github-labels.sh'
 contains "$body" '{{mefisto:run setup-github-ci.sh <id>}}' 'directiva setup-github-ci.sh'
-contains "$body" '{{mefisto:run tmux-pipeline.sh --infra <issue>}}' 'directiva tmux-pipeline.sh --infra'
+contains "$body" '{{mefisto:run launch-pipeline.sh --infra <issue>}}' 'directiva launch-pipeline.sh --infra'
 contains "$body" '{{mefisto:command infra-base}}' 'paso 6 remite a infra-base'
 absent "$body" "work-status" "no remite a work-status"
 contains "$body" 'az account set --subscription <id>' 'indica cambiar de suscripcion fuera del chat'
@@ -38,7 +38,7 @@ contains "$body" 'Application Administrator' 'conserva advertencia de privilegio
 contains "$body" 'Role Based Access Control Administrator' 'conserva advertencia de privilegios de suscripcion'
 contains "$body" 'Solo detente si' 'conserva solo-detente-si-exit-distinto-de-0'
 contains "$body" 'idempotente' 'conserva idempotencia por paso'
-contains "$body" 'tmux -CC attach -t infra-<N>' 'instrucciones de conexion tmux'
+contains "$body" 'la ruta del log con la línea del visor `stream-watch.sh`' 'instrucciones de seguimiento sin pane'
 for secret in AZURE_CLIENT_ID AZURE_TENANT_ID AZURE_SUBSCRIPTION_ID; do
     contains "$body" "$secret" "reporta secret $secret"
 done
@@ -50,7 +50,7 @@ done
 
 echo '[fuente] orden de pasos'
 order_ok=1; prev=0
-for marker in '### 1. ' '### 2. ' 'azure-account-info.sh' 'bootstrap-backend.sh --subscription' 'setup-github-labels.sh 2>&1}}' 'setup-github-ci.sh <id>}}' '### 6. ' 'tmux-pipeline.sh --infra' '### 8. '; do
+for marker in '### 1. ' '### 2. ' 'azure-account-info.sh' 'bootstrap-backend.sh --subscription' 'setup-github-labels.sh 2>&1}}' 'setup-github-ci.sh <id>}}' '### 6. ' 'launch-pipeline.sh --infra' '### 8. '; do
     line="$(printf '%s\n' "$body" | grep -nF -- "$marker" | head -1 | cut -d: -f1)"
     if [ -z "$line" ] || [ "$line" -le "$prev" ]; then order_ok=0; break; fi
     prev="$line"
@@ -60,7 +60,7 @@ if [ "$order_ok" = 1 ]; then pass 'orden backend -> labels -> CI -> base -> pipe
 echo '[salidas] adaptador y mirror'
 [ -f "$CLAUDE" ] && pass "existe ${CLAUDE#"$REPO_ROOT/"}" || fail "falta ${CLAUDE#"$REPO_ROOT/"}"
 claude_body="$(< "$CLAUDE")"
-for form in 'azure-account-info.sh" 2>&1' 'bootstrap-backend.sh" --subscription <id> --env <env>' 'setup-github-labels.sh" 2>&1' 'setup-github-ci.sh" <id>' 'tmux-pipeline.sh" --infra <issue>'; do
+for form in 'azure-account-info.sh" 2>&1' 'bootstrap-backend.sh" --subscription <id> --env <env>' 'setup-github-labels.sh" 2>&1' 'setup-github-ci.sh" <id>' 'launch-pipeline.sh" --infra <issue>'; do
     contains "$claude_body" "MEFISTO_RUNTIME=claude \"\${MEFISTO_PACKAGE_ROOT}/scripts/$form" "Claude invoca $form con su runtime"
 done
 absent "$claude_body" 'az account show' 'salida sin az directo'

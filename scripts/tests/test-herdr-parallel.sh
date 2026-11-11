@@ -6,7 +6,7 @@
 #   - Funciones puras (estilo test-herdr-workspace.sh): se extrae SOLO el
 #     cuerpo de stack_split_ratio (awk sobre "nombre() {" .. "}" en columna 0)
 #     y se evalua en este proceso, sin sourcing el archivo completo.
-#   - Subproceso real con stubs (estilo test-tmux-preparse.sh): un "consumidor"
+#   - Subproceso real con stubs (estilo test-launch-preparse.sh): un "consumidor"
 #     falso (mktemp -d + git init, sin .claude-plugin/plugin.json) y stubs de
 #     `herdr` y `gh` en PATH que registran cada invocacion y devuelven
 #     respuestas deterministas -- nunca tocan un servidor herdr ni la red.
@@ -22,10 +22,11 @@
 #       ningun pane run.
 #   [D] (CA-4) issue cerrado se salta con aviso; si ningun issue queda
 #       valido, aborta.
-#   [E] --from-stage con --parallel aborta (ambiguo sobre un lote), igual que
-#       en tmux. Multiples issues sin modo enrutan a --parallel.
-#   [F] (CA-5) should_delegate_to_herdr de tmux-pipeline.sh ya no excluye
-#       --parallel (delega dentro de herdr) y sigue excluyendo --attach.
+#   [E] --from-stage con --parallel aborta (ambiguo sobre un lote).
+#       Multiples issues sin modo enrutan a --parallel.
+#   [F] (CA-5) should_delegate_to_herdr de launch-pipeline.sh delega dentro
+#       de herdr con un runtime sin cinta propia, y no delega con el runtime
+#       claude, con MEFISTO_UI=mod ni fuera de herdr.
 #   [G] (issue #1627 CA-4) cmd_infra despacha con MEFISTO_RUNTIME=$HERDR_RUNTIME
 #       via dispatch_to_pane, igual que --tooling -- ya lo hacia, se fija con test.
 #
@@ -39,7 +40,7 @@ export HERDR_STUB_OWNER_PID=$$
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 HERDR_SCRIPT="$REPO_ROOT/scripts/herdr-pipeline.sh"
-TMUX_SCRIPT="$REPO_ROOT/scripts/tmux-pipeline.sh"
+LAUNCH_SCRIPT="$REPO_ROOT/scripts/launch-pipeline.sh"
 
 PASS=0
 FAIL=0
@@ -186,7 +187,7 @@ STUB
 chmod +x "$FAKE_BIN/gh"
 
 # Contexto herdr falso para el subproceso. MEFISTO_UI se limpia por si el
-# entorno del test lo trae (forzaria tmux en tmux-pipeline.sh, no aqui).
+# entorno del test lo trae.
 run_parallel() {
     : > "$HERDR_STUB_LOG"
     echo 0 > "$HERDR_STUB_COUNTER"
@@ -222,7 +223,6 @@ FIRST_RUN=$(grep "^herdr pane run w1:p1 " <<< "$STUB_CALLS")
 assert_not_contains "el 1er issue arranca sin delay" "$FIRST_RUN" "--delay"
 assert_contains "los panes corren el runner interno" "$STUB_CALLS" "--_pane-runner"
 assert_contains "el runner recibe el runtime resuelto argv-safe" "$STUB_CALLS" "MEFISTO_RUNTIME=claude"
-assert_not_contains "no delega a tmux" "$OUT" "tmux"
 PANES_STATE="$FAKE_CONSUMER/.mefisto/pipeline/herdr-report-panes.txt"
 assert_eq "--parallel registra todos los panes con runtime Claude" \
     $'w1:p1 claude\nw1:p2 claude\nw1:p3 claude' "$(cat "$PANES_STATE")"
@@ -316,12 +316,16 @@ assert_eq "multiples issues sin modo: exit 0" "0" "$RC"
 assert_contains "aviso del fallback" "$OUT" "Usando --parallel"
 assert_eq "2 pane run despachados" "2" "$(grep -c "^herdr pane run" <<< "$STUB_CALLS")"
 
-# --- [F] Autodeteccion en tmux-pipeline.sh ---
-echo "[F] should_delegate_to_herdr: --parallel delega, --attach no"
+# --- [F] Autodeteccion en launch-pipeline.sh ---
+echo "[F] should_delegate_to_herdr: delega dentro de herdr salvo en modo desacoplado"
 
-body=$(extract_fn should_delegate_to_herdr "$TMUX_SCRIPT")
-if [ -n "$body" ]; then
-    eval "$body"
+body="$(extract_fn inside_herdr "$LAUNCH_SCRIPT")
+$(extract_fn uses_detached_ui "$LAUNCH_SCRIPT")
+$(extract_fn should_delegate_to_herdr "$LAUNCH_SCRIPT")"
+abort() { echo "$1" >&2; exit 1; }
+eval "$body"
+if declare -F should_delegate_to_herdr >/dev/null && declare -F inside_herdr >/dev/null \
+    && declare -F uses_detached_ui >/dev/null; then
     pass "should_delegate_to_herdr extraida y cargable"
 else
     fail "should_delegate_to_herdr: no se pudo extraer el cuerpo"
@@ -330,21 +334,28 @@ fi
 if declare -F should_delegate_to_herdr >/dev/null; then
     # Contexto herdr simulado en ESTE proceso (el stub en PATH cubre `command -v herdr`).
     if ( unset MEFISTO_UI
-         export HERDR_ENV=1 HERDR_PANE_ID="w1:p0" PATH="$FAKE_BIN:$PATH"
-         should_delegate_to_herdr --parallel 42 43 ); then
-        pass "--parallel delega a herdr dentro de un pane herdr"
+         export MEFISTO_RUNTIME=fake HERDR_ENV=1 HERDR_PANE_ID="w1:p0" PATH="$FAKE_BIN:$PATH"
+         should_delegate_to_herdr ); then
+        pass "dentro de un pane herdr delega a herdr"
     else
-        fail "--parallel deberia delegar a herdr dentro de un pane herdr"
+        fail "dentro de un pane herdr deberia delegar a herdr"
     fi
     if ( unset MEFISTO_UI
-         export HERDR_ENV=1 HERDR_PANE_ID="w1:p0" PATH="$FAKE_BIN:$PATH"
-         should_delegate_to_herdr --attach foo ); then
-        fail "--attach no deberia delegar (es tmux-especifico)"
+         export MEFISTO_RUNTIME=claude HERDR_ENV=1 HERDR_PANE_ID="w1:p0" PATH="$FAKE_BIN:$PATH"
+         should_delegate_to_herdr ); then
+        fail "con el runtime claude no deberia delegar (corre desacoplado)"
     else
-        pass "--attach sigue sin delegar"
+        pass "con el runtime claude no delega"
+    fi
+    if ( export MEFISTO_UI=mod MEFISTO_RUNTIME=fake HERDR_ENV=1 HERDR_PANE_ID="w1:p0" PATH="$FAKE_BIN:$PATH"
+         should_delegate_to_herdr ); then
+        fail "MEFISTO_UI=mod no deberia delegar"
+    else
+        pass "MEFISTO_UI=mod no delega"
     fi
     if ( unset HERDR_ENV MEFISTO_UI 2>/dev/null
-         should_delegate_to_herdr --parallel 42 43 ); then
+         export MEFISTO_RUNTIME=fake
+         should_delegate_to_herdr ); then
         fail "fuera de herdr no deberia delegar"
     else
         pass "fuera de herdr no delega"

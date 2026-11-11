@@ -46,7 +46,7 @@ Vive en `.claude/` del repo del propio plugin:
 - `.claude/commands/` -- skills internos con prefijo `mefisto-` (`/mefisto-tooling`, `/mefisto-plan`, `/mefisto-bug`, `/mefisto-fix-review`, `/mefisto-merge`).
 - `.claude/skills/` -- Agent Skills internos (MEF-ADR-0033).
 - `.claude/agents/` -- agentes internos (`mefisto-investigator`, `mefisto-planner`).
-- `.claude/scripts/` -- pipelines internos (`_mefisto-common.sh`, `mefisto-tooling-pipeline.sh`, `mefisto-tmux-pipeline.sh`).
+- `.claude/scripts/` -- pipelines internos (`_mefisto-common.sh`, `mefisto-tooling-pipeline.sh`, `mefisto-launch-pipeline.sh`).
 
 Los skills internos:
 
@@ -143,3 +143,4 @@ Pros: separacion fisica dura. Contras: dos artefactos a publicar y mantener, dep
 - 2026-07-26: enmienda por MEF-ADR-0033 (issue #360). Se agrega el tercer tipo de artefacto a los dos lados de la separacion (`skills/` publicado, `.claude/skills/` interno) y se registra en los gates de scope: `skills/*` en el blocklist publicado (`is_path_in_consumer_blocklist`), `skills/*` y `.claude/skills/*` en la allowlist interna (`is_path_in_mefisto_scope`), con cobertura en `scripts/tests/test-guards.sh`. Se explicita que ambos gates enumeran rutas de forma explicita, por lo que todo tipo de artefacto nuevo debe registrarse a mano.
 - 2026-07-26: enmienda por issue #406, a raiz de los dos bloqueos consecutivos del issue #380 (PRs #399 y #401). Se agrega la seccion E ("Secuencia de registro de rutas nuevas en los gates"): registrar una ruta y usarla son dos PRs distintos porque los pipelines cargan su gate con `source` desde `main`, no desde el worktree -- se documenta esa mecanica como propiedad de seguridad deliberada (no un defecto) y se cita el precedente canonico #360/PR #376 -> #364/PR #385 frente al contraejemplo #380. Las secciones A y B remiten a E para la secuencia, y la regla queda propagada al prompt del writer del pipeline interno y al resumen de la separacion publicado/interno en CLAUDE.md.
 - 2026-10-12: enmienda por issue #2349. El repo se renombra en GitHub a `augusto-romero-arango/mefisto` y el default de `repoSlug` (secciones C y Consecuencias) pasa a ese slug. El nombre previo (`eda-evsourcing-azure-harness`) sigue resolviendo por la redireccion de GitHub; el marketplace (`augusto-romero-arango-harness`) y el id del plugin no cambian.
+- 2026-11-10: seccion B: el lanzador interno pasa a llamarse `mefisto-launch-pipeline.sh` (antes `mefisto-tmux-pipeline.sh`). Sale tmux, que no existe en Windows nativo (MEF-ADR-0057 decision 5).

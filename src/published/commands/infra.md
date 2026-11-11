@@ -2,7 +2,7 @@
 {
   "kind": "command",
   "id": "infra",
-  "description": "Lanza el pipeline IaC para un issue de GitHub dentro de una sesion tmux.",
+  "description": "Lanza el pipeline IaC para un issue de GitHub.",
   "profile": "fast",
   "arguments": "<issue>"
 }
@@ -10,7 +10,7 @@
 
 {{mefisto:assert-consumer-repo}}
 
-Lanza el pipeline IaC para un issue de GitHub dentro de una sesion tmux. Comunicate en **espanol**.
+Lanza el pipeline IaC para un issue de GitHub. Comunicate en **espanol**.
 
 ## Entrada
 
@@ -85,22 +85,23 @@ Tipo: infra | Estado: listo
 Luego lanza el pipeline:
 
 ```bash
-{{mefisto:run tmux-pipeline.sh --infra $ARGUMENTS}}
+{{mefisto:run launch-pipeline.sh --infra $ARGUMENTS}}
 ```
 
-### 4. Instrucciones de conexion
+### 4. Instrucciones de seguimiento
 
-Seguimiento por runtime: cuando el runtime activo trae su propia cinta de seguimiento (la consola `fausto-blood-pact`) y el usuario no fijo la interfaz, el wrapper no abre pane ni sesion tmux: corre desacoplado, imprime la ruta del log y el avance lo sigue esa consola desde esta misma sesion. En el resto de los runtimes (MEF-ADR-0050): dentro de Herdr (`HERDR_ENV=1` en el entorno), el script delega en la interfaz Herdr y no hay nada que adjuntar: el pipeline queda corriendo en un pane de este mismo workspace con el visor en vivo del agente. En ese caso responde con:
+Seguimiento por runtime: cuando el runtime activo trae su propia cinta de seguimiento (la consola `fausto-blood-pact`) y el usuario no fijo la interfaz, el wrapper no abre pane: corre desacoplado, imprime la ruta del log y el avance lo sigue esa consola desde esta misma sesion. En el resto de los runtimes (MEF-ADR-0050): dentro de Herdr (`HERDR_ENV=1` en el entorno), el script delega en la interfaz Herdr: el pipeline queda corriendo en un pane de este mismo workspace con el visor en vivo del agente. En ese caso responde con:
 
 ```
 Pipeline infra corriendo en un pane de este workspace (visor en vivo del agente).
 ```
 
-Fuera de Herdr responde con:
+Fuera de Herdr el script tambien corre desacoplado, sin consola que lo siga: su salida dice `sin pane` sin nombrar la consola, e imprime la ruta del log y la linea del visor. En ese caso responde con:
 
 ```
-Pipeline infra lanzado en tmux. Para monitorear:
-  tmux -CC attach -t infra-<numero>
+Pipeline infra corriendo sin pane. Para monitorear, en otra terminal:
+  <linea de stream-watch.sh que imprimio el script>
+Log: <ruta del log que imprimio el script>
 ```
 
 ## Flujo: cero permisos de Azure en local (MEF-ADR-0021, MEF-ADR-0022)
@@ -117,6 +118,6 @@ El **plan real** corre en CI cuando se abre el PR (workflow `infra-cd.yml`, job 
 
 ## Reglas
 
-- **No esperes a que termine.** El script corre en background (en un pane Herdr o una sesion tmux). Devuelve el control inmediatamente.
+- **No esperes a que termine.** El script corre en background (desacoplado o en un pane Herdr). Devuelve el control inmediatamente.
 - **No implementes nada tu mismo.** Solo lanza el script.
-- Si tmux no esta instalado (y no estas dentro de Herdr), el script lo detecta y muestra el error.
+- `MEFISTO_UI` admite `mod` (desacoplado) y `herdr` (panes, solo dentro de Herdr); con cualquier otro valor el script aborta y muestra el error.

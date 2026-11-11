@@ -1058,7 +1058,7 @@ validate_variant_label() {
 # del arbol que tocara la terminal (`read </dev/tty`, `stty`/tcsetattr, o
 # simplemente leer stdin heredado) disparaba SIGTTIN/SIGTTOU y el kernel
 # detenia al grupo ENTERO (STAT=T), a veces durante minutos hasta un
-# `SIGCONT` manual -- confirmado por experimento en una pty de tmux. Ahora
+# `SIGCONT` manual -- confirmado por experimento en una pty real. Ahora
 # <cmd...> arranca en una SESION nueva y sin terminal de control: `setsid` si
 # esta en PATH (Linux), o si no el fallback
 # `perl -e 'use POSIX; POSIX::setsid() or die; exec @ARGV' -- <cmd...>`
@@ -1798,8 +1798,8 @@ build_agents_history_json() {
 # #800). Imprime por stdout "caffeinate -i" si el binario 'caffeinate' esta
 # disponible en PATH (macOS), o cadena vacia en cualquier otro sistema
 # (Linux/CI). Antepuesto al lanzamiento de un pipeline interno largo evita
-# que el Mac entre en suspension idle mientras corre en un pane de
-# tmux/Herdr (`-i`: solo suspension idle; sin `-d` la pantalla si puede
+# que el Mac entre en suspension idle mientras corre desacoplado o en un pane
+# de Herdr (`-i`: solo suspension idle; sin `-d` la pantalla si puede
 # apagarse; `-s` se descarta porque solo aplica con AC conectado). El
 # prefijo no envuelve al pipeline como proceso padre: `caffeinate <utility>`
 # hace fork de un helper que sostiene la assertion y exec del utility EN SU
@@ -1811,7 +1811,7 @@ build_agents_history_json() {
 # semantica.
 #
 # Alcance: se calcula UNA vez por corrida y se aplica en los RUNNERS
-# (mefisto-tmux-pipeline.sh, mefisto-herdr-pipeline.sh) sobre el lanzamiento
+# (mefisto-launch-pipeline.sh, mefisto-herdr-pipeline.sh) sobre el lanzamiento
 # del sub-pipeline interno, no en cada invocacion individual del CLI del
 # runtime. Un pipeline invocado directo, sin pasar por un runner, queda sin
 # envolver.

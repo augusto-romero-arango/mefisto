@@ -7,14 +7,13 @@
 # `exec` (plantilla documentada en src/internal/scripts/README.md); invocar
 # por cualquiera de las dos rutas es equivalente.
 #
-# Uso (misma superficie de modos que mefisto-tmux-pipeline.sh):
+# Uso (misma superficie de modos que mefisto-launch-pipeline.sh):
 #   src/internal/scripts/mefisto-herdr-pipeline.sh --tooling 42 [--from-stage N]
 #   src/internal/scripts/mefisto-herdr-pipeline.sh --tooling 42 --models 'reviewer=<modelo>'
 #   src/internal/scripts/mefisto-herdr-pipeline.sh --tooling 42 --variant experimento-a
 #   src/internal/scripts/mefisto-herdr-pipeline.sh --batch 42 43 44
 #
-# En vez de crear una sesion tmux nueva con un pane de `tail -f events.log`,
-# esta interfaz trabaja DENTRO del workspace herdr actual: reutiliza (o crea
+# Esta interfaz trabaja DENTRO del workspace herdr actual: reutiliza (o crea
 # con `herdr pane split`) un pane de ejecucion al lado del pane que despacha,
 # corre el sub-pipeline en background con su reporte a un log, y muestra en
 # el mismo pane -- intercalados -- el visor en vivo (mefisto-stream-watch.sh,
@@ -26,12 +25,9 @@
 # del issue Y sus hitos de entrega. Al terminar, el pane muestra solo el
 # banner final y la ruta del .report.log completo: ya se vio todo en vivo.
 #
-# --verbose se acepta y se consume sin efecto: en herdr el visor es siempre
-# visible (era el opt-in del modo tmux, issue #435). --if-exists tampoco
-# aplica (era de las sesiones tmux): una corrida concurrente abre un pane
-# adicional y los panes libres se reutilizan, con la misma deteccion que el
-# publicado (`herdr pane process-info`: foreground_process_group_id ==
-# shell_pid).
+# Una corrida concurrente abre un pane adicional y los panes libres
+# se reutilizan, con la misma deteccion que el publicado (`herdr pane
+# process-info`: foreground_process_group_id == shell_pid).
 #
 # Confirmacion de arranque (issue #1563, porte #1571): tras teclear el runner
 # en un pane, quien despacha espera el marcador herdr-dispatch-<token>.started
@@ -50,8 +46,8 @@
 # dispatch_to_pane): un unico punto de despacho cubre el mecanismo completo.
 #
 # Requiere correr dentro de un pane herdr (HERDR_ENV=1): la autodeteccion
-# vive en mefisto-tmux-pipeline.sh, que delega aqui cuando aplica y sigue
-# con tmux cuando no (escape hatch: MEFISTO_UI=tmux).
+# vive en mefisto-launch-pipeline.sh, que delega aqui cuando aplica y corre
+# desacoplado cuando no.
 #
 # Solo se ejecuta dentro del repo de Mefisto (assert_in_mefisto).
 
@@ -112,7 +108,7 @@ HERDR_DISPATCH_CONFIRM_TIMEOUT="${HERDR_DISPATCH_CONFIRM_TIMEOUT:-15}"
 # Contador de despachos de ESTA corrida: junto al timestamp y el PID arma un
 # token unico por marcador (dos despachos en el mismo segundo no colisionan).
 DISPATCH_TOKEN_SEQ=0
-# ENV_PREFIX: mismo criterio que mefisto-tmux-pipeline.sh (issue #871, CA-2).
+# ENV_PREFIX: mismo criterio que mefisto-launch-pipeline.sh (issue #871, CA-2).
 # El pane que corre --_pane-runner nace de un shell YA VIVO del workspace
 # herdr (`herdr pane run` solo teclea una linea ahi): no hereda el entorno
 # del proceso que despacha. MEFISTO_RUNTIME/MEFISTO_MODELS_FILE viajan como
@@ -136,13 +132,13 @@ abort()   { echo -e "\n${RED}${BOLD}x $1${NC}" >&2; exit 1; }
 # --- Guard de contexto herdr ---
 require_herdr_context() {
     command -v herdr &>/dev/null \
-        || abort "herdr no esta instalado (https://herdr.dev). Fuera de herdr usa: mefisto-tmux-pipeline.sh"
+        || abort "herdr no esta instalado (https://herdr.dev). Fuera de herdr lanza con mefisto-launch-pipeline.sh sin MEFISTO_UI=herdr (modo desacoplado)."
     [ "${HERDR_ENV:-}" = "1" ] \
-        || abort "No estas dentro de un pane de herdr (HERDR_ENV != 1). Fuera de herdr usa: mefisto-tmux-pipeline.sh"
+        || abort "No estas dentro de un pane de herdr (HERDR_ENV != 1). Fuera de herdr lanza con mefisto-launch-pipeline.sh sin MEFISTO_UI=herdr (modo desacoplado)."
     [ -n "${HERDR_PANE_ID:-}" ] && [ -n "${HERDR_WORKSPACE_ID:-}" ] \
         || abort "Faltan HERDR_PANE_ID/HERDR_WORKSPACE_ID en el entorno (los inyecta herdr en cada pane)."
     command -v jq &>/dev/null \
-        || abort "La interfaz herdr requiere jq para leer las respuestas del socket API. Instala jq o usa MEFISTO_UI=tmux."
+        || abort "La interfaz herdr requiere jq para leer las respuestas del socket API. Instala jq o usa MEFISTO_UI=mod."
 }
 
 # assert_pane_ownership
@@ -163,7 +159,7 @@ assert_pane_ownership() {
         pid=$(ps -o ppid= -p "$pid" 2>/dev/null | tr -d ' ')
         depth=$((depth + 1))
     done
-    abort "HERDR_PANE_ID=$HERDR_PANE_ID es heredado y no es el pane de esta sesion (este proceso no desciende de su shell): no se abre ningun pane. Usa MEFISTO_UI=mod o MEFISTO_UI=tmux, o lanza desde el pane herdr propio."
+    abort "HERDR_PANE_ID=$HERDR_PANE_ID es heredado y no es el pane de esta sesion (este proceso no desciende de su shell): no se abre ningun pane. Usa MEFISTO_UI=mod, o lanza desde el pane herdr propio."
 }
 
 # --- Helpers de panes (mismo contrato que scripts/herdr-pipeline.sh) ---
@@ -517,8 +513,8 @@ cmd_pane_runner() {
     # gates que corren los tests del repo) arrancan con las variables HERDR_*
     # removidas:
     # con HERDR_ENV=1 heredado del pane, cualquier invocacion de
-    # tmux-pipeline.sh o mefisto-tmux-pipeline.sh a lo largo de la corrida
-    # (p. ej. las fixtures de test-tmux-preparse.sh, corridas por el gate del
+    # launch-pipeline.sh o mefisto-launch-pipeline.sh a lo largo de la corrida
+    # (p. ej. las fixtures de test-launch-preparse.sh, corridas por el gate del
     # writer de un issue de Mefisto) autodetectaria herdr y crearia panes
     # REALES en el workspace del humano (visto en vivo durante la corrida del
     # issue #679). El runner conserva su propio entorno -- el rename final
@@ -559,8 +555,7 @@ cmd_pane_runner() {
     local viewer_pid=""
     # El visor todavia vive en .claude/scripts/ (su neutralizacion de fuente
     # de datos fue #878; su traslado de ubicacion no es parte de este issue),
-    # asi que se invoca por su ruta explicita en vez de via SCRIPT_DIR --
-    # mismo criterio que mefisto-tmux-pipeline.sh.
+    # asi que se invoca por su ruta explicita en vez de via SCRIPT_DIR.
     if [ -n "$issues_csv" ]; then
         "$PROJECT_ROOT/.claude/scripts/mefisto-stream-watch.sh" --issues "$issues_csv" --newer-than "$start_epoch" &
     else
@@ -663,16 +658,15 @@ print_usage() {
     echo "Uso: $0 --tooling <issue> [--from-stage N] [--models 'agente=modelo[,...]'] [--variant <label>]"
     echo "     $0 --batch <issue1> <issue2> ..."
     echo ""
-    echo "Interfaz herdr de los pipelines internos: en vez de una sesion tmux,"
-    echo "reutiliza (o crea) un pane de ejecucion en el workspace herdr actual"
-    echo "con el visor en vivo (mefisto-stream-watch.sh) del agente en curso."
-    echo "--verbose se acepta sin efecto (el visor es siempre visible aqui);"
-    echo "--if-exists no aplica (una corrida concurrente abre un pane adicional)."
+    echo "Interfaz herdr de los pipelines internos: reutiliza (o crea) un pane"
+    echo "de ejecucion en el workspace herdr actual con el visor en vivo"
+    echo "(mefisto-stream-watch.sh) del agente en curso; una corrida concurrente"
+    echo "abre un pane adicional."
     echo "--variant <label> (issue #711) corre el mismo issue en un pane propio,"
     echo "sin push/PR/comentario al issue -- solo valido con --tooling; --batch"
     echo "lo rechaza (seria ambiguo sobre varios issues)."
-    echo "Fuera de herdr usa mefisto-tmux-pipeline.sh, que autodetecta y delega"
-    echo "aqui solo cuando aplica (escape hatch: MEFISTO_UI=tmux)."
+    echo "Fuera de herdr usa mefisto-launch-pipeline.sh, que autodetecta y delega"
+    echo "aqui solo cuando aplica."
 }
 
 # --- Dispatcher ---
@@ -689,21 +683,15 @@ if [ "$1" = "--_pane-runner" ]; then
     exit $?
 fi
 
-# Pre-parseo con el mismo contrato que extract_wrapper_flags del wrapper tmux:
-# --verbose, --from-stage, --models e --if-exists se consumen de cualquier
-# posicion.
+# Pre-parseo con el mismo contrato que extract_wrapper_flags de
+# mefisto-launch-pipeline.sh: --from-stage, --models y --variant se
+# consumen de cualquier posicion.
 FROM_STAGE_EXTRA=""
 MODELS_SPEC=""
 VARIANT_SPEC=""
 REMAINING_ARGS=()
 while [ $# -gt 0 ]; do
     case "$1" in
-        --verbose)
-            # En herdr el visor es siempre visible: el flag del modo tmux
-            # (issue #435) se consume sin efecto para que /mefisto-tooling-verbose
-            # siga funcionando tal cual dentro de herdr.
-            shift
-            ;;
         --from-stage)
             [ $# -lt 2 ] && abort "Falta el valor de --from-stage"
             [[ "$2" =~ ^[0-9]+$ ]] || abort "--from-stage debe ser un numero entero (recibido: '$2')"
@@ -714,8 +702,8 @@ while [ $# -gt 0 ]; do
             # Sin este caso, --models caeria en REMAINING_ARGS y cmd_tooling
             # (que solo reenvia "$1") lo descartaria en silencio (issue #709,
             # mismo defecto que la revision del issue #708 corrigio en el lado
-            # publicado). A diferencia de tmux-pipeline.sh, aqui el valor se
-            # guarda crudo: el pane no lo re-parsea con un shell, viaja como
+            # publicado). A diferencia de mefisto-launch-pipeline.sh, aqui el
+            # valor se guarda crudo: el pane no lo re-parsea con un shell, viaja como
             # argv quoteado con printf %q (dispatch_to_pane).
             [ $# -lt 2 ] && abort "Falta el valor de --models"
             MODELS_SPEC="$2"
@@ -731,10 +719,8 @@ while [ $# -gt 0 ]; do
             VARIANT_SPEC="$2"
             shift 2
             ;;
-        --if-exists)
-            [ $# -lt 2 ] && abort "Falta el valor de --if-exists"
-            echo -e "${YELLOW}!${NC} --if-exists es de las sesiones tmux y no aplica en herdr (una corrida concurrente abre un pane adicional); se ignora." >&2
-            shift 2
+        --attach|--if-exists)
+            abort "--attach e --if-exists ya no existen: eran del modo de sesiones retirado (MEF-ADR-0057 decision 5)."
             ;;
         *)
             REMAINING_ARGS+=("$1")
@@ -751,9 +737,6 @@ fi
 case "${1:-}" in
     --help|-h)
         print_usage
-        ;;
-    --attach)
-        abort "En herdr no hay attach: los panes de ejecucion viven en el workspace de Mefisto. Abrilo desde la barra lateral de herdr (o corre 'herdr' para adjuntar al servidor)."
         ;;
     --tooling)
         shift

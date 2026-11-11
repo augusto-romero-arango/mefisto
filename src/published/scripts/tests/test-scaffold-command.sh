@@ -20,8 +20,8 @@ metadata="$(awk 'NR == 1 { next } $0 == "---" { exit } { print }' "$SOURCE")"
 if printf '%s' "$metadata" | jq -e '.kind == "command" and .id == "scaffold" and .profile == "fast" and .arguments == "<issue> [dominio] | <dominio>" and (keys | sort) == ["arguments", "description", "id", "kind", "profile"]' >/dev/null; then pass 'metadata sin agent ni capabilities'; else fail 'metadata neutral invalida'; fi
 body="$(awk 'NR == 1 { next } $0 == "---" && !seen { seen=1; next } seen { print }' "$SOURCE")"
 contains "$body" '{{mefisto:assert-consumer-repo}}' 'guard consumidor presente'
-contains "$body" '{{mefisto:run tmux-pipeline.sh --scaffold <issue> --domain <dominio-kebab-confirmado>}}' 'despacho con issue'
-contains "$body" '{{mefisto:run tmux-pipeline.sh --scaffold --domain <dominio-kebab-confirmado>}}' 'despacho sin issue'
+contains "$body" '{{mefisto:run launch-pipeline.sh --scaffold <issue> --domain <dominio-kebab-confirmado>}}' 'despacho con issue'
+contains "$body" '{{mefisto:run launch-pipeline.sh --scaffold --domain <dominio-kebab-confirmado>}}' 'despacho sin issue'
 contains "$body" 'namespacePrefix' 'RootNamespace desde namespacePrefix'
 contains "$body" '{{mefisto:config-path}}' 'lee la config via directiva'
 contains "$body" '{{mefisto:state-path logs}}' 'remite al log via directiva'
@@ -37,28 +37,29 @@ contains "$body" '¿Continuar? (s/n)' 'confirmacion explicita'
 contains "$body" 'Si dice no, detente' 'se detiene sin confirmacion'
 contains "$body" 'MEF-ADR-0020' 'resumen refleja MEF-ADR-0020'
 contains "$body" 'HERDR_ENV=1' 'distingue herdr'
-contains "$body" 'tmux -CC attach -t scaffold-<dominio>' 'attach tmux fuera de herdr'
+contains "$body" 'Pipeline de scaffold corriendo sin pane.' 'seguimiento desacoplado fuera de herdr'
+contains "$body" 'stream-watch.sh' 'remite al visor en otra terminal'
 contains "$body" 'No esperes a que termine' 'regla: no esperar'
 contains "$body" 'No crees el dominio tu mismo' 'regla: no crear el dominio'
 contains "$body" 'Nunca crees un dominio sin confirmacion explicita' 'regla: confirmacion obligatoria'
-contains "$body" 'Si tmux no esta instalado' 'deteccion de tmux ausente'
+contains "$body" '`MEFISTO_UI` admite `mod` (desacoplado) y `herdr`' 'documenta los modos de UI validos'
 for forbidden in 'Claude' '.claude/' 'cache' 'model:' 'tools:' 'allowed-tools:' 'permission:' '.plugin-root' 'CLAUDE_' 'plugins/cache'; do absent "$body" "$forbidden" "fuente no publica token prohibido: $forbidden"; done
 guard_line="$(grep -nF '{{mefisto:assert-consumer-repo}}' "$SOURCE" | cut -d: -f1)"
 operation_line="$(awk '/gh issue view|jq -r/ { print NR; exit }' "$SOURCE")"
 [ -n "$guard_line" ] && [ -n "$operation_line" ] && [ "$guard_line" -lt "$operation_line" ] && pass 'guard precede cualquier operacion' || fail 'guard no precede las operaciones'
 confirm_line="$(grep -nF '¿Continuar? (s/n)' "$SOURCE" | head -1 | cut -d: -f1)"
-launch_line="$(grep -nF '{{mefisto:run tmux-pipeline.sh' "$SOURCE" | head -1 | cut -d: -f1)"
+launch_line="$(grep -nF '{{mefisto:run launch-pipeline.sh' "$SOURCE" | head -1 | cut -d: -f1)"
 [ -n "$confirm_line" ] && [ -n "$launch_line" ] && [ "$confirm_line" -lt "$launch_line" ] && pass 'confirmacion precede al lanzamiento' || fail 'confirmacion no precede al lanzamiento'
 
 echo '[salidas] adaptador y mirror'
 [ -f "$CLAUDE" ] && pass "existe ${CLAUDE#"$REPO_ROOT/"}" || fail "falta ${CLAUDE#"$REPO_ROOT/"}"
 claude_body="$(< "$CLAUDE")"
 for form in '--scaffold <issue> --domain' '--scaffold --domain'; do
-    contains "$claude_body" "\"\${MEFISTO_PACKAGE_ROOT}/scripts/tmux-pipeline.sh\" $form" "Claude invoca tmux-pipeline.sh $form"
+    contains "$claude_body" "\"\${MEFISTO_PACKAGE_ROOT}/scripts/launch-pipeline.sh\" $form" "Claude invoca launch-pipeline.sh $form"
 done
 absent "$claude_body" 'plugins/cache' 'salida sin plugins/cache'
 absent "$claude_body" 'grep -ioP' 'salida sin grep -ioP'
-absent "$(printf '%s\n' "$claude_body" | grep -F 'scripts/tmux-pipeline.sh" --scaffold')" '.plugin-root' 'invocacion Claude sin .plugin-root'
+absent "$(printf '%s\n' "$claude_body" | grep -F 'scripts/launch-pipeline.sh" --scaffold')" '.plugin-root' 'invocacion Claude sin .plugin-root'
 contains "$claude_body" 'model: "haiku"' 'Claude materializa el perfil fast'
 if cmp -s "$MIRROR" "$CLAUDE"; then pass 'mirror Claude coincide byte a byte'; else fail 'mirror Claude diverge'; fi
 contains "$(< "$MIRROR")" '<!-- GENERADO por src/published/scripts/generate-published-adapters.sh desde src/published/commands/scaffold.md. No editar a mano. -->' 'mirror conserva marcador generado'

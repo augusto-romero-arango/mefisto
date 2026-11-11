@@ -7,7 +7,7 @@
 # stage, run-events.schema.json de #858) y renderiza una linea legible por
 # actividad -- mensaje de texto/razonamiento sin llamada a herramienta,
 # cierre de cada llamada a herramienta con su duracion, y cierre de stage con
-# sus metricas -- para que un humano viendo el pane de tmux pueda notar que
+# sus metricas -- para que un humano viendo el visor pueda notar que
 # el agente esta dando vueltas en vez de mirar 20 minutos de silencio.
 #
 # Estilo test-abort-log-tail.sh: el script bajo prueba corre codigo top-level
@@ -655,8 +655,8 @@ echo "     antes que el pipeline encuentra la corrida que nace despues (CA-1)"
 
 # La regresion que cubre: mefisto_state_read_paths solo emite rutas que YA
 # existen, y el modo de uso normal del visor es arrancarlo ANTES que el
-# pipeline (es la razon de --newer-than, y lo que hacen los lanzadores de
-# tmux/herdr). Resolviendo la lista una sola vez al arrancar, el visor se
+# pipeline (es la razon de --newer-than, y lo que hace el lanzador de
+# herdr). Resolviendo la lista una sola vez al arrancar, el visor se
 # quedaria con la lista vacia para siempre y no mostraria nada de la corrida
 # que empieza un segundo despues -- en silencio, sin error, exactamente el
 # sintoma que el issue #434 vino a eliminar.

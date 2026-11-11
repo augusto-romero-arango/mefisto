@@ -18,7 +18,6 @@ hooks/hooks.json       # salida Claude generada: SessionStart (.mefisto/pipeline
   scripts/             # _mefisto-common.sh, mefisto-tooling-pipeline.sh, ...
 docs/
   adr/                 # ADRs del marco
-  tmux-cheatsheet.md
   testing/harness-cheatsheet.md
 .mcp.json              # servidor MCP bundleado (microsoft-learn)
 AGENTS.md              # directivas canónicas neutrales a runtime de Mefisto

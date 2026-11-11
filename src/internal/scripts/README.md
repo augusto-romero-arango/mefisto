@@ -52,7 +52,7 @@ un `source` de una linea, para que los scripts que aun viven en `.claude/scripts
 sigan resolviendo la lib por su propio `dirname "${BASH_SOURCE[0]}"` sin cambiar
 una linea, y para que el gate de scope (MEF-ADR-0019 seccion E) siga
 cargandose desde el checkout principal. `mefisto-batch-pipeline.sh` (issue
-#870), `mefisto-tmux-pipeline.sh` (issue #871) y `mefisto-herdr-pipeline.sh`
+#870), `mefisto-launch-pipeline.sh` (issue #871) y `mefisto-herdr-pipeline.sh`
 (issue #872) siguieron a `mefisto-tooling-pipeline.sh` a este mismo layout.
 
 ## Runner de la suite completa: mefisto-test-suite.sh (issue #1439)

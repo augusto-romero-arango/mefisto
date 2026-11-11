@@ -81,17 +81,17 @@ La ruta queda registrada en `is_path_in_mefisto_scope` antes de poblarla (MEF-AD
 
 ### 5. Encaje con la neutralidad
 
-El mod es una superficie de **observacion**, no una operacion. MEF-ADR-0050 exige que toda operacion nazca neutral, y aqui la operacion (el pipeline, el merge) sigue neutral e intacta. Sin el mod (`claude -p`, VS Code o una politica administrada que lo bloquee), el flujo es exactamente el de hoy: pane de herdr o sesion tmux, sin un comando de dashboard equivalente. El mod nunca es requisito de un pipeline.
+El mod es una superficie de **observacion**, no una operacion. MEF-ADR-0050 exige que toda operacion nazca neutral, y aqui la operacion (el pipeline, el merge) sigue neutral e intacta. Sin el mod (`claude -p`, VS Code o una politica administrada que lo bloquee), la observacion es el pane de herdr o el visor `stream-watch` en otra terminal, sin un comando de dashboard equivalente. El mod nunca es requisito de un pipeline.
 
 ### 6. Modo de lanzamiento sin pane: `MEFISTO_UI=mod`
 
-Con `MEFISTO_UI=mod`, `mefisto-tmux-pipeline.sh --tooling` no abre sesion tmux ni pane herdr. Corre el pipeline desacoplado (`nohup`) con el mismo comando que re-parsea el pane tmux, y escribe su salida en `logs/mefisto-tooling-run-<ts>-issue-<n>.report.log`. El modo se evalua antes de la autodeteccion herdr.
+Con `MEFISTO_UI=mod`, `mefisto-launch-pipeline.sh --tooling` no abre pane herdr. Corre el pipeline desacoplado (`nohup`) y escribe su salida en `logs/mefisto-tooling-run-<ts>-issue-<n>.report.log`. El modo se evalua antes de la autodeteccion herdr. Fuera de herdr y sin `MEFISTO_UI` el wrapper tambien corre desacoplado, e imprime la ruta del reporte y la linea que abre el visor (`mefisto-stream-watch.sh --issues <n>`). `MEFISTO_UI` solo admite `mod` y `herdr` (MEF-ADR-0057 decision 5).
 
 El hijo arranca sin `HERDR_*` ni `MEFISTO_UI`, para que los gates que corren tests del repo no hereden el modo, y conserva `MEFISTO_RUNTIME`. La corrida sobrevive al cierre de la sesion de Claude Code, y otra sesion con el mod la retoma desde los archivos.
 
 En el lado interno el modo sin pane lo decide el runtime resuelto, igual que en el publicado: el adaptador Claude renderiza el lanzamiento con `MEFISTO_RUNTIME=claude`, y sin `MEFISTO_UI` el wrapper corre desacoplado (#2284). El mod solo observa el lanzamiento y no modifica el comando del skill: `/mefisto-tooling` no cambia, y un `MEFISTO_UI` explicito sigue ganando. Con el modo activo, la fila de herdr baja de tres panes a dos: planner y ejecucion.
 
-En el lado publicado el modo lo decide el runtime resuelto (#2285): con el runtime claude y sin `MEFISTO_UI`, o con `MEFISTO_UI=mod`, `tmux-pipeline.sh` corre desacoplado y la consola `fausto-blood-pact` sigue la corrida. Incluye `--parallel`: delega en `parallel-pipeline.sh` (con `--pipeline` y `--max-parallel` si vienen), cuyo scheduler serializa los `tipo:projection` (MEF-ADR-0034), por lo que un lote con dos o mas ya no aborta; el report queda en `logs/parallel-run-<ts>.report.log`. Ese scheduler espera 30 s entre lanzamientos (`--stagger <s>`, `0` lo apaga). Un `MEFISTO_UI=tmux|herdr` explicito conserva los panes, y ahi el abort de proyecciones se mantiene.
+En el lado publicado el modo lo decide el runtime resuelto (#2285): con el runtime claude y sin `MEFISTO_UI`, o con `MEFISTO_UI=mod`, `launch-pipeline.sh` corre desacoplado y la consola `fausto-blood-pact` sigue la corrida. Incluye `--parallel`: delega en `parallel-pipeline.sh` (con `--pipeline` y `--max-parallel` si vienen), cuyo scheduler serializa los `tipo:projection` (MEF-ADR-0034), por lo que un lote con dos o mas ya no aborta; el report queda en `logs/parallel-run-<ts>.report.log`. Ese scheduler espera 30 s entre lanzamientos (`--stagger <s>`, `0` lo apaga). Un `MEFISTO_UI=herdr` explicito conserva los panes, y ahi el abort de proyecciones se mantiene.
 
 ### 7. Requisitos de construccion
 
@@ -194,6 +194,7 @@ Los mods de ambos lados no comparten codigo (MEF-ADR-0019), pero no deben diverg
 
 ## Control de cambios
 
+- 2026-11-10: decision 5 y decision 6: sale tmux, que no existe en Windows nativo (MEF-ADR-0057 decision 5). Sin el mod la observacion es el pane de herdr o el visor `stream-watch` en otra terminal, y los lanzadores pasan a llamarse `launch-pipeline.sh` y `mefisto-launch-pipeline.sh`.
 - 2026-11-10: "Que queda fuera de este ADR", decision 4, decision 5 y decision 6: sale OpenCode, que deja de ser runtime soportado (MEF-ADR-0057 decision 7); sin el mod la observacion es el pane de herdr o la sesion tmux.
 - 2026-11-10: decision 6: en el lado interno el modo sin pane lo decide el runtime resuelto (`MEFISTO_RUNTIME=claude` sin `MEFISTO_UI`, #2284) y el hook `tool.call` del mod solo observa el lanzamiento, sin reescribir el comando; evita que el clasificador de auto mode quede sin veredicto (issue #2506).
 - 2026-10-16: decision 6 cubre los dos lados: el modo sin pane del consumidor lo decide el runtime resuelto e incluye `--parallel` (delega en `parallel-pipeline.sh`, con escalonado `--stagger`); se retira de "Aplica a" y de "Que queda fuera" el modo sin pane en el consumidor (issue #2448).

@@ -46,8 +46,8 @@ tail -20 .mefisto/pipeline/pipeline-history.jsonl 2>/dev/null || echo "Sin histo
 # Logs recientes
 ls -lt .mefisto/pipeline/logs/ 2>/dev/null | head -10
 
-# Sesiones tmux activas
-tmux list-sessions 2>/dev/null || echo "No hay sesiones tmux"
+# Pipelines corriendo
+pgrep -fl "[m]efisto-(tooling|batch)-pipeline\.sh" || echo "No hay pipelines corriendo"
 
 # Estado git
 git status

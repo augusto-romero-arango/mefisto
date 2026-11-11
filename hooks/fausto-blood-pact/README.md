@@ -95,7 +95,7 @@ Con una corrida activa (la del eslabón en curso del lote, o la única corrida s
 - Fila de pasos, de `status.agents` en su orden, separados por ` ─ `: `✓` passed (success), `●` running (warning), `✗` failed (error), `○` pending (atenuado); se recorta al ancho.
 - Título del issue y las 3 últimas líneas útiles, atenuadas: cola del log del pipeline (`status.log`, sin ANSI) y el último evento del agente activo (`HH:MM:SS <Tool>`, o `success · N turnos · $X` al cerrar). Los `events.jsonl` publicados van redactados (MEF-ADR-0053), así que no traen mensajes. Se calculan en el sondeo de 5 s (cola del archivo, `tail -c`) y se guardan en el atom `pactBandLines`; el render no escribe. El seguimiento continuo con `tail -F` es del pane de log (ver abajo).
 - La mascota decide su rol por sufijo del agente (el prefijo `<n>-` del stage se ignora): `*test-writer` y `*coverage-gate` tester, `*reviewer` revisor, `*infra-writer` infraestructura, el resto desarrollador.
-- Arranque inmediato: un `tool.call` Bash cuyo comando invoca `batch-`, `tmux-`, `tdd-`, `tooling-` o `iac-pipeline.sh` arma el sondeo de corridas cada 5 s durante 2 minutos aunque aún no haya status, y llama a `refreshRuns` al volver la llamada (mismo matcher `Bash` que ya usa la cinta de merge).
+- Arranque inmediato: un `tool.call` Bash cuyo comando invoca `batch-`, `launch-`, `tdd-`, `tooling-` o `iac-pipeline.sh` arma el sondeo de corridas cada 5 s durante 2 minutos aunque aún no haya status, y llama a `refreshRuns` al volver la llamada (mismo matcher `Bash` que ya usa la cinta de merge).
 
 ### Pane de log (#2321)
 

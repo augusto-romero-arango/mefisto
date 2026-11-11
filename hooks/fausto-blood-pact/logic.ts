@@ -1232,7 +1232,7 @@ export const BAND_FETCH_ROWS = 12
 export const LAUNCH_POLL_WINDOW_MS = 120_000
 export const LOG_TAIL_BYTES = 8192
 
-const PIPELINE_SCRIPTS = /(^|[\s/"'=])(batch|tmux|tdd|tooling|iac)-pipeline\.sh(\s|$|["';|&])/
+const PIPELINE_SCRIPTS = /(^|[\s/"'=])(batch|launch|tdd|tooling|iac)-pipeline\.sh(\s|$|["';|&])/
 
 /** True si el comando Bash lanza un pipeline del consumidor (`*-pipeline.sh`). */
 export function isPipelineLaunch(command: string | null | undefined): boolean {

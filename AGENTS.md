@@ -50,7 +50,7 @@ y `Verificación de fuentes` en el `AGENTS.md` del consumidor, el puente mínimo
 | `/install-apim` | Instala/actualiza el gateway APIM (agente `apim-gateway-scaffolder`), cablea `TF_VAR_workos_client_id`/`TF_VAR_cors_allowed_origins` y ejecuta la transicion a->b de tenancy (MEF-ADR-0028 seccion 4): flip de `tenancy.strategy` + scaffold de la biblioteca `src/{RootNamespace}.TenantResolver/` (patron AsyncLocal + middleware) + migracion del `ITenantResolver` de todos los dominios ya scaffoldeados a esa biblioteca; expone ademas en el mismo flip los servidores MCP ya scaffoldeados del BC (modulo `apim-mcp-api` + enrutador del PRM, gate OAuth de la variante MCP/Connect) |
 | `/install-auth` | Orquesta el camino completo de auth: encadena `/install-workos` -> gate humano (verifica `WORKOS_CLIENT_ID`/`WORKOS_API_KEY` via `gh`) -> `/install-apim`, stateless (delega en la idempotencia de ambos) |
 | `/parallel` | Corre varios issues en worktrees aislados |
-| `/batch-stop` | Escribe la senal de parada suave (`pipeline-state/batch-stop`, MEF-ADR-0017) que detiene los orquestadores con cola -- `batch-pipeline.sh` (el motor de `/sequential`) y `parallel-pipeline.sh` invocado directo -- sin matar ningun proceso: el eslabon o los worktrees en vuelo terminan, la cola deja de lanzar issues nuevos y los no procesados quedan `aplazado`. `/parallel` en modo pane lanza todo de entrada (un pane por issue, sin cola) y no tiene nada que retener |
+| `/batch-stop` | Escribe la senal de parada suave (`pipeline-state/batch-stop`, MEF-ADR-0017) que detiene los orquestadores con cola -- `batch-pipeline.sh` (el motor de `/sequential`) y `parallel-pipeline.sh` (el motor de `/parallel` sin panes) -- sin matar ningun proceso: el eslabon o los worktrees en vuelo terminan, la cola deja de lanzar issues nuevos y los no procesados quedan `aplazado`. `/parallel` en panes de herdr lanza todo de entrada (un pane por issue, sin cola) y no tiene nada que retener |
 | `/next-order` | Calcula el orden topológico de lanzamiento de los issues `estado:listo` del consumidor y deja lista la línea de `/mefisto:sequential` |
 | `/sequential` | Cadena de issues con merge automático |
 | `/scaffold` | Crea el scaffold de un nuevo dominio |
@@ -154,7 +154,7 @@ Workflow típico:
 1. Captura una idea: `/mefisto-plan` (modo draft) o `gh issue create --label "estado:borrador,tipo:tooling" --title "..."`.
 2. Refina: `/mefisto-plan` (modo refinar) hasta `estado:listo`.
 3. Si vas a lanzar varios issues juntos, calcula el orden: `/mefisto-next-order`.
-4. Implementa: `/mefisto-tooling <issue>`. El pipeline crea worktree, ejecuta writer+reviewer, valida scope y abre PR. Para seguir la corrida en vivo con el visor abierto en un tercer pane, usa `/mefisto-tooling-verbose <issue>` en su lugar (delega integramente en `/mefisto-tooling`, solo lanza con `--verbose`).
+4. Implementa: `/mefisto-tooling <issue>`. El pipeline crea worktree, ejecuta writer+reviewer, valida scope y abre PR. Fuera del mod y de herdr, el lanzador entrega la linea que abre el visor (`mefisto-stream-watch.sh`) en otra terminal.
 5. Revisa: comentarios del PR → `/mefisto-fix-review <pr>`.
 6. Mergea: `/mefisto-merge <pr>` (squash + delete-branch, sin `pr-sync.sh`).
 7. Pon al dia la bitacora: `/mefisto-bitacora` (invoca al agente `mefisto-historiador`, verifica el PR resultante y sugiere `/mefisto-merge <N>` o `gh pr close <N>`; no lo mergea).

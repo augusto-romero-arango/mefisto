@@ -26,7 +26,7 @@ Los agentes de código improvisan arquitectura: cada sesión reinventa convencio
 
 - **Skills** (slash commands) para onboarding, scaffolding de dominios, ciclo TDD, infraestructura, auth, merge y bitácora.
 - **Agentes** especializados: planner, escritores de tests, implementadores, revisores y scaffolders.
-- **Pipelines bash** sobre `tmux` y `git worktree`, con ejecución paralela y secuencial.
+- **Pipelines bash** sobre `git worktree`, con ejecución paralela y secuencial.
 - **ADRs** del marco (prefijo `MEF-ADR-`) como fuente de verdad arquitectónica.
 - **Servidor MCP** bundleado de Microsoft Learn para verificar documentación oficial.
 
@@ -40,7 +40,7 @@ Claude Code, con adaptador en el repo. La doctrina es neutral a runtime y el con
 
 ## Requisitos
 
-`bash` 3.2+, `jq`, `gh` autenticado, `git` 2.x con worktrees, `dotnet` 10.x, `terraform` 1.6+ y `tmux` (pipelines paralelos).
+`bash` 3.2+, `jq`, `gh` autenticado, `git` 2.x con worktrees, `dotnet` 10.x y `terraform` 1.6+.
 
 ## Instalación rápida
 
