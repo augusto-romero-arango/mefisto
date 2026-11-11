@@ -87,7 +87,7 @@ Estados: `pendiente`, `en curso`, `hecho`.
 | 1 | ADR de portabilidad | hecho | #2547 |
 | 2a | Retirar OpenCode | hecho | #2551, #2552 |
 | 2b | Retirar tmux | hecho | #2555 |
-| 3 | Base TypeScript | hecho | #PR3 |
+| 3 | Base TypeScript | hecho | #2556 |
 | 4 | Hooks | pendiente | |
 | 5 | Scripts sueltos | pendiente | |
 | 6 | Librerías y pipelines | pendiente | |
