@@ -894,6 +894,7 @@ classify_neutral_agent_failure() {
 # Retorna 0 si valido. Retorna 1 y deja el motivo en
 # PIPELINE_VARIANT_LABEL_ERROR (una linea, lista para abort()) si no --
 # mismo contrato que PIPELINE_STAGE_MODELS_ERROR.
+# Gemela en TypeScript: validateVariantLabel de scripts/lib/pipeline/variant.mts; un cambio va en los dos lados.
 validate_variant_label() {
     local label="$1"
     PIPELINE_VARIANT_LABEL_ERROR=""
@@ -2408,6 +2409,7 @@ compose_tfstate_storage_account_base() {
 # repo del consumidor esa ruta es su propia configuracion MCP de proyecto, no
 # una ruta reservada del plugin. Tampoco se agrega aqui; solo esta registrada
 # en is_path_in_mefisto_scope.
+# Gemela en TypeScript: isPathInConsumerBlocklist de scripts/lib/pipeline/consumer-scope.mts; un cambio va en los dos lados.
 is_path_in_consumer_blocklist() {
     local path="$1"
     [ -z "$path" ] && return 1
@@ -2428,6 +2430,7 @@ is_path_in_consumer_blocklist() {
 # Llamar despues de cada stage que invoca un agente.
 #
 # Retorna 0 si OK, 1 si hay violaciones (las lista en stderr).
+# Gemela en TypeScript: validateConsumerScopeChanges de scripts/lib/pipeline/consumer-scope.mts; un cambio va en los dos lados.
 validate_consumer_scope_changes() {
     local wt="$1"
     local base="$2"
@@ -2481,6 +2484,7 @@ validate_consumer_scope_changes() {
 # raiz del consumidor) antes de ejecutar la ruta devuelta tal cual, y el plugin
 # ya no vive dentro del repo del consumidor, asi que una ruta relativa como
 # "./scripts/tdd-pipeline.sh" no existe alli.
+# Gemela en TypeScript: pipelineScriptsDir de scripts/lib/pipeline/harness-identity.mts; un cambio va en los dos lados.
 _pc_script_dir() {
     cd "$(dirname "${BASH_SOURCE[0]}")" && pwd
 }
@@ -2502,6 +2506,7 @@ _pc_script_dir() {
 # extraccion con sed sobre la linea '"version": "X.Y.Z"' (mismo espiritu que
 # compute_stage_metrics). Si plugin.json no existe, o ninguna extraccion
 # produce un valor, imprime cadena vacia -- nunca aborta y siempre retorna 0.
+# Gemela en TypeScript: getHarnessVersion de scripts/lib/pipeline/harness-identity.mts; un cambio va en los dos lados.
 get_harness_version() {
     # Los tres pipelines corren con `set -euo pipefail` y toman el valor por
     # sustitucion de comando en su prologo, asi que un estado != 0 que se
@@ -2535,6 +2540,7 @@ get_harness_version() {
 # get_harness_identity_json lee exclusivamente el manifiesto generado de la
 # distribucion. Metadata ausente, invalida o incompleta produce nulls y una
 # degradacion visible; nunca se infiere identidad desde Git, caches o plugin.json.
+# Gemela en TypeScript: getHarnessIdentity y harnessIdentityJson de scripts/lib/pipeline/harness-identity.mts; un cambio va en los dos lados.
 get_harness_identity_json() {
     local expected_runtime="${1:-}" script_dir manifest version commit state
     script_dir="$(_pc_script_dir 2>/dev/null)" || script_dir=""
@@ -2569,6 +2575,7 @@ get_harness_identity_json() {
 #   issue #371, MEF-ADR-0034/0035)
 # - Issues tipo:infra retornan "SKIP:infra"
 # - Issues sin label tipo:* retornan "SKIP:no-tipo"
+# Gemela en TypeScript: resolvePipeline de scripts/lib/pipeline/pipeline-resolution.mts; un cambio va en los dos lados.
 resolve_pipeline() {
     local issue="$1"
     local override="${2:-}"
@@ -2597,6 +2604,7 @@ resolve_pipeline() {
 # tipo:projection enruta a tdd-pipeline.sh (issue #372): ese script ya trae la
 # rama read-side (issue #371) que detecta el label internamente y despacha
 # projection-test-writer/projection-implementer en vez de test-writer/implementer.
+# Gemela en TypeScript: resolveFromLabels de scripts/lib/pipeline/pipeline-resolution.mts; un cambio va en los dos lados.
 _resolve_from_labels() {
     local labels="$1"
     local sd
@@ -2625,6 +2633,7 @@ _resolve_from_labels() {
 # valido se honra aunque el estado no se haya podido verificar (queda UNKNOWN,
 # nunca se finge OPEN -- los llamadores siguen pudiendo saltar issues no
 # verificables).
+# Gemela en TypeScript: resolvePipelineWithState de scripts/lib/pipeline/pipeline-resolution.mts; un cambio va en los dos lados.
 resolve_pipeline_with_state() {
     local facts state
     facts=$(resolve_issue_facts "$@") || return 1
@@ -2648,6 +2657,7 @@ resolve_pipeline_with_state() {
 # Con override, IS_PROJECTION se reporta igual (sale de los labels, no del
 # pipeline resuelto): forzar --pipeline no cambia que archivos del worker de
 # proyecciones toca el issue, asi que la serializacion se mantiene.
+# Gemela en TypeScript: resolveIssueFacts de scripts/lib/pipeline/pipeline-resolution.mts; un cambio va en los dos lados.
 resolve_issue_facts() {
     local issue="$1"
     local override="${2:-}"
@@ -2699,6 +2709,7 @@ resolve_issue_facts() {
 # que ya tiene los labels a mano; si gh no pudo resolverlos, el texto llega vacio
 # y el issue simplemente no se trata como projection (mismo fallo silencioso que
 # _resolve_from_labels, que cae a SKIP:no-tipo).
+# Gemela en TypeScript: isTipoProjectionFromLabels de scripts/lib/pipeline/pipeline-resolution.mts; un cambio va en los dos lados.
 _is_tipo_projection_from_labels() {
     echo "$1" | grep -qx 'tipo:projection'
 }
@@ -2717,6 +2728,7 @@ _is_tipo_projection_from_labels() {
 #   <projection_running> "true"/"false"; ya hay un tipo:projection vivo ahora mismo
 #
 # Retorna 0 si puede lanzarse, 1 si debe esperar.
+# Gemela en TypeScript: canLaunchNow de scripts/lib/pipeline/pipeline-resolution.mts; un cambio va en los dos lados.
 can_launch_now() {
     local max_parallel="$1" running="$2" is_projection="$3" projection_running="$4"
     if [ "$max_parallel" -gt 0 ] && [ "$running" -ge "$max_parallel" ]; then
@@ -2756,6 +2768,7 @@ can_launch_now() {
 # normal que sigue a continuacion.
 #
 # Retorna siempre 0.
+# Gemela en TypeScript: findOpenPrForBranch de scripts/lib/pipeline/pull-requests.mts; un cambio va en los dos lados.
 find_open_pr_for_branch() {
     local branch="$1"
     local repo="${2:-}"
@@ -2987,6 +3000,7 @@ coverage_classify_file() {
 # (launch-pipeline.sh, herdr-pipeline.sh) sobre el lanzamiento del sub-pipeline,
 # no en cada `claude -p` individual dentro de tdd/tooling/iac-pipeline.sh. Un
 # pipeline invocado directo, sin pasar por un runner, queda sin envolver.
+# Gemela en TypeScript: caffeinatePrefix de scripts/lib/pipeline/caffeinate.mts; un cambio va en los dos lados.
 caffeinate_prefix() {
     if command -v caffeinate >/dev/null 2>&1; then
         printf '%s' "caffeinate -i"
@@ -3037,6 +3051,7 @@ detect_smoke_only() {
 # 'Depende de #N' o 'Bloqueado por #N' (con o sin vineta, sin distinguir
 # mayusculas). Ignora 'Bloquea #N', 'Relacionado: #N' y la prosa. Misma regla
 # anclada que next-order.sh.
+# Gemela en TypeScript: canonicalDependencies de scripts/lib/issue-dependencies.mts; un cambio va en los dos lados.
 extract_canonical_dependencies() {
     printf '%s\n' "${1:-}" \
         | awk '/^##[[:space:]]*[Dd]ependencias/{f=1;next} /^##[[:space:]]/{f=0} f' \
