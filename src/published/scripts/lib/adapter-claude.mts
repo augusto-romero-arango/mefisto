@@ -1,6 +1,5 @@
 // Renderizador Claude Code de las fuentes publicadas: devuelve el archivo completo o lanza
-// `AdapterError`, nunca una salida parcial. Gemela de lib/adapter-claude.sh, que aun carga
-// tests/test-tdd-agents.sh.
+// `AdapterError`, nunca una salida parcial.
 
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'

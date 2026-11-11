@@ -1,8 +1,7 @@
 // Resolucion de las rutas efectivas de lectura del contrato consumidor (MEF-ADR-0053 seccion 4):
 // config-path e instructions-path eligen la ubicacion canonica, aceptan el fallback legacy solo si
 // la canonica falta y abortan si no existe ninguna. Solo lo que este modulo emite nombra las rutas
-// legacy (MEF-ADR-0050). Gemela de lib/effective-contract.sh, que aun carga
-// tests/test-tdd-agents.sh.
+// legacy (MEF-ADR-0050).
 
 export function needsConfigPath(body: string): boolean {
   return body.includes('{{mefisto:config-path}}')

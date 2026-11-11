@@ -1,21 +1,20 @@
 #!/usr/bin/env bash
-# test-projection-implementer-instructions-contract.sh -- Neutraliza la
-# lectura del contrato consumidor en projection-implementer (#1433,
-# MEF-ADR-0053 seccion 4).
+# test-projection-implementer-instructions-contract.sh -- Lectura del contrato consumidor
+# en projection-implementer (#1433, MEF-ADR-0053 seccion 4).
 #
-# Demuestra que la resolucion de RootNamespace en la salida generada
-# Claude del stage de proyecciones procede exclusivamente del
-# archivo efectivo de instrucciones: canonico, fallback legacy, coexistencia
-# (prevalece canonico, sin mezcla) y ausencia (aborta con el diagnostico de
-# onboarding) -- sin remitir al contrato de otro agente ni nombrar la ruta
-# legacy en la fuente neutral.
+# Ejecuta el preludio de la salida generada Claude del stage de proyecciones y
+# demuestra que RootNamespace procede exclusivamente del archivo efectivo de
+# instrucciones: canonico, fallback legacy, coexistencia (prevalece canonico,
+# sin mezcla) y ausencia (aborta con el diagnostico de onboarding).
+#
+# Lo que se verifica leyendo el texto de la fuente y del agente generado esta en
+# agent-instructions-contract.test.mts.
 
 set -uo pipefail
 export LC_ALL=C
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
 REPO_ROOT="$(cd "$HERE/../.." && pwd -P)"
-SOURCE_AGENT="$REPO_ROOT/src/published/agents/projection-implementer.md"
 CLAUDE_AGENT="$REPO_ROOT/agents/projection-implementer.md"
 PASS=0; FAIL=0
 pass() { printf '  PASS: %s\n' "$1"; PASS=$((PASS + 1)); }
@@ -32,35 +31,13 @@ extract_bash_block() {
     ' "$file"
 }
 
-echo "[1] La fuente neutral usa instructions-path y ya no remite al contrato de otro agente ni nombra la ruta legacy"
-if grep -Fq '{{mefisto:instructions-path}}' "$SOURCE_AGENT"; then
-    pass "la fuente neutral usa {{mefisto:instructions-path}}"
-else
-    fail "la fuente neutral no usa {{mefisto:instructions-path}}"
-fi
-if grep -Fq 'mismo contrato que' "$SOURCE_AGENT"; then
-    fail "la fuente neutral conserva una remision ambigua a otro contrato"
-else
-    pass "la fuente neutral resuelve RootNamespace sin remitir al contrato de otro agente"
-fi
-if grep -Eq 'CLAUDE\.md|archivo de instrucciones raiz' "$SOURCE_AGENT"; then
-    fail "la fuente neutral nombra la ruta legacy o una lectura directa del archivo raiz"
-else
-    pass "la fuente neutral no nombra la ruta legacy directamente"
-fi
-
-echo "[2] La salida generada resuelve RootNamespace desde el archivo efectivo (canonico/fallback/coexistencia/ausencia)"
+echo "[1] La salida generada resuelve RootNamespace desde el archivo efectivo (canonico/fallback/coexistencia/ausencia)"
 
 runtime=Claude; agent_file="$CLAUDE_AGENT"
 script="$(extract_bash_block "$agent_file" 2)"
 if [ -z "$script" ]; then
     fail "$runtime: no se pudo extraer el bloque de resolucion de instrucciones"
     echo; echo "Resumen: $PASS pass, $FAIL fail"; exit 1
-fi
-if grep -Fq '/mefisto:onboard' "$agent_file"; then
-    pass "$runtime: el diagnostico de ausencia total remite a onboard"
-else
-    fail "$runtime: no remite a onboard cuando falta el contrato efectivo"
 fi
 
 resolve() {

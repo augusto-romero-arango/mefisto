@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 # test-install-apim-config-path.sh -- Contrato de ruta efectiva para el flip de
 # tenancy de /install-apim (#1504, MEF-ADR-0053).
+#
+# Aqui solo se ejecutan los bloques bash del comando; lo que se verifica leyendo
+# su texto esta en install-apim-config-path.test.mts.
 
 set -uo pipefail
 
@@ -31,11 +34,6 @@ extract_bash_after_heading() {
 FLIP_BLOCK="$(extract_bash_after_heading '#### 9.2 Flip del token')"
 COMMIT_BLOCK="$(extract_bash_after_heading '### 10. Commitear la migracion de tenancy')"
 STAGE_BLOCK="$(awk '/^if \[ "\$TENANCY_TOKEN_FLIPPED" = true \]; then$/,/^fi$/' <<< "$COMMIT_BLOCK")"
-BASH_BLOCKS="$(awk '
-    /^```bash$/ { inside=1; next }
-    /^```$/ && inside { inside=0; next }
-    inside { print }
-' "$COMMAND")"
 
 write_config() {
     local path="$1" strategy="$2" extra="$3"
@@ -151,20 +149,6 @@ if ! run_flip "$MISSING" "$WORK/ausente.out" \
     pass 'ausencia de ambos configs aborta'
 else
     fail "ausencia no bloqueó correctamente: $(cat "$WORK/ausente.out")"
-fi
-
-echo '[5] Antirregresión de instrucciones directas legacy y staging'
-if grep -Fq '.claude/harness.config.json' <<< "$BASH_BLOCKS"; then
-    fail 'reapareció una lectura, escritura o staging directo del config legacy en un bloque bash'
-else
-    pass 'ningún bloque bash lee, escribe ni agrega directamente el config legacy'
-fi
-if grep -Fq 'source "$COMMON"' <<< "$FLIP_BLOCK" \
-    && grep -Fq 'CONFIG=$(resolve_harness_config_path write "$REPO_ROOT")' <<< "$FLIP_BLOCK" \
-    && grep -Fq 'git add "$CONFIG"' <<< "$COMMIT_BLOCK"; then
-    pass 'los bloques extraídos usan el helper compartido y la ruta escrita'
-else
-    fail 'los bloques no usan el helper compartido o la ruta efectiva'
 fi
 
 echo '----------------------------------------'
