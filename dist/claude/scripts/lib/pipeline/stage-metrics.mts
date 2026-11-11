@@ -40,8 +40,8 @@ function readNonEmpty(file: string): Buffer | null {
   }
 }
 
-/** Las lineas que son JSON valido; una truncada o vacia se ignora. */
-function lineValues(text: string): JqValue[] {
+/** Los valores de las lineas de un JSONL que son JSON valido; una truncada o vacia se ignora. */
+export function streamValues(text: string): JqValue[] {
   const values: JqValue[] = []
   for (const line of text.split('\n')) {
     try {
@@ -59,7 +59,8 @@ function hasType(event: JqValue, types: readonly string[]): boolean {
   return typeof type === 'string' && types.includes(type)
 }
 
-function ofType(events: readonly JqValue[], types: readonly string[]): JqValue[] {
+/** Los eventos cuyo `.type` es uno de `types`. */
+export function eventsOfType(events: readonly JqValue[], types: readonly string[]): JqValue[] {
   return events.filter((event) => hasType(event, types))
 }
 
@@ -169,7 +170,7 @@ function legacyLog(event: JqObject, emit: Emit): void {
 /** Lo que `jq -r` escribe por cada evento; un fallo corta solo la linea en curso. */
 function logText(stream: string, log: (event: JqObject, emit: Emit) => void): string {
   let text = ''
-  for (const event of lineValues(stream)) {
+  for (const event of streamValues(stream)) {
     if (!isJqObject(event)) continue
     orNull(() => log(event, (value) => (text += `${typeof value === 'string' ? value : dumpJq(value, 2)}\n`)))
   }
@@ -187,7 +188,7 @@ export function deriveStageLogFromStream(streamFile: string, stderrFile: string,
     return
   }
   const stream = readNonEmpty(streamFile)?.toString('utf8') ?? null
-  const neutral = stream !== null && anyEvent(lineValues(stream), NEUTRAL)
+  const neutral = stream !== null && anyEvent(streamValues(stream), NEUTRAL)
   const log = stream === null ? '' : logText(stream, neutral ? neutralLog : legacyLog)
   const stderr = neutral ? null : readNonEmpty(stderrFile)
   const parts: Buffer[] = [Buffer.from(log)]
@@ -202,7 +203,7 @@ export function deriveStageLogFromStream(streamFile: string, stderrFile: string,
 // --- Metricas -------------------------------------------------------------------
 
 function neutralMetrics(events: readonly JqValue[]): JqValue {
-  const terminal = ofType(events, TERMINAL).at(-1) ?? null
+  const terminal = eventsOfType(events, TERMINAL).at(-1) ?? null
   if (terminal === null) return null
   const either = (first: string[], ...rest: string[][]): JqValue =>
     firstTruthy(...[first, ...rest].map((keys) => () => path(terminal, ...keys)))
@@ -268,7 +269,7 @@ interface ToolEvent {
 /** Bloques `kind` del contenido de los eventos `type`, fechados por su evento. */
 function toolEvents(events: readonly JqObject[], type: string, kind: string, idKey: string): ToolEvent[] {
   const found: ToolEvent[] = []
-  for (const event of ofType(events, [type])) {
+  for (const event of eventsOfType(events, [type])) {
     for (const item of contentItems(event)) {
       if (get(item, 'type') !== kind) continue
       found.push({ id: get(item, idKey), name: get(item, 'name'), ts: timestampMs(event) })
@@ -303,11 +304,11 @@ function toolCalls(events: readonly JqObject[]): JqValue[] {
 
 function legacyMetrics(values: readonly JqValue[]): JqValue {
   const events = values.filter(isJqObject)
-  const result = ofType(events, ['result']).at(-1) ?? null
+  const result = eventsOfType(events, ['result']).at(-1) ?? null
   if (result === null) return null
   const init = events.find((event) => get(event, 'type') === 'system' && get(event, 'subtype') === 'init')
   const modelFromInit = get(init, 'model')
-  const modelFromAssistant = path(ofType(events, ['assistant'])[0], 'message', 'model')
+  const modelFromAssistant = path(eventsOfType(events, ['assistant'])[0], 'message', 'model')
   const denials = get(result, 'permission_denials')
   return {
     turns: get(result, 'num_turns'),
@@ -333,14 +334,14 @@ function legacyMetrics(values: readonly JqValue[]): JqValue {
     terminal_reason: get(result, 'terminal_reason'),
     ttft_ms: get(result, 'ttft_ms'),
     permission_denials: Array.isArray(denials) ? denials.length : null,
-    rate_limit_events: ofType(events, ['rate_limit_event']).length,
+    rate_limit_events: eventsOfType(events, ['rate_limit_event']).length,
     tool_calls: toolCalls(events),
   }
 }
 
 /** Metricas del stage cuyo JSONL es `stream`, como JSON compacto; `null` si no hay evento final. */
 export function stageMetricsFromStream(stream: string): string {
-  const values = lineValues(stream)
+  const values = streamValues(stream)
   // La forma se elige por vocabulario, nunca por runtime.
   const metrics = anyEvent(values, TERMINAL) ? orNull(() => neutralMetrics(values)) : orNull(() => legacyMetrics(values))
   return dumpJq(metrics)
@@ -388,9 +389,9 @@ export function enrichStageMetrics(input: StageCorrelation): string {
     const metrics = parseJq(input.baseMetrics.length > 0 ? input.baseMetrics : 'null')
     const variant = parseJq(input.variantJson)
     const identity = parseJq(input.identityJson)
-    const events = lineValues(stream)
-    const started = ofType(events, ['run.started'])[0] ?? null
-    const terminal = ofType(events, TERMINAL).at(-1) ?? null
+    const events = streamValues(stream)
+    const started = eventsOfType(events, ['run.started'])[0] ?? null
+    const terminal = eventsOfType(events, TERMINAL).at(-1) ?? null
     const orAbsent = (...operands: (() => JqValue)[]): JqValue => firstTruthy(...operands, () => null)
     const requestedModel = orAbsent(() => get(started, 'model'))
     const base = firstTruthy(
