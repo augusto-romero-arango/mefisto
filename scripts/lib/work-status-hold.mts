@@ -25,7 +25,7 @@ export function lastHoldLine(eventsLog: string, fromLine = 0): string | null {
 }
 
 /** Epoch local de `HH:MM:SS` en la fecha de `day`, o `null` si la hora no existe. */
-function epochAt(day: Date, hms: string): number | null {
+export function epochAt(day: Date, hms: string): number | null {
   const [hours = 0, minutes = 0, seconds = 0] = hms.split(':').map(Number)
   if (hours > 23 || minutes > 59 || seconds > 60) return null
   return Math.floor(new Date(day.getFullYear(), day.getMonth(), day.getDate(), hours, minutes, seconds).getTime() / 1000)
