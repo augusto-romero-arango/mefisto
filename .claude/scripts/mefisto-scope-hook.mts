@@ -27,13 +27,14 @@ export function editedPath(input: unknown): string | null {
 }
 
 // Ruta real del ancestro que existe mas lo que falte: git y la herramienta pueden nombrar la
-// misma carpeta por alias distintos (enlaces simbolicos, nombres cortos de Windows).
+// misma carpeta por alias distintos (enlaces simbolicos, nombres cortos de Windows). Solo la
+// variante nativa de realpath expande los nombres cortos.
 function canonical(path: string): string {
   const rest: string[] = []
   let current = resolve(path)
   for (;;) {
     try {
-      return join(realpathSync(current), ...rest)
+      return join(realpathSync.native(current), ...rest)
     } catch {
       const parent = dirname(current)
       if (parent === current) return resolve(path)
