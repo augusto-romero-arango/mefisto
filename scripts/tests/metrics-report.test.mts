@@ -601,7 +601,8 @@ describe('historial con tipos inesperados', () => {
     const { code, stdout, stderr } = report(repo)
     assert.equal(code, 1)
     assert.equal(stdout, '')
-    assert.equal(stderr, `ERROR: no se pudo procesar el historial (${legacyHistory()})`)
+    // La ruta sale de la raiz que informa git, que en Windows puede venir con otra grafia.
+    assert.match(stderr, /^ERROR: no se pudo procesar el historial \(.*pipeline-history\.jsonl\)$/)
   })
 
   test('lineas corruptas y valores que no son objetos se ignoran', () => {
