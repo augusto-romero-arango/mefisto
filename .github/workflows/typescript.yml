@@ -12,6 +12,7 @@ on:
     paths:
       - '**/*.mts'
       - 'src/internal/tsconfig.json'
+      - '.gitattributes'
       - '.github/workflows/typescript.yml'
   schedule:
     - cron: '30 8 * * *'
