@@ -31,16 +31,33 @@ const SPACE = '[ \\t\\n\\v\\f\\r]'
 const AZURERM_BACKEND = new RegExp(`backend${SPACE}*"azurerm"`)
 const QUOTED_VALUE = new RegExp(`.*=${SPACE}*"([^"]+)".*`, 's')
 
+/** Los `.tf` de `dir` que el glob `*.tf` de bash recorreria, en orden; vacio si `dir` no se puede leer. */
+function terraformFiles(dir: string): string[] {
+  try {
+    return readdirSync(dir)
+      .filter((entry) => entry.endsWith('.tf') && !entry.startsWith('.'))
+      .sort()
+  } catch {
+    return []
+  }
+}
+
+/** Por cada `.tf` legible de `dir`, cuantas lineas declaran un backend azurerm. */
+export function azurermBackendLines(dir: string): { file: string; count: number }[] {
+  return terraformFiles(dir).flatMap((file) => {
+    try {
+      const lines = readFileSync(join(dir, file), 'utf8').split('\n')
+      return [{ file, count: lines.filter((line) => AZURERM_BACKEND.test(line)).length }]
+    } catch {
+      return []
+    }
+  })
+}
+
 /** Valor literal de `key` en el primer `.tf` de `dir` con backend azurerm donde cumple `valid`. */
 function readBackendValue(dir: string, key: string, valid: RegExp): string {
-  let names: string[]
-  try {
-    names = readdirSync(dir)
-  } catch {
-    return ''
-  }
   const declaration = new RegExp(`^${SPACE}*${key}${SPACE}*=`)
-  for (const name of names.filter((entry) => entry.endsWith('.tf') && !entry.startsWith('.')).sort()) {
+  for (const name of terraformFiles(dir)) {
     let lines: string[]
     try {
       lines = readFileSync(join(dir, name), 'utf8').split('\n')
