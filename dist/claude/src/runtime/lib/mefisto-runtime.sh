@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 # Discovery abierto de adaptadores de runtime (MEF-ADR-0050, issue #1045).
 # Bash 3.2: no usa arrays asociativos ni enumera runtimes concretos.
+# La rama de descubrimiento tiene gemela en scripts/lib/upgrade-runtime.mts: un cambio va en
+# los dos lados.
 
 _mefisto_runtime_computed_lib_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 : "${MEFISTO_RUNTIME_LIB_DIR:=$_mefisto_runtime_computed_lib_dir}"
