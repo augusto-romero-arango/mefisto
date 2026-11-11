@@ -945,6 +945,7 @@ validate_variant_label() {
 #     `-lt` de bash del gate.
 #   - La asignacion lleva `|| true` para degradar a "?" si awk no esta disponible
 #     o no puede procesar la salida, incluso bajo `set -euo pipefail`.
+# Gemela en TypeScript: extractTestCount de scripts/lib/pipeline/test-results.mts; un cambio va en los dos lados.
 extract_test_count() {
     local count
     count=$(printf '%s\n' "$1" | awk '
@@ -976,6 +977,7 @@ extract_test_count() {
 # cruzar la frontera JSON. extract_test_count conserva ese sentinela porque el
 # gate de refactor distingue un conteo desconocido de cero; la evidencia durable
 # en cambio solo admite un entero no negativo o null.
+# Gemela en TypeScript: testsJsonValue de scripts/lib/pipeline/test-results.mts; un cambio va en los dos lados.
 tests_json_value() {
     local tests="${1:-}"
     if [[ "$tests" =~ ^[0-9]+$ ]]; then
@@ -991,6 +993,7 @@ tests_json_value() {
 # cierre ocurre despues de crear el PR: un fallo de serializacion o escritura es
 # bookkeeping no critico, por lo que deja advertencia visible y evidencia en el
 # events log, pero siempre retorna 0.
+# Gemela en TypeScript: appendCompletedHistory de scripts/lib/pipeline/run-history.mts; un cambio va en los dos lados.
 append_completed_history() {
     local history_file="$1" events_log="$2"
     shift 2
@@ -1018,6 +1021,7 @@ append_completed_history() {
 # Imprime: stdout combinado de todos los proyectos.
 # Exit code: 0 si todos pasan, primer codigo de fallo (!= 0 y != 8) si alguno
 # falla, 8 si NINGUN proyecto tenia tests para ejecutar.
+# Gemela en TypeScript: runTestsProjects de scripts/lib/pipeline/test-results.mts; un cambio va en los dos lados.
 run_tests_projects() {
     local worktree="$1"
     shift
@@ -1049,6 +1053,7 @@ run_tests_projects() {
 # Imprime el bloque del primer metodo cuya firma contiene "<metodo>(": desde la
 # linea de la firma hasta que las llaves balancean (o hasta el ';' de un cuerpo
 # con '=>'). Sin coincidencia no imprime nada.
+# Gemela en TypeScript: redMethodBody de scripts/lib/pipeline/red-tests.mts; un cambio va en los dos lados.
 _red_method_body() {
     awk -v m="$1" '
         !found && $0 ~ ("[[:space:]]" m "[[:space:]]*\\(") { found=1; arrow=($0 ~ /=>/) }
@@ -1078,6 +1083,7 @@ _red_method_body() {
 # Imprime una linea "<test>\t<archivo>" por cada test reportado.
 # Exit: 0 analisis completo (con o sin reportes); 2 salida no parseable o fallo
 # del analisis. Nunca aborta: el llamador degrada a warn.
+# Gemela en TypeScript: detectPreexistingRedTests de scripts/lib/pipeline/red-tests.mts; un cambio va en los dos lados.
 detect_preexisting_red_tests() {
     local worktree="$1" snapshot="$2" output="$3"
     local names name method hit file old new seen=" "
@@ -1115,6 +1121,7 @@ detect_preexisting_red_tests() {
 # TODOS los tests en rojo de <test_output> son preexistentes no modificados.
 # Exit: 0 todos preexistentes (lista en stdout); 1 hay algun rojo fuera de la
 # lista; 2 el analisis fallo o la salida no es parseable.
+# Gemela en TypeScript: preexistingRedOnly de scripts/lib/pipeline/red-tests.mts; un cambio va en los dos lados.
 preexisting_red_only() {
     local worktree="$1" snapshot="$2" output="$3"
     local list rc=0 names name method
@@ -1138,6 +1145,7 @@ preexisting_red_only() {
 #
 # Issue #2062: archivos de tests/ modificados, renombrados o eliminados entre
 # <base_head> (HEAD de Stage 2) y el HEAD actual (Stage 3). Un archivo por linea.
+# Gemela en TypeScript: listReviewerTouchedTests de scripts/lib/pipeline/red-tests.mts; un cambio va en los dos lados.
 list_reviewer_touched_tests() {
     local worktree="$1" base="$2"
     git -C "$worktree" diff --name-only --diff-filter=MDR "$base" HEAD -- 'tests/' 2>/dev/null
@@ -1150,6 +1158,7 @@ list_reviewer_touched_tests() {
 # leida de <worktree>/.mefisto/pipeline/warnings-remanentes.txt. Acepta "#N", "N" (se
 # normaliza a "#N") y "owner/repo#N"; ignora el resto. Sin archivo o sin referencias
 # no imprime nada.
+# Gemela en TypeScript: renderWarningRemnantsSection de scripts/lib/pipeline/warning-remnants.mts; un cambio va en los dos lados.
 render_warning_remnants_section() {
     local file="$1/.mefisto/pipeline/warnings-remanentes.txt"
     [ -f "$file" ] || return 0
@@ -1177,6 +1186,7 @@ render_warning_remnants_section() {
 # con una linea "- `<ruta>`" por archivo (un archivo por linea en <files>). Si
 # <blockage_resolved> es "true" agrega la linea de destrabe tras la fase verde. Sin
 # archivos no imprime nada. No incluye diff ni reporte: el diff ya esta en el PR.
+# Gemela en TypeScript: renderReviewerTouchedTestsSection de scripts/lib/pipeline/red-tests.mts; un cambio va en los dos lados.
 render_reviewer_touched_tests_section() {
     local files="${1:-}" blockage_resolved="${2:-false}" f
     local -a list=()
@@ -1217,6 +1227,7 @@ render_reviewer_touched_tests_section() {
 # el watchdog de timeout) o vacio via `fromjson?`. Sin jq en el PATH, deja una
 # nota explicita y de todos modos anexa <stderr_file>. Nunca aborta: retorna
 # siempre 0.
+# Gemela en TypeScript: deriveStageLogFromStream de scripts/lib/pipeline/stage-metrics.mts; un cambio va en los dos lados.
 derive_stage_log_from_stream() {
     local stream_file="$1" stderr_file="$2" out_file="$3"
 
@@ -1291,6 +1302,7 @@ derive_stage_log_from_stream() {
 # jq, con el stream vacio, o si el evento `result` no aparece (stage matado
 # a mitad de corrida por el watchdog, sin chance de escribirlo), degrada a
 # "null".
+# Gemela en TypeScript: computeStageMetrics de scripts/lib/pipeline/stage-metrics.mts; un cambio va en los dos lados.
 compute_stage_metrics() {
     local stream_file="$1"
 
@@ -1455,6 +1467,7 @@ compute_stage_metrics() {
 # Generalizada desde enrich_tooling_stage_metrics (issue #1063) a cualquier
 # pipeline publicado (issue #1363): <pipeline> viaja explicito en vez de fijo
 # a "tooling", para que tdd-pipeline.sh reuse la misma forma de metricas.
+# Gemela en TypeScript: enrichStageMetrics de scripts/lib/pipeline/stage-metrics.mts; un cambio va en los dos lados.
 enrich_stage_metrics() {
     local pipeline="$1" events_file="$2" base_metrics="$3" issue="$4" variant_json="$5"
     local stage="$6" agent="$7" profile="$8" identity_json="$9"
@@ -1492,6 +1505,7 @@ enrich_stage_metrics() {
 # Wrapper historico con pipeline="tooling" fijo (issue #1063): conserva su
 # firma exacta -- tooling-pipeline.sh, test-stage-metrics.sh y
 # test-tooling-neutral-runner.sh la invocan sin el argumento <pipeline>.
+# Gemela en TypeScript: enrichToolingStageMetrics de scripts/lib/pipeline/stage-metrics.mts; un cambio va en los dos lados.
 enrich_tooling_stage_metrics() {
     enrich_stage_metrics "tooling" "$@"
 }
@@ -1509,6 +1523,7 @@ enrich_tooling_stage_metrics() {
 # necesario para formar un total completo. estimated_cost_usd: 0 es presente y
 # se muestra como $0.00. Nunca aborta: la telemetria es observabilidad, no un
 # gate del pipeline.
+# Gemela en TypeScript: renderRunMetricCount de scripts/lib/pipeline/run-history.mts; un cambio va en los dos lados.
 _render_run_metric_count() {
     local n="$1"
     if ! [[ "$n" =~ ^[0-9]+$ ]]; then
@@ -1520,6 +1535,7 @@ _render_run_metric_count() {
     return 0
 }
 
+# Gemela en TypeScript: renderRunMetricsTable de scripts/lib/pipeline/run-history.mts; un cambio va en los dos lados.
 render_run_metrics_table() {
     local label duration metrics
     local total_tokens=0 total_duration=0 total_cost="0" cost_values=0
@@ -1650,6 +1666,7 @@ render_run_metrics_table() {
 # lugar TODOS los grupos y produciria un objeto "agents" corrupto -- que es
 # peor que no tener metricas, porque igual se escribe al historial. Sin el
 # separador el resultado es el mismo en toda version que soporte `--args`.
+# Gemela en TypeScript: buildAgentsHistoryJson de scripts/lib/pipeline/run-history.mts; un cambio va en los dos lados.
 build_agents_history_json() {
     if command -v jq >/dev/null 2>&1; then
         local built
@@ -2807,6 +2824,7 @@ find_open_pr_for_branch() {
 # exclusion deliberada: la tabla del PR lo reporta como "sin clasificar" con
 # marcador de atencion propio, para revision humana (issue #586,
 # MEF-ADR-0014). Retorna siempre 0.
+# Gemela en TypeScript: coverageClassifyFile de scripts/lib/pipeline/coverage.mts; un cambio va en los dos lados.
 coverage_classify_file() {
     local filepath="$1"
     local worktree_path="$2"
@@ -3007,6 +3025,7 @@ caffeinate_prefix() {
 #
 # Imprime una linea por archivo ("smoke: <ruta>" | "docs: <ruta>" |
 # "otro: <ruta>"). Exit 0 si es solo smoke, 1 si no. Sin efectos colaterales.
+# Gemela en TypeScript: detectSmokeOnly de scripts/lib/pipeline/smokes.mts; un cambio va en los dos lados.
 detect_smoke_only() {
     local worktree="$1" snapshot="$2" mode="${3:-}"
     local files f has_smoke=false has_other=false out=""
@@ -3049,6 +3068,7 @@ extract_canonical_dependencies() {
 # Imprime el nombre MCP de una tool (issue #2473): el literal de
 # 'NombreTool = "<nombre>"' (convencion de /scaffold-mcp) y, si no esta, el
 # primer literal de '[McpToolTrigger("<nombre>"'. Sin salida si no lo extrae.
+# Gemela en TypeScript: smokeToolName de scripts/lib/pipeline/smokes.mts; un cambio va en los dos lados.
 smoke_tool_name() {
     local f="$1" n=""
     [ -f "$f" ] || return 0
@@ -3066,6 +3086,7 @@ smoke_tool_name() {
 # SmokeTests que contiene el literal '"<nombre>"' de una tool modificada (issue
 # #2473). Si no puede extraer el nombre de un *Tool.cs, emite un warn con la
 # ruta (a stderr) y sigue. Compatible con bash 3.2.
+# Gemela en TypeScript: listSmokesInvokingTools de scripts/lib/pipeline/smokes.mts; un cambio va en los dos lados.
 list_smokes_invoking_tools() {
     local worktree="$1" project="$2" tool_rel name
     shift 2
@@ -3101,6 +3122,7 @@ list_smokes_invoking_tools() {
 # empieza por /api/ se compara, sin distinguir mayusculas, contra la plantilla:
 # cada {param} casa un segmento sin '/', '?' ni ':' y la ruta termina ahi o
 # sigue con '?'. No distingue metodo HTTP. Requiere python3.
+# Gemela en TypeScript: listSmokesInvokingRoutes de scripts/lib/pipeline/smokes.mts; un cambio va en los dos lados.
 list_smokes_invoking_routes() {
     local worktree="$1"
     shift
