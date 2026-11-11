@@ -37,7 +37,7 @@ function pluginVersion(root: string, name: string, version: string): void {
 interface RunOptions {
   cwd?: string
   env?: NodeJS.ProcessEnv
-  /** Codigo de salida que devuelve update-plugin.sh. */
+  /** Codigo de salida que devuelve update-plugin.mts. */
   updateStatus?: number
   scriptDir?: string
   available?: string[]
@@ -47,7 +47,7 @@ interface Run {
   status: number
   out: string[]
   err: string[]
-  /** Argumentos de cada delegacion en update-plugin.sh. */
+  /** Argumentos de cada delegacion en update-plugin.mts. */
   delegated: string[][]
 }
 
@@ -61,7 +61,7 @@ function run(argv: string[], options: RunOptions = {}): Run {
     program: 'upgrade',
     hasCommand: (command) => options.available?.includes(command) === true,
     delegate: (script, args) => {
-      assert.equal(script, join(scriptDir, 'update-plugin.sh'))
+      assert.equal(script, join(scriptDir, 'update-plugin.mts'))
       result.delegated.push(args)
       return options.updateStatus ?? 0
     },
@@ -83,7 +83,7 @@ before(() => {
   writeFileSync(join(consumer, '.claude', 'pipeline', '.plugin-root'), '/x/cache/mkt/mefisto/1.0.0')
   scripts = join(work, 'scripts')
   mkdirSync(scripts)
-  writeFileSync(join(scripts, 'update-plugin.sh'), '')
+  writeFileSync(join(scripts, 'update-plugin.mts'), '')
   loadedRoots = join(work, 'cache', 'mefisto')
   for (const version of ['0.44.0', '0.44.1']) pluginVersion(join(loadedRoots, version), 'mefisto', version)
   pluginVersion(join(work, 'cache', 'otro', '9.9.9'), 'otro', '9.9.9')
@@ -95,7 +95,7 @@ after(() => {
   rmSync(work, { recursive: true, force: true })
 })
 
-describe('delegacion en update-plugin.sh', () => {
+describe('delegacion en update-plugin.mts', () => {
   test('sin flags delega sin argumentos', () => {
     assert.deepEqual(run([]).delegated, [[]])
   })
@@ -116,12 +116,12 @@ describe('delegacion en update-plugin.sh', () => {
     assert.deepEqual(run(['--disable-user']).delegated, [['--disable-user']])
   })
 
-  test('propaga el codigo de salida de update-plugin.sh', () => {
+  test('propaga el codigo de salida de update-plugin.mts', () => {
     assert.equal(run([], { updateStatus: 7 }).status, 7)
     assert.equal(run(['--disable-user'], { updateStatus: 7 }).status, 7)
   })
 
-  test('sin update-plugin.sh junto al script aborta', () => {
+  test('sin update-plugin.mts junto al script aborta', () => {
     for (const argv of [[], ['--disable-user']]) {
       const result = run(argv, { scriptDir: join(work, 'cache') })
       assert.equal(result.status, 1)
@@ -240,7 +240,7 @@ describe('runtime', () => {
     const lib = join(work, 'dist', 'src', 'runtime', 'lib')
     mkdirSync(scriptDir, { recursive: true })
     mkdirSync(lib, { recursive: true })
-    for (const name of ['update-plugin.sh', join('..', 'src', 'runtime', 'lib', 'mefisto-runtime.sh')]) {
+    for (const name of ['update-plugin.mts', join('..', 'src', 'runtime', 'lib', 'mefisto-runtime.sh')]) {
       writeFileSync(join(scriptDir, name), '')
     }
     writeFileSync(join(lib, 'runtime-claude.sh'), '')
