@@ -12,6 +12,9 @@
 # primer numero. 'No depende de #N', 'Ya no depende de #N' y el marcador a mitad
 # de linea no cuentan; 'Bloquea', 'Consumido por' y la prosa libre se ignoran.
 # Todas leen el body por stdin. No invocar directamente (sourceable).
+#
+# Gemela de scripts/lib/issue-dependencies.mts (MEF-ADR-0057): un cambio de la
+# regla va en los dos lados.
 
 # El texto de la seccion, sin su encabezado; vacio si no existe.
 mefisto_dependencies_section() {
