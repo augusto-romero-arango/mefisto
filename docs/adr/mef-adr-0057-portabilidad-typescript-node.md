@@ -26,21 +26,22 @@ El dueno del proyecto ya casi no usa OpenCode.
 
 ### 1. Lenguaje de los scripts
 
-Los scripts se escriben en TypeScript y Node los ejecuta directo (`node x.ts`), sin paso de build.
+Los scripts se escriben en TypeScript y Node los ejecuta directo (`node x.mts`), sin paso de build.
 
 - Version minima: Node 22.18, la primera linea 22 que trae el type stripping activo por defecto.
 - Sin dependencias npm en ejecucion: solo modulos `node:`.
-- El type stripping no transforma codigo. Quedan fuera `enum`, `namespace` con codigo, parameter properties, alias de import, decoradores, `.tsx` y los `paths` de `tsconfig`. Los imports llevan la extension `.ts`.
+- El type stripping no transforma codigo. Quedan fuera `enum`, `namespace` con codigo, parameter properties, alias de import, decoradores, `.tsx` y los `paths` de `tsconfig`. Los imports llevan la extension `.mts`.
 - Node no chequea tipos: lo hace `tsc --noEmit`. TypeScript es herramienta de verificacion, nunca dependencia de ejecucion.
-- Modulos ES. El mecanismo que los marca (`package.json` con `"type": "module"` o extension `.mts`) lo fija el paso 3 de `docs/portabilidad/ESTADO.md` tras probarlo en los tres sistemas.
+- Modulos ES, marcados por la extension `.mts`. Un `.ts` hereda el tipo de modulo del `package.json` mas cercano hacia arriba, y falla si alguna carpeta por encima del plugin declara `"type": "commonjs"` (el home del consumidor, por ejemplo); `.mts` es siempre modulo ES y no exige ningun `package.json`.
+- `tsc` corre con `erasableSyntaxOnly`, que rechaza la sintaxis que el type stripping no soporta.
 
 ### 2. Ubicacion
 
-Cada `.ts` vive junto al `.sh` que reemplaza, con el mismo nombre base. Sus tests son `*.test.ts` en los mismos directorios `tests/`. No nace ninguna raiz nueva: las rutas ya estan en los gates de scope. Un archivo nuevo en la raiz del repo (un `tsconfig`, por ejemplo) se registra primero en los gates, en un PR anterior al que lo crea (MEF-ADR-0019, seccion E).
+Cada `.mts` vive junto al `.sh` que reemplaza, con el mismo nombre base. Sus tests son `*.test.mts` en los mismos directorios `tests/`. La configuracion de tipos es `src/internal/tsconfig.json`. No nace ninguna raiz nueva: las rutas ya estan en los gates de scope. Un archivo nuevo en la raiz del repo se registra primero en los gates, en un PR anterior al que lo crea (MEF-ADR-0019, seccion E).
 
 ### 3. Invocacion
 
-- Comandos, agentes y hooks invocan `node <ruta>.ts <args>`.
+- Comandos, agentes y hooks invocan `node <ruta>.mts <args>`.
 - Ningun comando que se entrega a un shell ajeno (un hook, un pane de herdr) usa sintaxis de shell: ni prefijos `VAR=x`, ni `&&`, ni pipes. En Windows ese shell es PowerShell o `cmd`.
 - Los procesos hijos se lanzan con lista de argumentos y sin shell intermedio.
 - El JSON se lee y escribe con las APIs nativas; desaparecen `jq`, `awk`, `sed` y `python3`.
@@ -48,7 +49,7 @@ Cada `.ts` vive junto al `.sh` que reemplaza, con el mismo nombre base. Sus test
 ### 4. Port incremental sobre `main`
 
 - Un script se porta completo, con sus tests, en un PR.
-- El `.sh` queda como shim (`exec node x.ts "$@"`) solo mientras tenga llamadores en bash.
+- El `.sh` queda como shim (`exec node x.mts "$@"`) solo mientras tenga llamadores en bash.
 - Una libreria con llamadores en bash convive en sus dos versiones; un cambio en una funcion ya portada va en las dos.
 - No hay rama larga de nueva version.
 
@@ -66,7 +67,7 @@ Quedan dos modos de UI:
 El modo de panes se porta. Para Windows cambia en dos puntos:
 
 - **Ocupacion de un pane**: la marca Mefisto con un archivo propio. Herdr no soporta en Windows los grupos de foreground de Unix, que es lo que hoy consulta `herdr pane process-info`.
-- **Comando que se teclea en el pane**: `node <script>.ts <args>`, con el entorno en el archivo del token de despacho (decision 3).
+- **Comando que se teclea en el pane**: `node <script>.mts <args>`, con el entorno en el archivo del token de despacho (decision 3).
 
 ### 7. Runtime unico
 
@@ -82,8 +83,8 @@ Las enmiendas a MEF-ADR-0049, MEF-ADR-0050, MEF-ADR-0053 y MEF-ADR-0055 van en l
 
 ### 8. Verificacion
 
-- Tests con el runner nativo de Node (`node --test`), sin framework externo.
-- Un workflow corre `tsc --noEmit` y `node --test` en macOS, Linux y Windows. Se dispara en los PRs que tocan TypeScript, en la nightly y a mano.
+- Tests con el runner nativo de Node (`node --test`), sin framework externo. Se le pasan los globs de los `*.test.mts`, porque su descubrimiento por defecto recogeria tambien los tests de los mods, que corren con otro runner.
+- El workflow `typescript.yml` corre `tsc` y `node --test` en macOS, Linux y Windows, sobre Node 22.18 y sobre la linea LTS vigente. Se dispara en los PRs que tocan TypeScript, en la nightly y a mano.
 - Ese workflow es una excepcion acotada a la politica de que ningun PR corre tests (issue #1766), con la misma forma que `plugin-validate.yml`: sin secretos, sin CLIs de agente y sin ser check obligatorio del ruleset. La razon: la maquina de desarrollo es macOS, asi que Linux y Windows no se pueden verificar en local.
 - La suite bash sigue en la nightly mientras exista.
 
@@ -158,7 +159,7 @@ Traen mejores utilidades de shell, pero estan menos instalados que Node. Es cono
 ## Referencias
 
 - Node.js, *Modules: TypeScript*: https://nodejs.org/api/typescript.html (type stripping activo por defecto desde v22.18.0 y v23.6.0, estable desde v24.12.0 y v25.2.0; sintaxis no soportada; extension obligatoria en imports).
-- Node.js, *Test runner*: https://nodejs.org/api/test.html (estable desde v20.0.0; descubre `*.test.ts` salvo con `--no-strip-types`).
+- Node.js, *Test runner*: https://nodejs.org/api/test.html (estable desde v20.0.0; descubre `*.test.mts` salvo con `--no-strip-types`).
 - Node.js, *Child process*, `options.detached`: https://nodejs.org/api/child_process.html (proceso que sobrevive al padre en Windows y en Unix, con `unref()` y stdio no heredado).
 - Claude Code, *Advanced setup*: https://code.claude.com/docs/en/setup (en Windows nativo Git for Windows es opcional; sin el se usa la herramienta PowerShell).
 - Herdr, *Windows support* (0.9.3): https://herdr.dev/docs/0.9.3/windows-beta/ (soporte nativo sobre ConPTY; grupos de foreground de Unix no soportados).
@@ -175,3 +176,4 @@ Traen mejores utilidades de shell, pero estan menos instalados que Node. Es cono
 
 - 2026-11-10: creacion como `aceptado`. Fija TypeScript sobre Node >= 22.18 sin build, el port incremental sobre `main`, el retiro de tmux y de OpenCode, la conservacion de herdr y del contrato neutral de runtime, y el workflow de verificacion en tres sistemas.
 - 2026-11-10: enmienda de las decisiones 7 y 9. Sale la evaluacion de un segundo runtime: el objetivo es que Mefisto funcione completo en macOS y Windows solo con Claude Code; Linux se verifica en CI sin ser criterio de cierre.
+- 2026-11-10: enmienda de las decisiones 1, 2, 3, 4, 6 y 8 al montar la base TypeScript. La extension pasa de `.ts` a `.mts`, porque un `.ts` depende del `package.json` de las carpetas superiores; se fija `src/internal/tsconfig.json` y el workflow `typescript.yml`.

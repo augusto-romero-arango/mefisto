@@ -26,3 +26,6 @@ pipeline-state/
 # Cache local del runner de tests de los mods (no se versiona)
 .claude/mods/*/node_modules/
 hooks/*/node_modules/
+
+# Herramientas de verificacion de TypeScript (tsc y tipos de Node), nunca dependencia de ejecucion
+/node_modules/

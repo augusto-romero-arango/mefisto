@@ -4,14 +4,14 @@ Objetivo: que Mefisto funcione completo en macOS y Windows nativo, solo con Clau
 verifica en CI pero no es criterio de cierre. Este archivo es la única fuente del
 avance: cada goal lo lee al empezar y lo actualiza al terminar.
 
-**Portabilidad: en curso** (2 de 7 pasos hechos; verificación en Windows pendiente).
+**Portabilidad: en curso** (3 de 7 pasos hechos; verificación en Windows pendiente).
 
 ## Decisiones
 
 Tomadas el 2026-11-10 y fijadas en [MEF-ADR-0057](../adr/mef-adr-0057-portabilidad-typescript-node.md),
 que es la fuente de verdad. Resumen:
 
-1. Los scripts bash se portan a TypeScript sobre Node >= 22.18, ejecutado directo (`node x.ts`),
+1. Los scripts bash se portan a TypeScript sobre Node >= 22.18, ejecutado directo (`node x.mts`),
    sin build y sin dependencias npm en ejecución.
 2. tmux se retira del todo. Quedan dos modos de UI: herdr (panes) y desacoplado (default).
 3. Se conserva la compatibilidad con herdr.
@@ -27,8 +27,9 @@ que es la fuente de verdad. Resumen:
 - Cada goal mergea sus propios PRs a `main` (squash y borrado de rama) cuando pasa la
   verificación de abajo, sin esperar al usuario. Si falla no se mergea: se corrige en el mismo PR.
 - Un script se porta completo, con sus tests, en un PR. El `.sh` queda como shim
-  (`exec node x.ts "$@"`) solo mientras tenga llamadores en bash.
-- Tests con `node --test` y chequeo de tipos con `tsc --noEmit`.
+  (`exec node x.mts "$@"`) solo mientras tenga llamadores en bash.
+- Tests con `node --test` y chequeo de tipos con `tsc`; los comandos exactos están en
+  `docs/desarrollo-del-plugin.md`.
 - Fragmentos de `changelog.d/`: como no hay issue, se nombran con el número del PR
   (`<pr>.<categoria>.md`). El consolidador de `/mefisto-release` solo exige un prefijo numérico.
   Todo PR que toque algo distinto de `docs/bitacora/`, `README.md`, `AGENTS.md`, `CLAUDE.md` o
@@ -46,50 +47,36 @@ corre en la nightly y a mano. Por eso la verificación la hace el goal antes de 
   comprueba que su `--check` sale en 0.
 - PR que toca bash: los tests de lo tocado, en local. Al cerrar una fila, la suite completa en
   local con `src/internal/scripts/mefisto-test-suite.sh`.
-- PR que toca TypeScript (desde el paso 3): `tsc --noEmit` y `node --test` en local, y el workflow
-  de los tres sistemas en verde. Ese workflow sí se dispara en los PRs que tocan TypeScript
-  (excepción acotada de MEF-ADR-0057, decisión 8); también se puede lanzar a mano con
-  `gh workflow run <workflow> --ref <rama>`.
+- PR que toca TypeScript: `tsc` y `node --test` en local, y el workflow `typescript.yml` en verde
+  en sus seis celdas (macOS, Linux y Windows, sobre Node 22.18 y 24). Se dispara solo en los PRs
+  que tocan un `.mts` (excepción acotada de MEF-ADR-0057, decisión 8); a mano se lanza con
+  `gh workflow run typescript.yml --ref <rama>`.
+- PR que toca `hooks/`, `.claude-plugin/` o `.claude/mods/`: esperar el check `Plugin validate`.
+  No es obligatorio, así que GitHub deja mergear mientras corre.
 - Si una nightly queda en rojo por un PR del port, arreglarla va antes que el siguiente PR.
 
 ## Métricas
 
-Se miden con git desde la raíz del repo. `dist/` queda fuera porque lo regenera el release.
+Las mide `node src/internal/scripts/mefisto-portability-status.mts` desde cualquier carpeta del
+repo (`--json` para la salida estructurada). `dist/` queda fuera porque lo regenera el release.
 
 | Id | Qué mide | Línea base (v0.56.0) | Actual | Meta |
 |---|---|---|---|---|
 | M1a | Archivos `.sh` | 408 | 363 | 0 |
 | M1b | Líneas en `.sh` | 104686 | 93354 | 0 |
 | M2 | Archivos `.jq` | 21 | 19 | 0 |
-| M3 | Archivos que mencionan tmux | 96 | 4, todos excepción | 0 fuera de las excepciones |
-| M4 | Archivos que mencionan OpenCode | 283 | 9, todos excepción | 0 fuera de las excepciones |
+| M3 | Archivos que mencionan tmux | 96 | 6, todos excepción | 0 fuera de las excepciones |
+| M4 | Archivos que mencionan OpenCode | 283 | 11, todos excepción | 0 fuera de las excepciones |
 | M5 | Comandos de `hooks/hooks.json` que no son `node` | 7 de 7 | 7 de 7 | 0 |
+| M6 | Archivos `.py` | 0 | 1 | 0 |
 
-```bash
-# M1a y M1b
-git ls-files -- '*.sh' ':!dist/' | wc -l
-git ls-files -z -- '*.sh' ':!dist/' | xargs -0 cat | wc -l
-# M2
-git ls-files -- '*.jq' ':!dist/' | wc -l
-# M3 y M4 (excluyen historia: bitácora, changelog y este directorio)
-git grep -lIiw tmux -- ':!dist/' ':!docs/bitacora/' ':!docs/portabilidad/' ':!CHANGELOG.md' ':!changelog.d/' | wc -l
-git grep -lIi opencode -- ':!dist/' ':!docs/bitacora/' ':!docs/portabilidad/' ':!CHANGELOG.md' ':!changelog.d/' | wc -l
-# M5: total de comandos menos los que ya son node
-git grep -c '"command":' -- hooks/hooks.json
-git grep -c '"command": "node ' -- hooks/hooks.json
-```
+M3 y M4 excluyen la historia (bitácora, changelog y este directorio) y admiten estas excepciones,
+que el script descuenta solo:
 
-M3 y M4 admiten una excepción: la sección de control de cambios de un ADR puede nombrar tmux u
-OpenCode. La comprobación, que debe dar 0 en cada ADR:
-
-```bash
-for f in docs/adr/mef-adr-*.md; do awk '/^## Control de cambios/{c=1} !c' "$f" | grep -ciwE 'opencode|tmux'; done
-```
-
-Restos aceptados de M3 y M4, además de esas secciones:
-
+- La sección de control de cambios de cualquier ADR.
 - `docs/adr/mef-adr-0057-portabilidad-typescript-node.md`: es el ADR que retira tmux y OpenCode.
 - `docs/adr/INDICE-TEMATICO.md`: filas históricas que solo consolida `/mefisto-release`.
+- El propio script y su test, que nombran lo que miden.
 
 ## Pasos
 
@@ -100,7 +87,7 @@ Estados: `pendiente`, `en curso`, `hecho`.
 | 1 | ADR de portabilidad | hecho | #2547 |
 | 2a | Retirar OpenCode | hecho | #2551, #2552 |
 | 2b | Retirar tmux | hecho | #2555 |
-| 3 | Base TypeScript | pendiente | |
+| 3 | Base TypeScript | hecho | #PR3 |
 | 4 | Hooks | pendiente | |
 | 5 | Scripts sueltos | pendiente | |
 | 6 | Librerías y pipelines | pendiente | |
@@ -109,7 +96,7 @@ Estados: `pendiente`, `en curso`, `hecho`.
 ### Paso 1: ADR de portabilidad
 
 Alcance: un ADR nuevo (el siguiente número libre en `docs/adr/`) con las decisiones de arriba, las
-reglas de convivencia y la ubicación de los `.ts`; su fragmento `adr-index` en `changelog.d/`.
+reglas de convivencia y la ubicación de los `.mts`; su fragmento `adr-index` en `changelog.d/`.
 Las enmiendas a los ADRs existentes van con el paso que borra el código (2a y 2b), para que ADRs
 y código no se contradigan.
 
@@ -129,18 +116,21 @@ fuera de `dist/`, y la suite completa pasa en local.
 
 ### Paso 3: Base TypeScript
 
-Alcance: `tsconfig`; workflow con `tsc --noEmit` y `node --test` sobre macOS, Linux y Windows,
-que se dispara en los PRs que tocan TypeScript, en la nightly y a mano, sin ser check obligatorio
-del ruleset (MEF-ADR-0057, decisión 8); mecanismo que marca los módulos ES (decisión 1); registro en los gates de scope (`is_path_in_mefisto_scope`, `is_path_in_consumer_blocklist`) de
-toda ruta nueva, en un PR anterior al que la puebla (MEF-ADR-0019, sección E); chequeo de
-Node >= 22.18 en `/onboard` y en `README.md`.
+Alcance: `src/internal/tsconfig.json`; el workflow `typescript.yml`, que corre `tsc` y
+`node --test` en macOS, Linux y Windows sobre Node 22.18 y 24 (MEF-ADR-0057, decisión 8); la
+extensión `.mts` para los módulos (decisión 1); y el primer script portado,
+`mefisto-portability-status.mts`, que mide las métricas de este archivo.
 
-Hecho cuando: el workflow existe y pasa en los tres sistemas con al menos un test `.ts`.
+No hizo falta registrar rutas en los gates: todo vive en carpetas ya registradas.
+
+Hecho cuando: el workflow existe y pasa en los tres sistemas con al menos un test `.mts`.
 
 ### Paso 4: Hooks
 
 Alcance: los 7 comandos inline de `hooks/hooks.json` pasan a scripts `node` con tests;
-`.claude/scripts/mefisto-scope-hook.sh` se porta. `src/internal/githooks/pre-push` se queda en
+`.claude/scripts/mefisto-scope-hook.sh` se porta. Como son los primeros scripts publicados en
+TypeScript, aquí entra el requisito de Node >= 22.18 para el consumidor: el chequeo en `/onboard`
+y la línea en `README.md` (MEF-ADR-0057, decisión 9). `src/internal/githooks/pre-push` se queda en
 shell: Git ejecuta los hooks con su propio `sh` (se confirma en W6).
 
 Hecho cuando: M5 = 0 y los tests de los hooks pasan en los tres sistemas.
@@ -189,7 +179,7 @@ Hecho cuando: todas las filas están en `hecho` y no queda ningún `.jq` (M2 = 0
 Alcance: los dos despachadores, `herdr-pipeline.sh`, `mefisto-herdr-pipeline.sh`,
 `herdr-workspace.sh` y los dos `stream-watch`. Dos rediseños para Windows: la ocupación de un pane
 la marca Mefisto (no el grupo de foreground de Unix), y el comando que se teclea en el pane es
-`node <script>.ts <args>` sin sintaxis de shell. Cierre: se borran los shims, los comandos y
+`node <script>.mts <args>` sin sintaxis de shell. Cierre: se borran los shims, los comandos y
 agentes invocan `node`, y `README.md` y `/onboard` dejan de pedir bash, jq y tmux.
 
 Hecho cuando: M1a = 0, M1b = 0 y el workflow de los tres sistemas pasa.
@@ -214,7 +204,7 @@ cerrar un goal. Estados: `pendiente`, `ok`, `falla`.
 La portabilidad está completa cuando se cumplen las tres:
 
 1. Los 7 pasos están en `hecho`.
-2. M1a, M1b, M2, M3, M4 y M5 están en su meta, y tras el release siguiente no existe
+2. M1a, M1b, M2, M3, M4, M5 y M6 están en su meta, y tras el release siguiente no existe
    `dist/opencode/` ni queda ningún `.sh` bajo `dist/`.
 3. W1 a W7 están en `ok`.
 
@@ -235,13 +225,14 @@ completa pasa en local, y las filas 2a y 2b están en "hecho" con sus PRs mergea
 
 ```
 Goal 3: Completa el paso 3 de docs/portabilidad/ESTADO.md (base TypeScript). Terminado cuando el
-workflow con tsc --noEmit y node --test pasa en macOS, Linux y Windows, /onboard y README piden
-Node >= 22.18, y la fila 3 está en "hecho" con sus PRs mergeados en main.
+workflow typescript.yml pasa en macOS, Linux y Windows con al menos un test .mts, y la fila 3
+está en "hecho" con sus PRs mergeados en main.
 ```
 
 ```
 Goal 4: Completa el paso 4 de docs/portabilidad/ESTADO.md (hooks). Terminado cuando M5 da 0, los
-tests de los hooks pasan en el workflow de los tres sistemas, y la fila 4 está en "hecho" con sus PRs
+tests de los hooks pasan en el workflow de los tres sistemas, /onboard y README piden Node >= 22.18,
+y la fila 4 está en "hecho" con sus PRs
 mergeados en main.
 ```
 
