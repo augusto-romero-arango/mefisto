@@ -1,7 +1,7 @@
 // upgrade.mts -- operacion neutral de actualizacion de Mefisto (MEF-ADR-0050/0053).
 //
 // Despacha por el runtime activo (MEFISTO_RUNTIME, o el unico adaptador disponible). Hoy el
-// unico runtime con adaptador es claude: delega en update-plugin.sh, autoridad de ese lado.
+// unico runtime con adaptador es claude: delega en update-plugin.mts, autoridad de ese lado.
 //
 // Uso:
 //   upgrade.mts --status                   JSON versionado (schemaVersion 3) con la version
@@ -28,12 +28,12 @@ import { discoverRuntime } from './lib/upgrade-runtime.mts'
 export interface UpgradeDeps {
   cwd: string
   env: NodeJS.ProcessEnv
-  /** Carpeta de este script: junto a el vive update-plugin.sh. */
+  /** Carpeta de este script: junto a el vive update-plugin.mts. */
   scriptDir: string
   /** Nombre del script en la linea de uso. */
   program: string
   hasCommand: (command: string) => boolean
-  /** Corre un script bash con su salida en vivo y devuelve su codigo de salida. */
+  /** Corre un script `.mts` con su salida en vivo y devuelve su codigo de salida. */
   delegate: (script: string, args: string[]) => number
   out: (line: string) => void
   err: (line: string) => void
@@ -175,7 +175,7 @@ export function loadedFromRoot(env: NodeJS.ProcessEnv): string {
 }
 
 function updatePluginScript(deps: UpgradeDeps): string {
-  const script = join(deps.scriptDir, 'update-plugin.sh')
+  const script = join(deps.scriptDir, 'update-plugin.mts')
   if (!isFile(script)) throw new CliError('ERROR: no se hallo update-plugin.sh junto a upgrade.sh.')
   return script
 }
@@ -193,7 +193,7 @@ function run(argv: string[], deps: UpgradeDeps): number {
     deps.out(JSON.stringify({ schemaVersion: 3, runtime, installedVersion: installedVersion(deps.cwd) }))
     return 0
   }
-  // Solo se ejecuta tras la confirmacion del comando; update-plugin.sh exige la activacion
+  // Solo se ejecuta tras la confirmacion del comando; update-plugin.mts exige la activacion
   // commiteada del repo para no dejarlo sin Mefisto.
   if (options.mode === 'disable-user') return deps.delegate(updatePluginScript(deps), ['--disable-user'])
 
@@ -218,8 +218,8 @@ export function upgrade(argv: string[], deps: UpgradeDeps): number {
   }
 }
 
-function delegateToBash(script: string, args: string[]): number {
-  return spawnSync('bash', [script, ...args], { stdio: 'inherit' }).status ?? 1
+function delegateToNode(script: string, args: string[]): number {
+  return spawnSync(process.execPath, [script, ...args], { stdio: 'inherit' }).status ?? 1
 }
 
 if (isEntryPoint(import.meta.url)) {
@@ -230,7 +230,7 @@ if (isEntryPoint(import.meta.url)) {
     scriptDir: dirname(self),
     program: self,
     hasCommand: commandExists,
-    delegate: delegateToBash,
+    delegate: delegateToNode,
     out: (line) => console.log(line),
     err: (line) => console.error(line),
   })

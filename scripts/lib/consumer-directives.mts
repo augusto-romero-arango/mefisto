@@ -1,9 +1,5 @@
 // Diagnostico de las directivas del consumidor: `AGENTS.md` con sus dos secciones contractuales
 // y el puente `CLAUDE.md`, que solo exige el runtime `claude` (MEF-ADR-0050/0053).
-//
-// Gemela de `_has_contract_heading`, `_contract_section_has_token`, `_onboard_resolve_runtime` y
-// `_check_consumer_directives` de `onboard-diagnose.sh`: mientras tengan llamadores en bash, un
-// cambio va en los dos lados.
 
 import { accessSync, constants, existsSync, readFileSync, statSync } from 'node:fs'
 import { join } from 'node:path'
