@@ -62,9 +62,9 @@ repo (`--json` para la salida estructurada). `dist/` queda fuera porque lo regen
 
 | Id | Qué mide | Línea base (v0.56.0) | Actual | Meta |
 |---|---|---|---|---|
-| M1a | Archivos `.sh` | 408 | 331 | 0 |
-| M1b | Líneas en `.sh` | 104686 | 71408 | 0 |
-| M2 | Archivos `.jq` | 21 | 19 | 0 |
+| M1a | Archivos `.sh` | 408 | 296 | 0 |
+| M1b | Líneas en `.sh` | 104686 | 64616 | 0 |
+| M2 | Archivos `.jq` | 21 | 3 | 0 |
 | M3 | Archivos que mencionan tmux | 96 | 6, todos excepción | 0 fuera de las excepciones |
 | M4 | Archivos que mencionan OpenCode | 283 | 11, todos excepción | 0 fuera de las excepciones |
 | M5 | Comandos de `hooks/hooks.json` que no son `node` | 7 de 7 | 0 de 7 | 0 |
@@ -89,7 +89,7 @@ Estados: `pendiente`, `en curso`, `hecho`.
 | 2b | Retirar tmux | hecho | #2555 |
 | 3 | Base TypeScript | hecho | #2556 |
 | 4 | Hooks | hecho | #2557, #2558 |
-| 5 | Scripts sueltos | en curso | #2559 a #2575 |
+| 5 | Scripts sueltos | en curso | #2559 a #2582 |
 | 6 | Librerías y pipelines | pendiente | |
 | 7 | Despachador, herdr y cierre | pendiente | |
 
@@ -144,12 +144,12 @@ Alcance: los scripts que no son pipeline ni librería de pipeline, con sus tests
 
 | Fila | Alcance (línea base, sin tests) | Estado | PR |
 |---|---|---|---|
-| 5a | `src/published/scripts/` (76 archivos, 9979 líneas antes de retirar OpenCode) | pendiente | |
-| 5b | `scripts/` que no son pipeline ni `_pipeline-common.sh` | en curso | #2559, #2560, #2563, #2565, #2566, #2567, #2570, #2573, #2574, #2575 |
-| 5c | `src/internal/scripts/` que no son pipeline ni `lib/_mefisto-common.sh` | en curso | #2560, #2564, #2566, #2569, #2575 |
+| 5a | `src/published/scripts/` (76 archivos, 9979 líneas antes de retirar OpenCode) | en curso | #2580 |
+| 5b | `scripts/` que no son pipeline ni `_pipeline-common.sh` | en curso | #2559, #2560, #2563, #2565, #2566, #2567, #2570, #2573, #2574, #2575, #2582 |
+| 5c | `src/internal/scripts/` que no son pipeline ni `lib/_mefisto-common.sh` | en curso | #2560, #2564, #2566, #2569, #2575, #2578 |
 
-Al portar `generate-internal-adapters.sh` se enmienda MEF-ADR-0049, decisión 6 y alternativa a:
-hoy fijan bash + `jq` como toolchain del generador y descartan Node.
+MEF-ADR-0049 (decisión 6 y alternativa a) y MEF-ADR-0050 dejaron de fijar bash + `jq` como
+toolchain del generador al portarlo (#2578).
 
 Ya portados (su `.sh` queda como shim hasta el paso 7):
 
@@ -167,9 +167,16 @@ Ya portados (su `.sh` queda como shim hasta el paso 7):
   `mefisto-validate-batch-deps`, `mefisto-worktree`, `mefisto-bitacora-worktree`,
   `mefisto-release` y `mefisto-metrics-report`.
 
-Quedan en el paso 5: los generadores y validadores de `src/published/scripts/` y de
-`src/internal/scripts/` (con el gate de neutralidad), y los tests bash que verifican el texto de
-comandos y agentes. `scripts/pr-sync.sh` carga `_pipeline-common.sh` y se porta con el paso 6.
+También están portados los generadores y validadores de los dos lados y el gate de neutralidad
+(#2578, #2580), y los tests que verifican texto de agentes, plantillas y README (#2582).
+
+Quedan en el paso 5 los tests bash de `src/published/scripts/tests/` que verifican el contrato de
+comandos y agentes publicados. `scripts/pr-sync.sh` carga `_pipeline-common.sh` y se porta con el
+paso 6.
+
+Un test que extrae un bloque de bash del markdown de un comando o agente y lo ejecuta no se puede
+portar mientras ese bloque sea bash: conserva en bash solo esos casos (residual) y se cierra en el
+paso 7.
 
 El repo fija los finales de línea en LF con `.gitattributes` (#2561, #2562): con CRLF, en Windows
 fallaban los shims y las lecturas de texto.
@@ -192,8 +199,10 @@ Límites y deudas de lo portado:
   esos CLIs. Queda por ver en Windows `az.cmd` con argumentos que llevan `&&` y comillas (W3).
 - El shim de `onboard-diagnose` avisa si falta Node >= 22.18; los demás shims fallan con el error
   de `node`.
-- Los defectos que ya tenía el bash se portaron tal cual y quedaron como borradores: #2571, #2572
-  y #2576.
+- Los defectos que ya tenía el bash se portaron tal cual y quedaron como borradores: #2571, #2572,
+  #2576, #2579 y #2581.
+- Quedan módulos gemelos entre el lado publicado y el interno (esquema JSON y frontmatter), porque
+  el publicado no importa de `src/internal/`.
 
 Hecho cuando: en esas rutas solo quedan pipelines, sus librerías y shims.
 
@@ -228,6 +237,13 @@ Alcance: los dos despachadores, `herdr-pipeline.sh`, `mefisto-herdr-pipeline.sh`
 la marca Mefisto (no el grupo de foreground de Unix), y el comando que se teclea en el pane es
 `node <script>.mts <args>` sin sintaxis de shell. Cierre: se borran los shims, los comandos y
 agentes invocan `node`, y `README.md` y `/onboard` dejan de pedir bash, jq y tmux.
+
+Decisión abierta para este paso: el markdown de comandos, agentes y skills lleva unos 350 bloques
+de bash que Claude ejecuta, con 96 usos de `jq` y algunos de `awk`, `sed` y `python3`. En Windows
+nativo, Claude Code usa Git Bash para la herramienta Bash si Git for Windows está instalado y, si
+no, PowerShell ([setup de Claude Code](https://code.claude.com/docs/en/setup)). Hay dos caminos:
+exigir Git for Windows y quitar solo `jq`, `python3` y lo que Git Bash no trae, o reescribir cada
+bloque como una invocación `node <script>.mts` que corra igual en bash y en PowerShell.
 
 Hecho cuando: M1a = 0, M1b = 0 y el workflow de los tres sistemas pasa.
 
