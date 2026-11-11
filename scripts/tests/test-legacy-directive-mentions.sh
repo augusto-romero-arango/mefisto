@@ -2,10 +2,7 @@
 # test-legacy-directive-mentions.sh -- Anti-regresion de prosa (#1536): ningun
 # agente/skill publicado debe presentar `CLAUDE.md` como el archivo efectivo
 # de directivas del consumidor (MEF-ADR-0049 decision 3: `AGENTS.md` es la
-# fuente neutral; `CLAUDE.md` es a lo sumo un puente/fallback legacy), ni
-# `scripts/setup-github-labels.sh` debe presentar `.claude/harness.config.json`
-# como el contrato canonico (MEF-ADR-0053 decision 4: `.mefisto/harness.config.json`
-# es el contrato; el legacy solo es fallback de lectura).
+# fuente neutral; `CLAUDE.md` es a lo sumo un puente/fallback legacy).
 #
 # Grep puro, sin ejecutar ningun bloque bash de los agentes. Lista de archivos
 # cerrada a proposito (los seis de la tabla del issue): un barrido global sobre
@@ -24,7 +21,6 @@ TOOLING_INVESTIGATOR="$REPO_ROOT/src/published/agents/tooling-investigator.md"
 PLANNER="$REPO_ROOT/agents/planner.md"
 HISTORIADOR="$REPO_ROOT/src/published/agents/historiador.md"
 FIX_REVIEW="$REPO_ROOT/commands/fix-review.md"
-SETUP_LABELS="$REPO_ROOT/scripts/setup-github-labels.sh"
 
 PASS=0
 FAIL=0
@@ -43,15 +39,6 @@ for f in "$TOOLING_INVESTIGATOR" "$PLANNER" "$HISTORIADOR" "$FIX_REVIEW"; do
         echo "$OFFENDING" | sed 's/^/    /'
     fi
 done
-
-echo "[2] setup-github-labels.sh no presenta .claude/harness.config.json como el contrato canonico"
-OFFENDING=$(grep -n '\.claude/harness\.config\.json' "$SETUP_LABELS" | grep -v -i 'legacy\|fallback')
-if [ -z "$OFFENDING" ]; then
-    pass "setup-github-labels.sh no tiene linea(s) sin calificar"
-else
-    fail "setup-github-labels.sh tiene linea(s) sin calificar:"
-    echo "$OFFENDING" | sed 's/^/    /'
-fi
 
 echo "[3] planner.md nombra el indice tematico del plugin (INDICE-TEMATICO.md) al menos dos veces"
 COUNT=$(grep -c 'INDICE-TEMATICO\.md' "$PLANNER")

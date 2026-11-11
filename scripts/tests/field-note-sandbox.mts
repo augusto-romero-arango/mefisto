@@ -28,9 +28,10 @@ export function isolateGitConfig(dir: string): () => void {
     GIT_CONFIG_GLOBAL: process.env.GIT_CONFIG_GLOBAL,
     GIT_CONFIG_NOSYSTEM: process.env.GIT_CONFIG_NOSYSTEM,
   }
-  const empty = join(dir, 'gitconfig-vacio')
-  writeFileSync(empty, '')
-  process.env.GIT_CONFIG_GLOBAL = empty
+  const isolated = join(dir, 'gitconfig-aislado')
+  // Sin mantenimiento automatico: corre desacoplado y borra objetos mientras un test copia el repo.
+  writeFileSync(isolated, '[gc]\n\tauto = 0\n[maintenance]\n\tauto = false\n')
+  process.env.GIT_CONFIG_GLOBAL = isolated
   process.env.GIT_CONFIG_NOSYSTEM = '1'
   return () => {
     for (const [key, value] of Object.entries(saved)) {

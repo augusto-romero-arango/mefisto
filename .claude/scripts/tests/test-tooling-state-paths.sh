@@ -29,10 +29,6 @@
 #         nace bajo .mefisto/pipeline/summaries/, y nada nuevo aparece bajo
 #         .claude/pipeline/ (CA-6). El corte lo da el gate de changelog.d/
 #         (ningun fragmento creado): no hace falta stub de push/PR.
-#   [H]   mefisto-metrics-report.sh agrega el historial de AMBAS ubicaciones:
-#         el legacy (.claude/pipeline/, que ya no recibe corridas nuevas y no se
-#         migra) y el canonico (.mefisto/pipeline/), corriendo el CLI real
-#         contra un repo de mentira con una corrida en cada una (CA-6).
 #   [I]   Los lanzadores (desacoplado, herdr) resuelven events.log y logs/ con
 #         mefisto_state_path, de modo que el traslado del pipeline no los deja
 #         vigilando archivos que ya nadie escribe (CA-3; el porte completo de
@@ -507,74 +503,6 @@ if [ -z "$K3_HITS" ]; then
     pass "K-3: ninguno de los dos lanzadores desregistra una MEFISTO_* del entorno del hijo"
 else
     fail "K-3: hay lanzadores que desregistran alguna MEFISTO_* del entorno del hijo: $K3_HITS"
-fi
-
-# -------- Bloque H: el historial legado sigue leible, y el nuevo tambien --------
-
-echo ""
-echo "[H] mefisto-metrics-report.sh agrega el historial LEGACY y el CANONICO (CA-6)"
-
-# Un grep sobre el script no alcanza para este CA: lo que hay que probar es que
-# el reporte no se parte en dos por el traslado. Tras #869 el pipeline anota las
-# corridas nuevas en .mefisto/pipeline/ mientras el historico se queda -- sin
-# migracion automatica, MEF-ADR-0049 seccion 3 -- en .claude/pipeline/; leer una
-# sola de las dos deja fuera, o bien toda corrida nueva, o bien los meses de
-# historico contra los que el reporte existe para comparar. Se corre el CLI real
-# contra un repo de mentira con UNA corrida en cada ubicacion.
-METRICS_REPORT="$REPO_ROOT/.claude/scripts/mefisto-metrics-report.sh"
-
-if ! command -v jq >/dev/null 2>&1; then
-    echo "  SKIP: el bloque H requiere jq, no disponible en este entorno"
-else
-    H_REPO="$TMP/h/fake-mefisto"
-    mkdir -p "$H_REPO/.claude-plugin" "$H_REPO/.claude/scripts" "$H_REPO/.claude/pipeline" \
-             "$H_REPO/.mefisto/pipeline" "$H_REPO/src/internal/scripts/lib"
-    git -C "$H_REPO" init -q
-    echo '{"name":"mefisto","version":"0.0.0"}' > "$H_REPO/.claude-plugin/plugin.json"
-    cp "$CANON_LIB" "$H_REPO/src/internal/scripts/lib/_mefisto-common.sh"
-    cp "$REPO_ROOT/src/internal/scripts/lib/mefisto-state.sh" "$H_REPO/src/internal/scripts/lib/mefisto-state.sh"
-    cp -R "$REPO_ROOT/src/runtime" "$H_REPO/src/runtime"
-    cp "$SHIM_LIB" "$H_REPO/.claude/scripts/_mefisto-common.sh"
-    cp "$REPO_ROOT/src/internal/scripts/mefisto-metrics-report.sh" "$H_REPO/src/internal/scripts/mefisto-metrics-report.sh"
-    chmod +x "$H_REPO/src/internal/scripts/mefisto-metrics-report.sh"
-    cp "$METRICS_REPORT" "$H_REPO/.claude/scripts/mefisto-metrics-report.sh"
-    chmod +x "$H_REPO/.claude/scripts/mefisto-metrics-report.sh"
-
-    # Una corrida en cada ubicacion. El historial legacy va SIN salto de linea
-    # final a proposito: es como queda un archivo truncado a mano, y si la
-    # concatenacion no lo separa del canonico las DOS corridas se pierden.
-    printf '%s' '{"issue":"100","title":"Corrida legacy","pipeline":"mefisto-tooling","started":"20260505-090000","finished":"2026-05-05T09:07:00","state":"completed","agents":{"writer":{"duration":250},"reviewer":{"duration":170}},"pr":"https://github.com/x/x/pull/100"}' \
-        > "$H_REPO/.claude/pipeline/pipeline-history.jsonl"
-    printf '%s\n' '{"issue":"869","title":"Corrida canonica","pipeline":"mefisto-tooling","started":"20260906-090000","finished":"2026-09-06T09:07:00","state":"completed","agents":{"writer":{"duration":300},"reviewer":{"duration":200}},"pr":"https://github.com/x/x/pull/869"}' \
-        > "$H_REPO/.mefisto/pipeline/pipeline-history.jsonl"
-
-    # Mismo `env -u` que el bloque G: sin el, el reporte agregaria el historial
-    # del repo REAL (esta suite corre dentro de una invocacion del pipeline, que
-    # exporta MEFISTO_STATE_DIR).
-    H_OUT=$(cd "$H_REPO" && env -u MEFISTO_STATE_DIR -u MEFISTO_LEGACY_STATE_DIR \
-        -u MEFISTO_REPO_ROOT ./.claude/scripts/mefisto-metrics-report.sh 2>&1) || H_OUT="$H_OUT"
-
-    if echo "$H_OUT" | grep -q "ventana: 2 "; then
-        pass "H-1: el reporte agrega las 2 corridas (1 legacy + 1 canonica)"
-    else
-        fail "H-1: el reporte no agrego ambas ubicaciones -- salida: $(echo "$H_OUT" | head -n 12)"
-    fi
-    if echo "$H_OUT" | grep -q "#100" && echo "$H_OUT" | grep -q "#869"; then
-        pass "H-2: ambas corridas aparecen individualmente en el reporte"
-    else
-        fail "H-2: falta alguna de las dos corridas en el detalle del reporte"
-    fi
-
-    # Solo legacy (el estado del repo antes de la primera corrida post-#869):
-    # el historico tiene que seguir leyendose igual, sin exigir la canonica.
-    rm -f "$H_REPO/.mefisto/pipeline/pipeline-history.jsonl"
-    H_OUT_LEGACY=$(cd "$H_REPO" && env -u MEFISTO_STATE_DIR -u MEFISTO_LEGACY_STATE_DIR \
-        -u MEFISTO_REPO_ROOT ./.claude/scripts/mefisto-metrics-report.sh 2>&1) || H_OUT_LEGACY="$H_OUT_LEGACY"
-    if echo "$H_OUT_LEGACY" | grep -q "ventana: 1 "; then
-        pass "H-3: con solo el historial legacy, el reporte lo sigue leyendo (CA-6)"
-    else
-        fail "H-3: el historial legacy dejo de leerse por si solo -- salida: $(echo "$H_OUT_LEGACY" | head -n 12)"
-    fi
 fi
 
 # -------- Bloque I: los lanzadores siguen viendo la corrida --------

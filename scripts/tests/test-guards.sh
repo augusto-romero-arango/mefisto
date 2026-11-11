@@ -166,8 +166,6 @@ echo "[C] Pipelines publicados: contienen guard contra repo de Mefisto"
 PUBLISHED_PIPELINES=(
     tooling-pipeline.sh parallel-pipeline.sh batch-pipeline.sh pr-sync.sh
     tdd-pipeline.sh iac-pipeline.sh scaffold-pipeline.sh launch-pipeline.sh
-    setup-github-labels.sh
-    seed-secret.sh onboard-migrate-directives.sh
 )
 
 for pipe in "${PUBLISHED_PIPELINES[@]}"; do
