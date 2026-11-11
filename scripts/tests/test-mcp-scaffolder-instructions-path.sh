@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 # test-mcp-scaffolder-instructions-path.sh -- Contrato de instrucciones efectivo
 # de mcp-scaffolder (#1507, MEF-ADR-0053 decision 4).
+#
+# Aqui solo se ejecuta el preludio renderizado; lo que se verifica leyendo el texto
+# del agente esta en mcp-scaffolder-instructions-path.test.mts.
 
 set -uo pipefail
 export LC_ALL=C
@@ -26,7 +29,10 @@ extract_instructions_block() {
 }
 
 SCRIPT="$(extract_instructions_block)"
-if [ -n "$SCRIPT" ]; then pass "extrae el preludio renderizado de instrucciones"; else fail "no encontro el preludio de instrucciones"; fi
+if [ -z "$SCRIPT" ]; then
+    fail "no encontro el preludio de instrucciones"
+    echo; echo "Resumen: $PASS pass, $FAIL fail"; exit 1
+fi
 
 resolve() {
     local root="$1"
@@ -98,20 +104,6 @@ if [ "$rc" -ne 0 ] && [ -z "$out" ] && grep -Fqx 'ERROR: no se encontro AGENTS.m
     pass "la ausencia aborta con el diagnostico de onboarding"
 else
     fail "la ausencia no aborto con el diagnostico esperado (rc=$rc, out='$out', err='$(cat "$WORK/ausente.err")')"
-fi
-
-echo "[6] Prosa y lecturas"
-if grep -Fq 'Tokens de `CLAUDE.md`' "$AGENT" || grep -Fq '`CLAUDE.md` raiz' "$AGENT"; then
-    fail "reaparecio una referencia legacy directa a los tokens"
-else
-    pass "la prosa no remite los tokens a CLAUDE.md"
-fi
-if grep -Fq 'lee con tu tool `Read` la ruta `${MEFISTO_INSTRUCTIONS_PATH}`' "$AGENT" \
-    && grep -Fq 'Si el archivo efectivo no declara alguno de los cuatro' "$AGENT" \
-    && grep -Fq 'No crees, copies, migres ni escribas ese archivo de directivas.' "$AGENT"; then
-    pass "la prosa usa el archivo efectivo y prohibe mutar instrucciones"
-else
-    fail "la prosa no conserva el contrato del archivo efectivo"
 fi
 
 echo

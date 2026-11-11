@@ -20,9 +20,9 @@
 # regresion. Las matrices de planner y fix-review combinan ese preambulo
 # compartido con su propio bloque de resolucion del slug.
 #
-# Tambien evita que una lectura directa del config legacy reaparezca fuera
-# del fallback sancionado en los cuatro artefactos que mencionan
-# `repoSlug`/`domainLabels` (planner, investigator, fix-review, commands/draft.md).
+# Aqui solo se ejecutan los bloques extraidos; lo que se verifica leyendo el
+# texto (preambulo compartido y ausencia de lecturas directas del config legacy)
+# esta en cross-repo-slug-config-path.test.mts.
 
 set -uo pipefail
 
@@ -31,14 +31,11 @@ REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 PLANNER="$REPO_ROOT/agents/planner.md"
 INVESTIGATOR="$REPO_ROOT/agents/tooling-investigator.md"
 FIX_REVIEW="$REPO_ROOT/commands/fix-review.md"
-DRAFT="$REPO_ROOT/commands/draft.md"
 PASS=0
 FAIL=0
 
 pass() { echo "  PASS: $1"; PASS=$((PASS + 1)); }
 fail() { echo "  FAIL: $1"; FAIL=$((FAIL + 1)); }
-contains() { case "$1" in *"$2"*) pass "$3" ;; *) fail "$3" ;; esac; }
-absent() { case "$1" in *"$2"*) fail "$3" ;; *) pass "$3" ;; esac; }
 
 TMP_DIR=$(mktemp -d)
 trap 'rm -rf "$TMP_DIR"' EXIT
@@ -83,29 +80,10 @@ BLOCK_FIX_REVIEW_OWN="$(extract_after_anchor "$FIX_REVIEW" 'Lee el slug del repo
 FIX_REVIEW_PREAMBLE="$(extract_config_preamble "$FIX_REVIEW")"
 BLOCK_FIX_REVIEW="$FIX_REVIEW_PREAMBLE"$'\n'"$BLOCK_FIX_REVIEW_OWN"
 
-echo "[1] Extraccion de los tres bloques"
-if [ -n "$BLOCK_PLANNER_OWN" ] && [ -n "$CONFIG_PREAMBLE" ] && [ -n "$BLOCK_INVESTIGATOR_OWN" ] && [ -n "$INVESTIGATOR_PREAMBLE" ] && [ -n "$BLOCK_FIX_REVIEW_OWN" ] && [ -n "$FIX_REVIEW_PREAMBLE" ]; then
-    pass "los tres bloques (y los preambulos compartidos de planner y fix-review) se extrajeron desde sus anclajes"
-else
+if [ -z "$BLOCK_PLANNER_OWN" ] || [ -z "$CONFIG_PREAMBLE" ] || [ -z "$BLOCK_INVESTIGATOR_OWN" ] || [ -z "$INVESTIGATOR_PREAMBLE" ] || [ -z "$BLOCK_FIX_REVIEW_OWN" ] || [ -z "$FIX_REVIEW_PREAMBLE" ]; then
     fail "no se pudo extraer alguno de los bloques esperados"
+    echo "  Resumen: $PASS pass, $FAIL fail"; exit 1
 fi
-if [ "$CONFIG_PREAMBLE" = "$FIX_REVIEW_PREAMBLE" ]; then
-    pass "planner y fix-review (migrados) comparten el mismo preambulo de config-path"
-else
-    fail "planner y fix-review divergen en el preambulo de config-path"
-fi
-if [ "$CONFIG_PREAMBLE" = "$INVESTIGATOR_PREAMBLE" ]; then
-    pass "planner y tooling-investigator (migrado, #1668) comparten el mismo preambulo de config-path"
-else
-    fail "planner y tooling-investigator divergen en el preambulo de config-path"
-fi
-contains "$BLOCK_FIX_REVIEW_OWN" 'MEFISTO_CONFIG_PATH' 'fix-review resuelve el slug via MEFISTO_CONFIG_PATH (preambulo compartido), no via CONFIG propio'
-absent "$BLOCK_FIX_REVIEW_OWN" 'CONFIG="$REPO_ROOT' 'fix-review ya no reconstruye CONFIG=$REPO_ROOT/... a mano'
-# planner ya NO comparte el bloque literal con los otros dos: migro a la
-# fuente neutral (issue #1640) y ahora resuelve MEFISTO_CONFIG_PATH via el
-# preambulo compartido en vez de reimplementar CONFIG="$REPO_ROOT/..." a mano.
-contains "$BLOCK_PLANNER_OWN" 'MEFISTO_CONFIG_PATH' 'planner resuelve el slug via MEFISTO_CONFIG_PATH (preambulo compartido), no via CONFIG propio'
-absent "$BLOCK_PLANNER_OWN" 'CONFIG="$REPO_ROOT' 'planner ya no reconstruye CONFIG=$REPO_ROOT/... a mano'
 
 write_json() {
     local path="$1" slug="$2"
@@ -211,32 +189,14 @@ run_matrix() {
     fi
 }
 
-echo "[2] Matriz de resolucion (CA-3) para planner.md (preambulo compartido + bloque propio)"
+echo "[1] Matriz de resolucion (CA-3) para planner.md (preambulo compartido + bloque propio)"
 run_matrix "planner" "$BLOCK_PLANNER" "abort" "root"
 
-echo "[3] Matriz de resolucion (CA-3) para tooling-investigator.md (preambulo compartido + bloque propio)"
+echo "[2] Matriz de resolucion (CA-3) para tooling-investigator.md (preambulo compartido + bloque propio)"
 run_matrix "investigator" "$BLOCK_INVESTIGATOR" "abort" "root"
 
-echo "[4] Matriz de resolucion (CA-3) para fix-review.md (preambulo compartido + bloque propio)"
+echo "[3] Matriz de resolucion (CA-3) para fix-review.md (preambulo compartido + bloque propio)"
 run_matrix "fix-review" "$BLOCK_FIX_REVIEW" "abort" "root"
-
-echo "[5] Anti-regresion: no hay lecturas directas del legacy fuera del fallback sancionado"
-SANCTIONED_LINE='cat .mefisto/harness.config.json 2>/dev/null || cat .claude/harness.config.json 2>/dev/null || echo "No existe"'
-ANY_LEAK=0
-for f in "$PLANNER" "$INVESTIGATOR" "$FIX_REVIEW" "$DRAFT"; do
-    FILTERED=$(grep -vF "$SANCTIONED_LINE" "$f")
-    if grep -Eq '(^|[;&|(`$[:space:]])jq[[:space:]].*\.claude/harness\.config\.json' <<< "$FILTERED"; then
-        fail "$(basename "$f") tiene una lectura jq directa del config legacy"
-        ANY_LEAK=1
-    fi
-    if grep -Eq '(^|[;&|(`$[:space:]])(cat|sed|awk|grep|python|python3)[[:space:]].*\.claude/harness\.config\.json|<[[:space:]]*[^[:space:]]*\.claude/harness\.config\.json' <<< "$FILTERED"; then
-        fail "$(basename "$f") tiene una lectura directa (cat/sed/awk/grep/python/<) del config legacy fuera del fallback sancionado"
-        ANY_LEAK=1
-    fi
-done
-if [ "$ANY_LEAK" -eq 0 ]; then
-    pass "ningun artefacto reintroduce una lectura directa del config legacy fuera del fallback sancionado"
-fi
 
 echo "----------------------------------------"
 echo "  Resumen: $PASS pass, $FAIL fail"

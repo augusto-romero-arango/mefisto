@@ -1,15 +1,16 @@
 #!/usr/bin/env bash
-# test-smoke-test-writer-instructions-contract.sh -- Neutraliza la lectura
-# del contrato consumidor en smoke-test-writer (#1431, MEF-ADR-0053 seccion
-# 4).
+# test-smoke-test-writer-instructions-contract.sh -- Lectura del contrato consumidor
+# en smoke-test-writer (#1431, MEF-ADR-0053 seccion 4).
 #
-# Demuestra que la resolucion de RootNamespace en la salida generada
-# Claude del stage 2b procede exclusivamente del archivo efectivo
-# de instrucciones: canonico, fallback legacy, coexistencia (prevalece
-# canonico, sin mezcla) y ausencia (aborta con el diagnostico de onboarding)
-# -- sin nombrar la ruta legacy en la fuente neutral ni duplicar la politica
-# de precedencia -- y que, al perder su ultimo nombre de runtime, el agente
-# sale de la excepcion transitoria `legacy` del validador publicado.
+# Ejecuta el preludio de la salida generada Claude del stage 2b y
+# demuestra que RootNamespace procede exclusivamente del archivo efectivo de
+# instrucciones: canonico, fallback legacy, coexistencia (prevalece canonico,
+# sin mezcla) y ausencia (aborta con el diagnostico de onboarding).
+# Ademas, al perder su ultimo nombre de runtime, el agente sale de la excepcion
+# transitoria `legacy` del validador publicado.
+#
+# Lo que se verifica leyendo el texto de la fuente y del agente generado esta en
+# agent-instructions-contract.test.mts.
 
 set -uo pipefail
 export LC_ALL=C
@@ -34,35 +35,13 @@ extract_bash_block() {
     ' "$file"
 }
 
-echo "[1] La fuente neutral usa instructions-path y no nombra la ruta legacy ni duplica la politica de precedencia"
-if grep -Fq '{{mefisto:instructions-path}}' "$SOURCE_AGENT"; then
-    pass "la fuente neutral usa {{mefisto:instructions-path}}"
-else
-    fail "la fuente neutral no usa {{mefisto:instructions-path}}"
-fi
-if grep -Eq 'CLAUDE\.md|archivo de instrucciones raiz' "$SOURCE_AGENT"; then
-    fail "la fuente neutral nombra la ruta legacy o una lectura directa del archivo raiz"
-else
-    pass "la fuente neutral no nombra la ruta legacy directamente"
-fi
-if grep -Eiq 'canonico primero|fallback legacy' "$SOURCE_AGENT"; then
-    fail "la fuente neutral duplica la politica de precedencia canonico-first"
-else
-    pass "la fuente neutral no duplica la politica de precedencia"
-fi
-
-echo "[2] La salida generada resuelve RootNamespace desde el archivo efectivo (canonico/fallback/coexistencia/ausencia)"
+echo "[1] La salida generada resuelve RootNamespace desde el archivo efectivo (canonico/fallback/coexistencia/ausencia)"
 
 runtime=Claude; agent_file="$CLAUDE_AGENT"
 script="$(extract_bash_block "$agent_file" 2)"
 if [ -z "$script" ]; then
     fail "$runtime: no se pudo extraer el bloque de resolucion de instrucciones"
     echo; echo "Resumen: $PASS pass, $FAIL fail"; exit 1
-fi
-if grep -Fq '/mefisto:onboard' "$agent_file"; then
-    pass "$runtime: el diagnostico de ausencia total remite a onboard"
-else
-    fail "$runtime: no remite a onboard cuando falta el contrato efectivo"
 fi
 
 resolve() {
@@ -106,7 +85,7 @@ else
     fail "$runtime: la ausencia no aborto con el diagnostico esperado (rc=$rc, out='$out', err='$(cat "$WORK/$runtime-ausente.err")')"
 fi
 
-echo "[3] smoke-test-writer salio de la excepcion transitoria legacy del validador"
+echo "[2] smoke-test-writer salio de la excepcion transitoria legacy del validador"
 
 FRONTMATTER="$(awk 'NR == 1 { next } $0 == "---" { exit } { print }' "$SOURCE_AGENT")"
 BODY="$(awk 'NR == 1 { next } $0 == "---" && !seen { seen=1; next } seen { print }' "$SOURCE_AGENT")"
