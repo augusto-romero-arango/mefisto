@@ -27,9 +27,8 @@
 #   [wiring]        Afirmacion estatica (issue #914) por numero de linea de las
 #                   llamadas: en mefisto-tooling-pipeline.sh, por cada stage,
 #                   gate de scope < run_neutrality_gate < auto_commit_if_needed
-#                   (CA-1); en mefisto-release.sh, una unica invocacion dentro
-#                   de prepare, tras `git switch -c release/<tag>` y antes de
-#                   consolidar changelog.d/ (CA-2, publish no la repite). El
+#                   (CA-1). El cableado en la fase prepare del release (CA-2)
+#                   lo cubre mefisto-release-prepare.test.mts. El
 #                   escenario e2e negativo (CLI falso del writer con una fuga
 #                   real) vive en test-tooling-runtime-neutral.sh, escenario [F].
 #   [perf]          Una corrida completa contra el repo real termina en menos
@@ -395,9 +394,8 @@ else
 fi
 
 echo ""
-echo "[wiring] el gate se invoca tras ambos stages del pipeline canonico y en la fase prepare del release (issue #914)"
+echo "[wiring] el gate se invoca tras ambos stages del pipeline canonico (issue #914)"
 PIPELINE_SRC="$REPO_ROOT/src/internal/scripts/mefisto-tooling-pipeline.sh"
-RELEASE_SRC="$REPO_ROOT/src/internal/scripts/mefisto-release.sh"
 
 # _nth_line <archivo> <patron-fijo> [<n>] -- numero de linea de la n-esima
 # aparicion (default: la primera) del patron literal; vacio si no aparece.
@@ -427,24 +425,6 @@ for stage in 1 2; do
         fail "Stage $stage: orden inesperado -- scope=${scope_ln:-?} gate=${gate_ln:-?} auto_commit=${commit_ln:-?}"
     fi
 done
-
-# CA-2: una sola invocacion en mefisto-release.sh, dentro de prepare, tras
-# `git switch -c release/<tag>` y antes de consolidar changelog.d/; publish
-# (todo lo que sigue a "# FASE PUBLISH") no la repite.
-RELEASE_CALLS=$(grep -cF 'src/internal/scripts/mefisto-neutrality-gate.sh"' "$RELEASE_SRC" || true)
-prepare_ln=$(_nth_line "$RELEASE_SRC" 'if [ "$PHASE" = "prepare" ]; then')
-switch_ln=$(_nth_line "$RELEASE_SRC" 'git switch -c "$RELEASE_BRANCH" origin/main')
-rgate_ln=$(_nth_line "$RELEASE_SRC" 'src/internal/scripts/mefisto-neutrality-gate.sh"')
-consolidate_ln=$(_nth_line "$RELEASE_SRC" 'consolidate_changelog_fragments "$MEFISTO_REPO_ROOT"')
-publish_ln=$(_nth_line "$RELEASE_SRC" '# FASE PUBLISH')
-if [ "${RELEASE_CALLS:-0}" = "1" ] && [ -n "$prepare_ln" ] && [ -n "$switch_ln" ] && [ -n "$rgate_ln" ] \
-   && [ -n "$consolidate_ln" ] && [ -n "$publish_ln" ] \
-   && [ "$prepare_ln" -lt "$switch_ln" ] && [ "$switch_ln" -lt "$rgate_ln" ] \
-   && [ "$rgate_ln" -lt "$consolidate_ln" ] && [ "$consolidate_ln" -lt "$publish_ln" ]; then
-    pass "mefisto-release.sh invoca el gate una sola vez (linea $rgate_ln), en prepare, tras crear la rama ($switch_ln) y antes de consolidar changelog.d/ ($consolidate_ln); publish no lo repite"
-else
-    fail "mefisto-release.sh: cableado inesperado -- llamadas=$RELEASE_CALLS prepare=${prepare_ln:-?} switch=${switch_ln:-?} gate=${rgate_ln:-?} consolidate=${consolidate_ln:-?} publish=${publish_ln:-?}"
-fi
 
 echo ""
 PERF_LIMIT="${MEFISTO_NEUTRALITY_PERF_LIMIT:-60}"

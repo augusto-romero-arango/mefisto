@@ -2,8 +2,9 @@
 # test-changelog-consolidation.sh -- Tests de la consolidacion de fragmentos
 # de changelog.d/ (issue #380), fase prepare de /mefisto-release.
 #
-# Valida las dos funciones de _mefisto-common.sh que /mefisto-release invoca
-# en su propia rama de release:
+# Valida las dos funciones de _mefisto-common.sh. /mefisto-release usa sus
+# gemelas en TypeScript (lib/mefisto-release-lib.mts), que tienen su propio
+# test (mefisto-release-lib.test.mts) con la paridad entre las dos:
 #
 #   [A] consolidate_changelog_fragments agrupa por categoria Keep a Changelog
 #       (added/changed/fixed/removed), preserva subsecciones ya existentes en
@@ -17,10 +18,6 @@
 #       base mergean SIN conflicto de git. C-1 es un control que reproduce el
 #       incidente (dos ramas editando la MISMA linea de un archivo-indice SI
 #       colisionan); C-2 es el mecanismo de fragmentos (NO colisionan).
-#   [D] Migracion al layout canonico (issue #864): quien invoca ambas
-#       funciones en la fase prepare es ahora src/internal/scripts/mefisto-
-#       release.sh (la implementacion canonica), no .claude/scripts/mefisto-
-#       release.sh (que paso a ser un shim de reenvio sin logica propia).
 #
 # Uso: .claude/scripts/tests/test-changelog-consolidation.sh
 # Exit code: 0 si todos los chequeos pasan, 1 si alguno falla.
@@ -29,8 +26,6 @@ set -uo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/../../.." && pwd)"
-RELEASE_SCRIPT="$REPO_ROOT/src/internal/scripts/mefisto-release.sh"
-RELEASE_SHIM="$REPO_ROOT/.claude/scripts/mefisto-release.sh"
 
 PASS=0
 FAIL=0
@@ -347,25 +342,6 @@ if [ -e "$TMP/changelog.d/376.adr-index.md" ] && [ -e "$TMP/changelog.d/377.adr-
     pass "C-2 (fix): ambos fragmentos sobreviven el merge"
 else
     fail "C-2 (fix): deberian sobrevivir ambos fragmentos tras el merge"
-fi
-
-# -------- Bloque D: migracion al layout canonico (issue #864) --------
-
-echo ""
-echo "[D] La fase prepare que invoca ambas consolidaciones vive en la implementacion canonica"
-
-if [ -f "$RELEASE_SCRIPT" ] \
-    && grep -q 'consolidate_changelog_fragments "\$MEFISTO_REPO_ROOT"' "$RELEASE_SCRIPT" \
-    && grep -q 'consolidate_adr_index_fragments "\$MEFISTO_REPO_ROOT"' "$RELEASE_SCRIPT"; then
-    pass "D-1: src/internal/scripts/mefisto-release.sh (canonico) invoca ambas consolidaciones"
-else
-    fail "D-1: la implementacion canonica deberia invocar consolidate_changelog_fragments y consolidate_adr_index_fragments"
-fi
-
-if [ -f "$RELEASE_SHIM" ] && ! grep -q 'consolidate_' "$RELEASE_SHIM"; then
-    pass "D-2: el shim .claude/scripts/mefisto-release.sh no duplica esa logica (solo reenvia)"
-else
-    fail "D-2: el shim no deberia contener logica de consolidacion propia"
 fi
 
 # -------- Resumen --------
