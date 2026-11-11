@@ -36,7 +36,7 @@ describe('[fuente] guard y directivas (CA-2)', () => {
   contains(body, 'domainLabels` de {{mefisto:config-path}}', 'domainLabels se lee desde config-path')
   contains(
     body,
-    'jq -r \'.repoSlug // empty\' "{{mefisto:config-path}}"',
+    'json-value.mts" get "{{mefisto:config-path}}" repoSlug --or-empty',
     'repoSlug se lee desde config-path con el molde del planner',
   )
   contains(
@@ -89,7 +89,11 @@ describe('[salidas] adaptador y mirror', () => {
   contains(claude, 'argument-hint: "<descripcion de la idea>"', 'Claude emite argument-hint')
   contains(claude, '/mefisto:draft', 'Claude resuelve la directiva command a /mefisto:draft')
   contains(claude, 'MEFISTO_CONFIG_PATH', 'claude resuelve MEFISTO_CONFIG_PATH (CA-2)')
-  contains(claude, 'REPO_SLUG=$(jq -r', 'claude conserva la lectura de repoSlug')
+  contains(
+    claude,
+    'REPO_SLUG=$(node "${MEFISTO_PACKAGE_ROOT}/scripts/json-value.mts" get "${MEFISTO_CONFIG_PATH}" repoSlug',
+    'claude conserva la lectura de repoSlug',
+  )
   absent(claude, 'HARNESS_REPO_SLUG', 'claude no nombra HARNESS_REPO_SLUG (CA-6c)')
   absent(claude, 'plugins/cache', 'claude no reimplementa token prohibido: plugins/cache')
   mirrorMatches(command, 'mirror Claude coincide byte a byte (CA-5e)', 'mirror Claude diverge')

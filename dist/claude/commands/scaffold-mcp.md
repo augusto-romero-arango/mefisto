@@ -114,8 +114,8 @@ No hay ningun caso especial en la mecanica posterior: `General` se trata como cu
 El config se lee desde `${MEFISTO_CONFIG_PATH}` (contrato canonico `.mefisto/harness.config.json`, MEF-ADR-0053, decision 4). Nunca copies, migres ni escribas ese archivo.
 
 ```bash
-ROOT_NAMESPACE=$(jq -r '.namespacePrefix // ""' "${MEFISTO_CONFIG_PATH}")
-SOLUTION_FILE=$(jq -r '.solutionFile // ""' "${MEFISTO_CONFIG_PATH}")
+ROOT_NAMESPACE=$(node "${MEFISTO_PACKAGE_ROOT}/scripts/json-value.mts" get "${MEFISTO_CONFIG_PATH}" namespacePrefix --default '')
+SOLUTION_FILE=$(node "${MEFISTO_PACKAGE_ROOT}/scripts/json-value.mts" get "${MEFISTO_CONFIG_PATH}" solutionFile --default '')
 
 if [ -z "$ROOT_NAMESPACE" ] || [ -z "$SOLUTION_FILE" ]; then
     echo "ERROR: faltan 'namespacePrefix' y/o 'solutionFile' en .mefisto/harness.config.json."
@@ -139,7 +139,7 @@ fi
 ### 1. Informar que se va a generar
 
 ```bash
-VERSION=$(jq -r '.version' "${MEFISTO_PACKAGE_ROOT}/mefisto-manifest.json" 2>/dev/null)
+VERSION=$(node "${MEFISTO_PACKAGE_ROOT}/scripts/json-value.mts" get "${MEFISTO_PACKAGE_ROOT}/mefisto-manifest.json" version 2>/dev/null)
 if [ -z "$VERSION" ] || [ "$VERSION" = "null" ]; then
     VERSION_LABEL="version desconocida"
 else
@@ -147,7 +147,7 @@ else
 fi
 ```
 
-Este paso es informativo: si el manifiesto falta, `jq` falla o el valor es nulo, `VERSION_LABEL` queda en "version desconocida" y el skill **continua** -- nunca aborta por esto.
+Este paso es informativo: si el manifiesto falta, no es JSON o el valor es nulo, `VERSION_LABEL` queda en "version desconocida" y el skill **continua** -- nunca aborta por esto.
 
 Si `ES_GENERAL=1`, antes del bloque siguiente anade la linea: "Sin proposito: se genera el servidor MCP General del BC".
 

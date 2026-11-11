@@ -104,12 +104,11 @@ CONFIG="${MEFISTO_CONFIG_PATH}"
 [ -f "$CONFIG" ] || { echo "ERROR: no se encontro el config del harness en $CONFIG" >&2; exit 1; }
 
 DOMINIO_FLAT=$(printf '%s' "$DOMINIO" | tr '[:upper:]' '[:lower:]' | tr -d '-')
-DOMINIO_KEBAB=$(jq -r --arg flat "$DOMINIO_FLAT" \
-    '.domainLabels[]? | select((ascii_downcase | gsub("-";"")) == $flat)' \
-    "$CONFIG" 2>/dev/null | head -1)
+DOMINIO_KEBAB=$(node "${MEFISTO_PACKAGE_ROOT}/scripts/json-value.mts" each "$CONFIG" domainLabels --or-empty 2>/dev/null \
+    | awk -v flat="$DOMINIO_FLAT" '{ label = tolower($0); gsub(/-/, "", label); if (label == flat) { print; exit } }')
 if [ -z "$DOMINIO_KEBAB" ]; then
     echo "ERROR: el dominio '$DOMINIO' no esta declarado en domainLabels de $CONFIG"
-    echo "  Dominios declarados: $(jq -r '.domainLabels // [] | join(", ")' "$CONFIG" 2>/dev/null)"
+    echo "  Dominios declarados: $(node "${MEFISTO_PACKAGE_ROOT}/scripts/json-value.mts" each "$CONFIG" domainLabels --or-empty --join ', ' 2>/dev/null)"
 else
     echo "Dominio canonico: $DOMINIO_KEBAB"
 fi

@@ -360,7 +360,7 @@ Reutiliza el mismo routing que el `planner` y el `tooling-investigator` publicad
 Lee `repoSlug` desde `{{mefisto:config-path}}` (MEF-ADR-0053 decision 4). El campo es opcional: si el config no lo declara o esta vacio, aplica el default sin abortar:
 
 ```bash
-SLUG=$(jq -r '.repoSlug // empty' "{{mefisto:config-path}}" 2>/dev/null); echo "${SLUG:-augusto-romero-arango/mefisto}"
+SLUG=$(node "{{mefisto:package-root}}/scripts/json-value.mts" get "{{mefisto:config-path}}" repoSlug --or-empty 2>/dev/null); echo "${SLUG:-augusto-romero-arango/mefisto}"
 ```
 
 Cada bloque `bash` corre en un shell nuevo: en el `gh issue create -R "<slug>"` de mas abajo, sustituye `<slug>` por el slug que imprimio este bloque.

@@ -134,7 +134,7 @@ Guardar ambas formas: `DOMAIN_NAME_KEBAB` (para el script) y `DOMAIN_NAME_PASCAL
 Lee `namespacePrefix` desde `${MEFISTO_CONFIG_PATH}`; es el `<RootNamespace>`. Si la configuracion no es consultable o `namespacePrefix` falta o esta vacio, informa el error y detente. Convierte el dominio a PascalCase (ej: `calculo-horas` -> `CalculoHoras`) y verifica:
 
 ```bash
-jq -r '.namespacePrefix // empty' "${MEFISTO_CONFIG_PATH}"
+node "${MEFISTO_PACKAGE_ROOT}/scripts/json-value.mts" get "${MEFISTO_CONFIG_PATH}" namespacePrefix --or-empty
 test -d "src/<namespacePrefix>.{PascalCase}/"
 ```
 

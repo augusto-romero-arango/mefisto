@@ -29,8 +29,9 @@ describe('[fuente] contrato neutral', () => {
   hasExactMetadata(command, { profile: 'fast' }, 'metadata sin agent, arguments ni capabilities')
   contains(body, '{{mefisto:assert-consumer-repo}}', 'guard consumidor presente')
   contains(body, '{{mefisto:config-path}}', 'lee projections.enabled desde config-path')
-  contains(body, "jq -r '.projections.enabled'", 'gate lee projections.enabled')
-  absent(linesWith(command.source, "jq -r '.projections.enabled'"), '//', 'filtro jq sin //')
+  contains(body, 'json-value.mts" get "{{mefisto:config-path}}" projections.enabled', 'gate lee projections.enabled')
+  absent(linesWith(command.source, 'json-value.mts" get "{{mefisto:config-path}}" projections.enabled'), '--default', 'filtro jq sin //')
+  absent(linesWith(command.source, 'json-value.mts" get "{{mefisto:config-path}}" projections.enabled'), '--or-empty', 'lectura sin --or-empty')
   contains(
     body,
     '{{mefisto:launch-agent projections-scaffolder ',
@@ -41,7 +42,7 @@ describe('[fuente] contrato neutral', () => {
     () =>
       ascending(
         soleLine(command.source, CONSUMER_GUARD),
-        lineOf(command.source, "jq -r '.projections.enabled'"),
+        lineOf(command.source, 'json-value.mts" get "{{mefisto:config-path}}" projections.enabled'),
         lineOf(command.source, '{{mefisto:launch-agent'),
       ),
     'guard/gate no preceden la delegacion',

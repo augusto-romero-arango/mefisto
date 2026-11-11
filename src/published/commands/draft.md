@@ -61,7 +61,7 @@ Esta es la unica operacion permitida hacia el repo de Mefisto (MEF-ADR-0019). In
 Lee el slug efectivo del repo de Mefisto -- mismo campo y mismo default que usa el agente `planner` (MEF-ADR-0053 decision 4). El campo es opcional: si el config no lo declara o esta vacio, aplica el default sin abortar.
 
 ```bash
-REPO_SLUG=$(jq -r '.repoSlug // empty' "{{mefisto:config-path}}" 2>/dev/null)
+REPO_SLUG=$(node "{{mefisto:package-root}}/scripts/json-value.mts" get "{{mefisto:config-path}}" repoSlug --or-empty 2>/dev/null)
 [ -z "$REPO_SLUG" ] && REPO_SLUG="augusto-romero-arango/mefisto"
 echo "$REPO_SLUG"
 ```
