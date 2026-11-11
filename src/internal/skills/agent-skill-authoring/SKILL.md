@@ -69,9 +69,9 @@ en el repo" (MEF-ADR-0050 seccion 1). Agregar el runtime `<id>` nunca edita
 diez pasos, con el archivo exacto de cada uno: MEF-ADR-0050 seccion 2):
 
 1. `src/runtime/lib/runtime-<id>.sh` (+ `.jq` si el runtime emite un wire format propio que
-   traducir) y `src/internal/scripts/lib/adapter-<id>.sh` (traduce las directivas
-   `{{mefisto:...}}` del contrato y expone `adapter_<id>_default_model`).
-2. Cableado en `generate-internal-adapters.sh` (incluido su `--check`). `mefisto_resolve_runtime`
+   traducir) y `src/internal/scripts/lib/adapter-<id>.mts` (traduce las directivas
+   `{{mefisto:...}}` del contrato y lleva la tabla de modelos por defecto).
+2. Cableado en `generate-internal-adapters.mts` (incluido su `--check`). `mefisto_resolve_runtime`
    (`src/runtime/lib/mefisto-runtime.sh`) no necesita cableado: descubre `runtime-<id>.sh` por su
    nombre y ejecuta `runtime_<id>_is_available`.
 3. Entradas espejo en las dos allowlists de scope: `is_path_in_mefisto_scope` (interno) e

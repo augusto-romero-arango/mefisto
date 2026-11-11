@@ -48,7 +48,9 @@ expresan intenciones, nunca nombres de tools o claves de permisos.
 `src/internal/scripts/generate-internal-adapters.sh` transforma las fuentes
 neutrales en `.claude/{agents,commands}/`. Las salidas incluyen un marcador
 estable de archivo generado y no se editan a mano. El modo `--check` genera en
-un temporal y detecta salidas faltantes, distintas, huerfanas o sin marcador.
+memoria, sin escribir nada, y detecta salidas faltantes, distintas, huerfanas o
+sin marcador. El `.sh` es un shim: la implementacion vive en
+`generate-internal-adapters.mts` y `lib/adapter-claude.mts` (MEF-ADR-0057).
 
 Mapeo principal:
 
@@ -61,7 +63,12 @@ Mapeo principal:
 | `agent` de comando | campo del contrato que este adaptador no traduce; el enrutamiento va en el body con `{{mefisto:launch-agent <id>}}` |
 | `arguments` | `argument-hint` |
 | `profile` | modelo por tabla fija |
-| `effort` (agente) | `effort` nativo por tabla fija (`runtime_claude_default_effort`), justo despues de `model` |
+| `effort` (agente) | `effort` nativo por tabla fija, justo despues de `model` |
+
+Las dos tablas fijas viven en `lib/adapter-claude.mts`, gemelas de
+`runtime_claude_default_model` y `runtime_claude_default_effort` de
+`src/runtime/lib/runtime-claude.sh`; `generate-internal-adapters.test.mts` las
+compara.
 
 El mapping de modelos en ejecucion headless vive en los adaptadores y en
 `mefisto-models.sh`; el generador no lee `.mefisto/models.json`, porque eso
@@ -116,10 +123,11 @@ src/internal/scripts/validate-internal-artifacts.sh [archivo...]
 
 Sin argumentos valida `src/internal/{agents,commands}/*.md` y `src/internal/skills/*/SKILL.md` (ver arriba). Extrae el
 frontmatter, aplica `internal-artifact.schema.json`, compara `id` con el nombre
-del archivo y comprueba la neutralidad del body. Usa
-`src/internal/scripts/lib/jsonschema-lite.jq`, sin un validador externo. Los
+del archivo y comprueba la neutralidad del body. El `.sh` es un shim hacia
+`validate-internal-artifacts.mts`, que aplica el schema con
+`src/internal/scripts/lib/jsonschema-lite.mts`, sin un validador externo. Los
 fixtures propios de este contrato permanecen en `fixtures/{valid,invalid}/` y
-los ejercita `test-internal-artifact-contract.sh`.
+los ejercita `validate-internal-artifacts.test.mts`.
 
 ## Compatibilidad del runner interno
 
