@@ -65,8 +65,8 @@ repo (`--json` para la salida estructurada). `dist/` queda fuera porque lo regen
 
 | Id | Qué mide | Línea base (v0.56.0) | Actual | Meta |
 |---|---|---|---|---|
-| M1a | Archivos `.sh` | 408 | 296 | 0 |
-| M1b | Líneas en `.sh` | 104686 | 64616 | 0 |
+| M1a | Archivos `.sh` | 408 | 219 | 0 |
+| M1b | Líneas en `.sh` | 104686 | 58301 | 0 |
 | M2 | Archivos `.jq` | 21 | 3 | 0 |
 | M3 | Archivos que mencionan tmux | 96 | 6, todos excepción | 0 fuera de las excepciones |
 | M4 | Archivos que mencionan OpenCode | 283 | 11, todos excepción | 0 fuera de las excepciones |
@@ -92,8 +92,8 @@ Estados: `pendiente`, `en curso`, `hecho`.
 | 2b | Retirar tmux | hecho | #2555 |
 | 3 | Base TypeScript | hecho | #2556 |
 | 4 | Hooks | hecho | #2557, #2558 |
-| 5 | Scripts sueltos | en curso | #2559 a #2582 |
-| 6 | Librerías y pipelines | pendiente | |
+| 5 | Scripts sueltos | hecho | #2559 a #2586 |
+| 6 | Librerías y pipelines | en curso | #2587, #2588, #2590 |
 | 7 | Despachador, herdr y cierre | pendiente | |
 
 ### Paso 1: ADR de portabilidad
@@ -147,9 +147,9 @@ Alcance: los scripts que no son pipeline ni librería de pipeline, con sus tests
 
 | Fila | Alcance (línea base, sin tests) | Estado | PR |
 |---|---|---|---|
-| 5a | `src/published/scripts/` (76 archivos, 9979 líneas antes de retirar OpenCode) | en curso | #2580 |
-| 5b | `scripts/` que no son pipeline ni `_pipeline-common.sh` | en curso | #2559, #2560, #2563, #2565, #2566, #2567, #2570, #2573, #2574, #2575, #2582 |
-| 5c | `src/internal/scripts/` que no son pipeline ni `lib/_mefisto-common.sh` | en curso | #2560, #2564, #2566, #2569, #2575, #2578 |
+| 5a | `src/published/scripts/` (76 archivos, 9979 líneas antes de retirar OpenCode) | hecho | #2580, #2585, #2586 |
+| 5b | `scripts/` que no son pipeline ni `_pipeline-common.sh` | hecho | #2559, #2560, #2563, #2565, #2566, #2567, #2570, #2573, #2574, #2575, #2582 |
+| 5c | `src/internal/scripts/` que no son pipeline ni `lib/_mefisto-common.sh` | hecho | #2560, #2564, #2566, #2569, #2575, #2578 |
 
 MEF-ADR-0049 (decisión 6 y alternativa a) y MEF-ADR-0050 dejaron de fijar bash + `jq` como
 toolchain del generador al portarlo (#2578).
@@ -173,13 +173,14 @@ Ya portados (su `.sh` queda como shim hasta el paso 7):
 También están portados los generadores y validadores de los dos lados y el gate de neutralidad
 (#2578, #2580), y los tests que verifican texto de agentes, plantillas y README (#2582).
 
-Quedan en el paso 5 los tests bash de `src/published/scripts/tests/` que verifican el contrato de
-comandos y agentes publicados. `scripts/pr-sync.sh` carga `_pipeline-common.sh` y se porta con el
-paso 6.
+Los tests de contrato de comandos y agentes publicados también corren con `node --test` (#2585,
+#2586). `scripts/pr-sync.sh` carga `_pipeline-common.sh` y se porta con el paso 6.
 
 Un test que extrae un bloque de bash del markdown de un comando o agente y lo ejecuta no se puede
 portar mientras ese bloque sea bash: conserva en bash solo esos casos (residual) y se cierra en el
-paso 7.
+paso 7. Hay residuales en `scripts/tests/` y en `src/published/scripts/tests/` (`install-apim`,
+`historiador`, `infra-base-scaffolder`, `tdd-agents`, `tdd-pipeline-closure`, entre otros); la
+cabecera de cada uno apunta al `.test.mts` que cubre el resto.
 
 El repo fija los finales de línea en LF con `.gitattributes` (#2561, #2562): con CRLF, en Windows
 fallaban los shims y las lecturas de texto.
@@ -212,7 +213,7 @@ Hecho cuando: en esas rutas solo quedan pipelines, sus librerías y shims.
 
 | Fila | Alcance (líneas en la línea base) | Estado | PR |
 |---|---|---|---|
-| 6a | `src/runtime/` (2500) y `scripts/_pipeline-common.sh` (3150) | pendiente | |
+| 6a | `src/runtime/` (2500) y `scripts/_pipeline-common.sh` (3150) | en curso | #2587, #2588, #2590 |
 | 6b | `scripts/tooling-pipeline.sh` (1065) | pendiente | |
 | 6c | `scripts/tdd-pipeline.sh` (2651) | pendiente | |
 | 6d | `scripts/iac-pipeline.sh` (812) | pendiente | |
@@ -229,6 +230,24 @@ una terminal real a tres tests de señales. Sale con el port de los scripts que 
 
 Mientras una librería tenga llamadores en bash conviven sus dos versiones; un cambio en una función
 ya portada va en las dos.
+
+Orden de trabajo: primero las librerías como gemelas, después cada pipeline.
+
+- Runner: `src/runtime/mefisto-run-agent.mts` y los adaptadores `runtime-<id>.mts` ya son los que
+  corren (#2587); sus `.sh` y `.jq` quedan como gemelas para los pipelines en bash. En Windows el
+  runner termina al agente con `taskkill /PID <pid> /T /F` sobre el PID que lanzó; nunca mata por
+  nombre. Falta una corrida real en Windows (W4).
+- `scripts/_pipeline-common.sh` se porta por grupos a `scripts/lib/pipeline/*.mts`. La librería
+  bash no cambia: gana un comentario `# Gemela en TypeScript` junto a cada función. Cada gemela
+  lleva tests y una paridad contra la función bash real, que se salta en Windows y se borra con la
+  librería. En `main`: scope, identidad, resolución de pipeline y PRs (#2588); tests, métricas de
+  stage, historial, cobertura y smokes (#2590). Falta el grupo de modelos, efforts, fallos, holds
+  y reanudación de agentes.
+- `src/internal/scripts/lib/_mefisto-common.sh` (6g) sigue el mismo esquema, reutilizando los
+  módulos publicados donde la función interna es idéntica.
+- La paridad con `jq` no puede depender de su versión: jq 1.7 y 1.8 difieren (p. ej. `tonumber`
+  sobre una cadena con espacios alrededor) y los runners de CI traen versiones distintas.
+- Defectos heredados del bash en estas librerías: borradores #2589 y #2591.
 
 Hecho cuando: todas las filas están en `hecho` y no queda ningún `.jq` (M2 = 0).
 
