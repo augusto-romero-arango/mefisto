@@ -58,6 +58,10 @@ _mefisto_pipeline_ignored() {
         ! git -C "$repo_root" check-ignore -q -- .mefisto/harness.config.json
 }
 
+# _has_contract_heading, _contract_section_has_token, _onboard_resolve_runtime y
+# _check_consumer_directives tienen gemela en scripts/lib/consumer-directives.mts: un cambio va
+# en los dos lados.
+
 # _has_contract_heading <file> <heading>
 # Reconoce solamente los encabezados Markdown de las secciones contractuales.
 _has_contract_heading() {
