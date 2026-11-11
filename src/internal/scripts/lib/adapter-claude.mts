@@ -2,36 +2,24 @@
 // al formato de Claude Code: frontmatter YAML en bloque con escalares entre comillas JSON.
 // Nada de aqui escribe en disco.
 
+import { defaultEffort, defaultModel } from '../../../runtime/lib/runtime-claude.mts'
 import { jqJson, jqRaw } from './jq-json.mts'
 import type { Json, JsonObject } from './jq-json.mts'
 
 /** Motivo ya redactado por el que un artefacto no se puede traducir. */
 export class AdapterError extends Error {}
 
-// Gemelas de `runtime_claude_default_model` y `runtime_claude_default_effort` de
-// src/runtime/lib/runtime-claude.sh. Tabla fija y no .mefisto/models.json, que es estado de
-// maquina y volveria no determinista una salida versionada.
-const DEFAULT_MODELS = new Map([
-  ['fast', 'haiku'],
-  ['balanced', 'sonnet'],
-  ['deep', 'opus'],
-])
-const DEFAULT_EFFORTS = new Map([
-  ['quick', 'low'],
-  ['light', 'medium'],
-  ['standard', 'high'],
-  ['thorough', 'xhigh'],
-  ['exhaustive', 'max'],
-])
+// La tabla es la del adaptador de ejecucion y no .mefisto/models.json, que es estado de maquina y
+// volveria no determinista una salida versionada.
 
 /** Modelo nativo de un perfil, o '' si el perfil no tiene uno. */
 export function claudeDefaultModel(profile: string): string {
-  return DEFAULT_MODELS.get(profile) ?? ''
+  return defaultModel(profile) ?? ''
 }
 
 /** Nivel nativo de un effort neutral, o `null` si no tiene traduccion. */
 export function claudeDefaultEffort(effort: string): string | null {
-  return DEFAULT_EFFORTS.get(effort) ?? null
+  return defaultEffort(effort)
 }
 
 // `mcp` no tiene mapeo todavia: declararla aborta la generacion.

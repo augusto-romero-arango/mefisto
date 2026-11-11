@@ -2,13 +2,9 @@
 # test-runtime-claude.sh -- Tests del adaptador de runtime Claude Code
 # (MEF-ADR-0049, issue #859): src/runtime/lib/runtime-claude.sh + su traductor.
 #
-# Ninguno de estos tests invoca el CLI real de Claude Code -- todo corre
-# contra una CLI `claude` FALSA (stub bash) puesta primero en el PATH, que
-# reproduce fixtures de .claude/scripts/tests/fixtures/runtime-claude/*.jsonl
-# y devuelve el exit code que le indique el escenario (mismo espiritu que
-# runtime-fake.sh de #858, pero aqui la CLI falsa tiene que ser un binario
-# real llamado `claude`: runtime_claude_build_cmd invoca literalmente ese
-# nombre).
+# Prueba las funciones bash directo, sin lanzar ningun CLI. El runner contra
+# un `claude` simulado y la gemela TypeScript se prueban en
+# src/runtime/tests/runtime-claude.test.mts.
 #
 # rate-limit-exhausted.jsonl (issue #965) es una reproduccion VERBATIM de la
 # secuencia real que reporta anthropics/claude-code#57096 (CLI v2.1.132):
@@ -27,11 +23,6 @@
 #       MEFISTO_RUNTIME_STDIN_FILE queda fijada a --prompt-file tal cual
 #       (ningun centinela del prompt ni del system-file aparece en el argv;
 #       backticks/`$()`/comillas del prompt viajan intactos solo por stdin).
-#   [G] CA-3/CA-4 (issue #1448): paridad ante ARG_MAX -- un prompt >=
-#       `getconf ARG_MAX` + 65536 bytes corre por stdin (nunca por argv) via
-#       el runner real contra la CLI falsa, con exit 0, exactamente un
-#       run.completed y el volcado de stdin identico byte a byte (cmp) al
-#       fixture; el stub deja constancia de que stdin no era TTY.
 #   [B] CA-2: runtime_claude_translate mapea assistant/text -> message,
 #       tool_use -> tool.started, tool_result -> tool.completed (con el
 #       nombre de tool resuelto por emparejamiento de id), en el orden del
@@ -49,15 +40,6 @@
 #   [D] CA-4: el terminal preserva session_id/tokens/estimated_cost_usd/turns/
 #       ttft_ms/denials/api_duration_ms cuando Claude los entrega: ausentes
 #       -> null, nunca 0 (success-minimal.jsonl).
-#   [E] CA-5: --raw-log conserva la traza cruda intacta (mismo contenido que
-#       el fixture, sin traducir).
-#   [F] CA-6: runner real (mefisto-run-agent.sh --runtime claude) contra la
-#       CLI falsa: exito, is_error 529/404, "API Error: 500" solo por stderr,
-#       stream truncado, timeout (stub que duerme), exit 137, modelo heredado
-#       (sin --model en la linea de comando capturada) y modelo opaco con
-#       "[1m]" reenviado literal. Cada
-#       caso valida el JSONL contra run-events.schema.json y exactamente un
-#       evento terminal.
 #
 # Uso: .claude/scripts/tests/test-runtime-claude.sh
 # Exit code: 0 si todos los checks pasan, 1 si alguno falla.
@@ -68,25 +50,10 @@ export LC_ALL=C
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/../../.." && pwd)"
-INTERNAL_SCRIPTS="$REPO_ROOT/src/internal/scripts"
 LIB_DIR="$REPO_ROOT/src/runtime/lib"
-CONTRACT_DIR="$REPO_ROOT/src/runtime/contract"
-RUNNER="$REPO_ROOT/src/runtime/mefisto-run-agent.sh"
 CLAUDE_LIB="$LIB_DIR/runtime-claude.sh"
 CLAUDE_JQ="$LIB_DIR/runtime-claude.jq"
-SCHEMA_FILE="$CONTRACT_DIR/run-events.schema.json"
-JSONSCHEMA_LITE="$INTERNAL_SCRIPTS/lib/jsonschema-lite.jq"
 FIXTURES_DIR="$SCRIPT_DIR/fixtures/runtime-claude"
-
-# El runner (mefisto-run-agent.sh) resuelve la lib de adaptador via
-# MEFISTO_RUNTIME_LIB_DIR (mefisto-runtime.sh), que respeta un valor ya
-# EXPORTADO por el caller. Los pipelines internos la exportan apuntando al
-# checkout donde arrancaron, asi que sin pinearla aqui el bloque del runner
-# real traduciria con el adaptador de OTRO checkout (el principal) en vez del
-# que este test esta juzgando: un gate no determinista que da por bueno
-# codigo que nunca ejecuto (MEF-ADR-0031). test-mefisto-run-agent.sh ya la
-# controla por el mismo motivo.
-export MEFISTO_RUNTIME_LIB_DIR="$LIB_DIR"
 
 PASS=0
 FAIL=0
@@ -106,56 +73,8 @@ translate_fixture() {
     runtime_claude_translate "$FIXTURES_DIR/$fixture" "claude" "$model" "$exit_code" "$stderr_file"
 }
 
-# validate_event_line <json-line> -- mismo patron que
-# test-mefisto-run-agent.sh: valida contra definitions[.type].
-validate_event_line() {
-    local line="$1"
-    local ev_type
-    ev_type="$(printf '%s' "$line" | jq -r '.type // empty' 2>/dev/null)"
-    if [ -z "$ev_type" ]; then
-        echo "linea sin campo 'type' (o JSON invalido)"
-        return 1
-    fi
-    local known
-    known="$(jq --arg t "$ev_type" '(.types | index($t)) != null' "$SCHEMA_FILE" 2>/dev/null)"
-    if [ "$known" != "true" ]; then
-        echo "type '$ev_type' no esta en el vocabulario cerrado de 'types'"
-        return 1
-    fi
-    local sub_schema errors
-    sub_schema="$(jq -c --arg t "$ev_type" '.definitions[$t]' "$SCHEMA_FILE" 2>/dev/null)"
-    errors="$(jq -n --argjson schema "$sub_schema" --argjson instance "$line" -f "$JSONSCHEMA_LITE" 2>&1)"
-    if [ -n "$errors" ] && [ "$(printf '%s' "$errors" | jq 'length' 2>/dev/null)" != "0" ]; then
-        printf '%s' "$errors" | jq -r '.[]'
-        return 1
-    fi
-    case "$ev_type" in
-        run.completed|run.failed)
-            printf '%s' "$line" | jq -e 'has("estimated_cost_usd") or has("cost_usd")' >/dev/null 2>&1 || return 1
-            ;;
-    esac
-    return 0
-}
-
 count_terminals() {
     jq -c 'select(.type == "run.completed" or .type == "run.failed")' "$1" 2>/dev/null | wc -l | tr -d ' '
-}
-
-check_all_lines_valid() {
-    local name="$1" file="$2"
-    local bad=0 line reason
-    while IFS= read -r line; do
-        [ -n "$line" ] || continue
-        if ! reason="$(validate_event_line "$line")"; then
-            bad=1
-            echo "    linea invalida: $reason"
-        fi
-    done < "$file"
-    if [ "$bad" -eq 0 ]; then
-        pass "$name: todas las lineas validan contra el schema"
-    else
-        fail "$name: alguna linea no valido (ver arriba)"
-    fi
 }
 
 echo "[pre] Archivos nuevos existen, sintaxis valida"
@@ -601,271 +520,6 @@ assert_field "D-12: turns ausente -> null" "null" "$(echo "$TERM_MIN" | jq -r '.
 assert_field "D-13: ttft_ms ausente -> null" "null" "$(echo "$TERM_MIN" | jq -r '.ttft_ms')"
 assert_field "D-14: denials ausente -> null (nunca 0)" "null" "$(echo "$TERM_MIN" | jq -r '.denials')"
 assert_field "D-15: api_duration_ms ausente -> null" "null" "$(echo "$TERM_MIN" | jq -r '.api_duration_ms')"
-
-# ============================================================================
-echo ""
-echo "[E] CA-5: --raw-log conserva la traza cruda intacta"
-
-WORKDIR="$TMP/wt-e"; mkdir -p "$WORKDIR"
-PROMPT_FILE="$TMP/prompt-e.txt"; echo "prompt" > "$PROMPT_FILE"
-STUB_BIN="$TMP/bin-stub"; mkdir -p "$STUB_BIN"
-cat > "$STUB_BIN/claude" <<'STUBEOF'
-#!/usr/bin/env bash
-if [ -n "${MEFISTO_CLAUDE_STUB_ARGS_FILE:-}" ]; then
-    : > "$MEFISTO_CLAUDE_STUB_ARGS_FILE"
-    for a in "$@"; do
-        printf '%s\n' "$a" >> "$MEFISTO_CLAUDE_STUB_ARGS_FILE"
-    done
-fi
-if [ -n "${MEFISTO_CLAUDE_STUB_SLEEP:-}" ]; then
-    sleep "$MEFISTO_CLAUDE_STUB_SLEEP"
-fi
-# CA-4 (issue #1448): [ -t 0 ] ANTES de leer nada de stdin -- mismo orden que
-# runtime-fake.sh dump-stdin (#1447). Vuelca stdin BYTE A BYTE a
-# MEFISTO_CLAUDE_STUB_STDIN_FILE (o la descarta si no se pidio) y deja
-# constancia de si era TTY en un archivo hermano "<STDIN_FILE>.tty".
-if [ -n "${MEFISTO_CLAUDE_STUB_STDIN_FILE:-}" ]; then
-    STDIN_IS_TTY=0
-    [ -t 0 ] && STDIN_IS_TTY=1
-    printf '%s\n' "$STDIN_IS_TTY" > "${MEFISTO_CLAUDE_STUB_STDIN_FILE}.tty"
-    cat > "$MEFISTO_CLAUDE_STUB_STDIN_FILE"
-else
-    cat > /dev/null
-fi
-if [ -n "${MEFISTO_CLAUDE_STUB_FIXTURE:-}" ] && [ -f "$MEFISTO_CLAUDE_STUB_FIXTURE" ]; then
-    cat "$MEFISTO_CLAUDE_STUB_FIXTURE"
-fi
-# stdout y stderr separados, como el CLI real (#425): el `API Error` de un
-# fallo de transporte solo aparece por este canal.
-if [ -n "${MEFISTO_CLAUDE_STUB_STDERR:-}" ]; then
-    printf '%s\n' "$MEFISTO_CLAUDE_STUB_STDERR" >&2
-fi
-exit "${MEFISTO_CLAUDE_STUB_EXIT:-0}"
-STUBEOF
-chmod +x "$STUB_BIN/claude"
-
-ORIG_PATH="$PATH"
-export PATH="$STUB_BIN:$PATH"
-unset MEFISTO_RUNTIME
-
-E_RAW="$TMP/e-raw.log"
-E_EVENTS="$TMP/e-events.jsonl"
-MEFISTO_CLAUDE_STUB_FIXTURE="$FIXTURES_DIR/success.jsonl" MEFISTO_CLAUDE_STUB_EXIT=0 \
-    "$RUNNER" --runtime claude --agent test-agent --cwd "$WORKDIR" \
-    --prompt-file "$PROMPT_FILE" --event-log "$E_EVENTS" --raw-log "$E_RAW" >/dev/null 2>&1
-
-if [ -f "$E_RAW" ] && diff -q "$E_RAW" "$FIXTURES_DIR/success.jsonl" >/dev/null 2>&1; then
-    pass "E-1: --raw-log conserva la traza cruda intacta, byte a byte igual al fixture"
-else
-    fail "E-1: --raw-log no coincide con la traza cruda esperada"
-fi
-
-# ============================================================================
-echo ""
-echo "[F] CA-6: runner real (mefisto-run-agent.sh --runtime claude) contra la CLI falsa"
-
-run_claude_scenario() {
-    # run_claude_scenario <event_log> [args del runner...]
-    local ev="$1"; shift
-    "$RUNNER" --runtime claude --agent test-agent --cwd "$WORKDIR" \
-        --prompt-file "$PROMPT_FILE" --event-log "$ev" "$@" >/dev/null 2>&1
-    echo $?
-}
-
-check_scenario() {
-    local desc="$1" ev="$2" expected_exit="$3" expected_status="$4" expected_error_kind="$5" rc="$6"
-
-    if [ "$rc" = "$expected_exit" ]; then
-        pass "$desc: exit $rc"
-    else
-        fail "$desc: exit $rc (esperaba $expected_exit)"
-    fi
-
-    if [ ! -s "$ev" ]; then
-        fail "$desc: --event-log vacio o inexistente"
-        return
-    fi
-
-    check_all_lines_valid "$desc" "$ev"
-
-    local terms
-    terms=$(count_terminals "$ev")
-    if [ "$terms" = "1" ]; then
-        pass "$desc: exactamente 1 evento terminal en --event-log"
-    else
-        fail "$desc: se contaron $terms eventos terminales (se esperaba 1)"
-    fi
-
-    local last_status last_kind
-    last_status="$(jq -r 'select(.type=="run.completed" or .type=="run.failed") | .status' "$ev" 2>/dev/null | tail -n1)"
-    if [ "$last_status" = "$expected_status" ]; then
-        pass "$desc: status='$last_status'"
-    else
-        fail "$desc: status='$last_status' (esperaba '$expected_status')"
-    fi
-
-    if [ -n "$expected_error_kind" ]; then
-        last_kind="$(jq -r 'select(.type=="run.completed" or .type=="run.failed") | .error.kind // empty' "$ev" 2>/dev/null | tail -n1)"
-        if [ "$last_kind" = "$expected_error_kind" ]; then
-            pass "$desc: error.kind='$last_kind'"
-        else
-            fail "$desc: error.kind='$last_kind' (esperaba '$expected_error_kind')"
-        fi
-    fi
-}
-
-F_EV="$TMP/f-success.jsonl"
-F_ARGS="$TMP/f-agent.args"
-RC=$(MEFISTO_CLAUDE_STUB_FIXTURE="$FIXTURES_DIR/success.jsonl" MEFISTO_CLAUDE_STUB_EXIT=0 MEFISTO_CLAUDE_STUB_ARGS_FILE="$F_ARGS" run_claude_scenario "$F_EV")
-check_scenario "exito" "$F_EV" 0 "success" "" "$RC"
-if [ -f "$F_ARGS" ] && grep -A1 -xF -- "--agent" "$F_ARGS" | tail -n1 | grep -qxF "test-agent"; then
-    pass "exito: la CLI falsa recibe --agent test-agent"
-else
-    fail "exito: la CLI falsa no recibio --agent test-agent: $(cat "$F_ARGS" 2>/dev/null)"
-fi
-
-F_EV="$TMP/f-529.jsonl"
-RC=$(MEFISTO_CLAUDE_STUB_FIXTURE="$FIXTURES_DIR/api-error-529.jsonl" MEFISTO_CLAUDE_STUB_EXIT=1 run_claude_scenario "$F_EV")
-check_scenario "is_error API Error: 529" "$F_EV" 1 "failed" "provider_unavailable" "$RC"
-
-F_EV="$TMP/f-404.jsonl"
-RC=$(MEFISTO_CLAUDE_STUB_FIXTURE="$FIXTURES_DIR/api-error-404.jsonl" MEFISTO_CLAUDE_STUB_EXIT=1 run_claude_scenario "$F_EV")
-check_scenario "is_error API Error: 404" "$F_EV" 1 "failed" "api_error" "$RC"
-
-F_EV="$TMP/f-stderr-500.jsonl"
-RC=$(MEFISTO_CLAUDE_STUB_FIXTURE="$FIXTURES_DIR/killed-no-result.jsonl" MEFISTO_CLAUDE_STUB_STDERR="API Error: 500 Internal Server Error" MEFISTO_CLAUDE_STUB_EXIT=1 run_claude_scenario "$F_EV")
-check_scenario "API Error: 500 solo por stderr" "$F_EV" 1 "failed" "provider_unavailable" "$RC"
-
-F_EV="$TMP/f-ratelimit.jsonl"
-RC=$(MEFISTO_CLAUDE_STUB_FIXTURE="$FIXTURES_DIR/rate-limit-exhausted.jsonl" MEFISTO_CLAUDE_STUB_EXIT=1 run_claude_scenario "$F_EV")
-check_scenario "ventana de uso agotada (rate_limit_event, issue #965)" "$F_EV" 1 "failed" "rate_limit" "$RC"
-
-F_EV="$TMP/f-truncated.jsonl"
-RC=$(MEFISTO_CLAUDE_STUB_FIXTURE="$FIXTURES_DIR/stream-truncated.jsonl" MEFISTO_CLAUDE_STUB_EXIT=1 run_claude_scenario "$F_EV")
-check_scenario "stream truncado" "$F_EV" 1 "failed" "stream_cut" "$RC"
-
-F_EV="$TMP/f-timeout.jsonl"
-RC=$(MEFISTO_CLAUDE_STUB_FIXTURE="$FIXTURES_DIR/success.jsonl" MEFISTO_CLAUDE_STUB_SLEEP=3600 run_claude_scenario "$F_EV" --timeout 1)
-check_scenario "timeout (stub que duerme)" "$F_EV" 124 "timeout" "timeout" "$RC"
-
-F_EV="$TMP/f-exit137.jsonl"
-RC=$(MEFISTO_CLAUDE_STUB_FIXTURE="$FIXTURES_DIR/killed-no-result.jsonl" MEFISTO_CLAUDE_STUB_EXIT=137 run_claude_scenario "$F_EV")
-check_scenario "exit 137 (senal externa, sin timeout del watchdog)" "$F_EV" 137 "failed" "killed" "$RC"
-
-F_EV="$TMP/f-model-heredado.jsonl"
-F_ARGS="$TMP/f-model-heredado.args"
-RC=$(MEFISTO_CLAUDE_STUB_FIXTURE="$FIXTURES_DIR/success.jsonl" MEFISTO_CLAUDE_STUB_EXIT=0 MEFISTO_CLAUDE_STUB_ARGS_FILE="$F_ARGS" run_claude_scenario "$F_EV")
-check_scenario "modelo heredado (sin --model)" "$F_EV" 0 "success" "" "$RC"
-if [ -f "$F_ARGS" ] && ! grep -qxF -- "--model" "$F_ARGS"; then
-    pass "modelo heredado: --model NO aparece en la linea de comando capturada"
-else
-    fail "modelo heredado: --model aparecio en la linea de comando capturada: $(cat "$F_ARGS" 2>/dev/null)"
-fi
-
-F_EV="$TMP/f-model-opaco.jsonl"
-F_ARGS="$TMP/f-model-opaco.args"
-RC=$(MEFISTO_CLAUDE_STUB_FIXTURE="$FIXTURES_DIR/success.jsonl" MEFISTO_CLAUDE_STUB_EXIT=0 MEFISTO_CLAUDE_STUB_ARGS_FILE="$F_ARGS" run_claude_scenario "$F_EV" --model "claude-opus-5[1m]")
-check_scenario "modelo opaco con [1m]" "$F_EV" 0 "success" "" "$RC"
-if [ -f "$F_ARGS" ] && grep -A1 -xF -- "--model" "$F_ARGS" | tail -n1 | grep -qxF "claude-opus-5[1m]"; then
-    pass "modelo opaco: 'claude-opus-5[1m]' reenviado literal en la linea de comando capturada"
-else
-    fail "modelo opaco: no se encontro el modelo opaco intacto: $(cat "$F_ARGS" 2>/dev/null)"
-fi
-
-F_EV="$TMP/f-redacted.jsonl"
-F_EVENTS="$TMP/f-redacted-events.log"
-RC=$(MEFISTO_CLAUDE_STUB_FIXTURE="$FIXTURES_DIR/sensitive-redaction.jsonl" MEFISTO_CLAUDE_STUB_STDERR="STDERR_SENTINEL AUTH_TOKEN_SENTINEL" MEFISTO_CLAUDE_STUB_EXIT=0 run_claude_scenario "$F_EV" --events-log "$F_EVENTS" --redact-observability)
-check_scenario "persistencia redactada Claude" "$F_EV" 0 "success" "" "$RC"
-if [ -s "$F_EVENTS" ] \
-    && ! grep -Eq 'PROMPT_SENTINEL|ASSISTANT_SENTINEL|COMMAND_SENTINEL|STDERR_SENTINEL|HEADER_SENTINEL|AUTH_TOKEN_SENTINEL' "$F_EV" "$F_EVENTS" \
-    && ! jq -e 'select(.type == "message")' "$F_EV" >/dev/null 2>&1 \
-    && jq -e 'select(.type == "tool.started") | .tool == "Bash" and .input_summary == null' "$F_EV" >/dev/null 2>&1 \
-    && jq -e 'select(.type == "run.completed") | .runtime == "claude" and .model == "claude-sonnet-5" and .session_id == "sess-redaction-claude" and .tokens.input == 21 and .tokens.output == 8 and .tokens.cache_read == null and .tokens.cache_write == null and .tokens.reasoning == null and .estimated_cost_usd == 0.02 and (has("cost_usd") | not) and .turns == 2' "$F_EV" >/dev/null 2>&1; then
-    pass "redaccion Claude elimina centinelas y conserva identidad/metricas/tools"
-else
-    fail "redaccion Claude filtro contenido sensible o perdio evidencia operacional"
-fi
-
-F_EV="$TMP/f-redacted-rate-limit.jsonl"
-RC=$(MEFISTO_CLAUDE_STUB_FIXTURE="$FIXTURES_DIR/rate-limit-exhausted.jsonl" MEFISTO_CLAUDE_STUB_EXIT=1 run_claude_scenario "$F_EV" --redact-observability)
-check_scenario "persistencia redactada Claude rate limit" "$F_EV" 1 "failed" "rate_limit" "$RC"
-if jq -e 'select(.type == "run.failed") | .resets_at == "2026-05-07T22:40:00Z" and .error.detail == "detalle redactado: rate_limit"' "$F_EV" >/dev/null 2>&1; then
-    pass "redaccion Claude conserva resets_at y sustituye error.detail"
-else
-    fail "redaccion Claude perdio resets_at o dejo error.detail sin redactar"
-fi
-
-# ============================================================================
-echo ""
-echo "[G] CA-3/CA-4: paridad ante ARG_MAX (issue #1448) -- el prompt viaja por stdin, nunca por argv"
-
-G_ARG_MAX="$(getconf ARG_MAX 2>/dev/null)"
-case "$G_ARG_MAX" in
-    ''|*[!0-9]*)
-        fail "G-0: getconf ARG_MAX no devolvio un entero ('$G_ARG_MAX')"
-        G_ARG_MAX=0
-        ;;
-    *)
-        pass "G-0: getconf ARG_MAX = $G_ARG_MAX"
-        ;;
-esac
-
-G_SENTINEL="$(printf '%-64s' 'MEFISTO_1448_CLAUDE_SENTINEL')"
-G_TARGET_SIZE=$((G_ARG_MAX + 65536))
-G_BODY_SIZE=$((G_TARGET_SIZE - ${#G_SENTINEL}))
-G_BLOCK="$TMP/g-block.txt"
-printf 'linea con tab\tdolar $HOME y barra \\ y unicode: ñáéíóú 日本語\n' > "$G_BLOCK"
-G_FIXTURE="$TMP/g-fixture-argmax.bin"
-yes "$(cat "$G_BLOCK")" 2>/dev/null | head -c "$G_BODY_SIZE" > "$G_FIXTURE"
-printf '%s' "$G_SENTINEL" >> "$G_FIXTURE"
-
-G_FIXTURE_SIZE="$(wc -c < "$G_FIXTURE" | tr -d ' ')"
-if [ "$G_FIXTURE_SIZE" -ge "$G_TARGET_SIZE" ]; then
-    pass "G-1: fixture ARG_MAX = $G_FIXTURE_SIZE bytes (>= $G_TARGET_SIZE)"
-else
-    fail "G-1: fixture ARG_MAX = $G_FIXTURE_SIZE bytes (se esperaba >= $G_TARGET_SIZE)"
-fi
-
-G_EV="$TMP/g-event-log.jsonl"
-G_DUMP="$TMP/g-stdin-dump.bin"
-G_ARGS="$TMP/g-args.txt"
-RC=$(MEFISTO_CLAUDE_STUB_FIXTURE="$FIXTURES_DIR/success.jsonl" MEFISTO_CLAUDE_STUB_EXIT=0 \
-    MEFISTO_CLAUDE_STUB_ARGS_FILE="$G_ARGS" MEFISTO_CLAUDE_STUB_STDIN_FILE="$G_DUMP" \
-    "$RUNNER" --runtime claude --agent test-agent --cwd "$WORKDIR" \
-        --prompt-file "$G_FIXTURE" --event-log "$G_EV" --timeout 60 >/dev/null 2>&1; echo $?)
-
-if [ "$RC" = "0" ]; then
-    pass "G-2: el runner termina con exit 0 pese a un prompt >= ARG_MAX"
-else
-    fail "G-2: exit $RC (se esperaba 0)"
-fi
-
-G_TERMS=$(count_terminals "$G_EV")
-if [ "$G_TERMS" = "1" ]; then
-    pass "G-3: exactamente 1 evento terminal en --event-log"
-else
-    fail "G-3: se contaron $G_TERMS eventos terminales (se esperaba 1)"
-fi
-
-if [ -f "$G_DUMP" ] && cmp -s "$G_FIXTURE" "$G_DUMP"; then
-    pass "G-4: el volcado de stdin del stub es identico byte a byte al fixture (cmp)"
-else
-    fail "G-4: el volcado de stdin difiere del fixture original"
-fi
-
-if [ -f "$G_ARGS" ] && ! grep -qF "$G_SENTINEL" "$G_ARGS"; then
-    pass "G-5: el centinela del prompt NO aparece en el volcado de argv (nunca viajo por argv)"
-else
-    fail "G-5: el centinela aparecio en el volcado de argv: $(cat "$G_ARGS" 2>/dev/null)"
-fi
-
-if [ -f "${G_DUMP}.tty" ] && [ "$(cat "${G_DUMP}.tty")" = "0" ]; then
-    pass "G-6: stdin del stub NO era TTY (el aislamiento de #943 se conserva con el canal de #1447/#1448)"
-else
-    fail "G-6: no se registro TTY=0 junto al volcado de stdin: $(cat "${G_DUMP}.tty" 2>/dev/null)"
-fi
-
-export PATH="$ORIG_PATH"
 
 echo ""
 echo "----------------------------------------"

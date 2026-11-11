@@ -1,19 +1,16 @@
 import assert from 'node:assert/strict'
 import { execFileSync, spawnSync } from 'node:child_process'
-import { chmodSync, mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
-import { delimiter, dirname, join, sep } from 'node:path'
+import { dirname, join, sep } from 'node:path'
 import { after, before, describe, test } from 'node:test'
 import { fileURLToPath } from 'node:url'
 
-import { commandExists } from '../lib/cli.mts'
-import { discoverRuntime } from '../lib/upgrade-runtime.mts'
 import { upgrade } from '../upgrade.mts'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 const REPO_ROOT = join(HERE, '..', '..')
 const SCRIPT = join(HERE, '..', 'upgrade.mts')
-const RUNTIME_LIB = join(REPO_ROOT, 'src', 'runtime', 'lib')
 const USAGE = 'Uso: upgrade --status | --prune --only <v>[,<v>...] [--loaded <version>] | --disable-user'
 
 let work = ''
@@ -240,10 +237,10 @@ describe('runtime', () => {
     const lib = join(work, 'dist', 'src', 'runtime', 'lib')
     mkdirSync(scriptDir, { recursive: true })
     mkdirSync(lib, { recursive: true })
-    for (const name of ['update-plugin.mts', join('..', 'src', 'runtime', 'lib', 'mefisto-runtime.sh')]) {
+    for (const name of ['update-plugin.mts', join('..', 'src', 'runtime', 'lib', 'mefisto-runtime.mts')]) {
       writeFileSync(join(scriptDir, name), '')
     }
-    writeFileSync(join(lib, 'runtime-claude.sh'), '')
+    writeFileSync(join(lib, 'runtime-claude.mts'), '')
 
     const found = run(['--status'], { env: {}, scriptDir, available: ['claude'] })
     assert.deepEqual(found.out, ['{"schemaVersion":3,"runtime":"claude","installedVersion":"1.0.0"}'])
@@ -252,46 +249,6 @@ describe('runtime', () => {
     assert.equal(missing.status, 1)
     assert.deepEqual(missing.err, ['ERROR: no se pudo resolver el runtime'])
     assert.deepEqual(missing.delegated, [])
-  })
-})
-
-describe('discoverRuntime', () => {
-  test('ignora los adaptadores sin prueba y los nombres fuera de patron', () => {
-    const lib = join(work, 'adaptadores')
-    mkdirSync(lib)
-    for (const name of ['runtime-claude.sh', 'runtime-fake.sh', 'runtime-otro.sh', 'runtime-Mal.sh', 'otro.sh']) {
-      writeFileSync(join(lib, name), '')
-    }
-    assert.deepEqual(discoverRuntime(lib, {}, (command) => command === 'claude'), { runtime: 'claude' })
-    assert.deepEqual(discoverRuntime(lib, { MEFISTO_FAKE_AVAILABLE: '1' }, () => false), { runtime: 'fake' })
-    assert.deepEqual(discoverRuntime(lib, {}, () => false), {
-      error:
-        'no se detecto ningun runtime disponible entre los adaptadores (claude, fake, otro): fija MEFISTO_RUNTIME o --runtime',
-    })
-    assert.deepEqual(discoverRuntime(lib, { MEFISTO_FAKE_AVAILABLE: '1' }, () => true), {
-      error:
-        'se detectaron varios runtimes disponibles (claude fake): fija MEFISTO_RUNTIME o --runtime para desambiguar',
-    })
-    assert.deepEqual(discoverRuntime(join(lib, 'no-existe'), {}, () => true), {
-      error: 'no se detecto ningun runtime disponible entre los adaptadores (): fija MEFISTO_RUNTIME o --runtime',
-    })
-  })
-
-  // Paridad con la gemela en bash: los dos lados resuelven lo mismo con el mismo entorno.
-  test('coincide con mefisto_resolve_runtime', { skip: process.platform === 'win32' }, () => {
-    const bin = join(work, 'bin')
-    mkdirSync(bin)
-    writeFileSync(join(bin, 'claude'), '#!/bin/sh\n')
-    chmodSync(join(bin, 'claude'), 0o755)
-    const probe = 'source "$1/mefisto-runtime.sh"; mefisto_resolve_runtime || printf "%s\\n" "error: $MEFISTO_RUNTIME_ERROR"'
-    for (const extra of [{}, { MEFISTO_FAKE_AVAILABLE: '1' }]) {
-      for (const path of [`${bin}${delimiter}/usr/bin${delimiter}/bin`, `/usr/bin${delimiter}/bin`]) {
-        const env = { PATH: path, ...extra }
-        const bash = execFileSync('bash', ['-c', probe, 'bash', RUNTIME_LIB], { env, encoding: 'utf8' })
-        const found = discoverRuntime(RUNTIME_LIB, env, (command) => commandExists(command, env))
-        assert.equal('runtime' in found ? found.runtime : `error: ${found.error}`, bash.trimEnd())
-      }
-    }
   })
 })
 
