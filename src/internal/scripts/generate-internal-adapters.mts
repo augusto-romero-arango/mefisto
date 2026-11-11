@@ -30,7 +30,7 @@
 // producen los mismos bytes.
 
 import { copyFileSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
-import { dirname, resolve } from 'node:path'
+import { dirname, isAbsolute, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 import { isEntryPoint, runMain } from '../../../scripts/lib/cli.mts'
@@ -200,7 +200,7 @@ export function runGenerator(argv: string[], output: Output, repoRoot: string = 
 
     // Skill publicado fuera de la lista: no se proyecta. Se ancla a la ruta relativa para que
     // un `skills/` ancestro del clon no salte agentes.
-    if (/^skills\/.*\/.*$/s.test(relSource) || /^\/.*\/skills\/.*\/.*$/s.test(relSource)) continue
+    if (/^skills\/.*\/.*$/s.test(relSource) || (isAbsolute(relSource) && /.\/skills\/.*\/.*$/s.test(relSource))) continue
 
     const content = readText(file) ?? ''
     const frontmatter = chomp(extractFrontmatter(content).text)
