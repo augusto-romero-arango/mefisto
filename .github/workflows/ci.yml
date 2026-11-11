@@ -37,6 +37,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # Los scripts ya portados corren con Node (MEF-ADR-0057): sus shims .sh lo invocan.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22.18.0'
+
       - name: Entorno del runner
         run: |
           uname -sm
@@ -99,6 +104,10 @@ jobs:
       RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
     steps:
       - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22.18.0'
 
       - name: Descargar logs de la suite
         if: ${{ needs.tests.result != 'success' }}
