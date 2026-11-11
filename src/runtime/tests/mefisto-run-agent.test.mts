@@ -321,10 +321,11 @@ describe('guiones del runtime falso', { concurrency: true }, () => {
   })
 
   test('hang cae en timeout: exit 124, duracion real y los eventos previos intactos', async () => {
-    const run = await fake('hang', ['--timeout', '1'])
+    // Con 1 s, en una maquina cargada el CLI falso moria antes de emitir su mensaje.
+    const run = await fake('hang', ['--timeout', '4'])
     const terminal = assertOutcome(run, 124, 'timeout', 'timeout')
-    assert.equal(Number(terminal.duration_ms) >= 1000, true)
-    assert.equal(errorOf(terminal).detail, 'el watchdog mato el proceso tras superar 1s')
+    assert.equal(Number(terminal.duration_ms) >= 4000, true)
+    assert.equal(errorOf(terminal).detail, 'el watchdog mato el proceso tras superar 4s')
     assert.equal(run.events.some((event) => event.type === 'message'), true)
   })
 
