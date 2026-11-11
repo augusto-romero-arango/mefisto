@@ -11,8 +11,8 @@
 import { execFileSync } from 'node:child_process'
 import { readFileSync, realpathSync } from 'node:fs'
 import { basename, dirname, isAbsolute, join, relative, resolve, sep } from 'node:path'
-import { pathToFileURL } from 'node:url'
 
+import { isEntryPoint } from '../../scripts/lib/cli.mts'
 import { SCOPE_SUMMARY, isPathInMefistoScope } from '../../src/internal/scripts/lib/mefisto-scope.mts'
 
 export function editedPath(input: unknown): string | null {
@@ -102,15 +102,4 @@ function main(): number {
   }
 }
 
-function isEntryPoint(): boolean {
-  const entry = process.argv[1]
-  if (entry === undefined) return false
-  // Node carga el punto de entrada por su ruta real.
-  try {
-    return pathToFileURL(realpathSync(entry)).href === import.meta.url
-  } catch {
-    return false
-  }
-}
-
-if (isEntryPoint()) process.exitCode = main()
+if (isEntryPoint(import.meta.url)) process.exitCode = main()

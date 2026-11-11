@@ -60,3 +60,14 @@ node --test ".claude/scripts/**/*.test.mts" "scripts/**/*.test.mts" "src/**/*.te
 ```
 
 `tsc` y los tipos de Node son herramientas de verificacion: se instalan en `node_modules/`, que no se versiona, y ningun script depende de ellos al ejecutarse. El workflow `typescript.yml` repite esos pasos en macOS, Linux y Windows.
+
+### Convenciones al portar un script
+
+- **Ubicacion y nombre**: `x.mts` junto al `x.sh` que reemplaza. Su test es `x.test.mts` en la carpeta `tests/` de ese lado (`scripts/tests/` para lo publicado, `.claude/scripts/tests/` para lo interno).
+- **Shim**: mientras algo en bash o un comando invoque `x.sh`, queda como shim de una linea de codigo: `exec node "$(dirname "$0")/x.mts" "$@"`. Cuando no quede ningun llamador, se borra.
+- **Forma del modulo**: funciones puras exportadas que el test importa, y un `main` que solo corre cuando el archivo es el punto de entrada (`isEntryPoint(import.meta.url)` de `scripts/lib/cli.mts`). Los errores previstos se lanzan como `CliError` y `runMain` los traduce a mensaje en stderr y codigo de salida.
+- **Procesos**: siempre con lista de argumentos y sin shell (`capture` de `scripts/lib/cli.mts`). Nada de `exec` con una cadena.
+- **Librerias compartidas**: lo publicado vive en `scripts/lib/`; lo interno, en `src/internal/scripts/lib/`. Lo interno puede importar lo publicado, nunca al reves. Una funcion que tambien existe en una libreria bash se anota como gemela en los dos lados hasta que la de bash pierda sus llamadores.
+- **Rutas**: se arman con `node:path`, nunca concatenando `/`. Para decidir si una ruta cae dentro de otra se comparan rutas reales con `realpathSync.native`, que es la unica variante que expande los nombres cortos de Windows.
+- **Salida**: los mensajes y codigos de salida del script en bash se conservan; son contrato para los comandos y agentes que los leen.
+- **Tests**: con `node:test` y `node:assert/strict`, sobre carpetas temporales y repos git creados en el propio test. Nada que dependa de bash, salvo un test de paridad con una gemela en bash, que se salta en Windows.

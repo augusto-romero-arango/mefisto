@@ -10,12 +10,12 @@ import {
   existsSync,
   mkdirSync,
   readFileSync,
-  realpathSync,
   rmSync,
   writeFileSync,
 } from 'node:fs'
 import { join } from 'node:path'
-import { pathToFileURL } from 'node:url'
+
+import { isEntryPoint } from './lib/cli.mts'
 
 export const REMINDER_TEXT =
   '[recordatorio] Si esta sesion tuvo descubrimientos de dominio, decisiones o alternativas descartadas, considera escribir field notes en docs/bitacora/field-notes/ antes de continuar.'
@@ -322,15 +322,4 @@ function main(argv: string[]): number {
   return 0
 }
 
-function isEntryPoint(): boolean {
-  const entry = process.argv[1]
-  if (entry === undefined) return false
-  // Node carga el punto de entrada por su ruta real.
-  try {
-    return pathToFileURL(realpathSync(entry)).href === import.meta.url
-  } catch {
-    return false
-  }
-}
-
-if (isEntryPoint()) process.exitCode = main(process.argv.slice(2))
+if (isEntryPoint(import.meta.url)) process.exitCode = main(process.argv.slice(2))
