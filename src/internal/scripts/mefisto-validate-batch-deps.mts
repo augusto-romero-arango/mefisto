@@ -19,7 +19,7 @@
 // Una dependencia CLOSED o MERGED ya esta satisfecha.
 
 import { CliError, isEntryPoint, runMain } from '../../../scripts/lib/cli.mts'
-import { dependenciesSection, forwardDependencies } from './lib/mefisto-deps.mts'
+import { dependenciesSection, forwardDependencies } from '../../../scripts/lib/issue-dependencies.mts'
 import { Output, chomp, runGh } from './lib/mefisto-script-io.mts'
 import type { Gh } from './lib/mefisto-script-io.mts'
 

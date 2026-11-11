@@ -8,7 +8,7 @@ import {
   dependenciesSection,
   forwardDependencies,
   hasDependenciesSection,
-} from '../../../src/internal/scripts/lib/mefisto-deps.mts'
+} from '../../../scripts/lib/issue-dependencies.mts'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 const BASH_TWIN = join(HERE, '..', '..', '..', 'src', 'internal', 'scripts', 'lib', 'mefisto-deps.sh')

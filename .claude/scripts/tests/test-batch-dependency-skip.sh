@@ -60,8 +60,8 @@ setup_work_repo() {
     cp "$CANON_BATCH" "$dir/src/internal/scripts/mefisto-batch-pipeline.sh"
     cp "$REPO_ROOT/src/internal/scripts/mefisto-validate-batch-deps.sh" "$dir/src/internal/scripts/"
     cp "$REPO_ROOT/src/internal/scripts/mefisto-validate-batch-deps.mts" "$dir/src/internal/scripts/"
-    cp "$LIBS/mefisto-deps.mts" "$LIBS/mefisto-script-io.mts" "$dir/src/internal/scripts/lib/"
-    mkdir -p "$dir/scripts/lib" && cp "$REPO_ROOT/scripts/lib/cli.mts" "$dir/scripts/lib/"
+    cp "$LIBS/mefisto-script-io.mts" "$dir/src/internal/scripts/lib/"
+    mkdir -p "$dir/scripts/lib" && cp "$REPO_ROOT/scripts/lib/cli.mts" "$REPO_ROOT/scripts/lib/issue-dependencies.mts" "$dir/scripts/lib/"
     chmod +x "$dir/src/internal/scripts/"*.sh
     git -C "$dir" config user.email "test@mefisto.local"
     git -C "$dir" config user.name "Mefisto Test"

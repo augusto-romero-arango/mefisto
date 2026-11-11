@@ -1,0 +1,1 @@
+- El repo fija saltos de linea LF con `.gitattributes`: en Windows git entregaba los archivos del plugin con CRLF.
