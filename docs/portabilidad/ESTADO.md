@@ -88,7 +88,7 @@ Estados: `pendiente`, `en curso`, `hecho`.
 | 2a | Retirar OpenCode | hecho | #2551, #2552 |
 | 2b | Retirar tmux | hecho | #2555 |
 | 3 | Base TypeScript | hecho | #2556 |
-| 4 | Hooks | hecho | #2557, #PR4B |
+| 4 | Hooks | hecho | #2557, #2558 |
 | 5 | Scripts sueltos | pendiente | |
 | 6 | Librerías y pipelines | pendiente | |
 | 7 | Despachador, herdr y cierre | pendiente | |
@@ -130,7 +130,7 @@ Hecho cuando: el workflow existe y pasa en los tres sistemas con al menos un tes
 | Fila | Alcance | Estado | PR |
 |---|---|---|---|
 | 4a | Hooks publicados: los 7 comandos de `hooks/hooks.json` pasan a la forma exec de Claude Code (`command: "node"` más `args`, sin shell) sobre `scripts/interactive-hooks.mts`. Con ellos entra el requisito de Node >= 22.18 para el consumidor: chequeo en `/onboard` y línea en `README.md` (MEF-ADR-0057, decisión 9) | hecho | #2557 |
-| 4b | Hook de scope interno: `.claude/scripts/mefisto-scope-hook.mts`, en forma exec desde `.claude/settings.json`. La lista de scope vive también en TypeScript (`src/internal/scripts/lib/mefisto-scope.mts`), gemela de la función bash hasta el paso 6g; un test verifica que coinciden | hecho | #PR4B |
+| 4b | Hook de scope interno: `.claude/scripts/mefisto-scope-hook.mts`, en forma exec desde `.claude/settings.json`. La lista de scope vive también en TypeScript (`src/internal/scripts/lib/mefisto-scope.mts`), gemela de la función bash hasta el paso 6g; un test verifica que coinciden | hecho | #2558 |
 
 `src/internal/githooks/pre-push` se queda en shell: Git ejecuta los hooks con su propio `sh` (se
 confirma en W6).
