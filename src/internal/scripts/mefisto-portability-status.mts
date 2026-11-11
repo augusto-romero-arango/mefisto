@@ -3,9 +3,11 @@
 // Uso: node src/internal/scripts/mefisto-portability-status.mts [--json] [--root <dir>]
 
 import { execFileSync } from 'node:child_process'
-import { readFileSync, realpathSync } from 'node:fs'
+import { readFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
-import { fileURLToPath, pathToFileURL } from 'node:url'
+import { fileURLToPath } from 'node:url'
+
+import { isEntryPoint } from '../../../scripts/lib/cli.mts'
 
 const HISTORY_EXCLUDES = [
   ':!dist/',
@@ -205,15 +207,4 @@ function main(argv: string[]): number {
   return 0
 }
 
-function isEntryPoint(): boolean {
-  const entry = process.argv[1]
-  if (entry === undefined) return false
-  // Node carga el punto de entrada por su ruta real.
-  try {
-    return pathToFileURL(realpathSync(entry)).href === import.meta.url
-  } catch {
-    return false
-  }
-}
-
-if (isEntryPoint()) process.exitCode = main(process.argv.slice(2))
+if (isEntryPoint(import.meta.url)) process.exitCode = main(process.argv.slice(2))

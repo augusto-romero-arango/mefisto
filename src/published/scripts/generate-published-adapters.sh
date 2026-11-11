@@ -52,6 +52,8 @@ OUT_ROOT="$REPO_ROOT"
 FILES=()
 TOOLING_CLOSURE_ASSETS=(
     'scripts/_pipeline-common.sh|0755'
+    'scripts/lib/cli.mts|0644'
+    'scripts/lib/state.mts|0644'
     'scripts/launch-pipeline.sh|0755'
     'scripts/herdr-workspace.sh|0755'
     'scripts/herdr-pipeline.sh|0755'
