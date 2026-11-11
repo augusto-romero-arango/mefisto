@@ -213,7 +213,7 @@ Ruta efectiva del config (`${MEFISTO_CONFIG_PATH}`); `repoSlug` es opcional -- s
 ```bash
 CONFIG="${MEFISTO_CONFIG_PATH}"
 HARNESS_REPO_SLUG=""
-[ -f "$CONFIG" ] && HARNESS_REPO_SLUG=$(jq -r '.repoSlug // empty' "$CONFIG" 2>/dev/null)
+[ -f "$CONFIG" ] && HARNESS_REPO_SLUG=$(node "${MEFISTO_PACKAGE_ROOT}/scripts/json-value.mts" get "$CONFIG" repoSlug --or-empty 2>/dev/null)
 [ -z "$HARNESS_REPO_SLUG" ] && HARNESS_REPO_SLUG="augusto-romero-arango/mefisto"
 echo "$HARNESS_REPO_SLUG"
 ```

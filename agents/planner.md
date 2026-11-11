@@ -162,7 +162,7 @@ Antes de crear o refinar cualquier issue, decide a qué **repo** pertenece:
 Lee `repoSlug` desde `${MEFISTO_CONFIG_PATH}` (MEF-ADR-0053 decision 4). El campo es opcional: si el config no lo declara o esta vacio, aplica el default sin abortar.
 
 ```bash
-HARNESS_REPO_SLUG=$(jq -r '.repoSlug // empty' "${MEFISTO_CONFIG_PATH}" 2>/dev/null)
+HARNESS_REPO_SLUG=$(node "${MEFISTO_PACKAGE_ROOT}/scripts/json-value.mts" get "${MEFISTO_CONFIG_PATH}" repoSlug --or-empty 2>/dev/null)
 [ -z "$HARNESS_REPO_SLUG" ] && HARNESS_REPO_SLUG="augusto-romero-arango/mefisto"
 echo "$HARNESS_REPO_SLUG"
 ```
