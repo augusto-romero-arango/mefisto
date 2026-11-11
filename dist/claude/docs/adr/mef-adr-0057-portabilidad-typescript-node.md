@@ -91,7 +91,8 @@ Las enmiendas a MEF-ADR-0049, MEF-ADR-0050, MEF-ADR-0053 y MEF-ADR-0055 van en l
 ### 9. Prerrequisitos y declaracion de soporte
 
 - Node >= 22.18 pasa a ser prerrequisito del consumidor desde el primer script publicado que se porte. `/onboard` lo comprueba.
-- Cuando no quede bash, `README.md` y `/onboard` dejan de pedir bash, `jq` y tmux.
+- En Windows, Git for Windows es prerrequisito: los bloques de bash que Claude ejecuta desde comandos, agentes y skills siguen en bash, y Claude Code los corre en Git Bash; sin Git for Windows usaria PowerShell (Claude Code, *Advanced setup*). Esos bloques no usan nada que Git Bash no traiga: `jq` y `python3` se reemplazan por invocaciones de `node`. `/onboard` comprueba que Git Bash este disponible.
+- Los scripts del harness no dependen de bash: cuando no quede ninguno en bash, `README.md` y `/onboard` dejan de pedir `jq` y tmux.
 - El criterio de cierre es macOS y Windows. Linux se verifica en el workflow de la decision 8, pero no condiciona la declaracion de soporte.
 - Windows se declara soportado solo cuando se cumple la completitud de `docs/portabilidad/ESTADO.md`, que incluye una verificacion manual en una maquina Windows nativa. Ningun agente puede cerrar esa verificacion.
 - `src/internal/githooks/pre-push` se queda en shell POSIX. Si la verificacion manual muestra que Git for Windows no lo ejecuta, se porta.
@@ -161,7 +162,7 @@ Traen mejores utilidades de shell, pero estan menos instalados que Node. Es cono
 - Node.js, *Modules: TypeScript*: https://nodejs.org/api/typescript.html (type stripping activo por defecto desde v22.18.0 y v23.6.0, estable desde v24.12.0 y v25.2.0; sintaxis no soportada; extension obligatoria en imports).
 - Node.js, *Test runner*: https://nodejs.org/api/test.html (estable desde v20.0.0; descubre `*.test.mts` salvo con `--no-strip-types`).
 - Node.js, *Child process*, `options.detached`: https://nodejs.org/api/child_process.html (proceso que sobrevive al padre en Windows y en Unix, con `unref()` y stdio no heredado).
-- Claude Code, *Advanced setup*: https://code.claude.com/docs/en/setup (en Windows nativo Git for Windows es opcional; sin el se usa la herramienta PowerShell).
+- Claude Code, *Advanced setup*: https://code.claude.com/docs/en/setup (en Windows nativo Git for Windows es opcional para Claude Code: con el la herramienta Bash usa Git Bash; sin el se usa la herramienta PowerShell).
 - Herdr, *Windows support* (0.9.3): https://herdr.dev/docs/0.9.3/windows-beta/ (soporte nativo sobre ConPTY; grupos de foreground de Unix no soportados).
 - Microsoft Learn, *File-based apps*: https://learn.microsoft.com/dotnet/core/sdk/file-based-apps (cache de build, contencion entre invocaciones concurrentes, `#:include` desde SDK 10.0.300).
 - OpenCode, *Windows (WSL)*: https://opencode.ai/docs/windows-wsl/ (recomienda WSL).
@@ -177,3 +178,4 @@ Traen mejores utilidades de shell, pero estan menos instalados que Node. Es cono
 - 2026-11-10: creacion como `aceptado`. Fija TypeScript sobre Node >= 22.18 sin build, el port incremental sobre `main`, el retiro de tmux y de OpenCode, la conservacion de herdr y del contrato neutral de runtime, y el workflow de verificacion en tres sistemas.
 - 2026-11-10: enmienda de las decisiones 7 y 9. Sale la evaluacion de un segundo runtime: el objetivo es que Mefisto funcione completo en macOS y Windows solo con Claude Code; Linux se verifica en CI sin ser criterio de cierre.
 - 2026-11-10: enmienda de las decisiones 1, 2, 3, 4, 6 y 8 al montar la base TypeScript. La extension pasa de `.ts` a `.mts`, porque un `.ts` depende del `package.json` de las carpetas superiores; se fija `src/internal/tsconfig.json` y el workflow `typescript.yml`.
+- 2026-11-11: enmienda de la decision 9. Git for Windows pasa a ser prerrequisito en Windows: los bloques de bash del markdown de comandos, agentes y skills se quedan en bash y corren en Git Bash, y solo se reemplaza lo que Git Bash no trae (`jq`, `python3`). Se descarto reescribir cada bloque como invocacion de `node` para no exigir Git for Windows: tocaba casi todos los comandos y agentes.
