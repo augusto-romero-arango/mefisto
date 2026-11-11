@@ -20,13 +20,13 @@ import sys
 generator = pathlib.Path(sys.argv[1]).read_text()
 pipeline_path = pathlib.Path(sys.argv[2])
 
-array = re.search(r'^TOOLING_CLOSURE_ASSETS=\(\n(.*?)^\)', generator, re.M | re.S)
+array = re.search(r'^export const TOOLING_CLOSURE_ASSETS[^\n]*\[\n(.*?)^\]', generator, re.M | re.S)
 if not array:
     print('no se pudo leer TOOLING_CLOSURE_ASSETS del generador')
     raise SystemExit(2)
 declared = {
     match.group(1)
-    for match in re.finditer(r"^\s*'([^'|]+)\|(?:0644|0755)'\s*$", array.group(1), re.M)
+    for match in re.finditer(r"^\s*'([^'|]+)\|(?:0644|0755)',\s*$", array.group(1), re.M)
 }
 
 bases = {
@@ -58,7 +58,7 @@ PY
 
 assert_dependency_closure() {
     local pipeline="$1" output rc=0
-    output="$(python3 "$SCANNER" "$REPO_ROOT/src/published/scripts/generate-published-adapters.sh" "$pipeline")" || rc=$?
+    output="$(python3 "$SCANNER" "$REPO_ROOT/src/published/scripts/generate-published-adapters.mts" "$pipeline")" || rc=$?
     if [ "$rc" -eq 0 ]; then
         pass "${pipeline##*/} solo referencia dependencias declaradas en la clausura ($output verificadas)"
     else

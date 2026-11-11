@@ -33,11 +33,11 @@ import re
 import sys
 
 generator = pathlib.Path(sys.argv[1]).read_text()
-array = re.search(r'^TOOLING_CLOSURE_ASSETS=\(\n(.*?)^\)', generator, re.M | re.S)
+array = re.search(r'^export const TOOLING_CLOSURE_ASSETS[^\n]*\[\n(.*?)^\]', generator, re.M | re.S)
 if not array:
     print('no se pudo leer TOOLING_CLOSURE_ASSETS del generador', file=sys.stderr)
     raise SystemExit(2)
-for match in re.finditer(r"^\s*'([^'|]+)\|(0644|0755)'\s*$", array.group(1), re.M):
+for match in re.finditer(r"^\s*'([^'|]+)\|(0644|0755)',\s*$", array.group(1), re.M):
     print(f'{match.group(1)}|{match.group(2)}')
 PY
 CLOSURE_SOURCES=()
@@ -46,7 +46,7 @@ while IFS='|' read -r closure_source closure_mode; do
     [ -n "$closure_source" ] || continue
     CLOSURE_SOURCES+=("$closure_source")
     CLOSURE_MODES+=("$closure_mode")
-done < <(python3 "$CLOSURE_EXTRACTOR" "$GENERATOR")
+done < <(python3 "$CLOSURE_EXTRACTOR" "${GENERATOR%.sh}.mts")
 CLOSURE_COUNT="${#CLOSURE_SOURCES[@]}"
 closure_has() {
     local needle="$1" i

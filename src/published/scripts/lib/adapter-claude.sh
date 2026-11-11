@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
-# Funciones del renderizador Claude Code. Solo imprimen stdout; el generador
-# publica el staging completo de forma atomica.
+# Funciones del renderizador Claude Code. Solo imprimen stdout.
+# Gemela de lib/adapter-claude.mts, que es la que usa el generador; esta queda
+# solo para tests/test-tdd-agents.sh.
 
 published_claude_error() { printf '%s: %s: %s\n' "$1" "$2" "$3" >&2; return 1; }
 published_claude_model() { case "$1" in fast) printf haiku ;; balanced) printf sonnet ;; deep) printf opus ;; *) return 1 ;; esac; }

@@ -135,8 +135,7 @@ call_with_locale() {
 # scripts/tests/{test-alpha.sh,test-beta.sh} (publicado)
 # .claude/scripts/tests/{test-gamma.sh,test-delta.sh} (interno)
 # src/published/scripts/tests/test-generate-published-adapters.sh (adicional,
-# mismo nombre que el registro DEFAULT de la lib -- sin necesidad de
-# override para que [A]/[D]/[I] usen el registro real).
+# solo cuando el caso lo registra: el registro DEFAULT de la lib esta vacio).
 
 BASE="$TMPDIR_ROOT"
 mkdir -p "$BASE/scripts/tests" "$BASE/.claude/scripts/tests" "$BASE/src/published/scripts/tests"
@@ -170,15 +169,16 @@ else
     fail "A-2: se esperaba '$EXPECTED_A_INT', se obtuvo '$A_INT'"
 fi
 
-A_ADI=$(call "$BASE" mefisto_test_inventory_lane_adicional "$BASE")
+BASE_REGISTRY='src/published/scripts/tests/test-generate-published-adapters.sh'
+A_ADI=$(call_with_registry "$BASE" "$BASE_REGISTRY" mefisto_test_inventory_lane_adicional "$BASE")
 EXPECTED_A_ADI=$'canonico-adicional\tsrc/published/scripts/tests/test-generate-published-adapters.sh'
 if [ "$A_ADI" = "$EXPECTED_A_ADI" ]; then
-    pass "A-3: carril canonico-adicional expone el registro default"
+    pass "A-3: carril canonico-adicional expone el registro"
 else
     fail "A-3: se esperaba '$EXPECTED_A_ADI', se obtuvo '$A_ADI'"
 fi
 
-A_LIST=$(call "$BASE" mefisto_test_inventory_list "$BASE")
+A_LIST=$(call_with_registry "$BASE" "$BASE_REGISTRY" mefisto_test_inventory_list "$BASE")
 EXPECTED_A_LIST="$EXPECTED_A_PUB"$'\n'"$EXPECTED_A_INT"$'\n'"$EXPECTED_A_ADI"
 if [ "$A_LIST" = "$EXPECTED_A_LIST" ]; then
     pass "A-4: mefisto_test_inventory_list concatena publicado -> interno -> canonico-adicional"
@@ -186,12 +186,21 @@ else
     fail "A-4: se esperaba '$EXPECTED_A_LIST', se obtuvo '$A_LIST'"
 fi
 
-A_VALID=$(call "$BASE" mefisto_test_inventory_validate "$BASE" 2>&1)
+A_VALID=$(call_with_registry "$BASE" "$BASE_REGISTRY" mefisto_test_inventory_validate "$BASE" 2>&1)
 A_VALID_RC=$?
 if [ "$A_VALID_RC" -eq 0 ]; then
     pass "A-5: mefisto_test_inventory_validate acepta el inventario baseline"
 else
     fail "A-5: se esperaba exit 0, se obtuvo rc=$A_VALID_RC: $A_VALID"
+fi
+
+A_EMPTY=$(call "$BASE" mefisto_test_inventory_lane_adicional "$BASE")
+A_EMPTY_VALID_RC=0
+call "$BASE" mefisto_test_inventory_validate "$BASE" >/dev/null 2>&1 || A_EMPTY_VALID_RC=$?
+if [ -z "$A_EMPTY" ] && [ "$A_EMPTY_VALID_RC" -eq 0 ]; then
+    pass "A-6: el registro default esta vacio y un carril canonico-adicional vacio es valido"
+else
+    fail "A-6: se esperaba un carril vacio y rc=0, se obtuvo '$A_EMPTY' rc=$A_EMPTY_VALID_RC"
 fi
 
 echo ""
