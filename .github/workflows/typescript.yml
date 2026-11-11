@@ -1,0 +1,52 @@
+# Verificacion de los scripts TypeScript de Mefisto (MEF-ADR-0057 decision 8). No se distribuye al consumidor (MEF-ADR-0019).
+# Excepcion acotada a la politica de ci.yml (#1743, #1766: ningun PR corre tests): se dispara en los PRs que tocan
+# TypeScript porque la maquina de desarrollo es macOS y Linux y Windows no se pueden verificar en local.
+# Sin secretos ni CLIs de agente. NO es obligatorio: el ruleset 'main' no lo exige.
+# Runners pinneados, nunca '-latest'. Node 22.18.0 es el piso soportado; 24 es la linea LTS vigente.
+# tsc y los tipos de Node se instalan aqui: son herramientas de verificacion, nunca dependencia de ejecucion.
+# En Windows los pasos corren en PowerShell, el shell por defecto del runner: nada depende de bash.
+name: TypeScript
+
+on:
+  pull_request:
+    paths:
+      - '**/*.mts'
+      - 'src/internal/tsconfig.json'
+      - '.github/workflows/typescript.yml'
+  schedule:
+    - cron: '30 8 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    name: ${{ matrix.os }} / node ${{ matrix.node }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-26, ubuntu-24.04, windows-2025]
+        node: ['22.18.0', '24']
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+
+      - name: Entorno del runner
+        run: |
+          node --version
+          git --version
+
+      - name: Instalar tsc y los tipos de Node
+        run: npm install --no-save --no-package-lock typescript@7.0.2 @types/node@22.20.5
+
+      - name: Chequeo de tipos
+        run: npx tsc -p src/internal/tsconfig.json
+
+      - name: Tests
+        run: node --test ".claude/scripts/**/*.test.mts" "scripts/**/*.test.mts" "src/**/*.test.mts"

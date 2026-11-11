@@ -40,3 +40,23 @@ Skills internos disponibles (todos con prefijo `mefisto-`):
 Cada skill interno verifica al inicio que estás en el repo de Mefisto (presencia de `.claude-plugin/plugin.json`) y aborta si no.
 
 Cuando descubras desde un consumidor un problema atribuible al plugin, el tooling-investigator publicado puede **crear un draft cross-repo** en este repo (con `gh issue create -R augusto-romero-arango/mefisto --label "estado:borrador" …`). Luego, dentro del repo de Mefisto, refinas el draft con `/mefisto-plan` y lo implementas con `/mefisto-tooling`.
+
+## Scripts en TypeScript
+
+Los scripts se estan portando de bash a TypeScript (MEF-ADR-0057). Un script portado es un `.mts` que Node ejecuta directo, sin build:
+
+```bash
+node src/internal/scripts/mefisto-portability-status.mts
+```
+
+Requiere Node 22.18 o posterior. El avance del port esta en `docs/portabilidad/ESTADO.md`; ese mismo script lo mide.
+
+Para verificar un cambio antes de abrir el PR:
+
+```bash
+npm install --no-save --no-package-lock typescript@7.0.2 @types/node@22.20.5
+npx tsc -p src/internal/tsconfig.json
+node --test ".claude/scripts/**/*.test.mts" "scripts/**/*.test.mts" "src/**/*.test.mts"
+```
+
+`tsc` y los tipos de Node son herramientas de verificacion: se instalan en `node_modules/`, que no se versiona, y ningun script depende de ellos al ejecutarse. El workflow `typescript.yml` repite esos pasos en macOS, Linux y Windows.
