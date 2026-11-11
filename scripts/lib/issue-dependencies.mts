@@ -5,9 +5,9 @@
 // por linea se toma el primer numero. 'No depende de #N', el marcador a mitad de linea, 'Bloquea',
 // 'Consumido por' y la prosa libre se ignoran.
 //
-// Gemela de `src/internal/scripts/lib/mefisto-deps.sh`; `extract_canonical_dependencies` de
-// `scripts/_pipeline-common.sh` aplica la misma regla. Mientras tengan llamadores en bash, un
-// cambio de la regla va en los tres.
+// Gemela de `src/internal/scripts/lib/mefisto-deps.sh` y, por `canonicalDependencies`, de
+// `extract_canonical_dependencies` de `scripts/_pipeline-common.sh`. Mientras tengan llamadores en
+// bash, un cambio de la regla va en los tres.
 
 // El `[[:space:]]` de awk y grep, sin el salto de linea que ya separa los items.
 const SPACE = '[ \\t\\v\\f\\r]'
@@ -37,17 +37,19 @@ export function dependenciesSection(body: string): string[] {
   return lines
 }
 
-/**
- * Numeros de las dependencias forward tal como estan escritos, sin repetir y en orden de texto
- * (`10` antes que `9`), que es el de `sort -u`.
- */
-export function forwardDependencies(body: string): string[] {
+/** Numeros de las dependencias forward tal como estan escritos, sin repetir y en orden de aparicion. */
+export function canonicalDependencies(body: string): string[] {
   const found = new Set<string>()
   for (const line of dependenciesSection(body)) {
     const number = FORWARD.exec(line)?.[1]
     if (number !== undefined) found.add(number)
   }
-  return [...found].sort()
+  return [...found]
+}
+
+/** Las de `canonicalDependencies` en orden de texto (`10` antes que `9`), que es el de `sort -u`. */
+export function forwardDependencies(body: string): string[] {
+  return canonicalDependencies(body).sort()
 }
 
 /** `true` si el body declara la seccion '## Dependencias', aunque este vacia. */
