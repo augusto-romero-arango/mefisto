@@ -7,13 +7,15 @@
 # salida generada Claude procede exclusivamente del config
 # efectivo: canonico, fallback legacy, coexistencia (prevalece canonico,
 # sin mezcla) y ausencia (aborta con diagnostico).
+#
+# Aqui solo se ejecutan el preambulo y los comandos jq del agente generado; lo
+# que se verifica leyendo el texto esta en domain-scaffolder-config-contract.test.mts.
 
 set -uo pipefail
 export LC_ALL=C
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
 REPO_ROOT="$(cd "$HERE/../.." && pwd -P)"
-SOURCE_AGENT="$REPO_ROOT/src/published/agents/domain-scaffolder.md"
 CLAUDE_AGENT="$REPO_ROOT/agents/domain-scaffolder.md"
 PASS=0; FAIL=0
 pass() { printf '  PASS: %s\n' "$1"; PASS=$((PASS + 1)); }
@@ -30,31 +32,8 @@ extract_preamble() {
 }
 extract_jq_lines() { grep -E "jq -r '\.(serviceBus\.external|tenancy\.strategy)" "$1"; }
 
-echo "[1] La fuente neutral y la salida generada ya no hardcodean la ruta legacy del config"
-if grep -Eq "jq[[:space:]].*\.claude/harness\.config\.json" "$SOURCE_AGENT"; then
-    fail "src/published/agents/domain-scaffolder.md conserva una lectura jq con ruta hardcodeada"
-else
-    pass "src/published/agents/domain-scaffolder.md no hardcodea la ruta del config en los comandos jq"
-fi
-if grep -Fq '{{mefisto:config-path}}' "$SOURCE_AGENT" && grep -Fq '{{mefisto:instructions-path}}' "$SOURCE_AGENT"; then
-    pass "la fuente neutral usa las directivas efectivas de config e instructions"
-else
-    fail "la fuente neutral no usa {{mefisto:config-path}} y/o {{mefisto:instructions-path}}"
-fi
-
 runtime=Claude; agent_file="$CLAUDE_AGENT"
-if grep -Eq '\$\{?MEFISTO_CONFIG_PATH\}?' "$agent_file" && ! grep -Eq "jq[[:space:]].*\.claude/harness\.config\.json" "$agent_file"; then
-    pass "$runtime: las lecturas de serviceBus.external/tenancy.strategy usan la ruta efectiva, sin ruta legacy hardcodeada"
-else
-    fail "$runtime: alguna lectura del config no paso por la ruta efectiva"
-fi
-if grep -Fq '/mefisto:onboard' "$agent_file" || grep -Fq 'Ejecuta /mefisto:onboard' "$agent_file"; then
-    pass "$runtime: la ausencia de instrucciones remite a onboard"
-else
-    fail "$runtime: no remite a onboard cuando faltan las instrucciones efectivas"
-fi
-
-echo "[2] Los alias de serviceBus.external y tenancy.strategy proceden del config seleccionado (canonico/fallback/coexistencia/ausencia)"
+echo "[1] Los alias de serviceBus.external y tenancy.strategy proceden del config seleccionado (canonico/fallback/coexistencia/ausencia)"
 
 preamble="$(extract_preamble "$agent_file")"
 jq_lines="$(extract_jq_lines "$agent_file")"
