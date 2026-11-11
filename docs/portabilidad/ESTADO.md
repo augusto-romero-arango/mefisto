@@ -19,6 +19,9 @@ que es la fuente de verdad. Resumen:
    interfaz de runtime y la fuente neutral `src/internal/`.
 5. El port es incremental sobre `main`: bash y TypeScript conviven mientras dura.
 6. No hay un segundo runtime en los planes.
+7. En Windows se exige Git for Windows (decisión del 2026-11-11): los bloques de bash que Claude
+   ejecuta desde comandos y agentes siguen en bash y corren en Git Bash. Los scripts del harness
+   no dependen de bash.
 
 ## Reglas de trabajo
 
@@ -236,20 +239,23 @@ Alcance: los dos despachadores, `herdr-pipeline.sh`, `mefisto-herdr-pipeline.sh`
 `herdr-workspace.sh` y los dos `stream-watch`. Dos rediseños para Windows: la ocupación de un pane
 la marca Mefisto (no el grupo de foreground de Unix), y el comando que se teclea en el pane es
 `node <script>.mts <args>` sin sintaxis de shell. Cierre: se borran los shims, los comandos y
-agentes invocan `node`, y `README.md` y `/onboard` dejan de pedir bash, jq y tmux.
+agentes invocan `node`, y `README.md` y `/onboard` dejan de pedir `jq` y tmux y piden Git for
+Windows en Windows.
 
-Decisión abierta para este paso: el markdown de comandos, agentes y skills lleva unos 350 bloques
-de bash que Claude ejecuta, con 96 usos de `jq` y algunos de `awk`, `sed` y `python3`. En Windows
-nativo, Claude Code usa Git Bash para la herramienta Bash si Git for Windows está instalado y, si
-no, PowerShell ([setup de Claude Code](https://code.claude.com/docs/en/setup)). Hay dos caminos:
-exigir Git for Windows y quitar solo `jq`, `python3` y lo que Git Bash no trae, o reescribir cada
-bloque como una invocación `node <script>.mts` que corra igual en bash y en PowerShell.
+Bloques de bash del markdown: comandos, agentes y skills llevan unos 350 bloques que Claude
+ejecuta, con 96 usos de `jq` y algunos de `awk`, `sed` y `python3`. En Windows nativo, Claude Code
+usa Git Bash para la herramienta Bash si Git for Windows está instalado y, si no, PowerShell
+([setup de Claude Code](https://code.claude.com/docs/en/setup)). Con Git for Windows exigido
+(decisión 7), los bloques se quedan en bash y este paso reemplaza solo lo que Git Bash no trae:
+`jq` y `python3` pasan a invocaciones de `node`. `/onboard` comprueba que Git Bash esté disponible
+en Windows. Los tests residuales que ejecutan esos bloques se portan aquí.
 
 Hecho cuando: M1a = 0, M1b = 0 y el workflow de los tres sistemas pasa.
 
 ## Verificación manual en Windows
 
-La hace el usuario en una máquina Windows nativa, sin Git Bash salvo donde se indique. No la puede
+La hace el usuario en una máquina Windows nativa con Git for Windows instalado, lanzando Claude
+Code desde PowerShell. No la puede
 cerrar un goal. Estados: `pendiente`, `ok`, `falla`.
 
 | Id | Qué se prueba | Disponible desde | Estado | Fecha y versión | Notas |
@@ -313,7 +319,7 @@ tres sistemas pasa y la tabla de métricas está medida de nuevo.
 
 ```
 Goal 7: Completa el paso 7 de docs/portabilidad/ESTADO.md (despachador, herdr y cierre).
-Terminado cuando M1a y M1b dan 0, el workflow de los tres sistemas pasa, README y /onboard no piden bash,
-jq ni tmux, y la fila 7 está en "hecho" con sus PRs mergeados en main. La verificación W1 a W7 la
+Terminado cuando M1a y M1b dan 0, el workflow de los tres sistemas pasa, README y /onboard no piden
+jq ni tmux y piden Git for Windows en Windows, y la fila 7 está en "hecho" con sus PRs mergeados en main. La verificación W1 a W7 la
 hace el usuario y no forma parte de este goal.
 ```
