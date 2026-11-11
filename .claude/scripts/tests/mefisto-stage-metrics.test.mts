@@ -118,6 +118,8 @@ describe('deriveStageLogFromStream', () => {
     // El nombre vacio cuenta como presente: solo `null` y `false` dan "?".
     assert.equal(derive(file('tool-con-nombre-numerico')), '[tool] Read\n[tool] \ndespues del fallo\n')
     assert.equal(derive(file('tool-sin-nombre')), '[tool] ?\n')
+    assert.equal(derive(file('tools-de-tipos-mezclados')), '[tool] Write\n[tool] ?\n[tool] Bash\n')
+    assert.equal(derive(file('kind-objeto')), '')
     assert.equal(derive(fileWith(ERROR_AS_TEXT)), 'antes\n')
   })
 
@@ -280,9 +282,14 @@ describe('computeStageMetrics', () => {
   })
 })
 
+// Fuera de la paridad queda lo que hace fallar una operacion con un `//` a la vista: cada version
+// de jq decide distinto si ese error se propaga. Lo cubren los tests de arriba.
+const UNSTABLE_LOG = ['tool-con-nombre-numerico', 'error-con-kind-numerico', 'kind-objeto', 'tools-de-tipos-mezclados']
+const UNSTABLE_METRICS = ['duraciones-de-texto-en-par', 'duraciones-que-no-suman']
+
 describe('paridad con la gemela bash', { skip: NO_BASH_JQ }, () => {
-  const allFiles = (): string[] => [
-    ...Object.values(events),
+  const allFiles = (unstable: readonly string[]): string[] => [
+    ...Object.entries(events).flatMap(([name, path]) => (unstable.includes(name) ? [] : [path])),
     ...Object.values(published),
     ...FIXTURE_FILES,
     translated,
@@ -292,7 +299,7 @@ describe('paridad con la gemela bash', { skip: NO_BASH_JQ }, () => {
   ]
 
   test('compute_stage_metrics sobre todos los fixtures', () => {
-    const files = allFiles()
+    const files = allFiles(UNSTABLE_METRICS)
     const fromBash = mefistoBash('for f in "$@"; do compute_stage_metrics "$f"; done', files).stdout.split('\n')
     const own = files.map(computeStageMetrics)
     assert.deepEqual([...own, ''], fromBash)
@@ -304,7 +311,7 @@ describe('paridad con la gemela bash', { skip: NO_BASH_JQ }, () => {
     const dir = join(work, 'paridad')
     mkdirSync(dir)
     const cases: [events: string, stderr: string][] = [
-      ...allFiles().map((eventsFile): [string, string] => [eventsFile, stderr]),
+      ...allFiles(UNSTABLE_LOG).map((eventsFile): [string, string] => [eventsFile, stderr]),
       ...['mensajes-y-tools', 'sin-terminal', 'vacio', 'error-del-proveedor-con-texto'].flatMap((name) =>
         [fileWith(''), join(work, 'no-existe.log'), '', fileWith('con salto final\n')].map((other): [string, string] => [file(name), other]),
       ),

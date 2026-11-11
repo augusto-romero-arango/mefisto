@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { mkdtempSync, rmSync } from 'node:fs'
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { after, before, describe, test } from 'node:test'
@@ -28,10 +28,13 @@ import {
 let work = ''
 let events: Record<string, string> = {}
 let published: Record<string, string> = {}
+let errorAsText = ''
 
 before(() => {
   work = mkdtempSync(join(tmpdir(), 'mefisto agent events '))
-  events = writeFixtures(work, { ...INTERNAL_EVENTS, 'error-de-texto': ERROR_AS_TEXT }, '.jsonl')
+  events = writeFixtures(work, INTERNAL_EVENTS, '.jsonl')
+  errorAsText = join(work, 'error-de-texto.unitario')
+  writeFileSync(errorAsText, ERROR_AS_TEXT)
   published = writeFixtures(work, NEUTRAL_EVENTS, '.publicado.jsonl')
 })
 
@@ -75,8 +78,8 @@ describe('error.kind y error.detail del terminal', () => {
   })
 
   test('un error que no es objeto no aporta nada', () => {
-    assert.equal(agentEventsErrorKind(file('error-de-texto')), '')
-    assert.equal(agentEventsErrorDetail(file('error-de-texto')), '')
+    assert.equal(agentEventsErrorKind(errorAsText), '')
+    assert.equal(agentEventsErrorDetail(errorAsText), '')
   })
 
   test('un valor que no es texto sale como lo imprime jq, sin saltos finales', () => {

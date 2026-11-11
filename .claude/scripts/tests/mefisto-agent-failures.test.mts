@@ -26,6 +26,7 @@ import {
 let work = ''
 let events: Record<string, string> = {}
 let published: Record<string, string> = {}
+let errorAsText = ''
 let worktree = ''
 let baseCommit = ''
 let summary = ''
@@ -33,7 +34,9 @@ let restoreGitConfig = (): void => {}
 
 before(() => {
   work = mkdtempSync(join(tmpdir(), 'mefisto agent failures '))
-  events = writeFixtures(work, { ...INTERNAL_EVENTS, 'error-de-texto': ERROR_AS_TEXT }, '.jsonl')
+  events = writeFixtures(work, INTERNAL_EVENTS, '.jsonl')
+  errorAsText = join(work, 'error-de-texto.unitario')
+  writeFileSync(errorAsText, ERROR_AS_TEXT)
   published = writeFixtures(work, NEUTRAL_EVENTS, '.publicado.jsonl')
   restoreGitConfig = isolateGitConfig(work)
   worktree = join(work, 'worktree')
@@ -94,9 +97,10 @@ describe('classifyAgentFailure', () => {
 
   test('[A-7] sin sintoma reconocible es CLI_ERROR', () => {
     assert.equal(classifyAgentFailure(false, '3', '12', file('fallo-ordinario')), 'CLI_ERROR (exit 3)')
-    for (const name of ['tiempo-agotado', 'exito', 'sin-terminal', 'error-de-texto', 'kind-objeto', 'vacio']) {
+    for (const name of ['tiempo-agotado', 'exito', 'sin-terminal', 'kind-objeto', 'vacio']) {
       assert.equal(classifyAgentFailure(false, 1, 12, file(name)), 'CLI_ERROR (exit 1)', name)
     }
+    assert.equal(classifyAgentFailure(false, 1, 12, errorAsText), 'CLI_ERROR (exit 1)')
     assert.equal(classifyAgentFailure(false, 1, 12, ''), 'CLI_ERROR (exit 1)')
     assert.equal(classifyAgentFailure(false, 0, 12, file('exito')), 'CLI_ERROR (exit 0)')
   })

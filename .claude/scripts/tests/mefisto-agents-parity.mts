@@ -70,9 +70,10 @@ export const FULL_TERMINAL = line('run.completed', {
 })
 
 /**
- * JSONL neutral de los tests bash de `_mefisto-common.sh`, mas los bordes de sus filtros. Entran
- * a la paridad: ninguno depende de la version de jq (sin `//` sobre un error, sin numeros con
- * exponente ni ceros finales, sin dos valores en una linea).
+ * JSONL neutral de los tests bash de `_mefisto-common.sh`, mas los bordes de sus filtros. Sin
+ * numeros con exponente ni ceros finales y sin dos valores en una linea, que cada version de jq
+ * lee distinto. Los que hacen fallar una operacion de un filtro los aparta de su paridad el test
+ * de ese filtro.
  */
 export const INTERNAL_EVENTS: Readonly<Record<string, string>> = {
   'fallo-ordinario': message('todo bien') + failed({ error: { kind: 'nonzero_exit', detail: 'stop_reason=? subtype=? exit=1' } }),
@@ -150,7 +151,7 @@ export const INTERNAL_EVENTS: Readonly<Record<string, string>> = {
   vacio: '',
 }
 
-/** Fuera de la paridad: el log derivado de un `error` que no es objeto depende de como trata `//` un error cada version de jq. */
+/** Fuera de toda paridad: un `error` que no es objeto falla bajo un `//`, y cada version de jq decide distinto si ese error se propaga. */
 export const ERROR_AS_TEXT = message('antes') + failed({ error: 'boom' })
 
 /** Fixtures del repo que entran a la paridad, con su ruta absoluta. */
