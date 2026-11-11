@@ -62,8 +62,8 @@ repo (`--json` para la salida estructurada). `dist/` queda fuera porque lo regen
 
 | Id | Qué mide | Línea base (v0.56.0) | Actual | Meta |
 |---|---|---|---|---|
-| M1a | Archivos `.sh` | 408 | 362 | 0 |
-| M1b | Líneas en `.sh` | 104686 | 93040 | 0 |
+| M1a | Archivos `.sh` | 408 | 353 | 0 |
+| M1b | Líneas en `.sh` | 104686 | 84498 | 0 |
 | M2 | Archivos `.jq` | 21 | 19 | 0 |
 | M3 | Archivos que mencionan tmux | 96 | 6, todos excepción | 0 fuera de las excepciones |
 | M4 | Archivos que mencionan OpenCode | 283 | 11, todos excepción | 0 fuera de las excepciones |
@@ -89,7 +89,7 @@ Estados: `pendiente`, `en curso`, `hecho`.
 | 2b | Retirar tmux | hecho | #2555 |
 | 3 | Base TypeScript | hecho | #2556 |
 | 4 | Hooks | hecho | #2557, #2558 |
-| 5 | Scripts sueltos | pendiente | |
+| 5 | Scripts sueltos | en curso | #2559 a #2567 |
 | 6 | Librerías y pipelines | pendiente | |
 | 7 | Despachador, herdr y cierre | pendiente | |
 
@@ -145,11 +145,35 @@ Alcance: los scripts que no son pipeline ni librería de pipeline, con sus tests
 | Fila | Alcance (línea base, sin tests) | Estado | PR |
 |---|---|---|---|
 | 5a | `src/published/scripts/` (76 archivos, 9979 líneas antes de retirar OpenCode) | pendiente | |
-| 5b | `scripts/` que no son pipeline ni `_pipeline-common.sh` | pendiente | |
-| 5c | `src/internal/scripts/` que no son pipeline ni `lib/_mefisto-common.sh` | pendiente | |
+| 5b | `scripts/` que no son pipeline ni `_pipeline-common.sh` | en curso | #2559, #2560, #2563, #2565, #2566, #2567 |
+| 5c | `src/internal/scripts/` que no son pipeline ni `lib/_mefisto-common.sh` | en curso | #2560, #2564, #2566 |
 
 Al portar `generate-internal-adapters.sh` se enmienda MEF-ADR-0049, decisión 6 y alternativa a:
 hoy fijan bash + `jq` como toolchain del generador y descartan Node.
+
+Ya portados (su `.sh` queda como shim hasta el paso 7):
+
+- Base: `scripts/lib/cli.mts`, `scripts/lib/state.mts`, `scripts/lib/harness-config.mts`,
+  `scripts/lib/tfstate-naming.mts`, `scripts/lib/issue-dependencies.mts` y
+  `src/internal/scripts/lib/mefisto-repo.mts`. `capture` lanza los `.cmd` y `.bat` de Windows
+  (p. ej. `az.cmd`) a través de `cmd.exe` (#2565).
+- `scripts/`: `next-order`, `field-note`, `azure-account-info`, `worktree-clean`, `upgrade` y
+  `warnings-diff`.
+- `src/internal/scripts/`: `mefisto-next-order`, `mefisto-field-note`, `mefisto-nightly-report`,
+  `mefisto-validate-batch-deps`, `mefisto-worktree` y `mefisto-bitacora-worktree`.
+
+El repo fija los finales de línea en LF con `.gitattributes` (#2561, #2562): con CRLF, en Windows
+fallaban los shims y las lecturas de texto.
+
+Límites y deudas de lo portado:
+
+- `field-note` valida el glosario YAML con un validador que ya esté en el PATH (`python3` con
+  PyYAML, `ruby` o `yq`). En Windows sin ninguno aborta con un mensaje y no stagea nada.
+- Sin `MEFISTO_RUNTIME`, `upgrade` descubre el runtime con una tabla de pruebas
+  (`scripts/lib/upgrade-runtime.mts`) en vez de cargar cada `runtime-<id>.sh`. Se unifica al portar
+  `src/runtime/` (6a).
+- El parser de la salida de `dotnet` en `warnings-diff` solo está probado con fixtures; falta un
+  build real en Windows, con rutas con `\`.
 
 Hecho cuando: en esas rutas solo quedan pipelines, sus librerías y shims.
 
