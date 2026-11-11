@@ -7,6 +7,7 @@ import { fileURLToPath } from 'node:url'
 
 import { capture, commandExists } from '../lib/cli.mts'
 import {
+  azurermBackendLines,
   composeTfstateResourceGroupName,
   composeTfstateStorageAccountBase,
   genStorageSuffix,
@@ -183,6 +184,23 @@ test('[8] si los componentes fijos desbordan el limite se sacrifica {app} y el n
 })
 
 const NO_BASH = process.platform === 'win32' || !commandExists('bash')
+
+test('azurermBackendLines cuenta las declaraciones de backend azurerm de cada .tf', () => {
+  const dir = terraformDir('lineas', {
+    'backend.tf': BACKEND_CON_VARIABLES,
+    'main.tf': 'terraform {\n  backend\t"azurerm" {}\n}\n# backend "azurerm" comentado\n',
+    'versions.tf': 'terraform { required_version = ">= 1.9" }\n',
+    '.oculto.tf': BACKEND_CON_VARIABLES,
+    'notas.txt': 'backend "azurerm"\n',
+  })
+  mkdirSync(join(dir, 'modulo.tf'))
+  assert.deepEqual(azurermBackendLines(dir), [
+    { file: 'backend.tf', count: 1 },
+    { file: 'main.tf', count: 2 },
+    { file: 'versions.tf', count: 0 },
+  ])
+  assert.deepEqual(azurermBackendLines(join(tmp, 'no-existe')), [])
+})
 
 describe('paridad con la gemela bash', { skip: NO_BASH ? 'requiere bash' : false }, () => {
   function bash(...args: string[]): string {
