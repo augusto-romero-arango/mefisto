@@ -608,6 +608,7 @@ upsert_harness_secret() {
 # publicado consume ya este helper. Sigue viva solo porque scripts/tests/
 # la ejerce directamente como unidad (test-stage-models.sh, seccion [0]);
 # retirarla del todo es un issue aparte.
+# Gemela en TypeScript: resolveDeclaredAgentModel de scripts/lib/pipeline/stage-models.mts; un cambio va en los dos lados.
 resolve_declared_agent_model() {
     local agent="$1" script_dir agent_file line model in_frontmatter="false"
 
@@ -651,6 +652,7 @@ resolve_declared_agent_model() {
 #
 # Imprime el nivel neutral de fabrica del agente. Un agente fuera de la tabla
 # retorna 1 sin imprimir nada.
+# Gemela en TypeScript: pipelineAgentEffortLevel de scripts/lib/pipeline/stage-models.mts; un cambio va en los dos lados.
 pipeline_agent_effort_level() {
     case "${1:-}" in
         bug-investigator|planner|reviewer|tooling-investigator)
@@ -680,6 +682,7 @@ PIPELINE_EFFORT_ERROR=""
 # estilo. Requiere MEFISTO_RUNTIME_RESUELTO y CONSUMER_MODELS_FILE (opcional).
 # Se captura con redirect a archivo, nunca con $(...): una subshell perderia
 # MEFISTO_EFFORTS_ERROR.
+# Gemela en TypeScript: resolvePipelineAgentEffort de scripts/lib/pipeline/stage-models.mts; un cambio va en los dos lados.
 resolve_pipeline_agent_effort() {
     local key="$1" agent_id="$2" level output log_file
     RESOLVED_PIPELINE_EFFORT=""
@@ -741,6 +744,7 @@ resolve_pipeline_agent_effort() {
 # Con spec vacio (flag no pasado), deja PIPELINE_STAGE_MODELS vacio y retorna 0
 # sin error: es el camino "sin --models", el que debe preservar el
 # comportamiento byte a byte actual.
+# Gemela en TypeScript: parseStageModels de scripts/lib/pipeline/stage-models.mts; un cambio va en los dos lados.
 parse_stage_models() {
     local spec="$1"
     PIPELINE_STAGE_MODELS=""
@@ -783,6 +787,7 @@ parse_stage_models() {
 # entrada de clave EXACTA en el mapa, o <default> si no hay mapa cargado o
 # <agente> no aparece en el. Pura -- no valida ni aborta, ese trabajo ya lo hizo
 # parse_stage_models(). Siempre retorna 0.
+# Gemela en TypeScript: resolveStageModel de scripts/lib/pipeline/stage-models.mts; un cambio va en los dos lados.
 resolve_stage_model() {
     local agent="$1" default="$2"
     local line
@@ -805,6 +810,7 @@ resolve_stage_model() {
 # ("agente=modelo, agente=modelo") lista para log()/eventos (CA-4:
 # auditabilidad del mapa de overrides aplicado). Cadena vacia si no hay mapa
 # cargado (sin --models). Siempre retorna 0.
+# Gemela en TypeScript: formatStageModelsForLog de scripts/lib/pipeline/stage-models.mts; un cambio va en los dos lados.
 format_stage_models_for_log() {
     [ -z "${PIPELINE_STAGE_MODELS:-}" ] && return 0
     echo "$PIPELINE_STAGE_MODELS" | tr '\n' ',' | sed 's/,/, /g; s/, $//'
@@ -814,6 +820,7 @@ format_stage_models_for_log() {
 # runtime_cli_available <runtime>
 # Consulta la disponibilidad a traves del adaptador descubierto, sin que un
 # pipeline tenga que conocer el nombre o el wire format de ningun runtime.
+# Gemela en TypeScript: runtimeCliAvailable de scripts/lib/pipeline/agent-runtime.mts; un cambio va en los dos lados.
 runtime_cli_available() {
     local runtime="$1" lib="${MEFISTO_RUNTIME_LIB_DIR:-}/runtime-${1}.sh" fn
     [ -f "$lib" ] || return 1
@@ -826,6 +833,7 @@ runtime_cli_available() {
 }
 
 # runtime_supports_resume <runtime>
+# Gemela en TypeScript: runtimeSupportsResume de scripts/lib/pipeline/agent-runtime.mts; un cambio va en los dos lados.
 runtime_supports_resume() {
     local runtime="$1" lib="${MEFISTO_RUNTIME_LIB_DIR:-}/runtime-${1}.sh" fn
     [ -f "$lib" ] || return 1
@@ -839,22 +847,29 @@ runtime_supports_resume() {
 
 # agent_events_value <events-jsonl> <jq-expression>
 # El terminal normalizado es la unica autoridad para politica de pipeline.
+# Gemela en TypeScript: agentEventsValue de scripts/lib/pipeline/agent-events.mts; un cambio va en los dos lados.
 agent_events_value() {
     local events="$1" expression="$2"
     [ -s "$events" ] || return 0
     jq -r -s "$expression" "$events" 2>/dev/null || true
 }
+# Gemela en TypeScript: agentEventsKind de scripts/lib/pipeline/agent-events.mts; un cambio va en los dos lados.
 agent_events_kind() { agent_events_value "$1" '[.[] | select(.type == "run.failed" or .type == "run.completed") | .error.kind // empty] | last // empty'; }
+# Gemela en TypeScript: agentEventsResetsAt de scripts/lib/pipeline/agent-events.mts; un cambio va en los dos lados.
 agent_events_resets_at() { agent_events_value "$1" '[.[] | select(.type == "run.failed" or .type == "run.completed") | .error.resets_at // .resets_at // empty] | last // empty'; }
+# Gemela en TypeScript: agentEventsSessionId de scripts/lib/pipeline/agent-events.mts; un cambio va en los dos lados.
 agent_events_session_id() { agent_events_value "$1" '[.[] | select(.type == "run.failed" or .type == "run.completed") | .session_id // empty] | last // empty'; }
+# Gemela en TypeScript: agentEventsDenials de scripts/lib/pipeline/agent-events.mts; un cambio va en los dos lados.
 agent_events_denials() { agent_events_value "$1" '[.[] | select(.type == "run.failed" or .type == "run.completed") | .denials // 0] | last // 0'; }
 
+# Gemela en TypeScript: agentEventsCompletedSuccessfully de scripts/lib/pipeline/agent-events.mts; un cambio va en los dos lados.
 agent_events_completed_successfully() {
     local events="$1"
     [ -s "$events" ] || return 1
     jq -e -s '[.[] | select(.type == "run.failed" or .type == "run.completed")] | last | .type == "run.completed" and .status == "success"' "$events" >/dev/null 2>&1
 }
 
+# Gemela en TypeScript: classifyNeutralAgentFailure de scripts/lib/pipeline/agent-failures.mts; un cambio va en los dos lados.
 classify_neutral_agent_failure() {
     local run_exit="$1" events="$2" kind
     case "$run_exit" in 124) echo "TIMEOUT"; return ;; 65) echo "PROTOCOL_INVALID"; return ;; esac
@@ -1747,6 +1762,7 @@ build_agents_history_json() {
 #
 # <stream_file> es opcional: sin el (o vacio, inexistente, o sin jq en PATH),
 # la deteccion de RATE_LIMIT degrada al grep de texto -- nunca aborta.
+# Gemela en TypeScript: classifyAgentFailure de scripts/lib/pipeline/agent-failures.mts; un cambio va en los dos lados.
 classify_agent_failure() {
     local exit_code="$1" elapsed="$2" log_stage="$3" stream_file="${4:-}"
 
@@ -1801,6 +1817,7 @@ classify_agent_failure() {
 #
 # La comparacion es por prefijo: classify_agent_failure adjunta el exit code
 # a la etiqueta ("PROVIDER_UNAVAILABLE (exit 1)").
+# Gemela en TypeScript: agentFailureIsHoldable de scripts/lib/pipeline/agent-failures.mts; un cambio va en los dos lados.
 agent_failure_is_holdable() {
     local failure_type="${1:-}"
 
@@ -1830,6 +1847,7 @@ agent_failure_is_holdable() {
 # Retorna 1 SIN dormir si el techo ya se agoto (remanente <= 0) -- el caller
 # rompe su bucle de espera y cae al trato ordinario de fallo. Retorna 0 tras
 # dormir en cualquier otro caso.
+# Gemela en TypeScript: agentHoldWait de scripts/lib/pipeline/agent-hold.mts; un cambio va en los dos lados.
 agent_hold_wait() {
     local events_log="$1" failure_type="$2" hold_started_ts="$3" resets_at="${4:-}"
     local hold_max="${MEFISTO_HOLD_MAX_SECONDS:-21600}"
@@ -1894,6 +1912,7 @@ agent_hold_wait() {
 # fisico mapeados a `-`): si ese layout cambia, la funcion devuelve 0, la
 # sonda no reanuda y el pipeline degrada al comportamiento previo a #972
 # (stage desde cero) en vez de romperse.
+# Gemela en TypeScript: agentSessionTranscriptCount de scripts/lib/pipeline/agent-hold.mts; un cambio va en los dos lados.
 agent_session_transcript_count() {
     local dir="${1:-}"
     [ -n "$dir" ] || { echo 0; return 0; }
@@ -1952,6 +1971,7 @@ agent_session_transcript_count() {
 # un parrafo de corte para el caso en que, pese al chequeo del caller, la
 # sesion continuada no sea la esperada: defensa en profundidad, no el
 # mecanismo principal.
+# Gemela en TypeScript: agentResumePrompt de scripts/lib/pipeline/agent-hold.mts; un cambio va en los dos lados.
 agent_resume_prompt() {
     local stage="$1" agent="$2"
     cat <<RESUME_PROMPT_EOF
@@ -2009,6 +2029,7 @@ RESUME_PROMPT_EOF
 #
 # Epoch de esa fecha y hora local. BSD/macOS primero (`date -j -f`), GNU como
 # fallback (`date -d`); retorna 1 sin imprimir nada si ninguna lo puede leer.
+# Gemela en TypeScript: localEpochAt de scripts/lib/pipeline/agent-hold.mts; un cambio va en los dos lados.
 _pc_epoch_at() {
     date -j -f "%Y-%m-%d %H:%M:%S" "$1 $2" +%s 2>/dev/null \
         || date -d "$1 $2" +%s 2>/dev/null \
@@ -2112,6 +2133,7 @@ hold_recently_active() {
 # 14:37:07 (techo 20:32)" -- lista para el dashboard de parallel-pipeline.sh
 # (CA-2) y para work-status-collect.sh (CA-4). Sin espera activa no imprime nada y
 # retorna 1.
+# Gemela en TypeScript: formatHoldStatus de scripts/lib/pipeline/agent-hold.mts; un cambio va en los dos lados.
 format_hold_status() {
     local events_log="$1" from_line="${2:-0}"
     hold_recently_active "$events_log" "$from_line" || return 1
@@ -2124,6 +2146,7 @@ format_hold_status() {
 # "Xm Ys" a partir de segundos enteros. Mismo formato con el que el propio
 # eslabon reporta su hold (tdd/tooling/iac-pipeline.sh, issue #971), para que
 # el numero se lea igual en el log del eslabon y en el resumen del batch.
+# Gemela en TypeScript: fmtHoldDuration de scripts/lib/pipeline/agent-hold.mts; un cambio va en los dos lados.
 fmt_hold_duration() {
     local secs="${1:-0}"
     echo "$(( secs / 60 ))m $(( secs % 60 ))s"
@@ -2146,6 +2169,7 @@ fmt_hold_duration() {
 #
 # Imprime el total en segundos; 0 si <events_log> no existe o no hay lineas
 # atribuibles en el rango. Nunca aborta.
+# Gemela en TypeScript: holdSecondsInRange de scripts/lib/pipeline/agent-hold.mts; un cambio va en los dos lados.
 hold_seconds_in_range() {
     local events_log="$1" from_line="$2" want_issue="${3:-}"
     [ -f "$events_log" ] || { echo 0; return 0; }
@@ -2184,6 +2208,7 @@ hold_seconds_in_range() {
 # exige que una espera nunca convierta un desenlace real en fallo ni
 # viceversa, asi que esto es siempre una nota ANEXA. Retorna 0 siempre (los
 # callers corren bajo `set -e` y la asignan en una substitucion).
+# Gemela en TypeScript: holdNoteSuffix de scripts/lib/pipeline/agent-hold.mts; un cambio va en los dos lados.
 hold_note_suffix() {
     local secs="${1:-0}"
     [ "$secs" -gt 0 ] && echo " (incluye $(fmt_hold_duration "$secs") en espera/hold)"
