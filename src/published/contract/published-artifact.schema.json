@@ -1,5 +1,5 @@
 {
-  "$comment": "Contrato neutral publicado de agentes y comandos (MEF-ADR-0019, MEF-ADR-0050 y MEF-ADR-0053; issue #1047). Subconjunto JSON Schema implementado por src/published/scripts/lib/jsonschema-lite.jq.",
+  "$comment": "Contrato neutral publicado de agentes y comandos (MEF-ADR-0019, MEF-ADR-0050 y MEF-ADR-0053; issue #1047). Subconjunto JSON Schema implementado por src/published/scripts/lib/published-schema.mts.",
   "oneOf": [
     {
       "type": "object",

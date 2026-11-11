@@ -207,9 +207,10 @@ src/published/scripts/validate-published-artifacts.sh [archivo...]
 ```
 
 Sin argumentos valida `src/published/{agents,commands}/*.md`. Cada rechazo usa
-`<archivo>: <campo|body>: <motivo>`. El script requiere Bash 3.2 y `jq`; los
-fixtures y su prueba están en este contrato y en
-`scripts/tests/test-published-artifact-contract.sh`.
+`<archivo>: <campo|body>: <motivo>`. El `.sh` es un shim de
+`validate-published-artifacts.mts`, que corre sobre Node 22.18 o posterior sin
+`jq`; los fixtures y su prueba están en este contrato y en
+`src/published/scripts/tests/published-artifact-contract.test.mts`.
 
 ```bash
 src/published/scripts/validate-published-mcp.sh

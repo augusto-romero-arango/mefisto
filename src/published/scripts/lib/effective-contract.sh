@@ -5,6 +5,8 @@
 # fallback legacy solo si la canonica falta y abortan si no existe ninguna.
 # Solo lo que este archivo emite conoce los nombres legacy; la fuente neutral
 # y el validador publicado no los nombran (MEF-ADR-0050).
+# Gemela de lib/effective-contract.mts, que es la que usa el generador; esta
+# queda solo para tests/test-tdd-agents.sh.
 
 published_effective_contract_needs_config() {
     case "$1" in *'{{mefisto:config-path}}'*) return 0 ;; *) return 1 ;; esac
