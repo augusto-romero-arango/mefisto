@@ -64,6 +64,14 @@
       "motivo": "Wrapper temporal de runtime_claude_default_model para la generacion de frontmatter y el literal `claude --agent <id> \"$ARGUMENTS\"` que emite al traducir la directiva neutral {{mefisto:launch-agent}} (issue #854): es la pieza autorizada a nombrar esa invocacion; la tabla concreta vive en src/runtime desde #1072."
     },
     {
+      "path": "src/internal/scripts/lib/adapter-claude.mts",
+      "rules": [
+        "R1",
+        "R2"
+      ],
+      "motivo": "Adaptador Claude del generador interno en TypeScript (MEF-ADR-0057), sucesor de adapter-claude.sh: lleva la tabla fija perfil->modelo (gemela de runtime_claude_default_model de src/runtime/lib/runtime-claude.sh, que el generador ya no puede cargar con `source`) y el literal `claude --agent <id> \"$ARGUMENTS\"` que emite al traducir la directiva neutral {{mefisto:launch-agent}}: es la pieza autorizada a nombrar esa invocacion."
+    },
+    {
       "path": "src/internal/contract/README.md",
       "rules": [
         "R1",
@@ -127,6 +135,13 @@
         "ALL"
       ],
       "motivo": "El propio gate: sus comentarios de cabecera describen R1-R4 citando literalmente los patrones que persigue (alias de modelo, `claude -p`/`claude --agent`, `CLAUDE_PLUGIN_ROOT`/`CLAUDE_PROJECT_DIR`/`.claude/pipeline`), y R1_REGEX/R2_REGEX/R3_REGEX los contienen literalmente en su definicion. Un detector basado en grep necesariamente contiene el texto que busca; autorreferenciarse evita un falso positivo permanente sobre si mismo."
+    },
+    {
+      "path": "src/internal/scripts/mefisto-neutrality-gate.mts",
+      "rules": [
+        "ALL"
+      ],
+      "motivo": "El propio gate en TypeScript (MEF-ADR-0057); mefisto-neutrality-gate.sh queda como shim hacia este archivo. Mismo motivo que la entrada del .sh: su cabecera describe R1-R4 citando los patrones que persigue y sus expresiones regulares los contienen literalmente."
     },
     {
       "path": ".claude/mods/**",

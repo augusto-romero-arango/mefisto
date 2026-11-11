@@ -255,15 +255,15 @@ EOF
     cp "$REPO_ROOT/src/internal/prompts/noninteractive-system.md" "$FAKE_MEFISTO/src/internal/prompts/noninteractive-system.md"
     # Gate de neutralidad (issue #914): el pipeline lo invoca tras cada stage
     # -- copias REALES (no un stub), byte-identicas al repo, para que el
-    # escenario [F] ejercite el gate de verdad. La allowlist real trae las
-    # excepciones (R1) de los propios adaptadores que setup_harness copia mas
-    # abajo (adapter-claude.sh...), asi que el escenario de exito (a) sigue
-    # pasando el gate en 0. No se copia
-    # generate-internal-adapters.sh: sin el, el gate salta adapters-check en
-    # silencio (guarda `[ -f "$ADAPTERS_SCRIPT" ]`), y ningun escenario de esta
-    # suite necesita ejercer esa verificacion estructural (ya cubierta por
-    # test-neutrality-gate.sh).
+    # escenario [F] ejercite el gate de verdad: el shim, su .mts y la lib que
+    # este importa. La allowlist real trae la excepcion del propio gate, asi
+    # que el escenario de exito (a) sigue pasando el gate en 0. No se copia el
+    # generador interno: sin el, el gate salta adapters-check en silencio, y
+    # ningun escenario de esta suite necesita ejercer esa verificacion
+    # estructural (ya cubierta por mefisto-neutrality-gate.test.mts).
     cp "$REPO_ROOT/src/internal/scripts/mefisto-neutrality-gate.sh" "$FAKE_MEFISTO/src/internal/scripts/mefisto-neutrality-gate.sh"
+    cp "$REPO_ROOT/src/internal/scripts/mefisto-neutrality-gate.mts" "$FAKE_MEFISTO/src/internal/scripts/mefisto-neutrality-gate.mts"
+    mkdir -p "$FAKE_MEFISTO/scripts/lib" && cp "$REPO_ROOT/scripts/lib/cli.mts" "$FAKE_MEFISTO/scripts/lib/cli.mts"
     cp "$REPO_ROOT/src/internal/contract/neutrality-allowlist.json" "$FAKE_MEFISTO/src/internal/contract/neutrality-allowlist.json"
     chmod +x "$FAKE_MEFISTO/src/internal/scripts/mefisto-neutrality-gate.sh"
     cp "$CANON_PIPE" "$FAKE_MEFISTO/src/internal/scripts/mefisto-tooling-pipeline.sh"

@@ -266,6 +266,8 @@ EOF
     # or directory" antes de llegar al gate de changelog.d/ que este bloque
     # espera ejercer.
     cp "$REPO_ROOT/src/internal/scripts/mefisto-neutrality-gate.sh" "$FAKE_MEFISTO/src/internal/scripts/mefisto-neutrality-gate.sh"
+    cp "$REPO_ROOT/src/internal/scripts/mefisto-neutrality-gate.mts" "$FAKE_MEFISTO/src/internal/scripts/mefisto-neutrality-gate.mts"
+    mkdir -p "$FAKE_MEFISTO/scripts/lib" && cp "$REPO_ROOT/scripts/lib/cli.mts" "$FAKE_MEFISTO/scripts/lib/cli.mts"
     cp "$REPO_ROOT/src/internal/contract/neutrality-allowlist.json" "$FAKE_MEFISTO/src/internal/contract/neutrality-allowlist.json"
     chmod +x "$FAKE_MEFISTO/src/internal/scripts/mefisto-neutrality-gate.sh"
     cp "$CANON_PIPE" "$FAKE_MEFISTO/src/internal/scripts/mefisto-tooling-pipeline.sh"
