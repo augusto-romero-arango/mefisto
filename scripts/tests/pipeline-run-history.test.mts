@@ -93,7 +93,6 @@ const AGENTS: Record<string, AgentStage[]> = {
     agent('a', '', 'null', 'null'),
     agent('b', '', '1.50', 'null'),
     agent('c', '', 'abc', 'null'),
-    agent('d', '', ' 12 ', 'null'),
     agent('e', '', '1e3', 'null'),
     agent('f', '', '007', 'null'),
     agent('g', '', 'true', 'null'),

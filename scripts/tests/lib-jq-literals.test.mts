@@ -227,7 +227,8 @@ describe('paridad con jq', { skip: NO_JQ }, () => {
   })
 
   test('tonumber acepta y rechaza las mismas cadenas', () => {
-    for (const text of ['125', ' 12 \n', '1.50', '007', '+5', '.5', '1e3', 'nan', 'inf', '', 'abc', 'true', 'null', '[1]', '"5"', '1 2', '12abc', '0x10']) {
+    // Sin cadenas con espacios alrededor: jq 1.7 las acepta y jq 1.8 las rechaza.
+    for (const text of ['125', '1.50', '007', '+5', '.5', '1e3', 'nan', 'inf', '', 'abc', 'true', 'null', '[1]', '"5"', '1 2', '12abc', '0x10']) {
       const fromJq = jq(['-R', '-s', '-c', 'tonumber'], text)
       let fromTypescript: string | null = null
       try {
