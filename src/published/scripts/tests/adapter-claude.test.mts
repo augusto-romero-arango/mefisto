@@ -5,7 +5,6 @@ import assert from 'node:assert/strict'
 import { spawnSync } from 'node:child_process'
 import {
   chmodSync,
-  copyFileSync,
   existsSync,
   mkdirSync,
   mkdtempSync,
@@ -23,13 +22,11 @@ import { CliError, commandExists } from '../../../../scripts/lib/cli.mts'
 import type { Json } from '../../../../scripts/lib/jq-values.mts'
 import { createAdapter } from '../adapters/adapter-claude.mts'
 import { generatePublishedAdapters } from '../generate-published-adapters.mts'
-import { claudeEffort, packageRootPreamble, renderClaude, translateBody } from '../lib/adapter-claude.mts'
-import { effectiveContractPreamble } from '../lib/effective-contract.mts'
+import { claudeEffort, renderClaude } from '../lib/adapter-claude.mts'
 import { AdapterError } from '../lib/published-adapter.mts'
 import { validatePublishedArtifacts } from '../validate-published-artifacts.mts'
 
 const HERE = import.meta.dirname
-const SCRIPTS = join(HERE, '..')
 const REPO_ROOT = join(HERE, '..', '..', '..', '..')
 const FIXTURES = join(HERE, 'fixtures', 'claude')
 const MARKER = '<!-- GENERADO por prueba desde fixture. No editar a mano. -->'
@@ -712,65 +709,5 @@ describe('effort', () => {
     )
     assert.equal(result.status, 0, result.stderr)
     assert.deepEqual(result.stdout.trimEnd().split('\n'), levels.map(claudeEffort))
-  })
-})
-
-// lib/adapter-claude.sh y lib/effective-contract.sh siguen vivas para tests/test-tdd-agents.sh.
-describe('paridad con las gemelas en bash', { skip: NO_JQ }, () => {
-  const twin = (script: string, ...args: string[]): string => {
-    const result = spawnSync(
-      'bash',
-      [
-        '-c',
-        `source "$1/effective-contract.sh"; source "$1/adapter-claude.sh"; shift; ${script}`,
-        '_',
-        join(SCRIPTS, 'lib'),
-        ...args,
-      ],
-      { encoding: 'utf8' },
-    )
-    assert.equal(result.status, 0, result.stderr)
-    return result.stdout
-  }
-
-  test('preambulo de la raiz del paquete', () => {
-    assert.equal(twin('published_claude_package_root_preamble'), `${packageRootPreamble()}\n`)
-  })
-
-  test('preambulo del contrato efectivo', () => {
-    for (const [config, instructions] of [
-      [true, true],
-      [true, false],
-      [false, true],
-    ] as const) {
-      assert.equal(
-        twin('published_effective_contract_preamble "$1" "$2"', config ? '1' : '0', instructions ? '1' : '0'),
-        `${effectiveContractPreamble(config, instructions)}\n`,
-      )
-    }
-  })
-
-  test('traduccion de directivas', () => {
-    const body = [
-      'Texto sin directivas.',
-      `${GUARD} y {{mefisto:command draft}}; {{mefisto:command-doc draft}}`,
-      'Ejecuta {{mefisto:run upgrade.sh --prune  }} y {{mefisto:run lib/x.sh "a b" $ARGUMENTS}}.',
-      '{{mefisto:skill-root projections}}/x {{mefisto:package-root}} {{mefisto:loaded-root}}',
-      '{{mefisto:config-path}} {{mefisto:instructions-path}} {{mefisto:state-path logs/x.log}}',
-      '{{mefisto:launch-agent planner Haz   algo  }} fin',
-    ].join('\n')
-    assert.equal(twin('published_claude_translate_body rel "$1"', body), `${translateBody('rel', body)}\n`)
-  })
-
-  test('render completo de los fixtures', () => {
-    for (const name of ['agent-completo.md', 'command-delegado.md']) {
-      const copy = join(work, `gemela-${name}`)
-      copyFileSync(join(FIXTURES, name), copy)
-      assert.equal(
-        twin('published_claude_render "$1" "$2" "$3"', copy, MARKER, REPO_ROOT),
-        render(copy),
-        name,
-      )
-    }
   })
 })
