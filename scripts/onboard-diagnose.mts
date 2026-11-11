@@ -14,17 +14,18 @@
 // Uso: onboard-diagnose.mts (cwd = raiz del repo consumidor)
 // Sale en 0 si el diagnostico corrio, sin importar cuantos FALTA o NO VERIFICADO reporte (es
 // informativo, nunca bloqueante); en 1 solo si el repo es Mefisto o no hay repo git.
-//
-// hasContractHeading, contractSectionHasToken, resolveOnboardRuntime y checkConsumerDirectives
-// tienen gemela en onboard-diagnose.sh, que onboard-migrate-directives.sh aun carga con
-// `source`: un cambio va en los dos lados.
 
-import { accessSync, constants, existsSync, readFileSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
+import {
+  checkConsumerDirectives as checkDirectives,
+  resolveOnboardRuntime as resolveRuntime,
+} from './lib/consumer-directives.mts'
 import { CliError, capture, commandExists, gitOutput, isEntryPoint, repoRoot } from './lib/cli.mts'
+export { contractSectionHasToken, hasContractHeading } from './lib/consumer-directives.mts'
 import { loadHarnessConfig, resolveHarnessConfigPath } from './lib/harness-config.mts'
 import {
   committedActivation,
@@ -37,7 +38,6 @@ import {
   readJsonFile,
 } from './lib/plugin-scopes.mts'
 import type { ClaudeConfig, Json, Run } from './lib/plugin-scopes.mts'
-import { discoverRuntime } from './lib/upgrade-runtime.mts'
 
 export interface OnboardDeps extends ClaudeConfig {
   cwd: string
@@ -120,35 +120,6 @@ export function mefistoPipelineIgnored(repo = '.'): boolean {
   )
 }
 
-function escapeRegExp(text: string): string {
-  return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-}
-
-/** Reconoce solo el encabezado Markdown de una seccion contractual. */
-export function hasContractHeading(content: string, heading: string): boolean {
-  const pattern = new RegExp(
-    `^${SPACE}*#{1,6}${SPACE}+${escapeRegExp(heading)}(${SPACE}*\\([^)]*\\))?${SPACE}*$`,
-  )
-  return content.split('\n').some((line) => pattern.test(line))
-}
-
-const HEADING_PREFIX = new RegExp(`^${SPACE}*#{1,6}${SPACE}+`)
-const TRAILING_SPACE = new RegExp(`${SPACE}+$`)
-const TOKENS_HEADING = new RegExp(`^Tokens del harness(${SPACE}*\\([^)]*\\))?$`)
-
-/** Busca `**token**` solo dentro de "Tokens del harness": una mencion en otra seccion no cuenta. */
-export function contractSectionHasToken(content: string, token: string): boolean {
-  let inTokens = false
-  for (const line of content.split('\n')) {
-    if (HEADING_PREFIX.test(line)) {
-      inTokens = TOKENS_HEADING.test(line.replace(HEADING_PREFIX, '').replace(TRAILING_SPACE, ''))
-      continue
-    }
-    if (inTokens && line.includes(`**${token}**`)) return true
-  }
-  return false
-}
-
 /**
  * Runtime activo: MEFISTO_RUNTIME (lo fija la directiva del adaptador) o el unico adaptador
  * disponible. Si no se puede resolver cae en `claude`, que conserva la verificacion estricta.
@@ -156,13 +127,7 @@ export function contractSectionHasToken(content: string, token: string): boolean
 export function resolveOnboardRuntime(
   deps: Pick<OnboardDeps, 'env' | 'scriptDir' | 'hasCommand'>,
 ): string {
-  const fixed = deps.env.MEFISTO_RUNTIME ?? ''
-  if (fixed.length > 0) return fixed
-  const override = deps.env.MEFISTO_RUNTIME_LIB_DIR ?? ''
-  const libDir = override.length > 0 ? override : join(deps.scriptDir, '..', 'src', 'runtime', 'lib')
-  if (!isFile(join(libDir, 'mefisto-runtime.sh'))) return 'claude'
-  const found = discoverRuntime(libDir, deps.env, deps.hasCommand)
-  return 'runtime' in found ? found.runtime : 'claude'
+  return resolveRuntime(deps.env, deps.scriptDir, deps.hasCommand)
 }
 
 function firstSemver(raw: string): string | null {
@@ -354,26 +319,6 @@ export interface ConsumerDirectives {
   bridgeHasLegacy: boolean
 }
 
-function readable(path: string): boolean {
-  try {
-    accessSync(path, constants.R_OK)
-    return true
-  } catch {
-    return false
-  }
-}
-
-function readOrEmpty(path: string): string {
-  try {
-    return readFileSync(path, 'utf8')
-  } catch {
-    return ''
-  }
-}
-
-const TOKENS = ['RootNamespace', 'SolutionFile', 'ProjectDisplayName', 'BoundedContext', 'BoundedContextDomains']
-const BRIDGE_IMPORT = new RegExp(`^${SPACE}*@AGENTS\\.md${SPACE}*$`)
-
 /**
  * Contrato de directivas: AGENTS.md canonico y puente CLAUDE.md. El puente solo es requerido
  * bajo el runtime `claude`; con cualquier otro es informativo (MEF-ADR-0050/0053).
@@ -383,81 +328,13 @@ export function checkConsumerDirectives(
   claudeMd: string,
   runtime = 'claude',
 ): ConsumerDirectives {
-  let agents: Check
-  if (!existsSync(agentsMd)) {
-    agents = {
-      state: 'FALTA',
-      detail:
-        'AGENTS.md no existe: crea las secciones "Tokens del harness" y "Verificación de fuentes" con los 5 tokens obligatorios',
-    }
-  } else if (!readable(agentsMd)) {
-    agents = { state: 'NV', detail: 'AGENTS.md existe pero no es legible' }
-  } else {
-    const content = readOrEmpty(agentsMd)
-    let missing = ''
-    if (!hasContractHeading(content, 'Tokens del harness')) missing = ' encabezado "Tokens del harness"'
-    if (!hasContractHeading(content, 'Verificación de fuentes')) {
-      missing += ' encabezado "Verificación de fuentes"'
-    }
-    for (const token of TOKENS) {
-      if (!contractSectionHasToken(content, token)) missing += ` ${token}`
-    }
-    agents =
-      missing.length === 0
-        ? { state: 'OK', detail: 'AGENTS.md contiene las dos secciones obligatorias y los 5 tokens' }
-        : { state: 'FALTA', detail: `AGENTS.md esta incompleto; faltan:${missing}` }
+  const check = checkDirectives(agentsMd, claudeMd, runtime)
+  return {
+    agents: { state: check.agentsState, detail: check.agentsDetail },
+    bridge: { state: check.bridgeState, detail: check.bridgeDetail },
+    bridgeHasImport: check.bridgeHasImport,
+    bridgeHasLegacy: check.bridgeHasLegacy,
   }
-
-  let bridge: Check
-  let hasImport = false
-  let hasLegacy = false
-  if (!existsSync(claudeMd)) {
-    bridge = {
-      state: 'FALTA',
-      detail: 'CLAUDE.md no existe: crea el puente con una linea independiente @AGENTS.md',
-    }
-  } else if (!readable(claudeMd)) {
-    bridge = { state: 'NV', detail: 'CLAUDE.md existe pero no es legible' }
-  } else {
-    const content = readOrEmpty(claudeMd)
-    hasImport = content.split('\n').some((line) => BRIDGE_IMPORT.test(line))
-    hasLegacy =
-      hasContractHeading(content, 'Tokens del harness') || hasContractHeading(content, 'Verificación de fuentes')
-    if (hasImport && !hasLegacy) {
-      bridge = {
-        state: 'OK',
-        detail: 'CLAUDE.md contiene el puente exacto @AGENTS.md sin secciones contractuales duplicadas',
-      }
-    } else if (!hasImport && hasLegacy) {
-      bridge = {
-        state: 'FALTA',
-        detail:
-          'CLAUDE.md legacy legible: faltan el puente exacto @AGENTS.md y la limpieza manual de las secciones contractuales duplicadas',
-      }
-    } else if (!hasImport) {
-      bridge = {
-        state: 'FALTA',
-        detail:
-          'CLAUDE.md no contiene una linea independiente @AGENTS.md; agrega el puente hacia AGENTS.md',
-      }
-    } else {
-      bridge = {
-        state: 'FALTA',
-        detail:
-          'CLAUDE.md contiene @AGENTS.md pero conserva secciones contractuales legacy duplicadas; eliminalas manualmente',
-      }
-    }
-  }
-
-  if (runtime !== 'claude' && (bridge.state === 'FALTA' || bridge.state === 'NV')) {
-    bridge = {
-      state: 'INFO',
-      detail: existsSync(claudeMd)
-        ? `opcional (solo lo requiere Claude Code): ${bridge.detail}`
-        : 'puente CLAUDE.md ausente: solo lo requiere Claude Code; si tu equipo tambien usa Claude, crealo con una linea independiente @AGENTS.md',
-    }
-  }
-  return { agents, bridge, bridgeHasImport: hasImport, bridgeHasLegacy: hasLegacy }
 }
 
 /**
