@@ -2038,6 +2038,7 @@ _pc_epoch_at() {
 #
 # Retorna 1 sin imprimir nada si la linea no trae las dos horas o si `date`
 # no las puede leer.
+# Gemela en TypeScript: holdLineWindow de scripts/lib/work-status-hold.mts; un cambio va en los dos lados.
 hold_line_window() {
     local line="$1"
     local start_hms probe_hms
@@ -2070,6 +2071,7 @@ hold_line_window() {
 # reanudacion de sesion DENTRO de un ciclo ya anunciado, issue #972): no
 # matchean ni el `][hold] ` con espacio final ni el "esperando, proxima
 # sonda" que solo escribe agent_hold_wait.
+# Gemela en TypeScript: lastHoldLine de scripts/lib/work-status-hold.mts; un cambio va en los dos lados.
 last_hold_line() {
     local events_log="$1" from_line="${2:-0}"
     [ -f "$events_log" ] || return 1
@@ -2088,6 +2090,7 @@ last_hold_line() {
 # (se resolvio o se agoto el techo) o si el reloj no se pudo parsear.
 #
 # Nunca aborta: toda falla de parseo degrada a "no hay espera activa".
+# Gemela en TypeScript: holdRecentlyActive de scripts/lib/work-status-hold.mts; un cambio va en los dos lados.
 hold_recently_active() {
     local events_log="$1" from_line="${2:-0}"
 
