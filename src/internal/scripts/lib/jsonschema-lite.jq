@@ -1,9 +1,10 @@
 # jsonschema-lite.jq -- Subconjunto de JSON Schema implementado como programa jq
-# (MEF-ADR-0049 CA-6, issue #853): la validacion del contrato neutral de
-# agentes/comandos (src/internal/contract/internal-artifact.schema.json) es un
-# filtro jq que falla con exit != 0 y una lista de motivos, no un validador
-# JSON Schema externo (ajv, jsonschema, etc. quedan fuera del toolchain
-# bash + jq + git + gh que el resto del harness ya usa).
+# (MEF-ADR-0049 CA-6, issue #853): un filtro jq que devuelve la lista de
+# motivos, no un validador JSON Schema externo. Lo usan test-mefisto-run-agent.sh
+# y test-runtime-claude.sh contra el schema de eventos.
+#
+# Gemela de lib/jsonschema-lite.mts, la que usa validate-internal-artifacts.mts
+# (MEF-ADR-0057); validate-internal-artifacts.test.mts compara las dos.
 #
 # Palabras clave soportadas: type, required, properties, additionalProperties
 # (solo el valor `false`), enum, items, pattern, minLength, oneOf (solo la
@@ -16,7 +17,7 @@
 # No implementadas (no hacen falta para este contrato): $ref, allOf, anyOf,
 # if/then/else, const, not, contains, patternProperties, $schema/meta-validacion.
 #
-# Invocacion (ver validate-internal-artifacts.sh):
+# Invocacion:
 #   jq -n --argjson schema "$(cat internal-artifact.schema.json)" --argjson instance "$frontmatter_json" -f jsonschema-lite.jq
 #   (en una sola linea: jq 1.8 continua en la linea siguiente un comentario que
 #   termina en contrabarra)
