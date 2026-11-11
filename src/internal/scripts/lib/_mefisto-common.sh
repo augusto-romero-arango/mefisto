@@ -113,6 +113,7 @@ ensure_githooks_installed() {
 # <repo_root>), retira esos SHAs de la lista y retorna 0. Cualquier otro caso
 # retorna 1 sin tocar nada. --keep se niega a pisar cambios locales. Los commits
 # viven en la rama remota rescate/..., resetear no pierde nada.
+# Gemela en TypeScript: src/internal/scripts/lib/mefisto-base-branch.mts. Un cambio va en las dos.
 remediate_main_after_rescue() {
     local repo_root="$1" branch="$2" remote_ref="$3"
     local rescued_file="$repo_root/.mefisto/pipeline/rescued-main.txt"
@@ -151,6 +152,7 @@ remediate_main_after_rescue() {
 # switch forzado; la unica excepcion es un pull fallido cuyos commits locales de
 # mas fueron todos rescatados por el hook pre-push (remediate_main_after_rescue,
 # issue #2112). Opera siempre contra MEFISTO_REPO_ROOT, no contra el cwd.
+# Gemela en TypeScript: src/internal/scripts/lib/mefisto-base-branch.mts. Un cambio va en las dos.
 ensure_repo_on_base_branch() {
     local repo_root="${MEFISTO_REPO_ROOT:-}"
     if [ -z "$repo_root" ]; then
@@ -214,6 +216,7 @@ ensure_repo_on_base_branch() {
 # extraccion con sed sobre la linea '"version": "X.Y.Z"'. Si plugin.json no
 # existe, o ninguna extraccion produce un valor, imprime cadena vacia -- nunca
 # aborta y siempre retorna 0.
+# Gemela en TypeScript: src/internal/scripts/lib/mefisto-harness-version.mts (delega en scripts/lib/pipeline/harness-identity.mts). Un cambio va en las dos.
 get_harness_version() {
     local script_dir plugin_json
     script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" 2>/dev/null && pwd)" || script_dir=""
@@ -260,6 +263,7 @@ get_harness_version() {
 #
 # Degrada a cadena vacia -- sin abortar, exit 0 siempre -- si 'git' no esta
 # en PATH o si el cwd no es un repositorio git.
+# Gemela en TypeScript: src/internal/scripts/lib/mefisto-harness-version.mts. Un cambio va en las dos.
 get_harness_sha() {
     command -v git >/dev/null 2>&1 || { echo ""; return 0; }
 
@@ -370,6 +374,7 @@ is_path_in_mefisto_scope() {
 # scope permitido para Mefisto (ver is_path_in_mefisto_scope).
 #
 # Retorna 0 si OK, 1 si hay violaciones (las lista en stderr).
+# Gemela en TypeScript: src/internal/scripts/lib/mefisto-scope-gate.mts. Un cambio va en las dos.
 validate_mefisto_scope_changes() {
     local wt="$1"
     local base="$2"
@@ -424,6 +429,7 @@ validate_mefisto_scope_changes() {
 # Todo lo demas dentro del scope de Mefisto (commands/, agents/, scripts/, hooks/,
 # docs/adr/, docs/ no-bitacora, .claude-plugin/, .claude/{commands,agents,scripts}/,
 # CHANGELOG.md) es NOTABLE y exige un fragmento en changelog.d/ (issue #380).
+# Gemela en TypeScript: src/internal/scripts/lib/mefisto-changelog-gate.mts. Un cambio va en las dos.
 is_path_changelog_exempt() {
     local path="$1"
     [ -z "$path" ] && return 1
@@ -447,6 +453,7 @@ is_path_changelog_exempt() {
 # Solo clasifica rutas; NO revisa la presencia del fragmento (de eso se encarga
 # changelog_fragment_added). Reutiliza el patron de recoleccion de rutas de
 # validate_mefisto_scope_changes.
+# Gemela en TypeScript: src/internal/scripts/lib/mefisto-changelog-gate.mts. Un cambio va en las dos.
 changes_require_changelog() {
     local wt="$1"
     local base="$2"
@@ -488,6 +495,7 @@ changes_require_changelog() {
 # Solo detecta la PRESENCIA del fragmento; no valida su formato ni su categoria
 # (de eso se encargan consolidate_changelog_fragments/consolidate_adr_index_fragments,
 # mas abajo, que abortan ante un nombre de fragmento invalido).
+# Gemela en TypeScript: src/internal/scripts/lib/mefisto-changelog-gate.mts. Un cambio va en las dos.
 changelog_fragment_added() {
     local wt="$1"
     local base="$2"
@@ -734,6 +742,7 @@ PYEOF
 # normal que sigue a continuacion.
 #
 # Retorna siempre 0.
+# Gemela en TypeScript: findOpenPrForBranch de scripts/lib/pipeline/pull-requests.mts, compartida con el lado publicado. Un cambio va en las dos.
 find_open_pr_for_branch() {
     local branch="$1"
     local repo="${2:-}"
@@ -1012,6 +1021,7 @@ format_stage_models_for_log() {
 # Retorna 0 si valido. Retorna 1 y deja el motivo en
 # MEFISTO_VARIANT_LABEL_ERROR (una linea, lista para abort()) si no -- mismo
 # contrato que MEFISTO_STAGE_MODELS_ERROR.
+# Gemela en TypeScript: validateVariantLabel de scripts/lib/pipeline/variant.mts, compartida con el lado publicado. Un cambio va en las dos.
 validate_variant_label() {
     local label="$1"
     MEFISTO_VARIANT_LABEL_ERROR=""
@@ -1838,6 +1848,7 @@ build_agents_history_json() {
 # del sub-pipeline interno, no en cada invocacion individual del CLI del
 # runtime. Un pipeline invocado directo, sin pasar por un runner, queda sin
 # envolver.
+# Gemela en TypeScript: caffeinatePrefix de scripts/lib/pipeline/caffeinate.mts, compartida con el lado publicado. Un cambio va en las dos.
 caffeinate_prefix() {
     if command -v caffeinate >/dev/null 2>&1; then
         printf '%s' "caffeinate -i"
