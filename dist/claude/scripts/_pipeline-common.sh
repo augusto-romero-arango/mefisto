@@ -64,6 +64,7 @@ mefisto_state_read_first() {
 # exclusivamente para la ruta absoluta; todos los diagnosticos van a stderr.
 # En lectura conserva el fallback legacy de MEF-ADR-0053; en escritura devuelve
 # siempre la ubicacion canonica y no migra archivos por su cuenta.
+# Gemela en TypeScript: resolveHarnessConfigPath de scripts/lib/harness-config.mts; un cambio va en los dos lados.
 resolve_harness_config_path() {
     local mode="$1" repo_root="${2:-}" canonical legacy
 
@@ -181,6 +182,7 @@ resolve_harness_config_path() {
 # (MEF-ADR-0024 decision #5, default-off).
 #
 # Si no existe el config file, emite mensaje claro de error y retorna 1.
+# Gemela en TypeScript: loadHarnessConfig de scripts/lib/harness-config.mts; un cambio va en los dos lados.
 load_harness_config() {
     local config
     if [ "$#" -gt 0 ]; then
@@ -531,6 +533,7 @@ load_harness_config() {
 # final la proxima vez que se cargue el config).
 #
 # Retorna 0 si escribio bien, 1 si el config no existe, es JSON invalido o jq falla.
+# Gemela en TypeScript: upsertHarnessSecret de scripts/lib/harness-config.mts; un cambio va en los dos lados.
 upsert_harness_secret() {
     local name="$1"
     local source_type="$2"
@@ -2207,6 +2210,7 @@ hold_note_suffix() {
 # de caer en el substring negativo de bash (${base:0:-N} recorta por la derecha y
 # devolveria una base MAS larga que el limite, silenciosamente invalida). Queda a
 # cargo del caller validar el nombre final contra ^[a-z0-9]{3,24}$.
+# Gemela en TypeScript: truncateStorageBase de scripts/lib/tfstate-naming.mts; un cambio va en los dos lados.
 truncate_storage_base() {
     local base="$1"
     local max_total="${2:-24}"
@@ -2228,6 +2232,7 @@ truncate_storage_base() {
 # Storage Account. Equivalente en bash al 'random_string { length = 6; special =
 # false; upper = false }' del scaffolder. Usa openssl si esta disponible y cae a
 # $RANDOM (builtin de bash, presente en 3.2/macOS) si no. Pura.
+# Gemela en TypeScript: genStorageSuffix de scripts/lib/tfstate-naming.mts; un cambio va en los dos lados.
 gen_storage_suffix() {
     local n="${1:-6}"
     local out=""
@@ -2254,6 +2259,7 @@ gen_storage_suffix() {
 # el nombre ya escrito en backend.tf (registro versionado: es lo que usara
 # 'terraform init'). Echo vacio si no hay backend o el valor no es literal/valido.
 # Pura (no consulta Azure). Siempre retorna 0.
+# Gemela en TypeScript: readBackendStorageAccountName de scripts/lib/tfstate-naming.mts; un cambio va en los dos lados.
 read_backend_storage_account_name() {
     local dir="$1"
     local f name
@@ -2286,6 +2292,7 @@ read_backend_storage_account_name() {
 # con el ya escrito en backend.tf, rompiendo la idempotencia (CA-3). Echo vacio
 # si no hay backend o el valor no es literal. Pura (no consulta Azure). Siempre
 # retorna 0.
+# Gemela en TypeScript: readBackendResourceGroupName de scripts/lib/tfstate-naming.mts; un cambio va en los dos lados.
 read_backend_resource_group_name() {
     local dir="$1"
     local f name
@@ -2312,6 +2319,7 @@ read_backend_resource_group_name() {
 # la forma canonica CAF "rg-tfstate-{app}-{env}-{region}-{seq}" (MEF-ADR-0045
 # seccion 1: abrev-tipo "rg", uso fijo "tfstate", {app} = <rg_prefix> sin el
 # prefijo "rg-" que infraResourceGroupPrefix ya lleva). Pura (no consulta Azure).
+# Gemela en TypeScript: composeTfstateResourceGroupName de scripts/lib/tfstate-naming.mts; un cambio va en los dos lados.
 compose_tfstate_resource_group_name() {
     local rg_prefix="$1" env="$2" region_short="$3" seq="$4"
     if [ -z "$region_short" ]; then
@@ -2329,6 +2337,7 @@ compose_tfstate_resource_group_name() {
 # MEF-ADR-0045 seccion 4). Fuente unica del slug para compose_tfstate_storage_
 # account_base y para el aviso de truncado de bootstrap-backend.sh -- ninguno de
 # los dos lo re-deriva por su cuenta. Pura (no consulta Azure).
+# Gemela en TypeScript: tfstateStorageAppSlug de scripts/lib/tfstate-naming.mts; un cambio va en los dos lados.
 tfstate_storage_app_slug() {
     printf '%s' "${1#rg-}" | tr -d -- '-_'
 }
@@ -2346,6 +2355,7 @@ tfstate_storage_app_slug() {
 # solo minusculas y digitos), truncado con truncate_storage_base si hace falta
 # para respetar <max_total> (default 24) -- regla de truncado de la seccion 4:
 # se trunca {app}, nunca el resto de componentes. Pura (no consulta Azure).
+# Gemela en TypeScript: composeTfstateStorageAccountBase de scripts/lib/tfstate-naming.mts; un cambio va en los dos lados.
 compose_tfstate_storage_account_base() {
     local rg_prefix="$1" env="$2" region_short="$3" seq="$4" legacy_base="$5"
     local max_total="${6:-24}"

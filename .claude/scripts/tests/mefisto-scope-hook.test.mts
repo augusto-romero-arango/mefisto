@@ -33,6 +33,7 @@ const IN_SCOPE = [
   '.github/rulesets/main.json',
   'mefisto-manifest.json',
   'LICENSE',
+  '.gitattributes',
 ]
 
 const OUT_OF_SCOPE = [
