@@ -68,12 +68,14 @@ en el repo" (MEF-ADR-0050 seccion 1). Agregar el runtime `<id>` nunca edita
 `src/internal/{agents,commands}/*.md` -- solo maquinaria de adaptacion (checklist completo de
 diez pasos, con el archivo exacto de cada uno: MEF-ADR-0050 seccion 2):
 
-1. `src/runtime/lib/runtime-<id>.sh` (+ `.jq` si el runtime emite un wire format propio que
-   traducir) y `src/internal/scripts/lib/adapter-<id>.mts` (traduce las directivas
-   `{{mefisto:...}}` del contrato y lleva la tabla de modelos por defecto).
-2. Cableado en `generate-internal-adapters.mts` (incluido su `--check`). `mefisto_resolve_runtime`
-   (`src/runtime/lib/mefisto-runtime.sh`) no necesita cableado: descubre `runtime-<id>.sh` por su
-   nombre y ejecuta `runtime_<id>_is_available`.
+1. `src/runtime/lib/runtime-<id>.mts` (`buildCmd`, `translate`, `isAvailable` y la tabla de
+   modelos por defecto; mientras queden pipelines en bash, tambien su gemela `runtime-<id>.sh`
+   con su `.jq`) y `src/internal/scripts/lib/adapter-<id>.mts` (traduce las directivas
+   `{{mefisto:...}}` del contrato y toma la tabla de modelos de `runtime-<id>.mts`).
+2. Cableado en `generate-internal-adapters.mts` (incluido su `--check`). `resolveRuntime`
+   (`src/runtime/lib/mefisto-runtime.mts`) descubre `runtime-<id>.mts` por su nombre y ejecuta
+   `isAvailable`; el descubrimiento sincrono que usan `/upgrade` y `/onboard` sale de la tabla
+   `PROBES` del mismo modulo, a la que hay que sumar el runtime nuevo.
 3. Entradas espejo en las dos allowlists de scope: `is_path_in_mefisto_scope` (interno) e
    `is_path_in_consumer_blocklist` (publicado).
 4. Excepcion en `neutrality-allowlist.json` si el adaptador necesita nombrar su propio runtime en
@@ -81,7 +83,7 @@ diez pasos, con el archivo exacto de cada uno: MEF-ADR-0050 seccion 2):
 5. Kind reconocido por Herdr, si algun pipeline orquesta ese runtime en un pane:
    `scripts/herdr-workspace.sh` ya reenvia el id de runtime tal cual como `--kind`, asi que del
    lado de Mefisto no hay nada que editar -- solo verificarlo del lado de Herdr.
-6. Tests: `test-runtime-<id>.sh` (contrato del adaptador), discovery abierto y resolucion de
+6. Tests: `runtime-<id>.test.mts` (contrato del adaptador), discovery abierto y resolucion de
    modelos sin proveedor real.
 
 ## Especifico del adaptador Claude Code -- lado publicado
