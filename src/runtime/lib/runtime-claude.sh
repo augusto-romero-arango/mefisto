@@ -5,6 +5,9 @@
 # de src/runtime/contract/run-events.schema.json -- ver
 # src/runtime/contract/README.md.
 #
+# Gemela de lib/runtime-claude.mts, la que usa el runner (MEF-ADR-0057): un
+# cambio va en los dos lados.
+#
 # Claude Code sigue siendo runtime soportado por compatibilidad, nunca
 # dependencia del nucleo (MEF-ADR-0049): ningun otro archivo del harness debe
 # nombrar `claude`, `--permission-mode`, `--append-system-prompt-file` ni

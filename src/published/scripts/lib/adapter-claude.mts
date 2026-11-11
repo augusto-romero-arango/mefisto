@@ -1,25 +1,15 @@
 // Renderizador Claude Code de las fuentes publicadas: devuelve el archivo completo o lanza
-// `AdapterError`, nunca una salida parcial. Gemela de lib/adapter-claude.sh, que aun carga
-// tests/test-tdd-agents.sh.
+// `AdapterError`, nunca una salida parcial.
 
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 
 import { JqError, alt, dump, get, iterate, length, parseStream } from '../../../../scripts/lib/jq-values.mts'
 import type { Json } from '../../../../scripts/lib/jq-values.mts'
+import { defaultEffort, defaultModel } from '../../../runtime/lib/runtime-claude.mts'
 import { effectiveContractPreamble, needsConfigPath, needsInstructionsPath } from './effective-contract.mts'
 import { AdapterError } from './published-adapter.mts'
 import { chomp, closingIndex, isFile, relativeToRepo, sourceLines } from './published-source.mts'
-
-const MODELS: Record<string, string> = { fast: 'haiku', balanced: 'sonnet', deep: 'opus' }
-
-const EFFORTS: Record<string, string> = {
-  quick: 'low',
-  light: 'medium',
-  standard: 'high',
-  thorough: 'xhigh',
-  exhaustive: 'max',
-}
 
 const CAPABILITY_TOOLS: Record<string, string> = {
   read: 'Read, Glob, Grep',
@@ -39,8 +29,9 @@ const MCP_TOOLS: Record<string, string> = {
 const lookup = (table: Record<string, string>, key: string): string | null =>
   Object.hasOwn(table, key) ? (table[key] ?? null) : null
 
-export const claudeModel = (profile: string): string | null => lookup(MODELS, profile)
-export const claudeEffort = (level: string): string | null => lookup(EFFORTS, level)
+// Las tablas son las del adaptador de ejecucion.
+export const claudeModel = (profile: string): string | null => defaultModel(profile)
+export const claudeEffort = (level: string): string | null => defaultEffort(level)
 
 function fail(rel: string, field: string, message: string): never {
   throw new AdapterError(`${rel}: ${field}: ${message}`)

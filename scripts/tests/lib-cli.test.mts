@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { execFileSync } from 'node:child_process'
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { closeSync, mkdirSync, mkdtempSync, openSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { delimiter, join } from 'node:path'
 import { after, before, describe, test } from 'node:test'
@@ -11,6 +11,7 @@ import {
   commandExists,
   escapeBatchArgument,
   gitOutput,
+  launch,
   repoRoot,
   resolveCommand,
   spawnTarget,
@@ -123,6 +124,76 @@ describe('resolucion de comandos', () => {
       assert.equal(result.status, 0, result.stderr)
       assert.deepEqual(JSON.parse(result.stdout), args)
       assert.equal(capture('falla', [], { env }).status, 3)
+    },
+  )
+})
+
+describe('launch', () => {
+  const exited = (child: ReturnType<typeof launch>): Promise<number | null> =>
+    new Promise((resolve) => child.once('exit', (code) => resolve(code)))
+
+  test('no espera al proceso: su salida se lee mientras sigue corriendo', async () => {
+    const script = 'process.stdout.write("primera\\n"); setTimeout(() => process.stdout.write("segunda\\n"), 400)'
+    const child = launch(process.execPath, ['-e', script], { stdio: ['ignore', 'pipe', 'ignore'] })
+    const chunks: string[] = []
+    let aliveAtFirst = false
+    child.stdout?.setEncoding('utf8').on('data', (chunk: string) => {
+      if (chunks.length === 0) aliveAtFirst = child.exitCode === null
+      chunks.push(chunk)
+    })
+    assert.equal(await exited(child), 0)
+    assert.equal(aliveAtFirst, true)
+    assert.equal(chunks.join(''), 'primera\nsegunda\n')
+  })
+
+  test('conecta archivos a la entrada y a la salida, y respeta cwd y entorno', async () => {
+    const input = join(work, 'launch entrada.txt')
+    const output = join(work, 'launch salida.txt')
+    writeFileSync(input, 'desde el archivo')
+    const [stdin, stdout] = [openSync(input, 'r'), openSync(output, 'w')]
+    const script =
+      'let t="";process.stdin.on("data",(d)=>t+=d).on("end",()=>{console.log(JSON.stringify([t,process.env.MEFISTO_LAUNCH,process.cwd().length>0]));process.exit(5)})'
+    const child = launch(process.execPath, ['-e', script], {
+      cwd: work,
+      env: { ...process.env, MEFISTO_LAUNCH: 'si' },
+      stdio: [stdin, stdout, 'ignore'],
+    })
+    closeSync(stdin)
+    closeSync(stdout)
+    assert.equal(await exited(child), 5)
+    assert.deepEqual(JSON.parse(readFileSync(output, 'utf8')), ['desde el archivo', 'si', true])
+  })
+
+  test('un programa que no existe emite error en vez de lanzar', async () => {
+    const child = launch('mefisto-no-existe-este-programa', [])
+    const error = await new Promise<NodeJS.ErrnoException>((resolve) => child.once('error', resolve))
+    assert.equal(error.code, 'ENOENT')
+  })
+
+  test(
+    'un .cmd real corre a traves de cmd.exe con su entrada, sus argumentos y su codigo de salida',
+    { skip: process.platform === 'win32' ? false : 'solo hay cmd.exe en Windows' },
+    async () => {
+      const dir = join(work, 'bin launch')
+      mkdirSync(dir)
+      const output = join(work, 'launch cmd.txt')
+      writeFileSync(
+        join(dir, 'eco.mjs'),
+        'let t="";process.stdin.on("data",(d)=>t+=d).on("end",()=>{console.log(JSON.stringify([process.argv.slice(2),t]));process.exit(3)})\n',
+      )
+      writeFileSync(join(dir, 'lanzado.cmd'), `@echo off\r\n"${process.execPath}" "%~dp0eco.mjs" %*\r\n`)
+      const input = join(work, 'launch cmd entrada.txt')
+      writeFileSync(input, 'por stdin')
+      const [stdin, stdout] = [openSync(input, 'r'), openSync(output, 'w')]
+      const args = ['--model', 'opus[1m]', 'con espacio', 'C:\\ruta con\\barra\\']
+      const child = launch('lanzado', args, {
+        env: { ...process.env, PATH: `${dir}${delimiter}${process.env.PATH ?? ''}` },
+        stdio: [stdin, stdout, 'ignore'],
+      })
+      closeSync(stdin)
+      closeSync(stdout)
+      assert.equal(await exited(child), 3)
+      assert.deepEqual(JSON.parse(readFileSync(output, 'utf8')), [args, 'por stdin'])
     },
   )
 })

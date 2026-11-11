@@ -1,4 +1,5 @@
 # Validador versionado del mapping abierto runtime -> {profiles, agents, efforts}.
+# Gemela de validateModelsMapping (lib/mefisto-models.mts): un cambio va en los dos lados.
 def issue($path; $reason): "\($path): \($reason)";
 def effort_levels: ["quick","light","standard","thorough","exhaustive"];
 def model_errors($path):
