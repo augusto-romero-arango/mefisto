@@ -10,7 +10,7 @@
 # El fallo de la nightly se avisa con un issue 'nightly-rojo' (job 'notify', issue #1773).
 # Corre en macOS (arm64, runner pinneado, nunca 'macos-latest'): Mefisto se opera en macOS con
 # /bin/bash 3.2 y coreutils BSD; un CI en Linux daba rojos/verdes que no dicen nada del sistema real.
-# Neutral a runtime (MEF-ADR-0050): solo bash, coreutils, git y jq; sin CLIs de agente ni secretos.
+# Neutral a runtime (MEF-ADR-0050): solo bash, coreutils, git, jq y Node; sin CLIs de agente ni secretos.
 name: CI
 
 on:
