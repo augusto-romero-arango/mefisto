@@ -58,9 +58,9 @@ contains "$body" 'Terraform:' 'opcion de scaffold describe Terraform'
 contains "$body" 'Workflow:' 'opcion de scaffold describe el workflow'
 contains "$body" 'dentro del worktree del issue' 'scaffold y TDD comparten worktree'
 contains "$body" 'solo se admite un scaffold por invocacion' 'limita scaffold por invocacion'
-contains "$body" '{{mefisto:run tmux-pipeline.sh $ARGUMENTS}}' 'despacho sin scaffold'
-contains "$body" '{{mefisto:run tmux-pipeline.sh $ARGUMENTS --scaffold-domain <dominio-kebab-confirmado>}}' 'despacho con scaffold confirmado'
-[ "$(grep -cF '{{mefisto:run tmux-pipeline.sh' "$SOURCE")" -eq 2 ] && pass 'existen dos rutas de lanzamiento' || fail 'las rutas de lanzamiento no son dos'
+contains "$body" '{{mefisto:run launch-pipeline.sh $ARGUMENTS}}' 'despacho sin scaffold'
+contains "$body" '{{mefisto:run launch-pipeline.sh $ARGUMENTS --scaffold-domain <dominio-kebab-confirmado>}}' 'despacho con scaffold confirmado'
+[ "$(grep -cF '{{mefisto:run launch-pipeline.sh' "$SOURCE")" -eq 2 ] && pass 'existen dos rutas de lanzamiento' || fail 'las rutas de lanzamiento no son dos'
 for forbidden in 'Claude' '.claude/' 'cache' 'model:' 'tools:' 'allowed-tools:' 'permission:' 'SCAFFOLD_FLAG' '/work-status'; do absent "$body" "$forbidden" "fuente no publica token prohibido: $forbidden"; done
 
 echo '[salidas] adaptador y mirror'
@@ -69,7 +69,7 @@ if jq -e '.assets | any(.source == "src/published/commands/implement.md" and .de
 contains "$(< "$CLAUDE")" 'model: "haiku"' 'Claude materializa el perfil fast'
 contains "$(< "$CLAUDE")" 'MEFISTO_PACKAGE_ROOT' 'Claude resuelve package root una vez'
 [ "$(grep -c '^MEFISTO_PACKAGE_ROOT=' "$CLAUDE")" -eq 1 ] && pass 'Claude tiene un preambulo de package root' || fail 'Claude duplica package root'
-contains "$(< "$CLAUDE")" 'MEFISTO_RUNTIME=claude "${MEFISTO_PACKAGE_ROOT}/scripts/tmux-pipeline.sh" $ARGUMENTS' 'Claude conserva package root con espacios y fija su runtime'
+contains "$(< "$CLAUDE")" 'MEFISTO_RUNTIME=claude "${MEFISTO_PACKAGE_ROOT}/scripts/launch-pipeline.sh" $ARGUMENTS' 'Claude conserva package root con espacios y fija su runtime'
 if cmp -s "$MIRROR" "$CLAUDE"; then pass 'mirror Claude coincide byte a byte'; else fail 'mirror Claude diverge'; fi
 contains "$(< "$MIRROR")" '<!-- GENERADO por src/published/scripts/generate-published-adapters.sh desde src/published/commands/implement.md. No editar a mano. -->' 'mirror conserva marcador generado'
 if "$GENERATOR" --check >/dev/null; then pass 'generate-published-adapters --check esta al dia'; else fail 'generate-published-adapters --check detecto divergencias'; fi

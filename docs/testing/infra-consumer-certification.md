@@ -2,10 +2,9 @@
 
 Este protocolo define, sin ejecutarla, la certificacion reproducible del
 pipeline `/mefisto:infra` (`scripts/iac-pipeline.sh`, lanzado por
-`scripts/tmux-pipeline.sh --infra`) sobre el runtime `claude` y sobre los dos
-contextos de lanzamiento que el propio script distingue: dentro de un
-workspace Herdr (`herdr-workspace.sh`) y en una sesion `tmux` autonoma fuera
-de Herdr. Molde: "Resultado write-side (#1435)" y
+`scripts/launch-pipeline.sh --infra`) sobre el runtime `claude` y sobre los dos
+contextos de lanzamiento que el propio script distingue: en un pane de un
+workspace Herdr (`herdr-workspace.sh`) y desacoplado, sin pane. Molde: "Resultado write-side (#1435)" y
 [`tdd-consumer-certification.md`](./tdd-consumer-certification.md). Este
 documento fija su instalacion e identidad como prerrequisito y agrega la
 superficie propia de `/mefisto:infra` -- dos agentes (`infra-writer`,
@@ -13,8 +12,7 @@ superficie propia de `/mefisto:infra` -- dos agentes (`infra-writer`,
 contextos de lanzamiento.
 
 Las secciones de protocolo satisfacen el CA-1 de #1629. Los CA-2 a CA-5 exigen
-una sesion operada en vivo con acceso a Herdr, a una sesion `tmux` real y a un
-consumidor sintetico -- el mismo tipo de operacion que
+una sesion operada en vivo con acceso a Herdr y a un consumidor sintetico -- el mismo tipo de operacion que
 `tdd-consumer-certification.md` documenta como fuera de alcance de un stage de
 escritura no interactivo ("Bloqueo estructural de la ejecucion automatizada
 (#1464)"). Esa sesion y su veredicto quedan en "Estado de la certificacion".
@@ -84,7 +82,7 @@ correcta de pasar, sin ambiguedad de diseño que dependa del modelo. El fixture
 mantiene fuera de alcance el bootstrap del backend (`bootstrap-backend.sh`),
 que este protocolo no certifica.
 
-### Template de fixture (herdr/tmux)
+### Template de fixture (Herdr/desacoplado)
 
 Las dos corridas usan la misma forma; solo el contexto de lanzamiento y
 `<run-id>` (formato `YYYYMMDD-HHMMSS-<tag-certificable>`, mismo que
@@ -98,7 +96,7 @@ Las dos corridas usan la misma forma; solo el contexto de lanzamiento y
 Certificar `/mefisto:infra` sobre la release `<tag-certificable>`
 (`<version>`, commit fuente `<commit-fuente>`) desde una instalacion
 publicada real en este consumidor, lanzada desde <contexto-lanzamiento>
-(Herdr o tmux autonomo).
+(Herdr o desacoplado).
 
 ## Ambiente
 
@@ -133,15 +131,16 @@ sin credenciales de Azure.
 
 | Corrida | Contexto de lanzamiento | Invocacion |
 |---|---|---|
-| A | Herdr | `/mefisto:infra <issue-A>` desde el pane `ejecucion [claude]` de un workspace Herdr (`herdr-workspace.sh`) |
-| B | tmux autonomo | `/mefisto:infra <issue-B>` (o `scripts/tmux-pipeline.sh --infra <issue-B>` directo) fuera de cualquier sesion Herdr, con `tmux -CC attach -t infra-<issue-B>` para monitorear |
+| A | Herdr | `/mefisto:infra <issue-A>` desde el pane `ejecucion [claude]` de un workspace Herdr (`herdr-workspace.sh`), con `MEFISTO_UI=herdr` en el entorno |
+| B | Desacoplado | `/mefisto:infra <issue-B>` (o `scripts/launch-pipeline.sh --infra <issue-B>` directo) sin `MEFISTO_UI`; la sigue la consola `fausto-blood-pact` o, sin ella, `scripts/stream-watch.sh --issues <issue-B>` en otra terminal |
 
 Las dos corridas parten del mismo `<sha-baseline-inicial>` del consumidor y
 son independientes entre si: ninguna depende de que el PR fixture de la otra
 se fusione (los dos PRs se cierran sin merge, seccion "Fail-closed y limpieza"
-mas abajo). `scripts/tmux-pipeline.sh` detecta `HERDR_ENV=1` y delega en la
-interfaz Herdr para A; fuera de Herdr, para B, abre una sesion `tmux`
-nombrada `infra-<issue>` tal como documenta `commands/infra.md`.
+mas abajo). Con `MEFISTO_UI=herdr`, `scripts/launch-pipeline.sh` delega en la
+interfaz Herdr para A; sin `MEFISTO_UI`, para B, corre el pipeline desacoplado
+(MEF-ADR-0055) e imprime la ruta del log y la linea del visor, tal como
+documenta `commands/infra.md`.
 
 ## Resultados esperados de cada corrida (CA-2 de #1629)
 
@@ -280,13 +279,18 @@ La limpieza es idempotente, igual que en `tdd-consumer-certification.md`.
 **PASA (2026-09-30), release `v0.40.1`.** Las dos celdas de la matriz (A y
 B-bis del intento 2) cumplen CA-2 a CA-5, con `identity` `0.40.1` en el historial,
 centinelas en cero y baseline restaurado. `/mefisto:infra` queda certificado
-bajo Claude Code, lanzado desde Herdr y desde `tmux` autonomo, en el alcance
+bajo Claude Code, lanzado desde Herdr y fuera de Herdr, en el alcance
 que fija este protocolo: invocacion directa, sin `--models` ni modelo
 explicito, fixture de modificacion acotada de un modulo existente.
 
+En `v0.40.x` el lanzador abria, fuera de Herdr, una sesion de un multiplexor
+de terminal en vez de correr desacoplado: la celda B de los dos intentos
+corrio en esa sesion. La celda B de la matriz vigente (desacoplado) no tiene
+corrida registrada.
+
 El intento 1 (`v0.40.0`) dio `NO PASA` por el gap de CA-4 que resolvio
 [#1730](https://github.com/augusto-romero-arango/eda-evsourcing-azure-harness/issues/1730).
-En el intento 2 la celda B se repitio como B-bis sobre un servidor `tmux`
+En el intento 2 la celda B se repitio como B-bis sobre un servidor de sesiones
 limpio, por el motivo que explica "Repeticion de la celda B (#1740)".
 
 ### Intento 2 (2026-09-30, run-id `20260930-074511-v0.40.1`)
@@ -298,10 +302,10 @@ limpio, por el motivo que explica "Repeticion de la celda B (#1740)".
 | Consumidor, herramientas y fixture | Iguales al intento 1: mismo consumidor, `terraform` 1.14.4, Claude Code 2.1.285; mismo `<modulo-certificable>` (`monitoring`) y mismo cambio. |
 | Baseline | `<sha-baseline-inicial>` = `<sha-baseline-final>` = `feb5103dc9b8ce118bddc76cd6b9c63481573abf`, arbol limpio antes y despues. |
 
-| Dimension | A: Herdr | B-bis: tmux |
+| Dimension | A: Herdr | B-bis: fuera de Herdr |
 |---|---|---|
 | Issue fixture | [#70](https://github.com/augusto-romero-arango/mefisto-consumer-certification/issues/70) | [#78](https://github.com/augusto-romero-arango/mefisto-consumer-certification/issues/78) |
-| Lanzamiento | pane Herdr `w9:pE` | sesion `infra-78`, servidor tmux creado por esta corrida |
+| Lanzamiento | pane Herdr `w9:pE` | sesion `infra-78`, servidor de sesiones creado por esta corrida |
 | `MODELS:` writer / reviewer | `claude` balanced `sonnet` / deep `opus` | idem A |
 | Stage 1 / Stage 2 | `passed` 22 s / `passed` 30 s | `passed` 22 s (hold aparte) / `passed` 26 s |
 | PR (sin `Closes`) | [#74](https://github.com/augusto-romero-arango/mefisto-consumer-certification/pull/74) | [#79](https://github.com/augusto-romero-arango/mefisto-consumer-certification/pull/79) |
@@ -326,28 +330,28 @@ limpio, por el motivo que explica "Repeticion de la celda B (#1740)".
   `.mefisto/pipeline/certification/infra-v0.40.1/`.
 - **Limpieza**: PRs #74, #77 y #79 cerrados sin merge, con sus ramas remotas
   eliminadas; fixtures #70, #71 y #78 cerrados `not planned`; sin worktrees ni
-  sesiones tmux.
+  sesiones abiertas.
 - **Desviaciones**: las mismas del intento 1 (fixtures con `gh issue create`
   desde el consumidor, invocacion no interactiva del comando publicado y hold
   por runner wrapper).
 
 ### Repeticion de la celda B (#1740)
 
-La B original (#71, PR #77) corrio sobre un servidor `tmux` que ya estaba
-arrancado. `tmux-pipeline.sh` carga `mefisto-models.sh`, que exportaba
+La B original (#71, PR #77) corrio sobre un servidor de sesiones que ya estaba
+arrancado. El lanzador carga `mefisto-models.sh`, que exportaba
 `MEFISTO_RUNTIME_LIB_DIR` con `:=`, asi que la corrida heredo del entorno
 global del servidor una raiz de librerias, `MEFISTO_STATE_DIR` y
 `MEFISTO_LEGACY_STATE_DIR` que no eran los de su propia instalacion. B cumplio
 todo, pero su evidencia no proviene de la distribucion que certifica. Por eso
-se repitio como B-bis (#78) sobre un servidor `tmux` arrancado por esa misma
+se repitio como B-bis (#78) sobre un servidor de sesiones arrancado por esa misma
 corrida, y es B-bis la celda que entra en la matriz. El intento 1 corrio con
 la misma herencia sin detectarla.
 
 La herencia no invalida el veredicto: la matriz certificada ejecuta sobre su
 propia distribucion. El defecto del lanzador se trato en
 [#1740](https://github.com/augusto-romero-arango/eda-evsourcing-azure-harness/issues/1740).
-Mezclar lanzamientos de dos versiones sobre el mismo servidor `tmux` no forma
-parte de lo certificado.
+Mezclar lanzamientos de dos versiones sobre el mismo servidor de sesiones no
+forma parte de lo certificado.
 
 ### Intento 1 (2026-09-30, run-id `20260930-042402-v0.40.0`): NO PASA
 
@@ -356,12 +360,12 @@ parte de lo certificado.
 | Release e identidad | `v0.40.0` (publicada 2026-09-30T09:21:22Z), version `0.40.0`, commit fuente `d876b9af5e250c695b82031a58346064705e8ffb`; `pipeline-status-infra-<N>.json` y `pipeline-history.jsonl` registran `identity` `0.40.0/d876b9af` (`identity_state: complete`) en las corridas. La ruta infra entro por primera vez en una release con `v0.40.0`: `v0.39.0` se publico antes de los merges de #1624-#1628. |
 | Instalacion | Marketplace + `claude plugin update` (scopes user y project) `0.39.0 -> 0.40.0`. Instalacion previa (rollback): `0.39.0` / `e5bff995`; se conserva `0.40.0` por ser la release vigente. |
 | Consumidor | `augusto-romero-arango/mefisto-consumer-certification`, 11 modulos bajo `infra/modules/`, `infra-cd.yml` con `plan` en `pull_request` filtrado a `infra/**`. `<modulo-certificable>` = `monitoring`: tag determinista `modulo = "monitoring"` sobre `azurerm_log_analytics_workspace.this`. |
-| Herramientas | `terraform` 1.14.4, Claude Code 2.1.285, tmux y Herdr locales. Sin `az login` ni backend remoto en local. |
+| Herramientas | `terraform` 1.14.4, Claude Code 2.1.285, Herdr y el multiplexor de sesiones locales. Sin `az login` ni backend remoto en local. |
 | Baseline | `<sha-baseline-inicial>` = `<sha-baseline-final>` = `feb5103dc9b8ce118bddc76cd6b9c63481573abf`, arbol limpio antes y despues. |
 
 #### Corridas (CA-2, CA-3)
 
-| Dimension | A: Herdr | B: tmux |
+| Dimension | A: Herdr | B: fuera de Herdr |
 |---|---|---|
 | Issue fixture | [#62](https://github.com/augusto-romero-arango/mefisto-consumer-certification/issues/62) | [#63](https://github.com/augusto-romero-arango/mefisto-consumer-certification/issues/63) |
 | Lanzamiento | pane Herdr `w9:pC` | sesion `infra-63` |
@@ -418,11 +422,11 @@ resolucion de raiz, sin logs, estado ni historial.
 - **Invocacion**: las corridas se lanzaron con el comando publicado real en
   modo no interactivo (`claude -p "/mefisto:infra <N>"`) desde el checkout del
   consumidor. A heredo el entorno Herdr del workspace del operador; B se lanzo
-  con las variables `HERDR_*` retiradas, de modo que `tmux-pipeline.sh` abrio
+  con las variables `HERDR_*` retiradas, de modo que el lanzador abrio
   una sesion `infra-<N>` autonoma.
 - **Hold**: se indujo con un runner wrapper local, uno de los dos mecanismos
   que admite "Visibilidad en `/work-status`"; el wrapper no forma parte de la
-  release y solo se inyecto en la sesion tmux de B.
+  release y solo se inyecto en la sesion de B.
 
 #### Hallazgos no bloqueantes
 

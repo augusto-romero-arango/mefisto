@@ -171,33 +171,33 @@ Con `DOMAIN_NAME_KEBAB` como dominio confirmado:
 
 ```bash
 # Con issue:
-MEFISTO_RUNTIME=claude "${MEFISTO_PACKAGE_ROOT}/scripts/tmux-pipeline.sh" --scaffold <issue> --domain <dominio-kebab-confirmado>
+MEFISTO_RUNTIME=claude "${MEFISTO_PACKAGE_ROOT}/scripts/launch-pipeline.sh" --scaffold <issue> --domain <dominio-kebab-confirmado>
 
 # Sin issue:
-MEFISTO_RUNTIME=claude "${MEFISTO_PACKAGE_ROOT}/scripts/tmux-pipeline.sh" --scaffold --domain <dominio-kebab-confirmado>
+MEFISTO_RUNTIME=claude "${MEFISTO_PACKAGE_ROOT}/scripts/launch-pipeline.sh" --scaffold --domain <dominio-kebab-confirmado>
 ```
 
-### 7. Instrucciones de conexion
+### 7. Instrucciones de seguimiento
 
-Dentro de Herdr (`HERDR_ENV=1` en el entorno), el script delega en la interfaz Herdr y no hay nada que adjuntar: el pipeline queda corriendo en un pane de este mismo workspace con el visor en vivo del agente. En ese caso responde con:
+Seguimiento por runtime: cuando el runtime activo trae su propia cinta de seguimiento (la consola `fausto-blood-pact`) y el usuario no fijo la interfaz, el script no abre pane: corre desacoplado, imprime la ruta del log y el avance lo sigue esa consola desde esta misma sesion. En el resto de los runtimes (MEF-ADR-0050): dentro de Herdr (`HERDR_ENV=1` en el entorno), el script delega en la interfaz Herdr: el pipeline queda corriendo en un pane de este mismo workspace con el visor en vivo del agente. En ese caso responde con:
 
 ```
 Pipeline de scaffold corriendo en un pane de este workspace (visor en vivo del agente).
 Log: .mefisto/pipeline/logs/scaffold-<timestamp>-<pid>.log
 ```
 
-Fuera de Herdr responde con:
+Fuera de Herdr el script tambien corre desacoplado, sin consola que lo siga: su salida dice `sin pane` sin nombrar la consola, e imprime la ruta del log y la linea del visor. En ese caso responde con:
 
 ```
-Pipeline de scaffold lanzado en tmux. Para monitorear:
-  tmux -CC attach -t scaffold-<dominio>
+Pipeline de scaffold corriendo sin pane. Para monitorear, en otra terminal:
+  <linea de stream-watch.sh que imprimio el script>
 
 Log: .mefisto/pipeline/logs/scaffold-<timestamp>-<pid>.log
 ```
 
 ## Reglas
 
-- **No esperes a que termine.** El script corre en background (en un pane Herdr o una sesion tmux). Devuelve el control inmediatamente.
+- **No esperes a que termine.** El script corre en background (desacoplado o en un pane Herdr). Devuelve el control inmediatamente.
 - **No crees el dominio tu mismo.** Solo lanza el script.
 - **Nunca crees un dominio sin confirmacion explicita del usuario.** La creacion implica Terraform e infraestructura en Azure.
-- Si tmux no esta instalado (y no estas dentro de Herdr), el script lo detecta y muestra el error. No intentes instalarlo.
+- `MEFISTO_UI` admite `mod` (desacoplado) y `herdr` (panes, solo dentro de Herdr); con cualquier otro valor el script aborta y muestra el error.

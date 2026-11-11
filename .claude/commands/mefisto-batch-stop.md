@@ -25,9 +25,7 @@ REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null) || {
 ### 1. Detectar si hay un batch corriendo
 
 Criterio elegido (el mas simple de los disponibles): el proceso real del motor,
-`mefisto-batch-pipeline.sh`. Ni la sesion tmux ni el log activo sirven aqui --
-la sesion tmux esta ausente en el modo herdr (el batch corre ahi como un
-proceso directo en un pane, sin sesion tmux propia), y un archivo de log en
+`mefisto-batch-pipeline.sh`. El log activo no sirve aqui: un archivo de log en
 `.mefisto/pipeline/logs/` no distingue por si solo una corrida activa de una ya
 terminada sin volver a parsear su contenido.
 

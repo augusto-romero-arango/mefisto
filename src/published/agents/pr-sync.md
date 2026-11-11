@@ -76,7 +76,7 @@ Cuando el script termine, informa al usuario:
 - Qué PRs ya estaban al día (no necesitaron cambios)
 - Si algo falló, muestra el error y la ruta al log
 
-Para ver el progreso de un pipeline en curso, remite al usuario al pane o sesión tmux del pipeline.
+Para ver el progreso de un pipeline en curso, remite al usuario a la consola `fausto-blood-pact`, al pane del pipeline o a su log.
 
 ---
 

@@ -185,7 +185,7 @@ fail_issue() {
 
 # ─── Senal de parada suave del batch (issue #974, mismo diseno que el motor ──
 # ─── interno #966) ────────────────────────────────────────────────────────────
-# Un batch largo no se podia frenar sin matar el pane de tmux/herdr, dejando el
+# Un batch largo no se podia frenar sin matar su proceso o su pane herdr, dejando el
 # eslabon en curso a medio pipeline. La senal es un archivo de mera PRESENCIA
 # (sin campos que parsear) que /batch-stop escribe desde el checkout principal.
 # Vive en pipeline-state/batch-stop -- fuera de .claude/ por construccion

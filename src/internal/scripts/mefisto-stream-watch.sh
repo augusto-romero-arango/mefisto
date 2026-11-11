@@ -23,12 +23,11 @@
 #   .claude/scripts/mefisto-stream-watch.sh --newer-than <epoch-segundos>
 #       Ignora archivos con mtime anterior a <epoch>: el visor arranca
 #       esperando la corrida nueva en vez de mostrar la traza de la corrida
-#       ANTERIOR hasta que la nueva empiece a escribirse (el caveat que
-#       documenta el encabezado de mefisto-tmux-pipeline.sh).
+#       ANTERIOR hasta que la nueva empiece a escribirse.
 #
-# Contexto (issue #434): durante una corrida el pane de tmux que hace
-# `tail -f` del log de eventos del pipeline solo ve DOS lineas por stage
-# completo ("STAGE 1: writer" / "STAGE 2: reviewer") -- 20+ minutos de
+# Contexto (issue #434): durante una corrida un `tail -f` del log de eventos
+# del pipeline solo ve DOS lineas por stage completo
+# ("STAGE 1: writer" / "STAGE 2: reviewer") -- 20+ minutos de
 # silencio en el medio, sin forma de notar que el agente esta dando vueltas ni
 # de aprender mirando. Este visor sigue incrementalmente el JSONL neutral que
 # el runner escribe por stage (`<log_base>.events.jsonl`, protocolo de
@@ -286,7 +285,7 @@ discover_stream_in_dirs() {
 # con mefisto_state_read_paths en CADA llamada, y eso no es una ineficiencia
 # a limpiar: read_paths solo emite las rutas que YA existen, y el modo de uso
 # normal del visor es arrancarlo ANTES que el pipeline (es la razon de ser de
-# --newer-than, y lo que hacen los lanzadores de tmux/herdr). Resolviendo una
+# --newer-than, y lo que hace el lanzador de herdr). Resolviendo una
 # sola vez al arrancar, un visor lanzado sobre un directorio de logs todavia
 # inexistente se quedaria con la lista vacia PARA SIEMPRE y nunca mostraria la
 # corrida que nace un segundo despues -- justo el sintoma que el aviso de

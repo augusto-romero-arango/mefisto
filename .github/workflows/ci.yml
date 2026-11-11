@@ -45,7 +45,7 @@ jobs:
 
       - name: Instalar herramientas faltantes
         run: |
-          for tool in jq shellcheck tmux; do
+          for tool in jq shellcheck; do
             command -v "$tool" >/dev/null 2>&1 || brew install "$tool"
           done
 
@@ -55,7 +55,7 @@ jobs:
 
       - name: Verificar herramientas
         run: |
-          for tool in jq shellcheck tmux; do
+          for tool in jq shellcheck; do
             command -v "$tool" >/dev/null 2>&1 || { echo "::error::$tool no esta disponible en el runner" >&2; exit 1; }
           done
           jq --version

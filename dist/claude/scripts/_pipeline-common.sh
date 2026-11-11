@@ -712,7 +712,7 @@ resolve_pipeline_agent_effort() {
 #
 # Formato interno de PIPELINE_STAGE_MODELS: pares "agente=modelo" separados por
 # salto de linea -- no un array asociativo, porque bash 3.2 (macOS, ver notas de
-# bash 3.2 en tmux-pipeline.sh) no lo soporta.
+# bash 3.2 en launch-pipeline.sh) no lo soporta.
 
 # parse_stage_models <spec>
 #
@@ -2958,8 +2958,8 @@ coverage_classify_file() {
 # Imprime por stdout "caffeinate -i" si el binario 'caffeinate' esta
 # disponible en PATH (macOS), o cadena vacia en cualquier otro sistema
 # (Linux/CI) -- issue #800. Antepuesto al lanzamiento de un pipeline largo
-# evita que el Mac entre en suspension idle mientras corre en un pane de
-# tmux/Herdr (`-i`: solo suspension idle; sin `-d` la pantalla si puede
+# evita que el Mac entre en suspension idle mientras corre desacoplado o en
+# un pane de Herdr (`-i`: solo suspension idle; sin `-d` la pantalla si puede
 # apagarse; `-s` se descarta porque solo aplica con AC conectado). El
 # prefijo no envuelve al pipeline como proceso padre: `caffeinate <utility>`
 # hace fork de un helper que sostiene la assertion y exec del utility EN SU
@@ -2971,7 +2971,7 @@ coverage_classify_file() {
 # semantica.
 #
 # Alcance: se calcula UNA vez por corrida y se aplica en los RUNNERS
-# (tmux-pipeline.sh, herdr-pipeline.sh) sobre el lanzamiento del sub-pipeline,
+# (launch-pipeline.sh, herdr-pipeline.sh) sobre el lanzamiento del sub-pipeline,
 # no en cada `claude -p` individual dentro de tdd/tooling/iac-pipeline.sh. Un
 # pipeline invocado directo, sin pasar por un runner, queda sin envolver.
 caffeinate_prefix() {

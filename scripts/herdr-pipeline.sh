@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # herdr-pipeline.sh --- Interfaz herdr de los pipelines publicados (issue #690)
 #
-# Uso (misma superficie de modos que tmux-pipeline.sh):
+# Uso (misma superficie de modos que launch-pipeline.sh):
 #   herdr-pipeline.sh 42                          # issue unico (enruta por label)
 #   herdr-pipeline.sh 42 --from-stage 3           # retomar desde Stage 3
 #   herdr-pipeline.sh --pipeline tooling 42       # forzar pipeline
@@ -13,10 +13,9 @@
 #   herdr-pipeline.sh --collapse-panes            # poda paneles libres sobrantes sin despachar
 #   herdr-pipeline.sh --refresh-agents             # refresca agentes interactivos sin despachar
 #
-# En vez de crear una sesion tmux nueva con un pane de `tail -f events.log`
-# (que resulto innecesario), esta interfaz trabaja DENTRO del workspace herdr
-# actual: reutiliza (o crea con `herdr pane split`) un pane de ejecucion al
-# lado del pane que despacha, corre el sub-pipeline en background con su
+# Esta interfaz trabaja DENTRO del workspace herdr actual: reutiliza (o crea
+# con `herdr pane split`) un pane de ejecucion al lado del pane que
+# despacha, corre el sub-pipeline en background con su
 # reporte a un log, y muestra en el pane el visor en vivo (stream-watch.sh)
 # que sigue al agente en curso -- saltando solo de stream en stream a lo
 # largo de la secuencia de agentes del issue, siempre en el MISMO pane. Al
@@ -24,9 +23,9 @@
 # worktree fallido...) el pane muestra el reporte final.
 #
 # Concurrencia: si el pane de ejecucion sigue ocupado con otra corrida, se
-# abre un pane adicional (la misma concurrencia que daban las sesiones tmux
-# separadas); los panes libres se reutilizan en despachos posteriores. La
-# deteccion de "libre" es del lado de herdr: un shell interactivo sin comando
+# abre un pane adicional; los panes libres se reutilizan en despachos
+# posteriores. La deteccion de "libre" es del lado de herdr: un shell
+# interactivo sin comando
 # en foreground (`herdr pane process-info`: foreground_process_group_id ==
 # shell_pid). Cada visor filtra por sus issues (--issues de stream-watch.sh)
 # para que dos corridas concurrentes no se crucen.
@@ -53,8 +52,8 @@
 # nada, asi el reintento nunca duplica una corrida (MEF-ADR-0017).
 #
 # Este script requiere correr dentro de un pane herdr (HERDR_ENV=1): la
-# autodeteccion vive en tmux-pipeline.sh, que delega aqui cuando aplica y
-# sigue con tmux cuando no. Fuera de herdr, usa tmux-pipeline.sh directo.
+# autodeteccion vive en launch-pipeline.sh, que delega aqui cuando aplica y
+# corre desacoplado cuando no. Fuera de herdr, usa launch-pipeline.sh directo.
 
 set -euo pipefail
 
@@ -107,9 +106,9 @@ CAFF="$(caffeinate_prefix)"
 PANES_STATE=""
 HERDR_RUNTIME=""
 # Segundos entre arranques de los issues de un lote --parallel: varios
-# `claude -p` arrancando a la vez compiten por la API (mismo motivo que el
-# sleep del modo tmux). La espera corre DENTRO de cada pane (--delay del
-# runner), asi el despacho devuelve el control de inmediato.
+# `claude -p` arrancando a la vez compiten por la API. La espera corre DENTRO
+# de cada pane (--delay del runner), asi el despacho devuelve el control de
+# inmediato.
 PARALLEL_STAGGER=30
 # Confirmacion de arranque tras teclear el comando en un pane (issue #1563):
 # `herdr pane run` devuelve 0 en cuanto el texto se tecleo, no cuando el shell
@@ -133,7 +132,7 @@ warn()    { echo -e "${YELLOW}!${NC} $1" >&2; }
 abort()   { echo -e "\n${RED}${BOLD}x $1${NC}" >&2; exit 1; }
 
 # Normaliza la ruta de sub-script devuelta por resolve_pipeline a una ruta
-# absoluta dentro del plugin (mismo criterio que tmux-pipeline.sh).
+# absoluta dentro del plugin (mismo criterio que launch-pipeline.sh).
 plugin_script() {
     echo "$SCRIPT_DIR/$(basename "$1")"
 }
@@ -141,13 +140,13 @@ plugin_script() {
 # --- Guard de contexto herdr ---
 require_herdr_context() {
     command -v herdr &>/dev/null \
-        || abort "herdr no esta instalado (https://herdr.dev). Fuera de herdr usa: tmux-pipeline.sh"
+        || abort "herdr no esta instalado (https://herdr.dev). Fuera de herdr usa: launch-pipeline.sh"
     [ "${HERDR_ENV:-}" = "1" ] \
-        || abort "No estas dentro de un pane de herdr (HERDR_ENV != 1). Fuera de herdr usa: tmux-pipeline.sh"
+        || abort "No estas dentro de un pane de herdr (HERDR_ENV != 1). Fuera de herdr usa: launch-pipeline.sh"
     [ -n "${HERDR_PANE_ID:-}" ] && [ -n "${HERDR_WORKSPACE_ID:-}" ] \
         || abort "Faltan HERDR_PANE_ID/HERDR_WORKSPACE_ID en el entorno (los inyecta herdr en cada pane)."
     command -v jq &>/dev/null \
-        || abort "La interfaz herdr requiere jq para leer las respuestas del socket API. Instala jq (brew install jq) o usa MEFISTO_UI=tmux."
+        || abort "La interfaz herdr requiere jq para leer las respuestas del socket API. Instala jq (brew install jq) o usa MEFISTO_UI=mod."
     resolve_report_runtime
 }
 
@@ -271,7 +270,7 @@ assert_pane_ownership() {
         pid=$(ps -o ppid= -p "$pid" 2>/dev/null | tr -d ' ')
         depth=$((depth + 1))
     done
-    abort "HERDR_PANE_ID=$HERDR_PANE_ID es heredado y no es el pane de esta sesion (este proceso no desciende de su shell): no se abre ningun pane. Usa MEFISTO_UI=mod o MEFISTO_UI=tmux, o lanza desde el pane herdr propio."
+    abort "HERDR_PANE_ID=$HERDR_PANE_ID es heredado y no es el pane de esta sesion (este proceso no desciende de su shell): no se abre ningun pane. Usa MEFISTO_UI=mod, o lanza desde el pane herdr propio."
 }
 
 # split_new_report_pane
@@ -559,8 +558,8 @@ cmd_pane_runner() {
     # El pipeline y TODOS sus descendientes (agentes claude -p, gates que
     # corren los tests del repo) arrancan con las variables HERDR_* removidas:
     # con HERDR_ENV=1 heredado del pane, cualquier invocacion de
-    # tmux-pipeline.sh a lo largo de la corrida (p. ej. las fixtures de
-    # test-tmux-preparse.sh) autodetectaria herdr y crearia panes REALES en
+    # launch-pipeline.sh a lo largo de la corrida (p. ej. las fixtures de
+    # test-launch-preparse.sh) autodetectaria herdr y crearia panes REALES en
     # el workspace del humano (visto en vivo: explosion de panes "[fallo]").
     # El runner conserva su propio entorno -- el rename final usa
     # HERDR_PANE_ID -- solo el hijo corre aislado. El array arranca con un
@@ -642,7 +641,7 @@ cmd_pane_runner() {
     return "$rc"
 }
 
-# --- Modos (misma superficie que tmux-pipeline.sh) ---
+# --- Modos (misma superficie que launch-pipeline.sh) ---
 
 cmd_single() {
     local issue="$1"
@@ -819,7 +818,7 @@ cmd_parallel() {
 
     # Pre-resolver cada issue: estado + tipo:projection + pipeline en UNA sola
     # llamada gh (resolve_issue_facts). Los no OPEN o sin pipeline se saltan
-    # con aviso, igual que el modo tmux y parallel-pipeline.sh.
+    # con aviso, igual que parallel-pipeline.sh.
     local resolved_issues=()
     local resolved_pipelines=()
     local projection_count=0
@@ -1087,7 +1086,7 @@ cmd_help() {
 
 ${CYAN}${BOLD}herdr-pipeline.sh${NC} --- Interfaz herdr de los pipelines publicados
 
-${BOLD}Uso (misma superficie que tmux-pipeline.sh):${NC}
+${BOLD}Uso (misma superficie que launch-pipeline.sh):${NC}
   herdr-pipeline.sh 42                                   Issue unico (enruta por label)
   herdr-pipeline.sh 42 --from-stage 3                    Retomar issue #42 desde Stage 3
   herdr-pipeline.sh --pipeline tooling 42                Forzar pipeline tooling
@@ -1103,13 +1102,12 @@ ${BOLD}Uso (misma superficie que tmux-pipeline.sh):${NC}
   herdr-pipeline.sh --collapse-panes                     Poda paneles libres sobrantes sin despachar (usado por /merge)
   herdr-pipeline.sh --refresh-agents                     Refresca los agentes interactivos del workspace
 
-${BOLD}Que hace distinto de tmux-pipeline.sh:${NC}
-  No crea sesiones tmux ni el pane de 'tail -f events.log'. Reutiliza (o
-  crea) un pane de ejecucion en el workspace herdr actual: el pipeline corre
-  en background con su reporte a un log y el pane muestra el visor en vivo
-  (stream-watch.sh) del agente en curso, un solo pane para toda la secuencia
-  de agentes del issue. Si el pane sigue ocupado con otra corrida, se abre
-  un pane adicional; los libres se reutilizan.
+${BOLD}Que hace:${NC}
+  Reutiliza (o crea) un pane de ejecucion en el workspace herdr actual: el
+  pipeline corre en background con su reporte a un log y el pane muestra el
+  visor en vivo (stream-watch.sh) del agente en curso, un solo pane para toda
+  la secuencia de agentes del issue. Si el pane sigue ocupado con otra
+  corrida, se abre un pane adicional; los libres se reutilizan.
 
   Con --parallel, cada issue corre en su propio pane apilado bajo el pane de
   ejecucion (alturas parejas, visor por issue, arranques escalonados de 30s
@@ -1117,8 +1115,8 @@ ${BOLD}Que hace distinto de tmux-pipeline.sh:${NC}
   rechaza: usa /sequential o parallel-pipeline.sh, que si los serializa.
 
 ${BOLD}Requisitos:${NC} correr dentro de un pane herdr (HERDR_ENV=1) y jq.
-  Fuera de herdr usa tmux-pipeline.sh, que ademas autodetecta herdr y delega
-  aqui solo cuando aplica (escape hatch: MEFISTO_UI=tmux).
+  Fuera de herdr usa launch-pipeline.sh, que ademas autodetecta herdr y delega
+  aqui solo cuando aplica (para correr sin panes: MEFISTO_UI=mod).
 
 EOF
 }
@@ -1154,11 +1152,8 @@ main() {
         exit $?
     fi
 
-    # Pre-parseo identico a tmux-pipeline.sh: --scaffold-domain, --pipeline,
-    # --from-stage y --models se extraen de cualquier posicion; --if-exists (que
-    # en tmux decide sobre la sesion existente) no tiene equivalente aqui -- el
-    # conflicto de "ya hay una corrida" se resuelve con un pane adicional --
-    # asi que se consume con un aviso en vez de romper la invocacion.
+    # Pre-parseo identico a launch-pipeline.sh: --scaffold-domain, --pipeline,
+    # --from-stage, --models y --variant se extraen de cualquier posicion.
     local scaffold_extra=""
     local pipeline_override=""
     local from_stage_extra=""
@@ -1188,7 +1183,7 @@ main() {
                 # de --tooling (que solo reenvia "$1") lo descartaria EN
                 # SILENCIO: la corrida usaria los modelos default mientras el
                 # operador cree que el override del experimento se aplico
-                # (issue #708). A diferencia de tmux-pipeline.sh, aqui el valor
+                # (issue #708). A diferencia de launch-pipeline.sh, aqui el valor
                 # se guarda crudo: el pane no lo re-parsea con un shell, viaja
                 # como argv quoteado con printf %q.
                 [ $# -lt 2 ] && abort "Falta el valor de --models"
@@ -1205,9 +1200,7 @@ main() {
                 shift 2
                 ;;
             --if-exists)
-                [ $# -lt 2 ] && abort "Falta el valor de --if-exists"
-                warn "--if-exists es de las sesiones tmux y no aplica en herdr (una corrida concurrente abre un pane adicional); se ignora."
-                shift 2
+                abort "--attach e --if-exists ya no existen: eran del modo de sesiones retirado (MEF-ADR-0057 decision 5). En herdr una corrida concurrente abre un pane adicional."
                 ;;
             *)
                 filtered_args+=("$1")
@@ -1292,7 +1285,7 @@ main() {
                 # El enrutamiento automatico (sin --tooling explicito) resuelve
                 # a tdd-pipeline.sh o tooling-pipeline.sh (issues #712/#713:
                 # ambos ya implementan --models y --variant) -- mismo criterio
-                # que tmux-pipeline.sh.
+                # que launch-pipeline.sh.
                 require_herdr_context
                 local combined_extra="$scaffold_extra"
                 if [ -n "$from_stage_extra" ]; then

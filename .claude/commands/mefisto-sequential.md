@@ -1,11 +1,11 @@
 ---
-description: "Lanza el pipeline INTERNO secuencial para varios issues del repo de Mefisto, dentro de una sesion tmux."
+description: "Lanza el pipeline INTERNO secuencial para varios issues del repo de Mefisto."
 model: "haiku"
 argument-hint: "<issue1> <issue2> ..."
 ---
 <!-- GENERADO por src/internal/scripts/generate-internal-adapters.sh desde src/internal/commands/mefisto-sequential.md. No editar a mano. -->
 
-Lanza el pipeline INTERNO secuencial para varios issues del repo de Mefisto, dentro de una sesion tmux. Comunicate en **espanol**.
+Lanza el pipeline INTERNO secuencial para varios issues del repo de Mefisto. Comunicate en **espanol**.
 
 **Alcance**: este skill solo opera dentro del repo del propio plugin Mefisto. Modifica archivos del harness (skills, agentes, scripts, hooks, ADRs, metadata del plugin). NO toca codigo de aplicacion ni archivos del consumidor.
 
@@ -52,7 +52,7 @@ Reglas de exclusion/abortar:
   `tipo:` en MEF-ADR-0011, y el primer criterio de la validacion programatica que el
   `/implement` publicado ya aplica: un draft no lo cumple por definicion -- sus criterios de
   aceptacion son todavia preguntas abiertas. A diferencia de `tipo:tooling` (una senal blanda
-  que un humano puede decidir ignorar a sabiendas), aqui el batch arranca **headless** en tmux
+  que un humano puede decidir ignorar a sabiendas), aqui el batch arranca **headless**,
   sin nadie supervisando la ejecucion, asi que una confirmacion `s/n` en el momento de invocar
   el skill no cubre el riesgo: el default es excluir siempre.
 - Si el issue **no tiene** el label `tipo:tooling`: advierte y pregunta `s/n`. Si la respuesta es `n` (o no hay confirmacion), excluyelo de la lista.
@@ -148,41 +148,32 @@ Secuencial --- N issues:
   3. #44: [titulo]
 ```
 
-Luego lanza el motor secuencial dentro de tmux y verifica que el launcher haya terminado con exito:
+Luego lanza el motor secuencial y verifica que el launcher haya terminado con exito:
 
 ```bash
-MEFISTO_RUNTIME=claude ./.claude/scripts/mefisto-tmux-pipeline.sh --batch <issue1> <issue2> ...
+MEFISTO_RUNTIME=claude ./.claude/scripts/mefisto-launch-pipeline.sh --batch <issue1> <issue2> ...
 ```
 
-### 4. Instrucciones de conexion (solo tras lanzamiento exitoso)
+### 4. Instrucciones de seguimiento (solo tras lanzamiento exitoso)
 
 Si el launcher aborta, no anuncies que el batch esta corriendo ni muestres instrucciones de
-conexion. Corrige primero el error reportado y relanzalo.
+seguimiento. Corrige primero el error reportado y relanzalo.
 
-Seguimiento segun runtime (MEF-ADR-0050, issue #2284): si el runtime activo tiene cinta de sesion (el mod, MEF-ADR-0055), el script corre desacoplado, sin pane ni sesion tmux, y el avance lo sigue la cinta de esta misma sesion; en el resto de runtimes el seguimiento es el pane a la derecha del pane que despacha, con logs y resumen. Un `MEFISTO_UI=tmux|herdr|mod` explicito siempre gana.
+Seguimiento segun runtime (MEF-ADR-0050, issue #2284): si el runtime activo tiene cinta de sesion (el mod, MEF-ADR-0055), el script corre desacoplado, sin pane, y el avance lo sigue la cinta de esta misma sesion; en el resto de runtimes, dentro de herdr, el seguimiento es el pane a la derecha del pane que despacha, con logs y resumen. Un `MEFISTO_UI=herdr|mod` explicito siempre gana; cualquier otro valor aborta el lanzamiento.
 
-Si la salida del script dice `sin pane: lo sigue el mod mefisto-divine-wager` (modo desacoplado, MEF-ADR-0055: lo eligio el runtime activo o un `MEFISTO_UI=mod` explicito), no hay pane ni sesion que adjuntar. Responde con:
+Si la salida del script dice `sin pane: lo sigue el mod mefisto-divine-wager` (modo desacoplado, MEF-ADR-0055: lo eligio el runtime activo o un `MEFISTO_UI=mod` explicito), no hay pane. Responde con:
 
 ```
 Batch secuencial mefisto corriendo sin pane: lo sigue el monitor de esta sesion.
+Sin el monitor, el visor se abre en otra terminal: ./.claude/scripts/mefisto-stream-watch.sh --issues <issue1>,<issue2>,...
 Los issues se procesaran en orden: pipeline -> PR -> merge -> sync verificado -> siguiente.
 Para frenarlo sin violencia: /mefisto-batch-stop (termina el eslabon en curso y aplaza el resto).
 ```
 
-Dentro de herdr (`HERDR_ENV=1` en el entorno), el script delega en la interfaz herdr (`mefisto-herdr-pipeline.sh`) y no hay nada que adjuntar: el batch queda corriendo en un pane de este mismo workspace con el visor en vivo, que salta solo de issue en issue. En ese caso responde con:
+Si la salida del script dice `corriendo en el pane` (interfaz herdr, `mefisto-herdr-pipeline.sh`), el batch queda corriendo en un pane de este mismo workspace con el visor en vivo, que salta solo de issue en issue. En ese caso responde con:
 
 ```
 Batch secuencial mefisto corriendo en un pane de este workspace (visor en vivo del agente).
-Los issues se procesaran en orden: pipeline -> PR -> merge -> sync verificado -> siguiente.
-Para frenarlo sin violencia: /mefisto-batch-stop (termina el eslabon en curso y aplaza el resto).
-```
-
-Fuera de herdr responde con:
-
-```
-Batch secuencial mefisto lanzado en tmux. Para monitorear:
-  tmux -CC attach -t mefisto-batch-<timestamp>
-
 Los issues se procesaran en orden: pipeline -> PR -> merge -> sync verificado -> siguiente.
 Para frenarlo sin violencia: /mefisto-batch-stop (termina el eslabon en curso y aplaza el resto).
 ```
@@ -258,8 +249,7 @@ independientes siguen. El resumen colorea `saltado` en amarillo y cierra con
 
 ## Reglas
 
-- **No esperes a que termine.** El script corre en background dentro de tmux. Devuelve el control inmediatamente.
-- **No implementes nada tu mismo.** Solo valida y delega al wrapper tmux.
+- **No esperes a que termine.** El script corre en background (desacoplado o en un pane herdr). Devuelve el control inmediatamente.
+- **No implementes nada tu mismo.** Solo valida y delega al lanzador.
 - En Mefisto siempre se usa el pipeline de tooling. No expongas `--pipeline tdd|tooling` ni aceptes ese flag.
-- Si tmux no esta instalado, el wrapper lo detecta y aborta.
 - **Si el cwd no es Mefisto, aborta**. Los skills publicados (`/sequential`) son para el consumidor.

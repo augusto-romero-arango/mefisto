@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # test-caffeinate-prefix.sh -- caffeinate_prefix y su aplicacion en los runners (issue #800).
 #
-# Los pipelines largos corren minutos u horas en un pane de tmux/Herdr; si el
-# Mac entra en suspension idle, las sesiones de claude se congelan sin aviso.
+# Los pipelines largos corren minutos u horas, desacoplados o en un pane de
+# Herdr; si el Mac entra en suspension idle, las sesiones de claude se congelan sin aviso.
 # Los runners anteponen "caffeinate -i" al lanzamiento del sub-pipeline, y el
 # prefijo tiene que ser un no-op exacto donde el binario no existe (Linux/CI).
 #
@@ -11,10 +11,8 @@
 #       y en su espejo .claude/scripts/_mefisto-common.sh; devuelve
 #       "caffeinate -i" cuando el binario esta en PATH y cadena VACIA cuando no
 #       (el caso Linux/CI se fuerza con PATH="", sin desinstalar nada).
-#   [B] CA-2/CA-4: en tmux-pipeline.sh y mefisto-tmux-pipeline.sh, TODO send-keys
-#       dirigido al pane de ejecucion ($pipe_pane / $script_pane) antepone $CAFF,
-#       y ningun send-keys de un pane visor ($tail_pane / $watch_pane) lo lleva
-#       -- el visor no es el trabajo largo.
+#   [B] CA-2/CA-4: en launch-pipeline.sh y mefisto-launch-pipeline.sh, el unico
+#       lanzamiento desacoplado (nohup ... bash -c) antepone $CAFF al sub-pipeline.
 #   [C] CA-3/CA-4: en herdr-pipeline.sh y mefisto-herdr-pipeline.sh el lanzamiento
 #       en background del sub-pipeline esta prefijado con $CAFF, y los cuatro
 #       runners calculan CAFF una sola vez por corrida (no por lanzamiento).
@@ -78,59 +76,37 @@ for common in "${COMMONS[@]}"; do
     fi
 done
 
-# -------- Bloque B: send-keys de los runners tmux --------
+# -------- Bloque B: lanzamiento desacoplado de los despachadores --------
 
 echo ""
-echo "[B] send-keys: el pane de ejecucion lleva \$CAFF, los panes visores no (CA-2, CA-4)"
+echo "[B] desacoplado: el string de bash -c que lanza el sub-pipeline lleva \$CAFF (CA-2, CA-4)"
 
-# archivo:minimo de lanzadores esperados (single/batch/parallel/tooling/infra/
-# scaffold del lado publicado; tooling/batch del interno, su superficie completa)
-TMUX_RUNNERS=(
-    "scripts/tmux-pipeline.sh:6"
-    "src/internal/scripts/mefisto-tmux-pipeline.sh:2"
+LAUNCH_RUNNERS=(
+    "scripts/launch-pipeline.sh"
+    "src/internal/scripts/mefisto-launch-pipeline.sh"
 )
 
-for entry in "${TMUX_RUNNERS[@]}"; do
-    runner="${entry%:*}"
-    minimo="${entry##*:}"
+for runner in "${LAUNCH_RUNNERS[@]}"; do
     path="$REPO_ROOT/$runner"
-
-    lanzadores=0
-    sin_prefijo=""
-    visores_con_prefijo=""
-    while IFS= read -r line; do
-        case "$line" in
-            *'-t "$pipe_pane"'*|*'-t "$script_pane"'*)
-                lanzadores=$((lanzadores+1))
-                case "$line" in
-                    *'$CAFF'*) ;;
-                    *) sin_prefijo="$sin_prefijo$line"$'\n' ;;
-                esac ;;
-            *'-t "$tail_pane"'*|*'-t "$watch_pane"'*)
-                case "$line" in
-                    *'$CAFF'*) visores_con_prefijo="$visores_con_prefijo$line"$'\n' ;;
-                esac ;;
-        esac
-    done < <(grep -n 'tmux send-keys' "$path")
-
-    if [ "$lanzadores" -ge "$minimo" ]; then
-        pass "$runner: $lanzadores send-keys de ejecucion detectados (>= $minimo)"
+    # El comando viaja en una linea propia del lado publicado y en la misma
+    # linea que `bash -c` del interno: se mira el bloque nohup completo.
+    lanzamiento=$(awk '/nohup env /{p=1} p{print} p && /<\/dev\/null &\)/{p=0}' "$path")
+    if [ -n "$lanzamiento" ]; then
+        pass "$runner: lanzamiento desacoplado (nohup) detectado"
     else
-        fail "$runner: solo $lanzadores send-keys de ejecucion detectados (esperados >= $minimo) -- cambio el naming de los panes?"
+        fail "$runner: no se detecto el lanzamiento desacoplado (nohup env ... </dev/null &)"
+        continue
     fi
-
-    if [ -z "$sin_prefijo" ]; then
-        pass "$runner: todos los send-keys de ejecucion antepone \$CAFF"
+    if [ "$(grep -c 'nohup env ' "$path")" -eq 1 ]; then
+        pass "$runner: un unico punto de lanzamiento desacoplado"
     else
-        fail "$runner: send-keys de ejecucion SIN \$CAFF:"
-        echo "$sin_prefijo" | sed 's/^/    /'
+        fail "$runner: mas de un 'nohup env' -- todos deben pasar por launch_detached"
     fi
-
-    if [ -z "$visores_con_prefijo" ]; then
-        pass "$runner: ningun pane visor lleva \$CAFF"
+    if printf '%s' "$lanzamiento" | grep -qF 'bash -c' && printf '%s' "$lanzamiento" | grep -qE '"[^"]*\$CAFF [^"]*"'; then
+        pass "$runner: el sub-pipeline desacoplado arranca prefijado con \$CAFF"
     else
-        fail "$runner: pane visor envuelto con \$CAFF (no es el trabajo largo):"
-        echo "$visores_con_prefijo" | sed 's/^/    /'
+        fail "$runner: el lanzamiento desacoplado NO esta prefijado con \$CAFF:"
+        printf '%s\n' "$lanzamiento" | sed 's/^/    /'
     fi
 done
 
@@ -153,8 +129,7 @@ for runner in "${HERDR_RUNNERS[@]}"; do
     fi
 done
 
-for runner in "${TMUX_RUNNERS[@]}" "${HERDR_RUNNERS[@]}"; do
-    runner="${runner%:*}"
+for runner in "${LAUNCH_RUNNERS[@]}" "${HERDR_RUNNERS[@]}"; do
     path="$REPO_ROOT/$runner"
     veces=$(grep -c 'CAFF="\$(caffeinate_prefix)"' "$path")
     if [ "$veces" -eq 1 ]; then

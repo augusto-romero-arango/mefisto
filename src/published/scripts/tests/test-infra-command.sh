@@ -23,8 +23,8 @@ contains "$body" '{{mefisto:assert-consumer-repo}}' 'guard consumidor presente'
 guard_line="$(grep -nF '{{mefisto:assert-consumer-repo}}' "$SOURCE" | cut -d: -f1)"
 operation_line="$(awk '/gh issue view/ { print NR; exit }' "$SOURCE")"
 [ -n "$guard_line" ] && [ -n "$operation_line" ] && [ "$guard_line" -lt "$operation_line" ] && pass 'guard precede cualquier operacion' || fail 'guard no precede las operaciones'
-contains "$body" '{{mefisto:run tmux-pipeline.sh --infra $ARGUMENTS}}' 'despacho neutral exacto'
-[ "$(grep -cF '{{mefisto:run tmux-pipeline.sh --infra $ARGUMENTS}}' "$SOURCE")" -eq 1 ] && pass 'existe un unico despacho' || fail 'el despacho no es unico'
+contains "$body" '{{mefisto:run launch-pipeline.sh --infra $ARGUMENTS}}' 'despacho neutral exacto'
+[ "$(grep -cF '{{mefisto:run launch-pipeline.sh --infra $ARGUMENTS}}' "$SOURCE")" -eq 1 ] && pass 'existe un unico despacho' || fail 'el despacho no es unico'
 contains "$body" 'gh issue view' 'valida issues antes de lanzar'
 contains "$body" 'esta cerrado (`CLOSED`), informa y detente' 'rechaza issue inexistente o cerrado'
 contains "$body" 'tipo:infra' 'valida el label tipo:infra'
@@ -35,7 +35,8 @@ contains "$body" 'Bloqueado por #N' 'reconoce lineas canonicas Bloqueado por #N'
 contains "$body" 'gh pr view' 'consulta PR antes que issue'
 contains "$body" 'Nunca supongas que un fallo significa cierre' 'falla cerrado ante consulta no resoluble'
 contains "$body" 'HERDR_ENV=1' 'documenta deteccion de Herdr'
-contains "$body" 'tmux -CC attach -t infra-<numero>' 'documenta el attach tmux fuera de Herdr'
+contains "$body" 'Pipeline infra corriendo sin pane.' 'documenta el seguimiento desacoplado fuera de Herdr'
+contains "$body" 'stream-watch.sh' 'remite al visor en otra terminal'
 absent "$body" "work-status" "no remite a work-status"
 contains "$body" '{{mefisto:command implement}}' 'referencia implement via directiva command'
 contains "$body" '{{mefisto:command tooling}}' 'referencia tooling via directiva command'
@@ -44,18 +45,18 @@ contains "$body" 'MEF-ADR-0022' 'documenta el ADR de cierre del issue en CI'
 contains "$body" 'terraform plan' 'documenta que no se ejecuta terraform plan'
 contains "$body" 'No esperes a que termine' 'regla: no esperar'
 contains "$body" 'No implementes nada tu mismo' 'regla: no implementar'
-contains "$body" 'Si tmux no esta instalado' 'documenta deteccion de tmux ausente'
+contains "$body" '`MEFISTO_UI` admite `mod` (desacoplado) y `herdr`' 'documenta los modos de UI validos'
 for forbidden in 'Claude' '.claude/' 'cache' 'model:' 'tools:' 'allowed-tools:' 'permission:' '.plugin-root' 'CLAUDE_' 'plugins/cache'; do absent "$body" "$forbidden" "fuente no publica token prohibido: $forbidden"; done
 
 echo '[salidas] adaptador y mirror'
 [ -f "$CLAUDE" ] && pass "existe ${CLAUDE#"$REPO_ROOT/"}" || fail "falta ${CLAUDE#"$REPO_ROOT/"}"
 claude_body="$(< "$CLAUDE")"
-contains "$claude_body" 'MEFISTO_RUNTIME=claude "${MEFISTO_PACKAGE_ROOT}/scripts/tmux-pipeline.sh" --infra $ARGUMENTS' 'Claude invoca tmux-pipeline.sh --infra y fija su runtime'
+contains "$claude_body" 'MEFISTO_RUNTIME=claude "${MEFISTO_PACKAGE_ROOT}/scripts/launch-pipeline.sh" --infra $ARGUMENTS' 'Claude invoca launch-pipeline.sh --infra y fija su runtime'
 contains "$claude_body" 'model: "haiku"' 'Claude materializa el perfil fast'
 absent "$claude_body" "work-status" "no remite a work-status"
 contains "$claude_body" '/mefisto:implement' 'Claude resuelve la directiva command a /mefisto:implement'
 contains "$claude_body" '/mefisto:tooling' 'Claude resuelve la directiva command a /mefisto:tooling'
-claude_invocation="$(printf '%s\n' "$claude_body" | grep -F 'scripts/tmux-pipeline.sh" --infra')"
+claude_invocation="$(printf '%s\n' "$claude_body" | grep -F 'scripts/launch-pipeline.sh" --infra')"
 for forbidden_path in '.claude/pipeline/.plugin-root' 'plugins/cache'; do
     absent "$claude_invocation" "$forbidden_path" "invocacion Claude no reimplementa el lookup legacy ($forbidden_path)"
 done

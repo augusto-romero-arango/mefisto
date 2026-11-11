@@ -36,14 +36,14 @@
 #       primera que falla).
 #   [J] Cobertura canonica incompleta (fuente sin shim ni registro): aborta
 #       en 1 sin lanzar ninguna prueba.
-#   [K] Senal INT dentro de una pty real (tmux, igual que
+#   [K] Senal INT dentro de una pty real (igual que
 #       test-mefisto-test-executor.sh [H]/[I]): termina en 130, con al menos
 #       una entrada CANCELLED reflejada en el resumen.
 #   [L] Senal TERM: identico a [K] pero con 143.
 #
-# Requiere `tmux` para [K]/[L]; si no esta en PATH, esos bloques FALLAN
-# explicitamente, nunca se saltan en silencio (mismo criterio que
-# test-mefisto-test-executor.sh).
+# Requiere `python3` para [K]/[L] (fixtures/pty-run.py da la pty real); si no
+# esta en PATH, esos bloques FALLAN explicitamente, nunca se saltan en
+# silencio (mismo criterio que test-mefisto-test-executor.sh).
 #
 # Nunca ejecuta la suite real de Mefisto: todo corre contra un repo fixture
 # temporal (mktemp + git init) con sleepers/recorders sinteticos copiados
@@ -479,12 +479,14 @@ else
 fi
 
 # ============================================================================
-# [K]/[L]: contrato de senales dentro de una pty real (tmux), mismo criterio
+# [K]/[L]: contrato de senales dentro de una pty real, mismo criterio
 # que test-mefisto-test-executor.sh [H]/[I].
 
-if ! command -v tmux >/dev/null 2>&1; then
+PTY_RUN="$SCRIPT_DIR/fixtures/pty-run.py"
+
+if ! command -v python3 >/dev/null 2>&1; then
     echo ""
-    echo "FAIL: tmux no esta en PATH -- [K]/[L] EXIGEN una pty real para reproducir el contrato de senales (issue #1416); no pueden saltarse en silencio" >&2
+    echo "FAIL: python3 no esta en PATH -- [K]/[L] EXIGEN una pty real para reproducir el contrato de senales (issue #1416); no pueden saltarse en silencio" >&2
     FAIL=$((FAIL + 2))
 else
     new_fixture "signal-case"
@@ -496,20 +498,22 @@ else
     # signal_case <bloque> <senal> <rc_esperado>
     #
     # El wrapper termina en un 'exec' explicito del interprete bash contra el
-    # entrypoint (misma tecnica que un shim de compatibilidad): la sesion
-    # tmux invoca un unico comando simple (el wrapper), que a su vez termina
-    # en 'exec', asi que nunca hay un proceso intermedio -- el pane_pid ES el
-    # proceso real de mefisto-test-suite.sh, y la senal le llega directo (sin
-    # depender de que un shell padre la reenvie). El exit code se lee de
-    # 'pane_dead_status' (remain-on-exit) en vez de un archivo '.rc' escrito
-    # por un paso posterior -- ese paso posterior es justo lo que un 'exec'
-    # hace imposible, a proposito.
+    # entrypoint (misma tecnica que un shim de compatibilidad): pty-run.py
+    # invoca un unico comando simple (el wrapper), que a su vez termina en
+    # 'exec', asi que nunca hay un proceso intermedio -- el PID de --pid-file
+    # ES el proceso real de mefisto-test-suite.sh, y la senal le llega directo
+    # (sin depender de que un shell padre la reenvie). El exit code lo escribe
+    # pty-run.py en --rc-file al cosechar al proceso, no un paso posterior del
+    # wrapper -- ese paso posterior es justo lo que un 'exec' hace imposible,
+    # a proposito.
     signal_case() {
         local block="$1" sig="$2" expected_rc="$3"
 
-        local wrapper out_file
+        local wrapper out_file pid_file rc_file
         wrapper="$TMPDIR_ROOT/sig-$block-wrapper.sh"
         out_file="$TMPDIR_ROOT/sig-$block.out"
+        pid_file="$TMPDIR_ROOT/sig-$block.pid"
+        rc_file="$TMPDIR_ROOT/sig-$block.rc"
         cat > "$wrapper" <<EOF
 #!/usr/bin/env bash
 cd "$SIGNAL_BASE" || exit 1
@@ -518,10 +522,9 @@ exec "$BASH_BIN" "$SIGNAL_BASE/src/internal/scripts/mefisto-test-suite.sh" > "$o
 EOF
         chmod +x "$wrapper"
 
-        local session
-        session="mefisto-suite-$block-$$"
-        tmux new-session -d -s "$session" "$wrapper"
-        tmux set-option -t "$session" remain-on-exit on >/dev/null 2>&1
+        local pty_pid
+        python3 "$PTY_RUN" --pid-file "$pid_file" --rc-file "$rc_file" -- "$wrapper" </dev/null >/dev/null 2>&1 &
+        pty_pid=$!
 
         local i=0
         while [ ! -s "$out_file" ] && [ "$i" -lt 100 ]; do
@@ -531,29 +534,29 @@ EOF
         sleep 0.3
 
         local pane_pid
-        pane_pid="$(tmux list-panes -t "$session" -F '#{pane_pid}' 2>/dev/null)"
+        pane_pid="$(cat "$pid_file" 2>/dev/null)"
         if [ -z "$pane_pid" ]; then
-            fail "$block-0: no se pudo obtener el pane_pid de la sesion tmux"
-            tmux kill-session -t "$session" >/dev/null 2>&1
+            fail "$block-0: no se pudo obtener el PID de la suite dentro de la pty"
+            kill "$pty_pid" 2>/dev/null; wait "$pty_pid" 2>/dev/null
             return
         fi
 
         kill "-$sig" "$pane_pid" 2>/dev/null
 
         local waited=0
-        while [ "$(tmux list-panes -t "$session" -F '#{pane_dead}' 2>/dev/null)" != "1" ] && [ "$waited" -lt 100 ]; do
+        while [ ! -f "$rc_file" ] && [ "$waited" -lt 100 ]; do
             sleep 0.05
             waited=$((waited + 1))
         done
 
-        if [ "$(tmux list-panes -t "$session" -F '#{pane_dead}' 2>/dev/null)" = "1" ]; then
+        if [ -f "$rc_file" ]; then
             pass "$block-1: el proceso raiz de la corrida termino (no quedo colgado)"
         else
             fail "$block-1: el proceso raiz sigue vivo tras 5s -- no reacciono a la senal"
         fi
 
         local rc
-        rc="$(tmux list-panes -t "$session" -F '#{pane_dead_status}' 2>/dev/null)"
+        rc="$(cat "$rc_file" 2>/dev/null)"
         if [ "$rc" = "$expected_rc" ]; then
             pass "$block-2: mefisto-test-suite.sh termino con exit $expected_rc"
         else
@@ -568,8 +571,10 @@ EOF
             fail "$block-3: no se encontro 'CANCELLED' en el resumen: $out"
         fi
 
-        tmux kill-session -t "$session" >/dev/null 2>&1
-        pkill -9 -f "$SIGNAL_BASE/src/internal/scripts/mefisto-test-suite.sh" 2>/dev/null
+        kill "$pty_pid" 2>/dev/null; wait "$pty_pid" 2>/dev/null
+        # Barre por PID lo que sobreviva, identificado por la ruta temporal unica del caso.
+        ps -axo pid=,comm=,command= | awk -v p="$SIGNAL_BASE/src/internal/scripts/mefisto-test-suite.sh" '$2 != "awk" && index($0, p) { print $1 }' \
+            | while read -r leftover; do kill -9 "$leftover" 2>/dev/null; done
     }
 
     echo ""

@@ -32,7 +32,7 @@ Extrae flags de `$ARGUMENTS`:
 ### 2. Clasificar por heuristica (case-insensitive, busqueda de substrings)
 
 **Indicadores de tooling**:
-`pipeline`, `skill`, `agente`, `tmux`, `script`, `/implement`, `/tooling`, `status`, `.claude/`, `.mefisto/`, `worktree`, `tooling-status`, `pipeline-status`
+`pipeline`, `skill`, `agente`, `herdr`, `script`, `/implement`, `/tooling`, `status`, `.claude/`, `.mefisto/`, `worktree`, `tooling-status`, `pipeline-status`
 
 **Indicadores de entorno desplegado**:
 `produccion`, `excepcion`, `Service Bus`, `dead letter`, `Function App`, `timeout`, `500`, `App Insights`, `NullReferenceException`

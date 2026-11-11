@@ -178,7 +178,7 @@ else
 fi
 
 # El contrato de dos campos de resolve_pipeline_with_state (batch-pipeline.sh y
-# tmux-pipeline.sh lo parsean asi) no debe filtrar el campo nuevo del medio.
+# launch-pipeline.sh lo parsean asi) no debe filtrar el campo nuevo del medio.
 RESULT=$( { gh() { printf 'OPEN|tipo:projection\n'; }; resolve_pipeline_with_state 995; } )
 if [ "${RESULT%%|*}" = "OPEN" ]; then
     pass "resolve_pipeline_with_state: primer campo sigue siendo el estado"

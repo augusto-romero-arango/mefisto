@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
-# test-internal-commands-generated.sh -- Tests de la migracion de los diez
-# comandos internos a la fuente neutral: los cinco de analisis y seguimiento
-# (plan, bug, bitacora, work-status, fix-review, issue #866) y los cinco de
-# ejecucion (tooling, tooling-verbose, sequential, merge, release, issue
+# test-internal-commands-generated.sh -- Tests de la migracion de los
+# comandos internos a la fuente neutral: los de analisis y seguimiento
+# (plan, bug, bitacora, work-status, fix-review, issue #866) y los cuatro de
+# ejecucion (tooling, sequential, merge, release, issue
 # #867) (MEF-ADR-0049).
 #
 # Cubre:
-#   [sources] Las diez src/internal/commands/mefisto-{plan,bug,bitacora,
-#         work-status,fix-review,tooling,tooling-verbose,sequential,merge,
+#   [sources] Las src/internal/commands/mefisto-{plan,bug,bitacora,
+#         work-status,fix-review,tooling,sequential,merge,
 #         release}.md existen y pasan validate-internal-artifacts.sh (#853).
 #   [ca-3] Ninguna fuente contiene `claude --agent`, `.claude/pipeline`,
 #         `.claude/agents` ni `.claude/commands` (CA-3); la salida generada
@@ -23,18 +23,13 @@
 #         presente en la salida de cada comando (CA-2).
 #   [ca-5] Ninguna fuente cita `CLAUDE.md` como referencia de gobierno: si
 #         aparece, la linea debe describirlo como shim de compatibilidad.
-#   [command-path] mefisto-tooling-verbose delega en mefisto-tooling via
-#         `{{mefisto:command-path}}`: la salida apunta al directorio de
-#         comandos del adaptador (CA-4). mefisto-bitacora ya no lee
-#         mefisto-merge (issue #2260).
-#   [exec-sources] Los cinco comandos de ejecucion (issue #867) existen y
+#   [command-path] mefisto-bitacora no lee mefisto-merge (issue #2260).
+#   [exec-sources] Los cuatro comandos de ejecucion (issue #867) existen y
 #         pasan validate-internal-artifacts.sh.
-#   [exec-ca-3] La salida de tooling/tooling-verbose/sequential/release
+#   [exec-ca-3] La salida de tooling/sequential/release
 #         invoca el script real con `MEFISTO_RUNTIME=<runtime>
 #         ./.claude/scripts/<script>` (CA-3, issue #867).
-#   [exec-command-path] mefisto-tooling-verbose encadena mefisto-tooling via
-#         `{{mefisto:command-path}}` (issue #867).
-#   [exec-claude-output] La salida Claude de los cuatro comandos de
+#   [exec-claude-output] La salida Claude de los tres comandos de
 #         ejecucion `fast` lleva `model: "haiku"`; la de `release`
 #         (`balanced`) lleva `model: "sonnet"` (CA-5, issue #867).
 #   [ca-4] mefisto-tooling no prescribe un alias Anthropic concreto en sus
@@ -59,7 +54,7 @@ VALIDATOR="$REPO_ROOT/src/internal/scripts/validate-internal-artifacts.sh"
 GENERATOR="$REPO_ROOT/src/internal/scripts/generate-internal-adapters.sh"
 
 COMMAND_IDS="mefisto-plan mefisto-bug mefisto-bitacora mefisto-fix-review"
-EXEC_COMMAND_IDS="mefisto-tooling mefisto-tooling-verbose mefisto-sequential mefisto-merge mefisto-release"
+EXEC_COMMAND_IDS="mefisto-tooling mefisto-sequential mefisto-merge mefisto-release"
 
 PASS=0
 FAIL=0
@@ -85,7 +80,7 @@ for id in $COMMAND_IDS; do
 done
 
 echo ""
-echo "[exec-sources] Los cinco comandos de ejecucion existen y pasan validate-internal-artifacts.sh (issue #867)"
+echo "[exec-sources] Los cuatro comandos de ejecucion existen y pasan validate-internal-artifacts.sh (issue #867)"
 for id in $EXEC_COMMAND_IDS; do
     src="$COMMANDS_DIR/$id.md"
     if [ ! -f "$src" ]; then
@@ -204,13 +199,7 @@ else
 fi
 
 echo ""
-echo "[command-path] mefisto-tooling-verbose apunta a mefisto-tooling en el directorio de comandos del adaptador (CA-4)"
-claude_verbose="$REPO_ROOT/.claude/commands/mefisto-tooling-verbose.md"
-if grep -qF '.claude/commands/mefisto-tooling.md' "$claude_verbose" 2>/dev/null; then
-    pass "mefisto-tooling-verbose: salida Claude apunta a .claude/commands/mefisto-tooling.md"
-else
-    fail "mefisto-tooling-verbose: salida Claude NO apunta a .claude/commands/mefisto-tooling.md"
-fi
+echo "[command-path] mefisto-bitacora no lee mefisto-merge (issue #2260)"
 if grep -qF 'commands/mefisto-merge.md' "$REPO_ROOT/.claude/commands/mefisto-bitacora.md" 2>/dev/null; then
     fail "mefisto-bitacora: .claude/commands/mefisto-bitacora.md todavia lee mefisto-merge (issue #2260)"
 else
@@ -228,10 +217,9 @@ check_run_invocation() {
         fail "$id: salida Claude NO invoca 'MEFISTO_RUNTIME=claude ./.claude/scripts/$invocation' ($claude_out)"
     fi
 }
-check_run_invocation mefisto-tooling 'mefisto-tmux-pipeline.sh --tooling $ARGUMENTS'
-check_run_invocation mefisto-tooling-verbose 'mefisto-tmux-pipeline.sh --tooling $ARGUMENTS --verbose'
+check_run_invocation mefisto-tooling 'mefisto-launch-pipeline.sh --tooling $ARGUMENTS'
 check_run_invocation mefisto-sequential 'mefisto-validate-batch-deps.sh <issue1> <issue2> ...'
-check_run_invocation mefisto-sequential 'mefisto-tmux-pipeline.sh --batch <issue1> <issue2> ...'
+check_run_invocation mefisto-sequential 'mefisto-launch-pipeline.sh --batch <issue1> <issue2> ...'
 check_run_invocation mefisto-release 'mefisto-release.sh $ARGUMENTS'
 
 echo ""
@@ -279,17 +267,8 @@ else
 fi
 
 echo ""
-echo "[exec-command-path] mefisto-tooling-verbose encadena mefisto-tooling en el directorio de comandos del adaptador (issue #867)"
-claude_tooling_verbose="$REPO_ROOT/.claude/commands/mefisto-tooling-verbose.md"
-if grep -qF '.claude/commands/mefisto-tooling.md' "$claude_tooling_verbose" 2>/dev/null; then
-    pass "mefisto-tooling-verbose: salida Claude apunta a .claude/commands/mefisto-tooling.md"
-else
-    fail "mefisto-tooling-verbose: salida Claude NO apunta a .claude/commands/mefisto-tooling.md"
-fi
-
-echo ""
-echo "[exec-claude-output] model: \"haiku\" en los cuatro fast; release (balanced) con model: \"sonnet\" (issue #867)"
-for id in mefisto-tooling mefisto-tooling-verbose mefisto-sequential mefisto-merge; do
+echo "[exec-claude-output] model: \"haiku\" en los tres fast; release (balanced) con model: \"sonnet\" (issue #867)"
+for id in mefisto-tooling mefisto-sequential mefisto-merge; do
     out_file="$REPO_ROOT/.claude/commands/$id.md"
     if grep -q '^model: "haiku"$' "$out_file" 2>/dev/null; then
         pass "$id: .claude/commands lleva model: \"haiku\""
@@ -333,7 +312,7 @@ cat > "$FIXTURE_FILE" <<'FIXTURE_EOF'
 
 Invocacion de prueba:
 
-{{mefisto:run mefisto-tmux-pipeline.sh --tooling $ARGUMENTS --models 'writer=a b'}}
+{{mefisto:run mefisto-launch-pipeline.sh --tooling $ARGUMENTS --models 'writer=a b'}}
 FIXTURE_EOF
 
 if out=$("$VALIDATOR" "$FIXTURE_FILE" 2>&1); then
@@ -344,7 +323,7 @@ fi
 
 if "$GENERATOR" --out "$FIXTURE_OUT" "$FIXTURE_FILE" >/dev/null 2>&1; then
     claude_fixture_out="$FIXTURE_OUT/.claude/commands/mefisto-test-run-quoting.md"
-    expected_claude="MEFISTO_RUNTIME=claude ./.claude/scripts/mefisto-tmux-pipeline.sh --tooling \$ARGUMENTS --models 'writer=a b'"
+    expected_claude="MEFISTO_RUNTIME=claude ./.claude/scripts/mefisto-launch-pipeline.sh --tooling \$ARGUMENTS --models 'writer=a b'"
     if grep -qF "$expected_claude" "$claude_fixture_out" 2>/dev/null; then
         pass "fixture de quoting: salida Claude conserva el argumento con espacios y comillas intacto"
     else

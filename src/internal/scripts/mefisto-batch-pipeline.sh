@@ -322,7 +322,7 @@ fail_issue() {
 }
 
 # --- Senal de parada suave del batch (issue #966) ---------------------------
-# Un batch largo no se podia frenar sin matar el pane de tmux/herdr, dejando el
+# Un batch largo no se podia frenar sin matar su proceso, dejando el
 # eslabon en curso a medio pipeline (worktree colgado, PR sin abrir o sin
 # mergear). La senal es un archivo de mera PRESENCIA (sin campos que parsear)
 # que /mefisto-batch-stop escribe desde el checkout principal. Vive en

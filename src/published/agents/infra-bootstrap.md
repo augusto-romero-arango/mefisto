@@ -107,17 +107,17 @@ No lances el pipeline IaC del paso 7 sin que el usuario confirme que la infraest
 Lánzalo en segundo plano igual que {{mefisto:command infra}}, sin esperar a que termine:
 
 ```bash
-{{mefisto:run tmux-pipeline.sh --infra <issue>}}
+{{mefisto:run launch-pipeline.sh --infra <issue>}}
 ```
 
 El pipeline corre **sin credenciales de Azure** (MEF-ADR-0021, MEF-ADR-0022): Write (HCL) -> Review (revision estatica: `fmt -check` + `init -backend=false` + `validate`, sin `terraform plan`) -> PR. El PR resultante **no cierra el issue** (no lleva `Closes #N`): el `terraform plan` real corre en el PR y el `terraform apply` real corre en CI al mergear a `main` (workflow `Infra CD`, ver MEF-ADR-0022); ese workflow cierra el issue tras un apply exitoso.
 
-**No esperes** a que termine: devuelve el control de inmediato con las instrucciones de conexión (pane del multiplexor si el lanzador abrió uno, o `tmux -CC attach -t infra-<N>`) y remite al usuario a ese pane o sesión tmux para ver el progreso.
+**No esperes** a que termine: devuelve el control de inmediato con las instrucciones de seguimiento que imprimió el lanzador (la consola `fausto-blood-pact` de esta sesión, el pane del multiplexor si abrió uno, o la ruta del log con la línea del visor `stream-watch.sh`) y remite al usuario a ellas para ver el progreso.
 
 ### 8. Reportar resultado
 
 Tras lanzar el pipeline, responde con:
-- Las instrucciones de conexión al pipeline en curso y la remisión al pane o sesión tmux del pipeline.
+- Las instrucciones de seguimiento del pipeline en curso que imprimió el lanzador.
 - El recordatorio de que el PR resultante se revisa y mergea a `main`, donde ocurre el `apply` real y el cierre del issue en CI.
 
 ## Manejo de errores

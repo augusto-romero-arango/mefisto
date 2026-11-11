@@ -31,16 +31,16 @@
 #       pipeline interno tipico, una entrada roja no aborta el worker (el
 #       carril sigue y la fila queda FAIL, no CANCELLED) y los traps de INT y
 #       el monitor mode del caller quedan como estaban.
-#   [H] Senal INT (CA-4): dentro de una pty real (tmux, igual que
+#   [H] Senal INT (CA-4): dentro de una pty real (igual que
 #       test-watchdog-tty-isolation.sh), termina en <130> con las entradas no
 #       completadas marcadas CANCELLED, sin descendientes huerfanos (`ps`
 #       sobre el arbol real, no solo el PID del subshell).
 #   [I] Senal TERM (CA-4): identico a [H] pero con 143 y SIGTERM.
 #
-# Requiere `tmux` para [H]/[I] -- igual que test-watchdog-tty-isolation.sh, sin
-# una pty real no hay forma de reproducir el contrato de senales de forma
-# determinista; si no esta en PATH, esos bloques FALLAN explicitamente, nunca
-# se saltan en silencio.
+# Requiere `python3` para [H]/[I] (fixtures/pty-run.py da la pty real) --
+# igual que test-watchdog-tty-isolation.sh, sin una pty real no hay forma de
+# reproducir el contrato de senales de forma determinista; si no esta en PATH,
+# esos bloques FALLAN explicitamente, nunca se saltan en silencio.
 #
 # Uso: .claude/scripts/tests/test-mefisto-test-executor.sh
 # Exit code: 0 si todos los checks pasan, 1 si alguno falla.
@@ -452,21 +452,23 @@ else
 fi
 
 # ============================================================================
-# [H]/[I]: contrato de senales dentro de una pty real (tmux), igual criterio
+# [H]/[I]: contrato de senales dentro de una pty real, igual criterio
 # que test-watchdog-tty-isolation.sh -- sin una pty real no hay forma de
 # reproducir el contrato de forma deterministica.
 
-if ! command -v tmux >/dev/null 2>&1; then
+PTY_RUN="$SCRIPT_DIR/fixtures/pty-run.py"
+
+if ! command -v python3 >/dev/null 2>&1; then
     echo ""
-    echo "FAIL: tmux no esta en PATH -- [H]/[I] EXIGEN una pty real para reproducir el contrato de senales (issue #1440); no pueden saltarse en silencio" >&2
+    echo "FAIL: python3 no esta en PATH -- [H]/[I] EXIGEN una pty real para reproducir el contrato de senales (issue #1440); no pueden saltarse en silencio" >&2
     FAIL=$((FAIL + 2))
 else
     # signal_case <nombre_bloque> <senal_kill> <rc_esperado>
     #
-    # Corre mefisto_test_executor_run dentro de una sesion tmux con laneA de
+    # Corre mefisto_test_executor_run dentro de una pty real con laneA de
     # UNA entrada (sleeper.sh: forkea un descendiente huerfano-prone con '&' y
     # se queda dormido el mismo), laneB/laneC vacios. Espera a que el
-    # descendiente exista (marker file), manda <senal_kill> al PID del PANE
+    # descendiente exista (marker file), manda <senal_kill> al PID del runner
     # (el proceso real en foreground de la pty, no un PID de subshell propio),
     # y verifica: rc esperado, CANCELLED en laneA, y que NINGUN proceso vivo
     # tenga en su linea de comando el marcador unico de esta corrida (ni el
@@ -475,7 +477,7 @@ else
     signal_case() {
         local block="$1" sig="$2" expected_rc="$3"
 
-        local case_tmp marker run_dir runner session pane_pid
+        local case_tmp marker run_dir runner pty_pid pane_pid
         case_tmp="$TMPDIR_ROOT/sig-$block"
         mkdir -p "$case_tmp"
         marker="$case_tmp/sleeper-marker"
@@ -495,9 +497,9 @@ echo "\$?" > "$case_tmp/rc"
 EOF
         chmod +x "$runner"
 
-        session="mefisto-exec-$block-$$"
-        tmux new-session -d -s "$session" \
-            "env SLEEPER_MARKER=$marker $runner"
+        python3 "$PTY_RUN" --pid-file "$case_tmp/pane.pid" -- \
+            env "SLEEPER_MARKER=$marker" "$runner" </dev/null >/dev/null 2>&1 &
+        pty_pid=$!
 
         local i=0
         while [ ! -f "$marker" ] && [ "$i" -lt 200 ]; do
@@ -508,16 +510,16 @@ EOF
 
         if [ ! -f "$marker" ]; then
             fail "$block-0: el descendiente huerfano nunca arranco (marker ausente)"
-            tmux kill-session -t "$session" >/dev/null 2>&1
+            kill "$pty_pid" 2>/dev/null; wait "$pty_pid" 2>/dev/null
             return
         fi
         local child_pid
         child_pid="$(cat "$marker")"
 
-        pane_pid="$(tmux list-panes -t "$session" -F '#{pane_pid}' 2>/dev/null)"
+        pane_pid="$(cat "$case_tmp/pane.pid" 2>/dev/null)"
         if [ -z "$pane_pid" ]; then
-            fail "$block-0: no se pudo obtener el pane_pid de la sesion tmux"
-            tmux kill-session -t "$session" >/dev/null 2>&1
+            fail "$block-0: no se pudo obtener el PID del runner dentro de la pty"
+            kill "$pty_pid" 2>/dev/null; wait "$pty_pid" 2>/dev/null
             return
         fi
 
@@ -557,9 +559,11 @@ EOF
             fail "$block-4: no se encontro la fila CANCELLED esperada: $results_lane_a"
         fi
 
-        tmux kill-session -t "$session" >/dev/null 2>&1
+        kill "$pty_pid" 2>/dev/null; wait "$pty_pid" 2>/dev/null
         kill -9 "$child_pid" 2>/dev/null
-        pkill -9 -f "$case_tmp" 2>/dev/null
+        # Barre por PID lo que sobreviva, identificado por la ruta temporal unica del caso.
+        ps -axo pid=,comm=,command= | awk -v p="$case_tmp" '$2 != "awk" && index($0, p) { print $1 }' \
+            | while read -r leftover; do kill -9 "$leftover" 2>/dev/null; done
     }
 
     echo ""

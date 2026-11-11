@@ -52,7 +52,7 @@ OUT_ROOT="$REPO_ROOT"
 FILES=()
 TOOLING_CLOSURE_ASSETS=(
     'scripts/_pipeline-common.sh|0755'
-    'scripts/tmux-pipeline.sh|0755'
+    'scripts/launch-pipeline.sh|0755'
     'scripts/herdr-workspace.sh|0755'
     'scripts/herdr-pipeline.sh|0755'
     'scripts/stream-watch.sh|0755'

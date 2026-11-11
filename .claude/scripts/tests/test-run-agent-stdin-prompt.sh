@@ -32,7 +32,7 @@
 #
 # Si `getconf ARG_MAX` no devuelve un entero o `perl` no esta en PATH, el
 # test FALLA con un mensaje explicito -- nunca se salta en silencio (mismo
-# criterio que test-watchdog-tty-isolation.sh con `tmux`).
+# criterio que test-watchdog-tty-isolation.sh con `python3`).
 #
 # Uso: .claude/scripts/tests/test-run-agent-stdin-prompt.sh
 # Exit code: 0 si todos los checks pasan, 1 si alguno falla.
