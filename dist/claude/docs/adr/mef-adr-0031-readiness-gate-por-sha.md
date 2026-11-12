@@ -175,7 +175,7 @@ leido del checkout del mismo commit) contiene `app-name: <fa>`. Un `base_url` qu
 porque el FA puede seguir en el binario anterior y el gate fallaria por un motivo ajeno a la suite. La
 clase 1 no cambia. La promocion depende de que el `app-name:` de `deploy-{kebab}.yml` y el host del
 `base_url` deriven el mismo `func-{kebab}-{prefix_func}`; el bloque `[H]` de
-`scripts/tests/test-guards.sh` lo verifica.
+`scripts/tests/guards.test.mts` lo verifica.
 
 **Por que el job, nunca el run completo.** El run ajeno (p. ej. el propio `deploy-{kebab}.yml` del FA
 bajo prueba) corre su propio job de smoke tests **despues** de su `deploy`: esperar el run entero es
@@ -506,7 +506,7 @@ la causa.
   workflow del worker de proyecciones que la guarda excluye. Un cambio a cualquiera de las tres sin
   actualizar la guarda de `smoke-tests-dominio.yml` la deja sin ver a un invocador, o la hace abortar
   contra un run que no tenia nada que esperar. Mitigacion doble: la guarda falla explicitamente en vez
-  de degradar en silencio, y el bloque `[H]` de `scripts/tests/test-guards.sh` afirma la
+  de degradar en silencio, y el bloque `[H]` de `scripts/tests/guards.test.mts` afirma la
   correspondencia entre las plantillas de `domain-scaffolder` y `projections-scaffolder` y los
   literales de la guarda, de modo que la deriva rompe la suite del marco en vez de aparecer como un
   rojo intermitente en el consumidor.
@@ -707,3 +707,4 @@ la causa.
   `Smoke tests` lo consume y el `ApiFixture` aplica el gate por `/api/version`. Sin deploy ajeno
   exitoso del FA se conserva "solo 200". Evidencia: consumidor `Bitakora.ControlAsistencia`
   (issue #1154), `Application started` 33 a 104 s despues de liberar la guarda.
+- 2026-11-12: los guards de `scripts/tests/test-guards.sh` pasan a `scripts/tests/guards.test.mts` (port a TypeScript, MEF-ADR-0057); el cuerpo cita el archivo nuevo. Sin cambio de doctrina.
