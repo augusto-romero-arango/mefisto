@@ -1,10 +1,8 @@
-// Espera (hold) ante un limite de uso o una caida del proveedor, reanudacion de la sesion
-// truncada y contabilidad de lo esperado (MEF-ADR-0051). La linea de anuncio es contrato:
+// Espera (hold) ante un limite de uso o una caida del proveedor y contabilidad de lo esperado
+// (MEF-ADR-0051). La linea de anuncio es contrato:
 // "[HH:MM:SS][hold] <FAMILIA>: esperando, proxima sonda HH:MM:SS (techo HH:MM)".
 
-import { readFileSync, readdirSync, realpathSync, statSync } from 'node:fs'
-import { homedir } from 'node:os'
-import { join } from 'node:path'
+import { readFileSync, statSync } from 'node:fs'
 
 import { epochAt, holdLineWindow, holdRecentlyActive, lastHoldLine } from '../work-status-hold.mts'
 import { appendEventsLine, clockMinutes, clockTime } from './agent-log.mts'
@@ -120,56 +118,6 @@ export async function agentHoldWait(input: HoldWaitInput): Promise<number | null
   appendEventsLine(input.eventsLog, plan.line)
   await (input.sleep ?? sleepSeconds)(plan.sleepSeconds)
   return plan.sleepSeconds
-}
-
-/**
- * Nombre de la carpeta en que Claude Code guarda los transcripts de un directorio: su ruta real
- * con los separadores y los puntos vueltos `-`.
- */
-export function transcriptStoreSlug(realDir: string, platform: NodeJS.Platform = process.platform): string {
-  return realDir.replace(platform === 'win32' ? /[\\/:.]/g : /[/.]/g, '-')
-}
-
-export interface TranscriptStoreOptions {
-  env?: NodeJS.ProcessEnv
-  /** Home del usuario; por defecto `os.homedir()`. */
-  home?: string
-}
-
-/**
- * Transcripts de sesion que el CLI tiene de `dir` en `<config>/projects/<slug>/*.jsonl`. Es `0`
- * ante cualquier duda (sin directorio, sin store, layout distinto): quien lo consulta no reanuda.
- */
-export function agentSessionTranscriptCount(dir: string, options: TranscriptStoreOptions = {}): number {
-  if (dir.length === 0) return 0
-  const configDir = (options.env ?? process.env).CLAUDE_CONFIG_DIR ?? ''
-  try {
-    const realDir = realpathSync.native(dir)
-    if (!statSync(realDir).isDirectory()) return 0
-    const config = configDir.length > 0 ? configDir : join(options.home ?? homedir(), '.claude')
-    return readdirSync(join(config, 'projects', transcriptStoreSlug(realDir))).filter(
-      (name) => name.endsWith('.jsonl') && !name.startsWith('.'),
-    ).length
-  } catch {
-    return 0
-  }
-}
-
-/**
- * Prompt de continuacion para la sonda que reanuda la sesion truncada de un stage, en vez de
- * reenviar el prompt original. Termina en salto de linea.
- */
-export function agentResumePrompt(stage: string, agent: string): string {
-  return `Tu sesion anterior en este mismo stage (stage ${stage}, agente ${agent}) se corto por un limite de uso o una caida del proveedor -- el pipeline ya espero (hold) a que se restableciera. Estas reanudando esa MISMA conversacion (--continue): tu memoria de trabajo, lo que ya leiste y lo que ya escribiste sigue disponible.
-
-Continua exactamente donde quedaste. No reinicies tu analisis desde cero, no releas archivos que ya revisaste ni repitas ediciones ya hechas.
-
-Termina tu contrato del stage, incluido dejar escrito (o completar si quedo a medias) el resumen en .claude/pipeline/summaries/stage-${stage}-${agent}.md. Si ese archivo ya existe completo, dejalo como esta; si no, escribelo ahora y agrega una linea que diga que esta sesion se reanudo tras una espera.
-
-CORTE DE SEGURIDAD: si no tienes memoria de haber trabajado antes en este stage (stage ${stage}, agente ${agent}) -- es decir, si esta conversacion arranca aqui y no reconoces el trabajo previo que se describe arriba -- entonces la reanudacion aterrizo en la conversacion equivocada. En ese caso NO edites, crees ni borres ningun archivo y NO escribas el resumen del stage: responde unicamente la linea 'SIN_SESION_PREVIA' y termina. El pipeline lo detecta por la ausencia del resumen y relanza el stage completo desde cero.
-
-CONTEXTO DE EJECUCION (sigue vigente): modo no-interactivo, sin humano al otro lado. PROHIBIDO hacer 'git push' o 'gh pr create': eso sigue siendo responsabilidad exclusiva del pipeline.
-`
 }
 
 const LOCAL_DATE = /^(\d{4})-(\d{2})-(\d{2})$/

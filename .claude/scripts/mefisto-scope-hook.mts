@@ -1,7 +1,7 @@
 // Hook PostToolUse (matcher Edit|Write) del adaptador Claude para el repo de Mefisto.
 //
 // Avisa en el instante en que un Edit/Write cae fuera del scope del plugin. Es feedback
-// temprano: el juez sigue siendo `validate_mefisto_scope_changes` al final de cada stage.
+// temprano: el juez sigue siendo `validateMefistoScopeChanges` al final de cada stage.
 //
 // PostToolUse + exit 2: la herramienta ya corrio, asi que el mensaje pide revertir.
 // El gate final juzga sobre `git diff` y `git status`, que no listan archivos ignorados: una
@@ -54,10 +54,10 @@ export function relativeToRoot(root: string, filePath: string): string | null {
 
 export function outOfScopeMessage(relPath: string): string {
   return [
-    `FUERA DE SCOPE: '${relPath}' no esta en la allowlist interna de Mefisto (isPathInMefistoScope: src/internal/scripts/lib/mefisto-scope.mts). El gate final del stage (validate_mefisto_scope_changes) va a rechazar este cambio.`,
+    `FUERA DE SCOPE: '${relPath}' no esta en la allowlist interna de Mefisto (isPathInMefistoScope: src/internal/scripts/lib/mefisto-scope.mts). El gate final del stage (validateMefistoScopeChanges) va a rechazar este cambio.`,
     `Este aviso llega DESPUES de la escritura (hook PostToolUse): el archivo ya existe en el arbol, asi que revierte lo que acabas de hacer -- borralo si lo creaste, o 'git checkout -- ${relPath}' si ya existia.`,
     `Rutas permitidas: ${SCOPE_SUMMARY}`,
-    'Si esta ruta deberia estar permitida, MEF-ADR-0019 seccion E exige registrarla PRIMERO en un PR aparte (is_path_in_mefisto_scope + is_path_in_consumer_blocklist) antes de poblarla: no la crees en este PR.',
+    'Si esta ruta deberia estar permitida, MEF-ADR-0019 seccion E exige registrarla PRIMERO en un PR aparte (isPathInMefistoScope + isPathInConsumerBlocklist) antes de poblarla: no la crees en este PR.',
   ].join('\n')
 }
 

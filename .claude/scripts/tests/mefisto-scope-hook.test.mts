@@ -104,7 +104,7 @@ describe('veredicto', () => {
     for (const path of OUT_OF_SCOPE) assert.notEqual(scopeWarning(repo, payload(path)), null, path)
     const message = scopeWarning(repo, payload(join(repo, 'src', 'Foo.cs'))) ?? ''
     assert.match(message, /'src\/Foo\.cs'/)
-    assert.match(message, /is_path_in_mefisto_scope/)
+    assert.match(message, /isPathInMefistoScope/)
     assert.match(message, /MEF-ADR-0019 seccion E/)
     assert.match(message, /revierte/)
     assert.ok(message.includes('src/{internal,published,runtime}/, dist/'))
