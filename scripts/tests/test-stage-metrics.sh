@@ -23,8 +23,8 @@
 #
 # A diferencia del test interno equivalente, este conserva la cobertura propia
 # de los fallbacks publicados y de la generalizacion de
-# build_agents_history_json (N grupos variables, no solo writer/reviewer),
-# ademas de su cableado en tdd-pipeline.sh.
+# build_agents_history_json (N grupos variables, no solo writer/reviewer). Su
+# cableado en el pipeline TDD lo cubre scripts/tests/tdd-pipeline.test.mts.
 #
 # Casos cubiertos:
 #   [pre] compute_stage_metrics y build_agents_history_json estan definidas
@@ -52,16 +52,6 @@
 #   [J] Integracion: la linea de historial resultante es JSON valido de una
 #       sola linea (CA-4/CA-6) y conserva duration numerico ademas de agregar
 #       metrics.
-#   [K] Cableado en tdd-pipeline.sh (CA-1 a CA-5):
-#       - compute_stage_metrics se invoca al cierre de cada run_agent.
-#       - build_agents_history_json alimenta las dos entradas de historial
-#         (completed y la de abort).
-#       - las metricas se cosechan por stage (case "$stage"), no por nombre
-#         de agente -- el stage "merge" reusa el agente "implementer" y con
-#         un case por agente pisaria las metricas del implementer de Stage 2.
-#       - coverage-gate no pasa por el builder (su forma no cambia).
-#       - cada invocacion deja su JSON individual en la ruta canonica de estado.
-#         del consumidor.
 #
 # Uso: scripts/tests/test-stage-metrics.sh
 # Exit code: 0 si todos los chequeos pasan, 1 si alguno falla.
@@ -351,57 +341,6 @@ else
 fi
 assert_field "J-2: agents.test-writer.duration sigue siendo numerico" "125" "$(echo "$HISTORY_LINE" | jq -r '.agents["test-writer"].duration')"
 assert_field "J-3: agents.test-writer.metrics.turns presente (campo nuevo)" "2" "$(echo "$HISTORY_LINE" | jq -r '.agents["test-writer"].metrics.turns')"
-
-# -------- Bloque K: cableado en tdd-pipeline.sh --------
-
-echo ""
-echo "[K] Cableado en tdd-pipeline.sh (CA-1 a CA-5)"
-
-PIPE="$REPO_ROOT/scripts/tdd-pipeline.sh"
-
-if grep -q "compute_stage_metrics" "$PIPE"; then
-    pass "K-1: el pipeline invoca compute_stage_metrics al cerrar cada stage"
-else
-    fail "K-1: el pipeline NO invoca compute_stage_metrics"
-fi
-
-if [ "$(grep -c "build_agents_history_json" "$PIPE")" -ge 2 ]; then
-    pass "K-2: build_agents_history_json alimenta las dos entradas de historial (completed y la de abort)"
-else
-    fail "K-2: build_agents_history_json no se usa en las dos entradas de historial"
-fi
-
-if grep -q 'run_agent "merge" "implementer"' "$PIPE"; then
-    pass "K-3: existe el stage merge reusando el nombre de agente 'implementer' (premisa de K-4)"
-else
-    fail "K-3: cambio el stage merge -- revisar si K-4 sigue teniendo sentido"
-fi
-
-if grep -qE '2\)\s+AGENT_IM_METRICS_JSON="\$metrics_json"' "$PIPE" \
-   && ! grep -qE 'implementer\).*AGENT_IM_METRICS_JSON="\$metrics_json"' "$PIPE"; then
-    pass "K-4: las metricas se cosechan por stage, no por nombre de agente (el merge no pisa al implementer de Stage 2)"
-else
-    fail "K-4: las metricas se cosechan por nombre de agente -- un merge fallido pisaria las del implementer de Stage 2"
-fi
-
-if grep -q 'coverage-gate' "$PIPE" && grep -qF '\"coverage-gate\":{\"duration\"' "$PIPE"; then
-    pass "K-5: coverage-gate conserva su forma propia (duration/result/gaps/patch_applied), no pasa por el builder"
-else
-    fail "K-5: no se encontro la forma esperada de coverage-gate"
-fi
-
-if grep -qF 'mefisto_state_path "metrics/tdd-' "$PIPE"; then
-    pass "K-6: cada invocacion respalda su JSON individual con mefisto_state_path"
-else
-    fail "K-6: no se encontro el respaldo por stage mediante mefisto_state_path"
-fi
-
-if grep -qF "mefisto_state_path 'logs/.state'" "$PIPE" \
-    && ! grep -qF 'mkdir -p "$PIPELINE_DIR/metrics"' "$PIPE"; then
-    pass "K-7: el estado y sus directorios padre se resuelven con mefisto_state_path"
-else
-    fail "K-7: el pipeline no resuelve el estado canonico o conserva el mkdir legacy"
-fi
 
 echo ""
 echo "----------------------------------------"

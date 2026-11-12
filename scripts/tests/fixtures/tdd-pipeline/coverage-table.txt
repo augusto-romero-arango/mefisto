@@ -1,0 +1,8 @@
+| Archivo | Cobertura | Umbral | Estado |
+|---|---|---|---|
+| RegistrarTurnoCommandHandler.cs | 83.3% | 95% | gap |
+| TurnoAggregateRoot.cs | 100.0% | 95% | ok |
+| ValidadorValidator.cs | 0.2% | 95% | gap |
+| NoMedidoEventHandler.cs | N/A | 95% | sin datos |
+| Program.cs | - | excluido | - |
+| Raro.cs | - | sin clasificar | ⚠ revisar |

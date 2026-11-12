@@ -107,6 +107,8 @@ export interface WorktreeRequest {
   /** Rama del directorio desde el que se lanzo el pipeline; solo informa. */
   currentBranch: string
   texts?: Partial<WorktreeTexts>
+  /** Corre tras limpiar la corrida anterior y antes de anunciar la creacion; puede abortar. */
+  beforeCreate?: () => void
 }
 
 /**
@@ -137,6 +139,7 @@ export function createWorktree(request: WorktreeRequest, tools: WorktreeTools): 
     logged(['branch', '-D', request.branch])
   }
 
+  request.beforeCreate?.()
   log.log(texts.creating(path))
   mkdirSync(dirname(path), { recursive: true })
   if (logged(['worktree', 'add', path, '-b', request.branch, 'origin/main']) !== 0) tools.abort(texts.createFailed)
@@ -213,6 +216,8 @@ export interface AutoCommitRequest {
   addAll?: boolean
   /** Corre cuando hay algo que commitear, antes de hacerlo. */
   onPending?: () => void
+  /** Si `git add` falla no intenta el commit (`commitStatus` queda `null`). */
+  stopOnAddFailure?: boolean
 }
 
 export interface AutoCommitResult {
@@ -235,6 +240,7 @@ export function autoCommitIfNeeded(
   const logged = (args: string[]): number | null =>
     tools.runLogged('git', ['-C', request.worktree, ...args], tools.log.logFile(), options)
   const addStatus = logged(['add', ...(request.addAll === true ? ['-A'] : []), '--', ...request.pathspec])
+  if (addStatus !== 0 && request.stopOnAddFailure === true) return { addStatus, commitStatus: null }
   const commitStatus = logged(['commit', '-m', request.message])
   return { addStatus, commitStatus }
 }

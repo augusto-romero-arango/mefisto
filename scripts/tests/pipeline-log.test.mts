@@ -230,6 +230,41 @@ describe('createAbort', () => {
     assert.equal(sink.text, '')
     assert.ok(stripAnsi(stderr.text).startsWith('\nERR ERROR: issue incompleto\n'))
   })
+
+  test('el texto del error es un parametro y sin detalles no se nombra el log, su cola ni el worktree', () => {
+    const file = logFile()
+    writeFileSync(file, 'contexto\n')
+    const sink = screen()
+    const stderr = screen()
+    const worktree = join(work, 'wt-sin-detalles')
+    mkdirSync(worktree)
+    const recorded: string[] = []
+    const log = createPipelineLog({ logFile: () => file, out: sink.out })
+    const abort = createAbort({
+      log,
+      tailLines: 20,
+      worktree: () => worktree,
+      stream: stderr.out,
+      render: (message) => ({ stream: `\nx ${message}\n`, file: `ABORT ${message}\n` }),
+      details: false,
+      record: (message) => void recorded.push(message),
+    })
+    assert.throws(() => abort('dominio invalido'), PipelineAbort)
+    assert.equal(stderr.text, '\nx dominio invalido\n')
+    assert.equal(sink.text, '')
+    assert.equal(readFileSync(file, 'utf8'), 'contexto\nABORT dominio invalido\n')
+    assert.deepEqual(recorded, ['dominio invalido'])
+  })
+
+  test('con render y detalles, la ruta del log sigue al error propio', () => {
+    const file = logFile()
+    const sink = screen()
+    const log = createPipelineLog({ logFile: () => file, out: sink.out })
+    const abort = createAbort({ log, worktree: () => '', render: (message) => ({ stream: `<${message}>\n`, file: '' }) })
+    assert.throws(() => abort('m'), PipelineAbort)
+    assert.ok(sink.text.startsWith('<m>\n'))
+    assert.match(stripAnsi(sink.text), /Revisa el log: /)
+  })
 })
 
 describe('runLogged y loggedThrough', () => {

@@ -1,0 +1,42 @@
+## Infraestructura
+
+Implementa los cambios de infraestructura del issue #42.
+
+- **Ambiente**: dev
+- **Estado**: HCL escrito y revisado localmente (sin plan ni apply local); pendiente de aplicar por CI
+- **Pipeline**: iac-pipeline.sh
+
+## Decisiones del pipeline
+
+<details>
+<summary>infra-writer -- 2m 5s</summary>
+
+## Implementado
+
+- Storage con $VARIABLES `sin` expandir.
+
+</details>
+
+<details>
+<summary>infra-reviewer -- 0m 0s</summary>
+
+_(El agente no genero resumen)_
+
+</details>
+
+## Warnings remanentes
+
+- Relacionado: #77
+- Relacionado: acme/otro#5
+
+## Cambios Terraform
+
+ infra/environments/dev/main.tf | 3 +++
+ 1 file changed, 3 insertions(+)
+
+## Commits
+
+89abcde infra(dev): correcciones de revision issue #42
+0123456 infra(dev): escritura HCL issue #42
+
+> **Apply pendiente en CI**: este PR no cierra el issue #42. El `terraform apply` lo ejecuta el workflow **Infra CD** al mergear este PR a `main` (MEF-ADR-0022); el issue se cierra automaticamente cuando ese apply termine exitosamente.
