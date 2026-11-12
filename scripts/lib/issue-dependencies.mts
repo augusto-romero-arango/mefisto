@@ -4,10 +4,6 @@
 // mayusculas) con el marcador al inicio del item, tras espacios y una vineta '-' o '*' opcional;
 // por linea se toma el primer numero. 'No depende de #N', el marcador a mitad de linea, 'Bloquea',
 // 'Consumido por' y la prosa libre se ignoran.
-//
-// Gemela de `src/internal/scripts/lib/mefisto-deps.sh` y, por `canonicalDependencies`, de
-// `extract_canonical_dependencies` de `scripts/_pipeline-common.sh`. Mientras tengan llamadores en
-// bash, un cambio de la regla va en los tres.
 
 // El `[[:space:]]` de awk y grep, sin el salto de linea que ya separa los items.
 const SPACE = '[ \\t\\v\\f\\r]'

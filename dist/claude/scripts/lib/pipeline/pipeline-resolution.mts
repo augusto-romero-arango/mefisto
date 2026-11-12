@@ -1,9 +1,5 @@
 // Que pipeline corre un issue segun sus labels o un override, y si un issue pendiente de un lote
 // paralelo puede lanzarse ya.
-//
-// Gemela de `resolve_pipeline`, `_resolve_from_labels`, `resolve_pipeline_with_state`,
-// `resolve_issue_facts`, `_is_tipo_projection_from_labels` y `can_launch_now` de
-// `_pipeline-common.sh`: mientras tengan llamadores en bash, un cambio va en los dos lados.
 
 import { join } from 'node:path'
 
@@ -36,7 +32,7 @@ export interface IssueFacts extends IssueResolution {
   isProjection: boolean
 }
 
-/** La resolucion como la imprime la gemela: la ruta del pipeline o el centinela `SKIP:<motivo>`. */
+/** La resolucion como texto: la ruta del pipeline o el centinela `SKIP:<motivo>`. */
 export function resolutionText(resolution: Resolution): string {
   return resolution.kind === 'pipeline' ? resolution.script : `SKIP:${resolution.reason}`
 }
@@ -50,7 +46,7 @@ function forcedPipeline(override: string, scriptsDir: string): Resolution {
   throw new CliError(`ERROR: override desconocido '${override}'`)
 }
 
-// La gemela compara linea a linea el texto de labels unidos por salto de linea.
+// Un label con salto de linea cuenta como varios: se compara linea a linea.
 function labelLines(labels: readonly string[]): string[] {
   return labels.join('\n').split('\n')
 }

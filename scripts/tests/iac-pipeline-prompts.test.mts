@@ -8,7 +8,6 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { after, describe, test } from 'node:test'
 
-import { capture, commandExists } from '../lib/cli.mts'
 import { renderWarningRemnantsSection } from '../lib/pipeline/warning-remnants.mts'
 import {
   applyPendingLine,
@@ -23,7 +22,6 @@ import {
 import { FIXTURES } from './iac-pipeline-sandbox.mts'
 
 const REPO_ROOT = join(import.meta.dirname, '..', '..')
-const NO_BASH = process.platform === 'win32'
 const work = mkdtempSync(join(tmpdir(), 'mefisto iac prompts '))
 after(() => rmSync(work, { recursive: true, force: true }))
 
@@ -117,38 +115,17 @@ describe('gate de dependencias', () => {
     assert.deepEqual(dependencyReferences('## Dependencias'), [], 'un encabezado sin contenido no aporta referencias')
   })
 
+  test('solo la primera seccion, y el ## de cierre puede ir sin espacio', () => {
+    assert.deepEqual(dependencyReferences('## Dependencias\n#1\n## Dependencias\n#2'), ['1'])
+    assert.deepEqual(dependencyReferences('x\n##Dependencias\n#5\n'), [])
+    assert.deepEqual(dependencyReferences('## Dependencias\n#10 #2 #10\n##sin espacio #3\n## fin'), ['10', '2', '3'])
+  })
+
   test('estado y titulo de una dependencia, con los valores por defecto del bash', () => {
     assert.deepEqual(dependencyStatus('{"state":"CLOSED","title":"Hecho"}'), { state: 'CLOSED', title: 'Hecho' })
     assert.deepEqual(dependencyStatus('{"state":"OPEN"}'), { state: 'OPEN', title: 'titulo no disponible' })
     assert.deepEqual(dependencyStatus('{"state":null,"title":"t"}'), { state: 'None', title: 't' })
     assert.deepEqual(dependencyStatus('roto'), { state: 'UNKNOWN', title: 'titulo no disponible' })
-  })
-
-  const PYTHON_REFS = `
-import re, sys
-body = sys.stdin.read()
-section = re.search(r"(?ms)^## Dependencias[^\\n]*\\n(.*?)(?=^## |\\Z)", body)
-seen = set()
-if section:
-    for number in re.findall(r"#([0-9]+)", section.group(1)):
-        if number not in seen:
-            print(number)
-            seen.add(number)
-`
-  test('paridad con la expresion de Python que usaba el bash', { skip: NO_BASH || !commandExists('python3') }, () => {
-    const bodies = [
-      'Intro #1\n## Dependencias\n- Depende de #7 y PR #8\n- otra vez #7\n## Ambiente\n#9',
-      '## Dependencias (bloqueantes)\n#3\n### sub #4\n',
-      '## Dependencias',
-      '## Dependencias\n#1\n## Dependencias\n#2',
-      'x\n##Dependencias\n#5\n',
-      '## Dependencias\n#10 #2 #10\n##sin espacio #3\n## fin',
-    ]
-    for (const body of bodies) {
-      // El bash pasaba el body con `printf '%s\n'`.
-      const python = capture('python3', ['-c', PYTHON_REFS], { input: `${body}\n` })
-      assert.deepEqual(dependencyReferences(body), python.stdout.split('\n').filter((line) => line.length > 0), body)
-    }
   })
 })
 
@@ -158,21 +135,17 @@ describe('cola del log del agente', () => {
     assert.equal(tailText('a\nb\nc\n', 2), 'b\nc\n')
     assert.equal(tailText('a\nb\nc', 2), 'b\nc')
     assert.equal(tailText('a\n', 20), 'a\n')
+    assert.equal(tailText('\n\n\n', 20), '\n\n\n')
+    const thirty = Array.from({ length: 30 }, (_, index) => `l${index}`)
+    assert.equal(tailText(thirty.join('\n'), 20), thirty.slice(10).join('\n'))
   })
 
-  test('paridad con tail', { skip: NO_BASH }, () => {
-    for (const content of ['a\nb\nc\n', 'x', Array.from({ length: 30 }, (_, index) => `l${index}`).join('\n'), '\n\n\n']) {
-      const file = join(work, `tail-${content.length}.log`)
-      writeFileSync(file, content)
-      assert.equal(tailText(content, 20), capture('tail', ['-20', file]).stdout, JSON.stringify(content))
-    }
-  })
 })
 
 describe('frontera neutral: el pipeline no conoce ningun runtime concreto', () => {
   const code = readFileSync(join(REPO_ROOT, 'scripts', 'iac-pipeline.mts'), 'utf8')
 
-  for (const forbidden of ['claude -p', '--permission-mode', 'bypassPermissions', 'output-format', 'resolveDeclaredAgentModel', '.claude/settings.json', 'checkout -- .claude/', '_pipeline-common.sh', 'API Error', 'agentSessionTranscriptCount', 'process.kill']) {
+  for (const forbidden of ['claude -p', '--permission-mode', 'bypassPermissions', 'output-format', 'resolveDeclaredAgentModel', '.claude/settings.json', 'checkout -- .claude/', 'API Error', 'agentSessionTranscriptCount', 'process.kill']) {
     test(`no menciona ${forbidden}`, () => {
       assert.equal(code.includes(forbidden), false)
     })

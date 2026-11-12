@@ -584,7 +584,7 @@ describe('[inventarios] clausura publicada actualizada', () => {
     'claude conserva un inventario completo con sha256',
     () => {
       const inventory = readInventory()
-      const common = 'scripts/_pipeline-common.sh'
+      const common = 'scripts/lib/cli.mts'
       const expected = sha256Of(repoPath(common))
       return (
         inventory.schemaVersion === 1 &&

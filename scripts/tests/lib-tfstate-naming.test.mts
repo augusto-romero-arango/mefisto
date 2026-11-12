@@ -1,11 +1,9 @@
 import assert from 'node:assert/strict'
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
-import { dirname, join } from 'node:path'
+import { join } from 'node:path'
 import { after, before, describe, test } from 'node:test'
-import { fileURLToPath } from 'node:url'
 
-import { capture, commandExists } from '../lib/cli.mts'
 import {
   azurermBackendLines,
   composeTfstateResourceGroupName,
@@ -17,7 +15,6 @@ import {
   truncateStorageBase,
 } from '../lib/tfstate-naming.mts'
 
-const BASH_LIBRARY = join(dirname(fileURLToPath(import.meta.url)), '..', '_pipeline-common.sh')
 const STORAGE_NAME = /^[a-z0-9]{3,24}$/
 
 let tmp = ''
@@ -69,6 +66,8 @@ test('[1] truncateStorageBase respeta el limite de 24 con 6 de sufijo', () => {
 test('[1] truncateStorageBase da base vacia si el sufijo no deja espacio', () => {
   assert.equal(truncateStorageBase('abcdefgh', 24, 30), '')
   assert.equal(truncateStorageBase('abcdefgh', 24, 24), '')
+  assert.equal(truncateStorageBase('abcdefgh', 8, 0), 'abcdefgh')
+  assert.equal(truncateStorageBase('', 24, 6), '')
 })
 
 test('[2] genStorageSuffix genera un sufijo [a-z0-9] del largo pedido', () => {
@@ -139,6 +138,41 @@ test('los lectores de backend aceptan finales de linea de Windows', () => {
   assert.equal(readBackendResourceGroupName(dir), 'rg-cosmos-cplane-tfstate')
 })
 
+test('los lectores de backend toman el primer valor valido de los .tf visibles, solo entre comillas dobles', () => {
+  const otherTf = terraformDir('otro-tf', {
+    'a.tf': 'backend "azurerm" {\n  storage_account_name = "NO-VALIDO"\n  resource_group_name = "rg con espacios"\n}\n',
+    'b.tf': 'backend   "azurerm" {\n\tstorage_account_name="stsegundoarchivo"\n\tresource_group_name="rg-segundo"\n}\n',
+    'c.tf': 'backend "azurerm" {\n  storage_account_name = "sttercero"\n  resource_group_name = "rg-tercero"\n}\n',
+  })
+  assert.equal(readBackendStorageAccountName(otherTf), 'stsegundoarchivo')
+  assert.equal(readBackendResourceGroupName(otherTf), 'rg-segundo')
+
+  const unusual = terraformDir('raros', {
+    '.oculto.tf': 'backend "azurerm" {\n  storage_account_name = "stoculto"\n  resource_group_name = "rg-oculto"\n}\n',
+    'main.tf.bak': 'backend "azurerm" {\n  storage_account_name = "strespaldo"\n  resource_group_name = "rg-respaldo"\n}\n',
+    'z.tf': [
+      '# backend "azurerm" comentado tambien cuenta',
+      '  storage_account_name = "stprimero" # otro = "stcomentario"',
+      '  storage_account_name = "stsegundo"',
+      '  resource_group_name = "rg.con_(parentesis)-ok" ',
+      '',
+    ].join('\n'),
+  })
+  // Toma el ultimo literal de la primera linea, aunque este en un comentario.
+  assert.equal(readBackendStorageAccountName(unusual), 'stcomentario')
+  assert.equal(readBackendResourceGroupName(unusual), 'rg.con_(parentesis)-ok')
+
+  const unquoted = terraformDir('sin-comillas', {
+    'backend.tf': 'backend "azurerm" {\n  storage_account_name = stsincomillas\n  resource_group_name = \'rg-simple\'\n}\n',
+  })
+  const withoutBackend = terraformDir('sin-backend', { 'main.tf': 'storage_account_name = "stsinbackend"\nresource_group_name = "rg-x"\n' })
+  mkdirSync(join(terraformDir('directorio'), 'backend.tf'))
+  for (const dir of [unquoted, withoutBackend, join(tmp, 'directorio')]) {
+    assert.equal(readBackendStorageAccountName(dir), '', dir)
+    assert.equal(readBackendResourceGroupName(dir), '', dir)
+  }
+})
+
 test('[5] composeTfstateResourceGroupName: forma CAF con region, legacy sin ella', () => {
   assert.equal(
     composeTfstateResourceGroupName('rg-cosmos-cplane', 'dev', 'eus2', '001'),
@@ -165,6 +199,24 @@ test('[6] composeTfstateStorageAccountBase: forma CAF con region, legacy sin ell
   assert.match(composeTfstateStorageAccountBase('rg-mi_proyecto-x', 'dev', 'eus2', '001', 'irrelevante', 24), /^[a-z0-9]+$/)
 })
 
+test('prefijos sin {app}, con rg- repetido o sin rg-, y entornos sin secuencia', () => {
+  const cases: [prefix: string, slug: string, rg: string, base: string, base18: string][] = [
+    ['rg-', '', 'rg-tfstate--dev-eus2-001', 'sttfstatedeveus2001', 'sttfstatedeveus2001'],
+    ['', '', 'rg-tfstate--dev-eus2-001', 'sttfstatedeveus2001', 'sttfstatedeveus2001'],
+    ['rg-rg-doble', 'rgdoble', 'rg-tfstate-rg-doble-dev-eus2-001', 'sttfstatergdobdeveus2001', 'sttfstatedeveus2001'],
+    ['sinprefijo', 'sinprefijo', 'rg-tfstate-sinprefijo-dev-eus2-001', 'sttfstatesinprdeveus2001', 'sttfstatedeveus2001'],
+  ]
+  for (const [prefix, slug, rg, base, base18] of cases) {
+    assert.equal(tfstateStorageAppSlug(prefix), slug, prefix)
+    assert.equal(composeTfstateResourceGroupName(prefix, 'dev', 'eus2', '001'), rg, prefix)
+    assert.equal(composeTfstateStorageAccountBase(prefix, 'dev', 'eus2', '001', 'stlegacy'), base, prefix)
+    assert.equal(composeTfstateStorageAccountBase(prefix, 'dev', 'eus2', '001', 'stlegacy', 18), base18, prefix)
+  }
+  assert.equal(composeTfstateResourceGroupName('rg-mcp', 'qa', 'eus', ''), 'rg-tfstate-mcp-qa-eus-')
+  assert.equal(composeTfstateStorageAccountBase('rg-mcp', 'qa', 'eus', '', 'stlegacy'), 'sttfstatemcpqaeus')
+  assert.equal(composeTfstateStorageAccountBase('rg-mcp', 'dev', '', '001', 'stlegacy', 18), 'stlegacy')
+})
+
 test('[7] tfstateStorageAppSlug normaliza {app} al charset de Storage', () => {
   assert.equal(tfstateStorageAppSlug('rg-cosmos-cplane'), 'cosmoscplane')
   assert.equal(tfstateStorageAppSlug('rg-mi_proyecto-x'), 'miproyectox')
@@ -183,8 +235,6 @@ test('[8] si los componentes fijos desbordan el limite se sacrifica {app} y el n
   assert.equal(name.includes('cplane'), false)
 })
 
-const NO_BASH = process.platform === 'win32' || !commandExists('bash')
-
 test('azurermBackendLines cuenta las declaraciones de backend azurerm de cada .tf', () => {
   const dir = terraformDir('lineas', {
     'backend.tf': BACKEND_CON_VARIABLES,
@@ -200,116 +250,4 @@ test('azurermBackendLines cuenta las declaraciones de backend azurerm de cada .t
     { file: 'versions.tf', count: 0 },
   ])
   assert.deepEqual(azurermBackendLines(join(tmp, 'no-existe')), [])
-})
-
-describe('paridad con la gemela bash', { skip: NO_BASH ? 'requiere bash' : false }, () => {
-  function bash(...args: string[]): string {
-    const result = capture('bash', ['-c', 'set +u; source "$1" 2>/dev/null; shift; "$@"', 'bash', BASH_LIBRARY, ...args])
-    assert.equal(result.status, 0, result.stderr)
-    return result.stdout
-  }
-
-  test('truncate_storage_base', () => {
-    const cases: [string, number, number][] = [
-      ['stmcptfstatedev', 24, 6],
-      ['abcdefghij0123456789abcd', 24, 6],
-      ['abcdefghijklmnopqr', 24, 6],
-      ['abcdefghijklmnopqrs', 24, 6],
-      ['abcdefgh', 24, 30],
-      ['abcdefgh', 24, 24],
-      ['abcdefgh', 8, 0],
-      ['', 24, 6],
-    ]
-    for (const [base, maxTotal, suffixLen] of cases) {
-      assert.equal(
-        truncateStorageBase(base, maxTotal, suffixLen),
-        bash('truncate_storage_base', base, String(maxTotal), String(suffixLen)),
-      )
-    }
-    assert.equal(truncateStorageBase('abcdefghij0123456789abcd'), bash('truncate_storage_base', 'abcdefghij0123456789abcd'))
-  })
-
-  test('gen_storage_suffix: mismo largo y mismo alfabeto', () => {
-    const alphabet = (samples: string[]): string => [...new Set(samples.join(''))].sort().join('')
-    for (const length of [0, 4, 6, 64, 65]) {
-      const fromBash = Array.from({ length: 12 }, () => bash('gen_storage_suffix', String(length)))
-      const fromTypescript = Array.from({ length: 12 }, () => genStorageSuffix(length))
-      assert.deepEqual(
-        fromTypescript.map((suffix) => suffix.length),
-        fromBash.map((suffix) => suffix.length),
-      )
-      // Sin openssl la gemela usa el alfabeto completo para cualquier largo.
-      if (commandExists('openssl')) {
-        const hex = /^[0-9a-f]*$/
-        assert.equal(hex.test(alphabet(fromTypescript)), hex.test(alphabet(fromBash)), `largo ${length}`)
-      }
-      assert.match(alphabet(fromTypescript), /^[a-z0-9]*$/)
-      assert.match(alphabet(fromBash), /^[a-z0-9]*$/)
-    }
-    assert.equal(genStorageSuffix().length, bash('gen_storage_suffix').length)
-  })
-
-  test('read_backend_storage_account_name y read_backend_resource_group_name', () => {
-    const dirs = [
-      terraformDir('p-completo', { 'backend.tf': BACKEND_COMPLETO }),
-      terraformDir('p-crlf', { 'backend.tf': BACKEND_COMPLETO.replaceAll('\n', '\r\n') }),
-      terraformDir('p-variables', { 'backend.tf': BACKEND_CON_VARIABLES }),
-      terraformDir('p-vacio'),
-      join(tmp, 'p-no-existe'),
-      terraformDir('p-sin-backend', { 'main.tf': 'storage_account_name = "stsinbackend"\nresource_group_name = "rg-x"\n' }),
-      terraformDir('p-otro-tf', {
-        'a.tf': 'backend "azurerm" {\n  storage_account_name = "NO-VALIDO"\n  resource_group_name = "rg con espacios"\n}\n',
-        'b.tf': 'backend   "azurerm" {\n\tstorage_account_name="stsegundoarchivo"\n\tresource_group_name="rg-segundo"\n}\n',
-        'c.tf': 'backend "azurerm" {\n  storage_account_name = "sttercero"\n  resource_group_name = "rg-tercero"\n}\n',
-      }),
-      terraformDir('p-raros', {
-        '.oculto.tf': 'backend "azurerm" {\n  storage_account_name = "stoculto"\n  resource_group_name = "rg-oculto"\n}\n',
-        'main.tf.bak': 'backend "azurerm" {\n  storage_account_name = "strespaldo"\n  resource_group_name = "rg-respaldo"\n}\n',
-        'z.tf': [
-          '# backend "azurerm" comentado tambien cuenta',
-          '  storage_account_name = "stprimero" # otro = "stcomentario"',
-          '  storage_account_name = "stsegundo"',
-          '  resource_group_name = "rg.con_(parentesis)-ok" ',
-          '',
-        ].join('\n'),
-      }),
-      terraformDir('p-sin-comillas', {
-        'backend.tf': 'backend "azurerm" {\n  storage_account_name = stsincomillas\n  resource_group_name = \'rg-simple\'\n}\n',
-      }),
-    ]
-    mkdirSync(join(terraformDir('p-directorio'), 'backend.tf'))
-    dirs.push(join(tmp, 'p-directorio'))
-
-    for (const dir of dirs) {
-      assert.equal(readBackendStorageAccountName(dir), bash('read_backend_storage_account_name', dir), dir)
-      assert.equal(readBackendResourceGroupName(dir), bash('read_backend_resource_group_name', dir), dir)
-    }
-  })
-
-  test('compose_tfstate_resource_group_name, tfstate_storage_app_slug y compose_tfstate_storage_account_base', () => {
-    const prefixes = ['rg-cosmos-cplane', 'rg-mcp', 'rg-mi_proyecto-x', 'sinprefijo', 'rg-', 'rg-rg-doble', 'proyecto-rg-x', '']
-    const environments: [string, string, string][] = [
-      ['dev', 'eus2', '001'],
-      ['dev', '', '001'],
-      ['production', 'westeurope', '001'],
-      ['qa', 'eus', ''],
-    ]
-    for (const prefix of prefixes) {
-      assert.equal(tfstateStorageAppSlug(prefix), bash('tfstate_storage_app_slug', prefix))
-      for (const [env, region, seq] of environments) {
-        assert.equal(
-          composeTfstateResourceGroupName(prefix, env, region, seq),
-          bash('compose_tfstate_resource_group_name', prefix, env, region, seq),
-        )
-        assert.equal(
-          composeTfstateStorageAccountBase(prefix, env, region, seq, 'stlegacy'),
-          bash('compose_tfstate_storage_account_base', prefix, env, region, seq, 'stlegacy'),
-        )
-        assert.equal(
-          composeTfstateStorageAccountBase(prefix, env, region, seq, 'stlegacy', 18),
-          bash('compose_tfstate_storage_account_base', prefix, env, region, seq, 'stlegacy', '18'),
-        )
-      }
-    }
-  })
 })

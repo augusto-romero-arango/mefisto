@@ -1,9 +1,5 @@
 // Rutas del repo consumidor reservadas al plugin (MEF-ADR-0019) y el gate que las vigila despues
 // de cada stage que invoca un agente.
-//
-// Gemela de `is_path_in_consumer_blocklist` y `validate_consumer_scope_changes` de
-// `_pipeline-common.sh`: mientras tengan llamadores en bash, un cambio va en los dos lados. La
-// paridad la verifica `scripts/tests/pipeline-consumer-scope.test.mts`.
 
 import { chomp, rawField } from '../azure-cli.mts'
 import type { Run } from '../azure-cli.mts'
@@ -27,7 +23,7 @@ const BLOCKED_FILES = new Set(['mefisto-manifest.json'])
 /**
  * `path` es relativo a la raiz del repo, como lo imprime git. En Windows `\` solo puede ser un
  * separador y el sistema de archivos no distingue mayusculas, asi que alli se normaliza antes de
- * comparar; en el resto el veredicto es el de la gemela bash para cualquier texto.
+ * comparar; en el resto se compara el texto tal cual.
  */
 export function isPathInConsumerBlocklist(path: string, platform: NodeJS.Platform = process.platform): boolean {
   const candidate = platform === 'win32' ? path.replaceAll('\\', '/').toLowerCase() : path

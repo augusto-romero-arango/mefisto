@@ -165,7 +165,7 @@ describe('[clausura] TOOLING_CLOSURE_ASSETS declara los scripts que arrancan TDD
     () => CLOSURE.length > 0,
     'no se pudo derivar TOOLING_CLOSURE_ASSETS',
   )
-  for (const required of ['scripts/tdd-pipeline.sh', 'src/runtime/lib/mefisto-process.sh']) {
+  for (const required of ['scripts/tdd-pipeline.sh', 'src/runtime/lib/mefisto-process.mts']) {
     check(
       `la clausura declara ${required}`,
       () => CLOSURE.some((asset) => asset.source === required),

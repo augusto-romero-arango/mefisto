@@ -23,7 +23,6 @@ import {
 } from '../lib/pipeline/pipeline-worktree.mts'
 import type { WorktreeTools } from '../lib/pipeline/pipeline-worktree.mts'
 import { isolateGitConfig, newRepo, writeFiles } from './field-note-sandbox.mts'
-import { NO_BASH } from './pipeline-agents-parity.mts'
 
 let work = ''
 let restoreGit: () => void = () => {}
@@ -80,18 +79,9 @@ describe('issueSlug e issueBranchName', () => {
     assert.equal(issueBranchName('42', 'agregar-ci'), 'worktree-issue-42-agregar-ci')
     assert.equal(issueBranchName('42', 'agregar-ci', 'exp-a'), 'worktree-issue-42-agregar-ci-exp-a')
   })
-  test('paridad con el pipeline de tr, sed y cut del bash', { skip: NO_BASH }, () => {
-    const pipeline = `echo "$1" | tr '[:upper:]' '[:lower:]' | tr ' ' '-' | sed 's/[^a-z0-9-]//g' | tr -s '-' | cut -c1-40 | sed 's/-$//'`
-    for (const title of [
-      'Agregar workflow de CI',
-      'Migrar  a .NET 10 (fase 2)!',
-      'Refactorizar el pipeline de tooling para soportar variantes',
-      'a'.repeat(39) + ' bcd',
-      '--- Guiones --- repetidos ---',
-      'MAYUSCULAS_y_guion_bajo/barra',
-    ]) {
-      assert.equal(issueSlug(title), capture('bash', ['-c', pipeline, 'bash', title]).stdout.replace(/\n+$/, ''), title)
-    }
+  test('un guion inicial se queda y los caracteres fuera de [a-z0-9-] se pierden', () => {
+    assert.equal(issueSlug('--- Guiones --- repetidos ---'), '-guiones-repetidos')
+    assert.equal(issueSlug('MAYUSCULAS_y_guion_bajo/barra'), 'mayusculasyguionbajobarra')
   })
 })
 

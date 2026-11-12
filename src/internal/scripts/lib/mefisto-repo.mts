@@ -1,6 +1,4 @@
 // Guardas de los scripts internos: solo corren dentro del repo de Mefisto.
-//
-// Gemela de `assert_in_mefisto` y `ensure_githooks_installed` de `_mefisto-common.sh`.
 
 import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'

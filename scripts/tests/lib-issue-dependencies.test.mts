@@ -7,7 +7,6 @@ import {
   forwardDependencies,
   hasDependenciesSection,
 } from '../lib/issue-dependencies.mts'
-import { bashLibrary, NO_BASH } from './pipeline-scope-parity.mts'
 
 const BATCH_BODY = [
   '## Contexto',
@@ -39,27 +38,19 @@ describe('canonicalDependencies', () => {
     assert.deepEqual(forwardDependencies(body), ['100', '7', '99'])
   })
 
-  test('coincide con extract_canonical_dependencies de la libreria bash', { skip: NO_BASH }, () => {
-    const bodies = [
-      BATCH_BODY,
-      '',
-      '## Dependencias\nNinguna\n',
-      '## Dependencias\n- Depende de #99\n- Bloqueado por #100\n- Depende de #99\n- Depende de #007',
-      '## Dependencias\n\t -   DEPENDE DE   #7\n  bloqueado por\t#8\n-Depende de #9',
-      '## Dependencias\r\n\r\n- Depende de #5\r\n* Bloqueado por #6\r\n\r\n## Notas\r\n- Depende de #7\r\n',
-      '- Depende de #1\n## Contexto\n- Depende de #2',
-      '##dependencias externas\n- Depende de #3 (igual que en #4)\n### Detalle\n* Bloqueado por #5\n## Otra\n- Depende de #6',
-      '## DEPENDENCIAS\n- Depende de #1',
-      ' ## Dependencias\n- Depende de #1',
-      '## Dependencias\n- Depende de #1\n## Otra\n- Depende de #2\n## Dependencias\n- Depende de #3',
-      '## Dependencias\n- No depende de #20\n- Ya no depende de #21\n- Consumido por #24\n- Depende de#25\n- Depende de # 26',
+  test('mismas reglas de seccion e item que forwardDependencies, sin ordenar', () => {
+    const cases: [string, string[]][] = [
+      ['## Dependencias\n- Depende de #99\n- Bloqueado por #100\n- Depende de #99\n- Depende de #007', ['99', '100', '007']],
+      ['## Dependencias\n\t -   DEPENDE DE   #7\n  bloqueado por\t#8\n-Depende de #9', ['7', '8']],
+      ['## Dependencias\r\n\r\n- Depende de #5\r\n* Bloqueado por #6\r\n\r\n## Notas\r\n- Depende de #7\r\n', ['5', '6']],
+      ['- Depende de #1\n## Contexto\n- Depende de #2', []],
+      ['##dependencias externas\n- Depende de #3 (igual que en #4)\n### Detalle\n* Bloqueado por #5\n## Otra\n- Depende de #6', ['3', '5']],
+      ['## DEPENDENCIAS\n- Depende de #1', []],
+      [' ## Dependencias\n- Depende de #1', []],
+      ['## Dependencias\n- Depende de #1\n## Otra\n- Depende de #2\n## Dependencias\n- Depende de #3', ['1', '3']],
+      ['## Dependencias\n- No depende de #20\n- Ya no depende de #21\n- Consumido por #24\n- Depende de#25\n- Depende de # 26', []],
     ]
-    for (const body of bodies) {
-      const fromBash = bashLibrary('extract_canonical_dependencies "$1"', [body])
-      assert.equal(fromBash.status, 0, fromBash.stderr)
-      const expected = canonicalDependencies(body).map((number) => `${number}\n`)
-      assert.equal(expected.join(''), fromBash.stdout, JSON.stringify(body))
-    }
+    for (const [body, expected] of cases) assert.deepEqual(canonicalDependencies(body), expected, JSON.stringify(body))
   })
 })
 

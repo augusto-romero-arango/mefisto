@@ -1,9 +1,5 @@
 // Version y commit del harness con los que corre un pipeline interno. La version solo cambia en
 // cada release; el commit distingue las corridas entre dos releases.
-//
-// Gemela de `get_harness_version` y `get_harness_sha` de `_mefisto-common.sh`: mientras tengan
-// llamadores en bash, un cambio va en los dos lados. La paridad la verifica
-// `.claude/scripts/tests/mefisto-harness-version.test.mts`.
 
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'

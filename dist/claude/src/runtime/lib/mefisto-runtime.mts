@@ -1,9 +1,6 @@
 // Interfaz de los adaptadores de runtime y resolucion del runtime activo. El conjunto de
 // runtimes es abierto (MEF-ADR-0050): cada `runtime-<id>.mts` del directorio de adaptadores es
 // uno, y ninguno se enumera aqui salvo en la tabla de pruebas sincronas.
-//
-// Gemela de `mefisto_resolve_runtime` (`mefisto-runtime.sh`), que aun cargan los pipelines en
-// bash: un cambio va en los dos lados.
 
 import { createHash } from 'node:crypto'
 import { readFileSync, readdirSync, statSync } from 'node:fs'

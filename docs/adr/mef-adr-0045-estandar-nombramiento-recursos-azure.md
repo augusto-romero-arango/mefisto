@@ -83,7 +83,7 @@ Los scaffolders aplican este estandar **exclusivamente al generar archivos Terra
 | Service Bus namespace | 6-50 | Alfanumericos y guiones; empieza con letra, termina alfanumerico | [2] |
 | PostgreSQL flexible server | 3-63 | Alfanumericos y guiones (sin guiones consecutivos al inicio) | [4] |
 
-**Regla de truncado**: cuando `{app}` y/o `{uso}` no caben dentro del limite del tipo, se truncan **ellos** -- nunca `{abrev-tipo}`, `{env}`, `{region}` o `{seq}`, que son de longitud fija y ya minimos. Se preserva el prefijo (los primeros N caracteres) sobre el sufijo, el mismo criterio que ya aplica `truncate_storage_base()` (`scripts/_pipeline-common.sh`, en uso por `bootstrap-backend.sh` desde antes de este ADR). Ejemplo del propio issue #729: `st{dominio}{app}{env}{region}{seq}` puede superar los 24 chars de Storage -- la alineacion de `domain-scaffolder` (issue dependiente) trunca `{dominio}`/`{app}` con ese mismo criterio antes de tocar cualquier otro componente.
+**Regla de truncado**: cuando `{app}` y/o `{uso}` no caben dentro del limite del tipo, se truncan **ellos** -- nunca `{abrev-tipo}`, `{env}`, `{region}` o `{seq}`, que son de longitud fija y ya minimos. Se preserva el prefijo (los primeros N caracteres) sobre el sufijo, el mismo criterio que ya aplica `truncateStorageBase()` (`scripts/lib/tfstate-naming.mts`, en uso por `bootstrap-backend` desde antes de este ADR). Ejemplo del propio issue #729: `st{dominio}{app}{env}{region}{seq}` puede superar los 24 chars de Storage -- la alineacion de `domain-scaffolder` (issue dependiente) trunca `{dominio}`/`{app}` con ese mismo criterio antes de tocar cualquier otro componente.
 
 Key Vault sigue siendo, como ya documenta `agents/infra-base-scaffolder.md`, el limite mas estrecho: `kv-` (3) + `{app}` + `-` (1) + `{env}` + `-` (1) + `{region}` + `-` (1) + `{seq}` (3) deja poco margen para `{app}`, y es el primer tipo donde la regla de truncado entra en juego en la practica.
 
@@ -104,9 +104,9 @@ Ejemplo de `harness.config.json` con los tokens nuevos:
 }
 ```
 
-### 6. `load_harness_config` expone las variables derivadas
+### 6. `loadHarnessConfig` expone las variables derivadas
 
-`scripts/_pipeline-common.sh` > `load_harness_config()` exporta:
+`scripts/lib/harness-config.mts` > `loadHarnessConfig()` devuelve `azureRegionShort` y `resourceSequence`, y `harnessConfigEnv()` los exporta como:
 
 - `HARNESS_AZURE_REGION_SHORT`: el valor de `azureRegionShort`, o cadena vacia si el campo esta ausente.
 - `HARNESS_RESOURCE_SEQUENCE`: el valor de `resourceSequence`, o `"001"` si el campo esta ausente o vacio.
@@ -154,7 +154,7 @@ Renombrar `rg-cosmos-cplane-dev`, `kv-cplane-8iiups` y el resto de la superficie
 
 - **[1]** Microsoft Learn, Cloud Adoption Framework -- "Abbreviation recommendations for Azure resources": tabla completa de abreviaturas por tipo de recurso, fuente de la tabla de la seccion 1. Verificada el 2026-08-27. https://learn.microsoft.com/azure/cloud-adoption-framework/ready/azure-best-practices/resource-abbreviations
 - **[2]** Microsoft Learn -- "Naming rules and restrictions for Azure resources" (`Microsoft.KeyVault`, `Microsoft.ServiceBus`, `Microsoft.ContainerRegistry`): limites de longitud y charset de la seccion 4. Verificada el 2026-08-27. https://learn.microsoft.com/azure/azure-resource-manager/management/resource-name-rules
-- **[3]** Microsoft Learn -- reglas de nombres de recursos, `Microsoft.Storage` (ya citada por README.md seccion 3 y por `scripts/_pipeline-common.sh` para `terraformStateStorage`): 3-24 caracteres, solo minusculas y digitos. https://learn.microsoft.com/azure/azure-resource-manager/management/resource-name-rules#microsoftstorage
+- **[3]** Microsoft Learn -- reglas de nombres de recursos, `Microsoft.Storage` (ya citada por README.md seccion 3): 3-24 caracteres, solo minusculas y digitos. https://learn.microsoft.com/azure/azure-resource-manager/management/resource-name-rules#microsoftstorage
 - **[4]** `agents/infra-base-scaffolder.md` (limites de PostgreSQL Flexible Server ya documentados ahi, 3-63 chars) y Microsoft Learn, plantilla ARM `Microsoft.DBforPostgreSQL/flexibleServers` (`name`: min 3, max 63, patron `^[a-zA-Z0-9]+(-[a-zA-Z0-9]+)*`). Verificada el 2026-08-27. https://learn.microsoft.com/azure/templates/microsoft.dbforpostgresql/flexibleservers
 - **[5]** Microsoft Learn, Cloud Adoption Framework -- "Define your naming convention": formula general `{recurso}{workload}{environment}{region}{instancia}`, componentes de naming y ejemplos por tipo. Fuente de la seccion 1 (orden de componentes) y de la seccion 5 (ausencia de tabla oficial de abreviaturas de region). Verificada el 2026-08-27. https://learn.microsoft.com/azure/cloud-adoption-framework/ready/azure-best-practices/resource-naming
 - MEF-ADR-0006 (convenciones de nombramiento de Functions/rutas HTTP): deslinde de alcance, seccion "Contexto". No se enmienda.
@@ -167,3 +167,4 @@ Renombrar `rg-cosmos-cplane-dev`, `kv-cplane-8iiups` y el resto de la superficie
 ## Control de cambios
 
 - 2026-08-27: creacion como `aceptado` (issue #729). Fija el patron `{abrev-tipo}-[{uso}-]{app}-{env}-{region}-{seq}` (y su forma sin guiones para Storage/ACR) con la tabla de abreviaturas adoptadas verificada contra el CAF; la politica de unicidad global sin sufijos random (fallback: incrementar `{seq}`); el alcance "solo greenfield" (ningun recurso desplegado se renombra); los limites de naming por tipo y la regla de truncado que prioriza `{app}`/`{uso}`; y los tokens nuevos `azureRegionShort`/`resourceSequence` del contrato, expuestos por `load_harness_config` como `HARNESS_AZURE_REGION_SHORT`/`HARNESS_RESOURCE_SEQUENCE`, ambos retrocompatibles. Corrige dos abreviaturas del borrador del issue (`pgsql`/`sbns` en vez de `psql`/`sb`) contra la fuente oficial del CAF. No modifica ningun scaffolder ni `bootstrap-backend.sh` -- la alineacion de cada uno queda en issues dependientes que este ADR bloquea.
+- 2026-11-12: las secciones 4 y 6 y la referencia [3] citan `scripts/lib/tfstate-naming.mts` y `scripts/lib/harness-config.mts` en lugar de `scripts/_pipeline-common.sh`, que se borra con el port a TypeScript (MEF-ADR-0057). Sin cambio de doctrina.

@@ -1,5 +1,5 @@
 {
-  "$comment": "Contrato neutral de agentes/comandos internos de Mefisto (MEF-ADR-0049 CA-6, issue #853). Subconjunto de JSON Schema soportado por src/internal/scripts/lib/jsonschema-lite.mts (y su gemela jsonschema-lite.jq): type, required, properties, additionalProperties, enum, items, pattern, minLength, oneOf (dispatchado por el campo discriminador 'kind'). No es JSON Schema completo: $ref, allOf, anyOf, if/then/else, const, not, contains, patternProperties no estan implementados. Ver src/internal/contract/README.md.",
+  "$comment": "Contrato neutral de agentes/comandos internos de Mefisto (MEF-ADR-0049 CA-6, issue #853). Subconjunto de JSON Schema soportado por src/internal/scripts/lib/jsonschema-lite.mts: type, required, properties, additionalProperties, enum, items, pattern, minLength, oneOf (dispatchado por el campo discriminador 'kind'). No es JSON Schema completo: $ref, allOf, anyOf, if/then/else, const, not, contains, patternProperties no estan implementados. Ver src/internal/contract/README.md.",
   "oneOf": [
     {
       "$comment": "kind: agent",

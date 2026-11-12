@@ -12,10 +12,8 @@ import {
   smokeInvokersText,
   smokeToolName,
 } from '../lib/pipeline/smokes.mts'
-import { commandExists } from '../lib/cli.mts'
 import { writeIn } from './consumer-sandbox.mts'
 import { git, isolateGitConfig } from './field-note-sandbox.mts'
-import { NO_BASH_TWIN, bashTwin } from './pipeline-metrics-parity.mts'
 
 const SMOKE = 'tests/Acme.Dominio.SmokeTests/FooSmokeTests.cs'
 
@@ -99,17 +97,6 @@ function toolsFixture(): string {
   return root
 }
 
-const TOOL_ARGS: string[][] = [
-  [`${TOOL_SRC}/CrearPlantillaSemanalTool.cs`],
-  [`${TOOL_SRC}/SinNombreTool.cs`],
-  [`${TOOL_SRC}/SinNadaTool.cs`],
-  [`${TOOL_SRC}/NoExisteTool.cs`],
-  [`${TOOL_SRC}/NombreVacioTool.cs`],
-  [`${TOOL_SRC}/DosNombresTool.cs`],
-  [`${TOOL_SRC}/SinNombreTool.cs`, '', `${TOOL_SRC}/SinNadaTool.cs`, `${TOOL_SRC}/CrearPlantillaSemanalTool.cs`, `${TOOL_SRC}/SinNombreTool.cs`],
-  [],
-]
-
 const ROUTE_ENDPOINTS = [
   'src/N.Programacion/F/AgregarFranja/FunctionEndpoint.cs',
   'src/N.Colab/F/Listar/FunctionEndpoint.cs',
@@ -142,14 +129,6 @@ function routesFixture(): string {
   return root
 }
 
-const ROUTE_ARGS: string[][] = [
-  ROUTE_ENDPOINTS,
-  [ROUTE_ENDPOINTS[2] ?? ''],
-  ['src/N.Otro/Varias/FunctionEndpoint.cs'],
-  ['src/N.Otro/Varias/FunctionEndpoint.cs', ...ROUTE_ENDPOINTS, 'src/no-existe.cs'],
-  [],
-]
-
 before(() => {
   work = mkdtempSync(join(tmpdir(), 'mefisto smokes '))
   restoreGit = isolateGitConfig(work)
@@ -177,6 +156,29 @@ describe('detectSmokeOnly', () => {
       { kind: 'smoke', path: SMOKE },
     ])
     assert.equal(changedFilesText(detection.files), `docs: docs/x.md\notro: src/Acme.Dominio/Foo.cs\nsmoke: ${SMOKE}\n`)
+  })
+
+  test('ordena por bytes y solo el prefijo exacto con .SmokeTests cuenta como smoke', () => {
+    const repo = repoFor(SMOKE_ONLY_CASES.find((item) => item.name === 'orden por bytes y rutas parecidas') ?? assert.fail('sin caso'))
+    assert.equal(
+      changedFilesText(detectSmokeOnly(repo.root, repo.snapshot, 'Acme').files),
+      [
+        'docs: docs/a.md',
+        'otro: documentos/x.md',
+        'smoke: tests/Acme.A.SmokeTests/Z.cs',
+        'smoke: tests/Acme.A.SmokeTests/a.cs',
+        'smoke: tests/Acme.B.SmokeTests/b.cs',
+        `smoke: ${SMOKE}`,
+        'otro: tests/Acme.SmokeTests/x.cs',
+        '',
+      ].join('\n'),
+    )
+  })
+
+  test('pipeline-state cuenta como docs, y con committedOnly lo sin commitear no cuenta', () => {
+    const repo = repoFor(SMOKE_ONLY_CASES.find((item) => item.name === 'smoke sin commitear y pipeline-state') ?? assert.fail('sin caso'))
+    assert.equal(changedFilesText(detectSmokeOnly(repo.root, repo.snapshot, 'Acme').files), `docs: pipeline-state/x.md\nsmoke: ${SMOKE}\n`)
+    assert.deepEqual(detectSmokeOnly(repo.root, repo.snapshot, 'Acme', true), { smokeOnly: false, files: [] })
   })
 
   test('un snapshot invalido no falla: solo cuenta lo que esta sin commitear', () => {
@@ -224,29 +226,34 @@ describe('listSmokesInvokingTools', () => {
     ])
   })
 
-  test('sin proyecto de smokes no lista nada', () => {
+  test('sin proyecto de smokes no lista nada, pero avisa igual de lo que no puede leer', () => {
     assert.deepEqual(listSmokesInvokingTools(root, 'tests/NoExiste.SmokeTests', [`${TOOL_SRC}/SinNombreTool.cs`]), [])
+    const warnings: string[] = []
+    assert.deepEqual(listSmokesInvokingTools(root, 'tests/NoExiste.SmokeTests', [`${TOOL_SRC}/SinNadaTool.cs`], (message) => warnings.push(message)), [])
+    assert.equal(warnings.length, 1)
   })
 
-  test('paridad con list_smokes_invoking_tools', { skip: NO_BASH_TWIN }, () => {
-    for (const tools of TOOL_ARGS) {
-      for (const project of [TOOL_SMOKES, 'tests/NoExiste.SmokeTests']) {
-        const warnings: string[] = []
-        const invokers = listSmokesInvokingTools(root, project, tools, (message) => warnings.push(`warn: ${message}\n`))
-        const bash = bashTwin('list_smokes_invoking_tools "$@"', [root, project, ...tools], { LC_ALL: 'C' })
-        assert.equal(smokeInvokersText(invokers), bash.stdout)
-        assert.equal(warnings.join(''), bash.stderr)
-      }
-    }
+  test('varias tools se listan en el orden recibido, sin quitar repetidas ni fallar por una vacia', () => {
+    const warnings: string[] = []
+    const tools = [`${TOOL_SRC}/SinNombreTool.cs`, '', `${TOOL_SRC}/SinNadaTool.cs`, `${TOOL_SRC}/CrearPlantillaSemanalTool.cs`, `${TOOL_SRC}/SinNombreTool.cs`]
+    const x = [`${TOOL_SMOKES}/.oculta/Oculto.cs`, `${TOOL_SMOKES}/Otra/XSmokeTests.cs`, `${TOOL_SMOKES}/Raiz.cs`].map((file) => ({ target: 'x', file }))
+    assert.deepEqual(listSmokesInvokingTools(root, TOOL_SMOKES, tools, (message) => warnings.push(message)), [
+      ...x,
+      { target: 'crear_plantilla_semanal', file: `${TOOL_SMOKES}/AsignarTurnoADia/AsignarSmokeTests.cs` },
+      { target: 'crear_plantilla_semanal', file: `${TOOL_SMOKES}/BuscarPlantillas/BuscarSmokeTests.cs` },
+      { target: 'crear_plantilla_semanal', file: `${TOOL_SMOKES}/CrearPlantillaSemanal/CrearSmokeTests.cs` },
+      ...x,
+    ])
+    assert.deepEqual(warnings, [`No se pudo extraer el nombre de la tool MCP de '${TOOL_SRC}/SinNadaTool.cs' (sin NombreTool ni McpToolTrigger)`])
+    assert.deepEqual(listSmokesInvokingTools(root, TOOL_SMOKES, []), [])
   })
 
-  test('paridad con smoke_tool_name', { skip: NO_BASH_TWIN }, () => {
-    for (const tool of ['CrearPlantillaSemanalTool.cs', 'SinNombreTool.cs', 'SinNadaTool.cs', 'NombreVacioTool.cs', 'DosNombresTool.cs', 'NoExisteTool.cs']) {
-      const file = join(root, TOOL_SRC, tool)
-      const name = smokeToolName(file)
-      assert.equal(name === null ? '' : `${name}\n`, bashTwin('smoke_tool_name "$@"', [file]).stdout, tool)
-    }
+  test('NombreTool vacio cae a McpToolTrigger y el primer NombreTool de la linea gana', () => {
+    assert.equal(smokeInvokersText(listSmokesInvokingTools(root, TOOL_SMOKES, [`${TOOL_SRC}/NombreVacioTool.cs`])), `por_trigger\t${TOOL_SMOKES}/Raiz.cs\n`)
+    assert.equal(smokeInvokersText(listSmokesInvokingTools(root, TOOL_SMOKES, [`${TOOL_SRC}/DosNombresTool.cs`])), `otra_tool\t${TOOL_SMOKES}/Otra/OtraSmokeTests.cs\n`)
   })
+
+
 })
 
 describe('listSmokesInvokingRoutes', () => {
@@ -295,33 +302,16 @@ describe('listSmokesInvokingRoutes', () => {
     assert.equal(files.filter((file) => file.includes('Ciclo')).length, 0)
   })
 
-  // La gemela bash delega en python3.
-  const noPython = commandExists('python3') ? false : 'requiere python3'
-
-  test('paridad con list_smokes_invoking_routes', { skip: NO_BASH_TWIN || noPython }, () => {
-    for (const endpoints of ROUTE_ARGS) {
-      for (const worktree of [root, join(work, 'no-existe')]) {
-        const bash = bashTwin('list_smokes_invoking_routes "$@"', [worktree, ...endpoints])
-        assert.equal(bash.status, 0, bash.stderr)
-        assert.equal(smokeInvokersText(listSmokesInvokingRoutes(worktree, endpoints)), bash.stdout)
-      }
-    }
+  test('varios endpoints se recorren en el orden de los smokes; uno inexistente no aporta rutas', () => {
+    const endpoints = ['src/N.Otro/Varias/FunctionEndpoint.cs', ...ROUTE_ENDPOINTS, 'src/no-existe.cs']
+    assert.deepEqual(listSmokesInvokingRoutes(root, endpoints), [
+      { target: FRANJA, file: 'tests/N.Mcp.X.SmokeTests/Mcp.cs' },
+      { target: 'colaboradores', file: 'tests/N.Otro.SmokeTests/Literal.cs' },
+      { target: FRANJA, file: 'tests/N.Otro.SmokeTests/Literal.cs' },
+      { target: FRANJA, file: 'tests/N.Programacion.SmokeTests/Compuesta.cs' },
+      { target: '/reportes/{anio}/{mes}/', file: 'tests/N.Programacion.SmokeTests/Sub/Dir/Anidada.cs' },
+      { target: 'a.b/(c)/{x', file: 'tests/N.Programacion.SmokeTests/Sub/Dir/Anidada.cs' },
+      { target: 'colaboradores', file: 'tests/N.Programacion.SmokeTests/Sub/Dir/Anidada.cs' },
+    ])
   })
-})
-
-describe('paridad con la gemela bash', { skip: NO_BASH_TWIN }, () => {
-  for (const item of SMOKE_ONLY_CASES) {
-    test(`detect_smoke_only: ${item.name}`, () => {
-      const repo = repoFor(item)
-      for (const [snapshot, committedOnly] of [[repo.snapshot, item.committedOnly ?? false], [repo.snapshot, true], ['deadbeef', false]] as const) {
-        const detection = detectSmokeOnly(repo.root, snapshot, 'Acme', committedOnly)
-        const bash = bashTwin('detect_smoke_only "$@"', [repo.root, snapshot, ...(committedOnly ? ['--committed'] : [])], {
-          HARNESS_NAMESPACE_PREFIX: 'Acme',
-          LC_ALL: 'C',
-        })
-        assert.equal(changedFilesText(detection.files), bash.stdout)
-        assert.equal(detection.smokeOnly ? 0 : 1, bash.status)
-      }
-    })
-  }
 })

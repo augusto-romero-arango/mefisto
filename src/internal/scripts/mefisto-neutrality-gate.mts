@@ -23,8 +23,7 @@
 //        en .claude/scripts/: las rutas se resuelven desde el propio script, nunca desde esas
 //        variables.
 //   R4 - todo .claude/scripts/*.sh de nivel superior es un shim identico byte a byte a la
-//        plantilla de src/internal/scripts/README.md (o a su variante de `source` para
-//        _mefisto-common.sh), o esta listado en "not_migrated".
+//        plantilla de src/internal/scripts/README.md, o esta listado en "not_migrated".
 //
 // Y dos verificaciones estructurales, sobre los generadores del propio --root (el arbol bajo
 // revision):
@@ -73,14 +72,6 @@ const SHIM_TEMPLATE = [
   '#!/usr/bin/env bash',
   '# Shim de compatibilidad (MEF-ADR-0049): la implementacion canonica vive en src/internal/scripts/. No editar.',
   'exec "$(cd "$(dirname "$0")/../.." && pwd)/src/internal/scripts/$(basename "$0")" "$@"',
-  '',
-].join('\n')
-
-const COMMON_SHIM_TEMPLATE = [
-  '#!/usr/bin/env bash',
-  '# Shim de compatibilidad (MEF-ADR-0049): la implementacion canonica vive en src/internal/scripts/lib/_mefisto-common.sh. No editar.',
-  '# `source` (no `exec`): esta lib se sourcea desde otros scripts, nunca se ejecuta sola.',
-  'source "$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)/src/internal/scripts/lib/_mefisto-common.sh"',
   '',
 ].join('\n')
 
@@ -233,10 +224,9 @@ function shimViolations(files: string[], root: string, allowlist: Allowlist): st
   const violations: string[] = []
   for (const file of files) {
     if (!isToplevelClaudeScript(file) || allowlist.notMigrated.has(file)) continue
-    const expected = file === '.claude/scripts/_mefisto-common.sh' ? COMMON_SHIM_TEMPLATE : SHIM_TEMPLATE
     let conforms = false
     try {
-      conforms = readFileSync(`${root}/${file}`).equals(Buffer.from(expected))
+      conforms = readFileSync(`${root}/${file}`).equals(Buffer.from(SHIM_TEMPLATE))
     } catch {
       conforms = false
     }

@@ -1,7 +1,4 @@
 // Clasificacion de un archivo `.cs` del PR para el coverage gate (MEF-ADR-0014).
-//
-// Gemela de `coverage_classify_file` de `_pipeline-common.sh`: mientras tenga llamadores en bash,
-// un cambio va en los dos lados.
 
 import { readFileSync, statSync } from 'node:fs'
 import { join, posix } from 'node:path'

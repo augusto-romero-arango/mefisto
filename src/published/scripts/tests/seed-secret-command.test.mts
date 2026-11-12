@@ -25,7 +25,6 @@ import {
   isExecutable,
   linesWith,
   mirrorMatches,
-  repoFileExists,
   sameBytes,
   soleLine,
   sourceValidates,
@@ -138,12 +137,7 @@ describe('[assets] seed-secret.sh empaquetado', () => {
     () => inventoryHasDestination('scripts/seed-secret.sh'),
     'inventario de dist/claude no lo incluye',
   )
-  check(
-    '_pipeline-common.sh hermano presente',
-    () => repoFileExists('dist/claude/scripts/_pipeline-common.sh'),
-    '_pipeline-common.sh hermano ausente',
-  )
-  test('seed-secret.sh distribuido resuelve _pipeline-common.sh y responde el uso fuera del checkout', () => {
+  test('seed-secret distribuido resuelve sus modulos y responde el uso fuera del checkout', () => {
     const work = mkdtempSync(join(tmpdir(), 'mefisto seed-secret '))
     const restoreGitConfig = isolateGitConfig(work)
     try {
@@ -155,7 +149,7 @@ describe('[assets] seed-secret.sh empaquetado', () => {
       assert.doesNotMatch(
         output,
         /No such file|command not found|unbound variable/,
-        'seed-secret.sh distribuido no resuelve _pipeline-common.sh',
+        'seed-secret distribuido no resuelve sus modulos',
       )
       assert.match(output, /Uso: /, 'seed-secret.sh distribuido no imprimio el uso esperado')
       assert.equal(result.status, 1, `seed-secret.sh distribuido: rc inesperado ${result.status}`)

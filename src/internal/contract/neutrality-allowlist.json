@@ -56,20 +56,12 @@
   ],
   "exceptions": [
     {
-      "path": "src/internal/scripts/lib/adapter-claude.sh",
-      "rules": [
-        "R1",
-        "R2"
-      ],
-      "motivo": "Wrapper temporal de runtime_claude_default_model para la generacion de frontmatter y el literal `claude --agent <id> \"$ARGUMENTS\"` que emite al traducir la directiva neutral {{mefisto:launch-agent}} (issue #854): es la pieza autorizada a nombrar esa invocacion; la tabla concreta vive en src/runtime desde #1072."
-    },
-    {
       "path": "src/internal/scripts/lib/adapter-claude.mts",
       "rules": [
         "R1",
         "R2"
       ],
-      "motivo": "Adaptador Claude del generador interno en TypeScript (MEF-ADR-0057), sucesor de adapter-claude.sh: lleva la tabla fija perfil->modelo (gemela de runtime_claude_default_model de src/runtime/lib/runtime-claude.sh, que el generador ya no puede cargar con `source`) y el literal `claude --agent <id> \"$ARGUMENTS\"` que emite al traducir la directiva neutral {{mefisto:launch-agent}}: es la pieza autorizada a nombrar esa invocacion."
+      "motivo": "Adaptador Claude del generador interno en TypeScript (MEF-ADR-0057): lleva la tabla fija perfil->modelo (la misma que `defaultModel` de src/runtime/lib/runtime-claude.mts) y el literal `claude --agent <id> \"$ARGUMENTS\"` que emite al traducir la directiva neutral {{mefisto:launch-agent}}: es la pieza autorizada a nombrar esa invocacion."
     },
     {
       "path": "src/internal/contract/README.md",

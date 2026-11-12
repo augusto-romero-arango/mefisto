@@ -4,7 +4,6 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { after, before, describe, test } from 'node:test'
 
-import { capture, commandExists } from '../../../scripts/lib/cli.mts'
 import { dump } from '../../../scripts/lib/jq-values.mts'
 import type { JsonObject } from '../../../scripts/lib/jq-values.mts'
 import {
@@ -20,7 +19,6 @@ import {
 import type { BuildCommandInput } from '../lib/mefisto-runtime.mts'
 import {
   CLAUDE_FIXTURES,
-  LIB_DIR,
   installClaudeStub,
   invalidEvents,
   readEvents,
@@ -345,39 +343,47 @@ describe('cifras del terminal', () => {
   })
 })
 
-describe('paridad con runtime-claude.jq', () => {
-  const skip = process.platform === 'win32' || !commandExists('jq') ? 'requiere jq' : false
-  // Sin `timestamp` en el evento, cada traductor pone su propia hora.
-  const stable = (text: string): string => text.replace(/"ts":"\d{4}-\d\d-\d\dT\d\d:\d\d:\d\dZ"/g, '"ts":"AHORA"')
+test('status y error.kind del terminal de cada fixture, por stderr y exit', () => {
   const stderrs = ['', 'ruido\nAPI Error: 500 Internal\n', 'API Error: 400 Bad\nAPI Error: 529 Over\n', 'Connection closed mid-response\n']
-
-  test('la misma salida, byte a byte, sobre cada fixture, exit y stderr', { skip }, () => {
-    for (const name of readdirSync(CLAUDE_FIXTURES).filter((file) => file.endsWith('.jsonl'))) {
-      const raw = readFileSync(fixture(name), 'utf8')
-      for (const [index, stderrText] of stderrs.entries()) {
-        const stderrFile = join(work, `paridad-stderr-${index}`)
-        writeFileSync(stderrFile, stderrText)
-        for (const exit of ['', '0', '1', '137', '143']) {
-          for (const model of ['', 'claude-opus-5[1m]']) {
-            const jq = capture('jq', [
-              '-R', '-s', '-c',
-              '--arg', 'runtime', 'claude',
-              '--arg', 'model_param', model,
-              '--arg', 'exit_code', exit,
-              '--rawfile', 'stderr_text', stderrFile,
-              '-f', join(LIB_DIR, 'runtime-claude.jq'),
-              fixture(name),
-            ])
-            assert.equal(jq.status, 0, jq.stderr)
-            const ours = translateStream(raw, 'claude', model, exit === '' ? null : Number(exit), stderrText)
-              .map((event) => `${dump(event)}\n`)
-              .join('')
-            assert.equal(stable(ours), stable(jq.stdout), `${name} exit='${exit}' model='${model}' stderr=${index}`)
-          }
-        }
-      }
-    }
-  })
+  const exits = [null, 0, 1, 137, 143]
+  // Una fila por stderr, o una sola si el stderr no cambia nada; cada columna es un exit de `exits`.
+  const expected: Record<string, string | string[]> = {
+    'api-error-404.jsonl': 'failed/api_error failed/api_error failed/api_error failed/killed failed/killed',
+    'api-error-529.jsonl': 'failed/provider_unavailable failed/provider_unavailable failed/provider_unavailable failed/killed failed/killed',
+    'killed-no-result.jsonl': [
+      'failed/no_result failed/no_result failed/no_result failed/killed failed/killed',
+      'failed/provider_unavailable failed/provider_unavailable failed/provider_unavailable failed/killed failed/killed',
+      'failed/provider_unavailable failed/provider_unavailable failed/provider_unavailable failed/killed failed/killed',
+      'failed/stream_cut failed/stream_cut failed/stream_cut failed/killed failed/killed',
+    ],
+    'rate-limit-exhausted.jsonl': 'failed/rate_limit failed/rate_limit failed/rate_limit failed/killed failed/killed',
+    'result-max-turns.jsonl': [
+      'failed/nonzero_exit failed/nonzero_exit failed/nonzero_exit failed/killed failed/killed',
+      'failed/provider_unavailable failed/provider_unavailable failed/provider_unavailable failed/killed failed/killed',
+      'failed/provider_unavailable failed/provider_unavailable failed/provider_unavailable failed/killed failed/killed',
+      'failed/nonzero_exit failed/nonzero_exit failed/nonzero_exit failed/killed failed/killed',
+    ],
+    'sensitive-redaction.jsonl': 'success/- success/- success/nonzero_exit success/killed success/killed',
+    'stream-truncated.jsonl': [
+      'failed/stream_cut failed/stream_cut failed/stream_cut failed/killed failed/killed',
+      'failed/provider_unavailable failed/provider_unavailable failed/provider_unavailable failed/killed failed/killed',
+      'failed/provider_unavailable failed/provider_unavailable failed/provider_unavailable failed/killed failed/killed',
+      'failed/stream_cut failed/stream_cut failed/stream_cut failed/killed failed/killed',
+    ],
+    'success-minimal.jsonl': 'success/- success/- success/nonzero_exit success/killed success/killed',
+    'success.jsonl': 'success/- success/- success/nonzero_exit success/killed success/killed',
+  }
+  assert.deepEqual(Object.keys(expected), readdirSync(CLAUDE_FIXTURES).filter((file) => file.endsWith('.jsonl')).sort())
+  for (const [name, rows] of Object.entries(expected)) {
+    stderrs.forEach((stderrText, index) => {
+      const row = typeof rows === 'string' ? rows : rows[index]
+      const actual = exits.map((exit) => {
+        const terminal = terminalOf(translated(name, '', exit, stderrText))
+        return `${String(terminal.status)}/${terminal.error === null ? '-' : String(errorOf(terminal).kind)}`
+      })
+      assert.equal(actual.join(' '), row, `${name} stderr=${index}`)
+    })
+  }
 })
 
 describe('runner real contra el CLI simulado', () => {

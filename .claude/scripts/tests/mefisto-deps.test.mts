@@ -1,17 +1,11 @@
 import assert from 'node:assert/strict'
-import { spawnSync } from 'node:child_process'
-import { dirname, join } from 'node:path'
 import { describe, test } from 'node:test'
-import { fileURLToPath } from 'node:url'
 
 import {
   dependenciesSection,
   forwardDependencies,
   hasDependenciesSection,
 } from '../../../scripts/lib/issue-dependencies.mts'
-
-const HERE = dirname(fileURLToPath(import.meta.url))
-const BASH_TWIN = join(HERE, '..', '..', '..', 'src', 'internal', 'scripts', 'lib', 'mefisto-deps.sh')
 
 const BODIES: Record<string, string> = {
   vacio: '',
@@ -94,23 +88,28 @@ describe('hasDependenciesSection', () => {
   })
 })
 
-describe('paridad con la gemela en bash', { skip: process.platform === 'win32' }, () => {
-  function bash(fn: string, body: string): { status: number | null; stdout: string } {
-    return spawnSync('bash', ['-c', `source "$1"; ${fn}`, 'bash', BASH_TWIN], {
-      input: body,
-      encoding: 'utf8',
-    })
+test('cada body: dependencias, si tiene la seccion y sus lineas', () => {
+  const expected: Record<string, [string[], boolean, string[]]> = {
+    vacio: [[], false, []],
+    'sin seccion': [[], false, []],
+    canonico: [['44', '7'], true, ['', 'Depende de #44', 'Bloqueado por #7']],
+    vinetas: [['1', '2', '3', '4'], true, ['- Depende de #1', '* bloqueado POR #2', '  -   DEPENDE DE   #3', '\tDepende de\t#4']],
+    negaciones: [[], true, ['- No depende de #65', '- Ya no depende de #65', '- Esto depende de #66']],
+    inversas: [[], true, ['Bloquea #61', 'Consumido por #62', 'Relacionado con #63', 'Depende del write-side: #64']],
+    'solo el primer numero': [['10', '9'], true, ['- Depende de #10 y de #11', '- Depende de #9, #8']],
+    'repetidas y orden de texto': [['10', '100', '9'], true, ['Depende de #9', 'Depende de #10', 'Depende de #9', 'Depende de #100']],
+    'corta en el siguiente encabezado': [['1'], true, ['Depende de #1']],
+    'subencabezado dentro': [['1', '2'], true, ['### Duras', 'Depende de #1', '###Blandas', 'Depende de #2']],
+    'encabezado sin espacio': [['3', '4'], true, ['Depende de #3', '##Otra', 'Depende de #4']],
+    'seccion repetida': [['1', '2'], true, ['Depende de #1', 'Depende de #2']],
+    'mayuscula inicial distinta': [[], false, []],
+    'sin salto final': [['12'], true, ['Depende de #12']],
+    crlf: [['5', '6'], true, ['Depende de #5\r', '- Bloqueado por #6\r']],
+    'sin numeral': [[], true, ['Depende de 5', 'Depende de # 6', 'Depende de #x7']],
+    'seccion vacia': [[], true, ['']],
   }
-
+  assert.deepEqual(Object.keys(expected), Object.keys(BODIES))
   for (const [name, body] of Object.entries(BODIES)) {
-    test(`coincide con mefisto-deps.sh: ${name}`, () => {
-      // Los llamadores de bash entregan el body con `printf '%s\n'`.
-      const input = `${body}\n`
-      const section = bash('mefisto_dependencies_section', input).stdout
-      assert.equal(dependenciesSection(input).map((line) => `${line}\n`).join(''), section)
-      const forward = bash('mefisto_forward_dependencies', input).stdout
-      assert.equal(forwardDependencies(input).map((number) => `${number}\n`).join(''), forward)
-      assert.equal(hasDependenciesSection(input), bash('mefisto_has_dependencies_section', input).status === 0)
-    })
+    assert.deepEqual([forwardDependencies(body), hasDependenciesSection(body), dependenciesSection(body)], expected[name], name)
   }
 })

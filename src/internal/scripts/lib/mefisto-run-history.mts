@@ -1,10 +1,5 @@
 // Objeto `agents` de una entrada de `pipeline-history.jsonl` del pipeline interno, con sus dos
 // stages fijos: writer y reviewer.
-//
-// Gemela de `build_agents_history_json` de `_mefisto-common.sh`: mientras tenga llamadores en
-// bash, un cambio va en los dos lados. Las gemelas de `render_run_metrics_table` y
-// `_render_run_metric_count` son las del lado publicado: `renderRunMetricsTable` y
-// `renderRunMetricCount` de `scripts/lib/pipeline/run-history.mts`.
 
 import { dumpJq, get, parseJq } from '../../../../scripts/lib/jq-literals.mts'
 import { JqError } from '../../../../scripts/lib/jq-values.mts'

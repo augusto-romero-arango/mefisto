@@ -45,7 +45,7 @@ la raiz de la release que los esta ejecutando.
 | Claude Code | instalacion de marketplace a scope `user`, **deshabilitada** a nivel usuario (`enabledPlugins` en `false` en `~/.claude/settings.json`) | `.claude/settings.json` con `extraKnownMarketplaces` y `enabledPlugins` en `true`; la precedencia proyecto > usuario la habilita solo ahi | `--plugin-dir <raiz>` |
 
 `<raiz>` es la raiz fisica de la release que contiene el pipeline en curso
-(`MEFISTO_AGENT_PACKAGE_ROOT`, exportada por `scripts/_pipeline-common.sh`). Asi
+(`MEFISTO_AGENT_PACKAGE_ROOT`, que exporta cada pipeline publicado). Asi
 el agente de un worktree hermano carga exactamente la version del pipeline, este
 o no Mefisto habilitado o registrado para esa ruta. Los pipelines internos no la
 exportan: cargan los adaptadores de proyecto del propio repositorio.
@@ -225,3 +225,4 @@ Git ni permite comprobar la relacion padre/tag.
 - 2026-10-10: completa la enmienda de la decision 2 (issue #2261) para OpenCode: fija el cargador de proyecto, sus condiciones de inhibicion y la proyeccion global como modo opt-in que `/mefisto:upgrade` solo refresca si existe. Verificado contra OpenCode 1.18.34: con el cargador, los 22 agentes resueltos y los 26 comandos coinciden con los de `OPENCODE_CONFIG_DIR=<release>`, salvo el orden no determinista de las reglas de Skills.
 - 2026-10-20: agrega la decision 7 (issue #2462). En los artefactos Claude la raiz del paquete es la sustitucion de contenido de `${CLAUDE_PLUGIN_ROOT}` (la version cargada); una raiz sustituida e invalida aborta sin caer a los markers, que quedan solo como fallback cuando no hay sustitucion. Retira la rama por variable de entorno, que no existe en Bash.
 - 2026-11-10: enmienda por el retiro de OpenCode como runtime soportado (MEF-ADR-0057, decision 7). Salen del cuerpo el almacen de releases y el cargador de proyecto de OpenCode, el tarball como asset de release, la proyeccion global, el diagnostico de deriva entre instalaciones, la decision 5, las evidencias de la decision 6 que exigian dos runtimes y la alternativa c, porque su objeto dejo de existir; permanecen la fuente `src/published/` con la distribucion generada `dist/claude/`, la activacion por repositorio, la identidad de release con su commit fuente y las decisiones 4 y 7.
+- 2026-11-12: la seccion de activacion deja de atribuir `MEFISTO_AGENT_PACKAGE_ROOT` a `scripts/_pipeline-common.sh`, que se borra con el port a TypeScript (MEF-ADR-0057): la exporta cada pipeline publicado. Sin cambio de doctrina.

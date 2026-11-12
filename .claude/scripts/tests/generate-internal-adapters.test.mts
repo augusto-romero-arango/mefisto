@@ -1,5 +1,4 @@
 import assert from 'node:assert/strict'
-import { execFileSync } from 'node:child_process'
 import {
   appendFileSync,
   cpSync,
@@ -32,6 +31,7 @@ import {
 import { jqJson } from '../../../src/internal/scripts/lib/jq-json.mts'
 import { Output } from '../../../src/internal/scripts/lib/mefisto-script-io.mts'
 import { runValidator } from '../../../src/internal/scripts/validate-internal-artifacts.mts'
+import { defaultEffort as runtimeDefaultEffort, defaultModel as runtimeDefaultModel } from '../../../src/runtime/lib/runtime-claude.mts'
 
 const REPO_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..')
 const SCRIPTS = join(REPO_ROOT, 'src', 'internal', 'scripts')
@@ -692,8 +692,6 @@ describe('escapado JSON como jq', () => {
 })
 
 describe('tablas fijas del adaptador', () => {
-  const RUNTIME_LIB = join(REPO_ROOT, 'src', 'runtime', 'lib', 'runtime-claude.sh')
-
   test('perfiles y efforts conocidos', () => {
     assert.equal(claudeDefaultModel('fast'), 'haiku')
     assert.equal(claudeDefaultModel('balanced'), 'sonnet')
@@ -703,20 +701,12 @@ describe('tablas fijas del adaptador', () => {
     assert.equal(claudeDefaultEffort('otro'), null)
   })
 
-  test(
-    'coinciden con las de runtime-claude.sh',
-    { skip: process.platform === 'win32' ? 'la libreria bash no corre en Windows' : false },
-    () => {
-      const twin = (fn: string, key: string): string =>
-        execFileSync('bash', ['-c', `source "$1"; ${fn} "$2" || printf '<sin tabla>'`, 'bash', RUNTIME_LIB, key], {
-          encoding: 'utf8',
-        })
-      for (const profile of ['fast', 'balanced', 'deep', 'otro', '']) {
-        assert.equal(claudeDefaultModel(profile) || '<sin tabla>', twin('runtime_claude_default_model', profile))
-      }
-      for (const effort of ['quick', 'light', 'standard', 'thorough', 'exhaustive', 'otro', '']) {
-        assert.equal(claudeDefaultEffort(effort) ?? '<sin tabla>', twin('runtime_claude_default_effort', effort))
-      }
-    },
-  )
+  test('coinciden con las del adaptador de runtime', () => {
+    for (const profile of ['fast', 'balanced', 'deep', 'otro', '']) {
+      assert.equal(claudeDefaultModel(profile), runtimeDefaultModel(profile) ?? '', profile)
+    }
+    for (const effort of ['quick', 'light', 'standard', 'thorough', 'exhaustive', 'otro', '']) {
+      assert.equal(claudeDefaultEffort(effort), runtimeDefaultEffort(effort), effort)
+    }
+  })
 })

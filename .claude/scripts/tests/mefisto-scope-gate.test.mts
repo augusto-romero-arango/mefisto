@@ -8,7 +8,6 @@ import type { Run } from '../../../scripts/lib/azure-cli.mts'
 import { git, isolateGitConfig } from '../../../scripts/tests/field-note-sandbox.mts'
 import { changedPaths } from '../../../src/internal/scripts/lib/mefisto-changed-paths.mts'
 import { validateMefistoScopeChanges } from '../../../src/internal/scripts/lib/mefisto-scope-gate.mts'
-import { mefistoBash, NO_BASH } from './mefisto-common-parity.mts'
 
 const SCOPE_NOTE = [
   '',
@@ -23,7 +22,7 @@ function diagnostic(violations: string[]): string[] {
   return ['ERROR: cambios fuera del scope de Mefisto:', ...violations.map((path) => `  - ${path}`), ...SCOPE_NOTE]
 }
 
-// Rutas limite: la gemela bash compara el texto tal cual, sin normalizar.
+// Rutas limite: se compara el texto tal cual, sin normalizar.
 const LIMIT_PATHS = [
   'commands/foo.md',
   'skills/projections/SKILL.md',
@@ -232,7 +231,7 @@ describe('validateMefistoScopeChanges', () => {
     assert.deepEqual(check.message, diagnostic(check.violations))
   })
 
-  test('como la gemela, juzga un renombre pendiente por su origen y una ruta citada por sus comillas', () => {
+  test('juzga un renombre pendiente por su origen y una ruta citada por sus comillas', () => {
     const { run } = fakeGit({
       diff: '',
       status: 'R  src/internal/a.md -> fuera/a.md\nR  fuera/b.md -> src/internal/b.md\nA  "docs/a\\303\\261o.md"\n',
@@ -247,27 +246,65 @@ describe('validateMefistoScopeChanges', () => {
     assert.deepEqual(validateMefistoScopeChanges('/wt', 'abc', { run: fakeGit({}).run }), { violations: [], message: [] })
   })
 
-  describe('paridad con la gemela bash', { skip: NO_BASH }, () => {
-    function assertParity(repo: string, base: string): string[] {
-      const fromBash = mefistoBash('validate_mefisto_scope_changes "$1" "$2"', [repo, base], { cwd: tmp })
+  describe('sobre repos reales', () => {
+    /** Las rutas fuera de scope, comprobando que el diagnostico las nombra. */
+    function violationsOf(repo: string, base: string): string[] {
       const check = validateMefistoScopeChanges(repo, base)
-      assert.equal(fromBash.stdout, '')
-      assert.equal(fromBash.status, check.violations.length > 0 ? 1 : 0)
-      assert.equal(fromBash.stderr, check.message.map((line) => `${line}\n`).join(''))
+      assert.deepEqual(check.message, check.violations.length > 0 ? diagnostic(check.violations) : [])
       return check.violations
     }
 
-    test('nunca acepta una ruta que is_path_in_mefisto_scope rechaza', () => {
-      const verdicts = mefistoBash(
-        'for p in "$@"; do if is_path_in_mefisto_scope "$p"; then echo 1; else echo 0; fi; done',
-        LIMIT_PATHS,
-      )
-      assert.equal(verdicts.status, 0, verdicts.stderr)
-      const fromBash = verdicts.stdout.trim().split('\n')
-      assert.equal(fromBash.length, LIMIT_PATHS.length)
-      const rejected = LIMIT_PATHS.filter((_, index) => fromBash[index] === '0')
-      assert.ok(rejected.length > 30 && rejected.length < LIMIT_PATHS.length)
-
+    test('rechaza exactamente las rutas limite fuera de la allowlist, commiteadas o pendientes', () => {
+      const rejected = [
+      'src/Foo.cs',
+      'src/otro/x.sh',
+      'src/publication/foo.md',
+      'src/runtime-local/foo.sh',
+      'src/internal',
+      'src/',
+      'distribution/x',
+      'dist-local/x',
+      'dist',
+      'tests/Foo.cs',
+      'infra/main.tf',
+      '.github/CODEOWNERS',
+      '.github/workflows',
+      '.claude/harness.config.json',
+      '.claude/settings.local.json',
+      '.claude/settings.json/x',
+      '.claude/pipeline/x',
+      '.mefisto/harness.config.json',
+      'sub/README.md',
+      'README.md.bak',
+      'LICENSE.txt',
+      'sub/LICENSE',
+      'docs2/NOTICE',
+      'x/.mcp.json',
+      'mefisto-manifest.json/x',
+      './commands/foo.md',
+      '../commands/foo.md',
+      '/commands/foo.md',
+      'x/../commands/foo.md',
+      'Commands/foo.md',
+      'DOCS/x.md',
+      'readme.md',
+      'commands\\foo.md',
+      'src\\internal\\x.ts',
+      ' commands/foo.md',
+      'commands /foo.md',
+      'README.md ',
+      '*',
+      '[c]ommands/x',
+      'comm?nds/x',
+      '"commands/a\\303\\261o.md"',
+      '"fuera/a\\303\\261o.md"',
+      '$HOME/commands/x',
+      '-n',
+      'ñ/commands/x',
+      'fuera/a -> src/internal/b',
+      'docs',
+      'x',
+      ]
       const committed = fakeGit({ diff: LIMIT_PATHS.map((path) => `${path}\n`).join(''), status: '' })
       assert.deepEqual(validateMefistoScopeChanges('/wt', 'abc', { run: committed.run }).violations, rejected)
       const pending = fakeGit({ diff: '', status: LIMIT_PATHS.map((path) => `?? ${path}\n`).join('') })
@@ -276,14 +313,14 @@ describe('validateMefistoScopeChanges', () => {
 
     test('sin cambios y con cambios dentro de scope', () => {
       const { repo, base } = newRepo()
-      assert.deepEqual(assertParity(repo, base), [])
+      assert.deepEqual(violationsOf(repo, base), [])
       write(repo, 'docs/bitacora/nota.md')
       git(repo, 'add', '-A')
       git(repo, 'commit', '-q', '-m', 'dentro')
       write(repo, 'src/internal/contract/fixtures/valid/ejemplo.md')
       write(repo, '.claude/agents/writer.md')
       write(repo, 'README.md', '# cambio\n')
-      assert.deepEqual(assertParity(repo, base), [])
+      assert.deepEqual(violationsOf(repo, base), [])
     })
 
     test('con cambios fuera de scope commiteados, preparados, sin trackear, renombrados y borrados', () => {
@@ -306,16 +343,24 @@ describe('validateMefistoScopeChanges', () => {
       git(repo, 'mv', 'docs/se-va.md', 'docs/se-queda.md')
       git(repo, 'rm', '-q', 'infra/borrar.tf')
       rmSync(join(repo, 'scripts/queda.sh'))
-      const violations = assertParity(repo, base)
+      const violations = violationsOf(repo, base)
       assert.ok(violations.length >= 7, violations.join('|'))
-      assert.ok(violations.includes('fuera/nuevo/archivo.txt'))
+      for (const path of ['src/Foo.cs', 'fuera/nuevo/archivo.txt', '"fuera/con espacio/a.md"', '"docs/a\\303\\261o.md"']) {
+        assert.ok(violations.includes(path), path)
+      }
       assert.equal(violations.some((path) => path.includes('se-queda')), false)
 
       git(repo, 'add', '-A')
       git(repo, 'commit', '-q', '-m', 'todo commiteado')
-      const committed = assertParity(repo, base)
-      assert.ok(committed.includes('guia-fuera.md'))
-      assert.ok(committed.includes('src/Foo.cs'))
+      assert.deepEqual(violationsOf(repo, base), [
+        '"docs/a\\303\\261o.md"',
+        '"fuera/a\\303\\261o.md"',
+        'fuera/con espacio/a.md',
+        'fuera/nuevo/archivo.txt',
+        'guia-fuera.md',
+        'src/Foo.cs',
+        'tests/preparado.cs',
+      ])
     })
 
     test('con HEAD separado y con una base que no existe', () => {
@@ -325,9 +370,9 @@ describe('validateMefistoScopeChanges', () => {
       git(repo, 'commit', '-q', '-m', 'fuera')
       write(repo, 'otro/cosa.md')
       git(repo, 'checkout', '-q', '--detach')
-      assert.deepEqual(assertParity(repo, base), ['src/Foo.cs', 'otro/cosa.md'])
-      assert.deepEqual(assertParity(repo, 'no-es-un-commit'), ['otro/cosa.md'])
-      assert.deepEqual(assertParity(join(tmp, 'no-es-un-repo'), base), [])
+      assert.deepEqual(violationsOf(repo, base), ['src/Foo.cs', 'otro/cosa.md'])
+      assert.deepEqual(violationsOf(repo, 'no-es-un-commit'), ['otro/cosa.md'])
+      assert.deepEqual(violationsOf(join(tmp, 'no-es-un-repo'), base), [])
     })
   })
 })

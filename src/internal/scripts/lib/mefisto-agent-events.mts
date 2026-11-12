@@ -1,11 +1,6 @@
 // Lectura del terminal (`run.completed` o `run.failed`) del JSONL neutral de un stage del
 // pipeline interno. Lee linea por linea: una truncada o que no es un objeto JSON se descarta sin
 // perder las demas, y solo cuenta el ultimo terminal.
-//
-// Gemela de `agent_stream_completed_successfully`, `agent_events_error_field`,
-// `agent_events_error_kind`, `agent_events_error_detail`, `agent_events_resets_at` y
-// `agent_events_session_id` de `_mefisto-common.sh`: mientras tengan llamadores en bash, un
-// cambio va en los dos lados.
 
 import { statSync } from 'node:fs'
 

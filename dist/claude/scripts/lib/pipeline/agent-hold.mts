@@ -1,12 +1,6 @@
 // Espera (hold) ante un limite de uso o una caida del proveedor, reanudacion de la sesion
 // truncada y contabilidad de lo esperado (MEF-ADR-0051). La linea de anuncio es contrato:
 // "[HH:MM:SS][hold] <FAMILIA>: esperando, proxima sonda HH:MM:SS (techo HH:MM)".
-//
-// Gemela de `agent_hold_wait`, `agent_session_transcript_count`, `agent_resume_prompt`,
-// `_pc_epoch_at`, `format_hold_status`, `fmt_hold_duration`, `hold_seconds_in_range` y
-// `hold_note_suffix` de `_pipeline-common.sh`: mientras tengan llamadores en bash, un cambio va
-// en los dos lados. Las de `hold_line_window`, `last_hold_line` y `hold_recently_active` viven en
-// `../work-status-hold.mts`.
 
 import { readFileSync, readdirSync, realpathSync, statSync } from 'node:fs'
 import { homedir } from 'node:os'
@@ -220,7 +214,7 @@ export function holdSecondsInRange(eventsLog: string, now: Date, fromLine = 0, i
     return 0
   }
   const lines = content.split('\n')
-  // La gemela lee con `read`, que no entrega una ultima linea sin salto final.
+  // Una ultima linea sin salto final no cuenta.
   lines.pop()
   const wanted = String(issue)
   let total = 0

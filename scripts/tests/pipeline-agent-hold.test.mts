@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, realpathSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, readdirSync, readFileSync, realpathSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { after, before, describe, test } from 'node:test'
@@ -19,7 +19,6 @@ import {
   transcriptStoreSlug,
 } from '../lib/pipeline/agent-hold.mts'
 import { clockTime } from '../lib/pipeline/agent-log.mts'
-import { NO_BASH, bashLibrary, chomp } from './pipeline-agents-parity.mts'
 
 const REPO_ROOT = join(import.meta.dirname, '..', '..')
 const NOW = new Date(2026, 5, 15, 12, 0, 0)
@@ -141,6 +140,37 @@ describe('agentHoldWait', () => {
     assert.equal((await wait({}, 'RATE_LIMIT', NOW_EPOCH - 21_000, isoUtc(NOW_EPOCH + 7200))).slept, 600)
   })
 
+  test('el techo manda sobre la sonda y sobre resets_at', async () => {
+    assert.deepEqual(await wait({}, 'RATE_LIMIT (exit 1)', NOW_EPOCH - 21_000), {
+      slept: 300,
+      sleeps: [300],
+      log: '[12:00:00][hold] RATE_LIMIT: esperando, proxima sonda 12:05:00 (techo 12:10)\n',
+    })
+    assert.deepEqual(await wait({}, 'RATE_LIMIT (exit 1)', NOW_EPOCH - 21_600), { slept: null, sleeps: [], log: '' })
+    assert.deepEqual(await wait({}, 'RATE_LIMIT (exit 1)', NOW_EPOCH, isoUtc(NOW_EPOCH + 86_400)), {
+      slept: 21_600,
+      sleeps: [21_600],
+      log: '[12:00:00][hold] RATE_LIMIT: esperando, proxima sonda 18:00:00 (techo 18:00)\n',
+    })
+    // El techo se anuncia truncado al minuto.
+    assert.deepEqual(await wait({}, 'RATE_LIMIT (exit 1)', NOW_EPOCH - 20_000, isoUtc(NOW_EPOCH + 3000)), {
+      slept: 1600,
+      sleeps: [1600],
+      log: '[12:00:00][hold] RATE_LIMIT: esperando, proxima sonda 12:26:40 (techo 12:26)\n',
+    })
+  })
+
+  test('variables vacias usan los defaults y una sonda de cero no espera', async () => {
+    const empty = { MEFISTO_HOLD_PROBE_SECONDS: '', MEFISTO_HOLD_MAX_SECONDS: '' }
+    assert.equal((await wait(empty, 'PROVIDER_UNAVAILABLE', NOW_EPOCH - 100)).slept, 300)
+    assert.deepEqual(await wait({ MEFISTO_HOLD_PROBE_SECONDS: '0' }, 'SIN_ESPACIOS', NOW_EPOCH - 5), {
+      slept: 0,
+      sleeps: [0],
+      log: '[12:00:00][hold] SIN_ESPACIOS: esperando, proxima sonda 12:00:00 (techo 17:59)\n',
+    })
+    assert.equal((await wait({ MEFISTO_HOLD_PROBE_SECONDS: '45' }, 'RATE_LIMIT', NOW_EPOCH, '2030-13-01T00:00:00Z')).slept, 45)
+  })
+
   test('un resets_at que no se puede leer cae a la cadencia fija', async () => {
     for (const resetsAt of ['', 'pronto', '2026-06-15T18:00:00.500Z', '2026-06-15T18:00:00+02:00', '2026-13-15T18:00:00Z']) {
       assert.equal((await wait({}, 'RATE_LIMIT', NOW_EPOCH, resetsAt)).slept, 300, resetsAt)
@@ -227,6 +257,10 @@ describe('agentSessionTranscriptCount', () => {
     for (const name of ['aaa.jsonl', 'bbb.jsonl', 'notas.txt', '.oculto.jsonl', 'ccc.jsonl.bak']) writeFileSync(join(store, name), '')
     mkdirSync(join(store, 'carpeta.jsonl'))
     assert.equal(agentSessionTranscriptCount(probe, { env }), 3)
+    assert.equal(agentSessionTranscriptCount(`${probe}/`, { env }), 3)
+    const link = join(work, 'worktree.enlace')
+    symlinkSync(probe, link, 'junction')
+    assert.equal(agentSessionTranscriptCount(link, { env }), 3)
 
     assert.equal(agentSessionTranscriptCount('', { env }), 0)
     assert.equal(agentSessionTranscriptCount(join(work, 'no-existe'), { env }), 0)
@@ -256,6 +290,7 @@ test('[1] agentResumePrompt nombra el stage, el agente y la ruta del resumen', (
   assert.equal(prompt.split('stage 2, agente reviewer').length, 3)
   assert.ok(prompt.endsWith('responsabilidad exclusiva del pipeline.\n'))
   assert.equal(prompt.split('\n').length, 10)
+  assert.ok(agentResumePrompt('$HOME', 'a b`c`').includes('(stage $HOME, agente a b`c`)'))
 })
 
 test('[6] ni los pipelines publicados ni los adaptadores de runtime reanudan con --fork-session', () => {
@@ -295,6 +330,8 @@ describe('formatHoldStatus', () => {
     assert.equal(formatHoldStatus(active, NOW), 'RATE_LIMIT: esperando, proxima sonda 12:02:00 (techo 23:59)')
     assert.equal(formatHoldStatus(active, NOW, 1), 'RATE_LIMIT: esperando, proxima sonda 12:02:00 (techo 23:59)')
     assert.equal(formatHoldStatus(active, NOW, 2), null)
+    const unterminated = logFile('sin-salto-final.log', announce('11:57:00', '12:02:00'))
+    assert.equal(formatHoldStatus(unterminated, NOW), 'RATE_LIMIT: esperando, proxima sonda 12:02:00 (techo 23:59)')
   })
 
   test('[10] sin espera activa no hay estado', () => {
@@ -316,6 +353,9 @@ test('[11] fmtHoldDuration y holdNoteSuffix', () => {
   assert.equal(fmtHoldDuration(0), '0m 0s')
   assert.equal(fmtHoldDuration(59), '0m 59s')
   assert.equal(fmtHoldDuration(3600), '60m 0s')
+  assert.equal(fmtHoldDuration(86_399), '1439m 59s')
+  assert.equal(fmtHoldDuration(-130), '-2m -10s')
+  assert.equal(holdNoteSuffix(1), ' (incluye 0m 1s en espera/hold)')
   assert.equal(holdNoteSuffix(130), ' (incluye 2m 10s en espera/hold)')
   assert.equal(holdNoteSuffix(0), '')
   assert.equal(holdNoteSuffix(-5), '')
@@ -330,6 +370,7 @@ describe('holdSecondsInRange', () => {
     assert.equal(holdSecondsInRange(range, NOW, 0, 41), 300)
     assert.equal(holdSecondsInRange(range, NOW, 2, 41), 0)
     assert.equal(holdSecondsInRange(range, NOW, 0, 4), 0)
+    assert.equal(holdSecondsInRange(range, NOW, 0, 'file'), 0)
     assert.equal(holdSecondsInRange(range, NOW, 8), 300)
     assert.equal(holdSecondsInRange(range, NOW, 99), 0)
     assert.equal(holdSecondsInRange(join(work, 'no-existe.log'), NOW, 0, 42), 0)
@@ -344,200 +385,5 @@ describe('holdSecondsInRange', () => {
     assert.equal(holdSecondsInRange(edge, NOW, 0, 8), 0)
     assert.equal(holdSecondsInRange(edge, NOW, 0, 70), 60)
     assert.equal(holdSecondsInRange(logFile('edge-con-salto.log', `${EDGE_LOG}\n`), NOW, 0, 70), 180)
-  })
-})
-
-describe('paridad con la gemela bash', { skip: NO_BASH }, () => {
-  test('agent_hold_wait', async () => {
-    const bashLog = join(work, 'hold-bash.log')
-    const ownLog = join(work, 'hold-ts.log')
-    // Sin dormir de verdad, y reintentando si la llamada cruzo un cambio de segundo.
-    const script = [
-      'sleep() { :; }',
-      'for attempt in 1 2 3 4 5 6 7 8; do',
-      '  : > "$1"',
-      '  before=$(date +%s)',
-      '  out=$(agent_hold_wait "$1" "$2" "$((before - $3))" "${4:-}"); rc=$?',
-      '  [ "$(date +%s)" = "$before" ] && break',
-      'done',
-      'printf "%s\\n%s\\n%s\\n" "$before" "$rc" "$out"; cat "$1"',
-    ].join('\n')
-    const soon = Math.floor(Date.now() / 1000)
-    const cases: [failureType: string, elapsed: number, resetsAt: string, env: Record<string, string>][] = [
-      ['RATE_LIMIT (exit 1)', 0, '', { MEFISTO_HOLD_PROBE_SECONDS: '1', MEFISTO_HOLD_MAX_SECONDS: '3600' }],
-      ['PROVIDER_UNAVAILABLE (exit 1)', 7200, '', { MEFISTO_HOLD_MAX_SECONDS: '3600' }],
-      ['RATE_LIMIT (exit 1)', 0, '', { MEFISTO_HOLD_PROBE_SECONDS: '60', MEFISTO_HOLD_MAX_SECONDS: '2' }],
-      ['RATE_LIMIT', 0, '', { MEFISTO_HOLD_MAX_SECONDS: '0' }],
-      ['PROVIDER_UNAVAILABLE', 100, '', {}],
-      ['PROVIDER_UNAVAILABLE', 100, '', { MEFISTO_HOLD_PROBE_SECONDS: '', MEFISTO_HOLD_MAX_SECONDS: '' }],
-      ['RATE_LIMIT (exit 1)', 21_000, '', {}],
-      ['RATE_LIMIT (exit 1)', 21_600, '', {}],
-      ['RATE_LIMIT (exit 1)', 0, isoUtc(soon + 900), {}],
-      ['RATE_LIMIT (exit 1)', 0, isoUtc(soon - 900), {}],
-      ['RATE_LIMIT (exit 1)', 0, isoUtc(soon + 86_400), {}],
-      ['RATE_LIMIT (exit 1)', 20_000, isoUtc(soon + 3000), {}],
-      ['RATE_LIMIT (exit 1)', 0, 'no-es-una-fecha', {}],
-      ['RATE_LIMIT (exit 1)', 0, '2030-13-01T00:00:00Z', { MEFISTO_HOLD_PROBE_SECONDS: '45' }],
-      ['SIN_ESPACIOS', 5, '', { MEFISTO_HOLD_PROBE_SECONDS: '0' }],
-    ]
-    for (const [failureType, elapsed, resetsAt, extra] of cases) {
-      const env = { ...process.env, MEFISTO_HOLD_PROBE_SECONDS: undefined, MEFISTO_HOLD_MAX_SECONDS: undefined, ...extra }
-      const fromBash = bashLibrary(script, [bashLog, failureType, String(elapsed), resetsAt], { env })
-      const [started = '', status = '', ...rest] = fromBash.stdout.split('\n')
-      const startedEpoch = Number(started)
-      writeFileSync(ownLog, '')
-      const slept = await agentHoldWait({
-        eventsLog: ownLog,
-        failureType,
-        holdStarted: startedEpoch - elapsed,
-        resetsAt,
-        env,
-        now: () => new Date(startedEpoch * 1000),
-        sleep: async () => {},
-      })
-      const label = `${failureType} ${elapsed} ${resetsAt} ${JSON.stringify(extra)}`
-      assert.equal(slept === null ? '1' : '0', status, label)
-      assert.equal(`${slept ?? ''}\n${readFileSync(ownLog, 'utf8')}`, rest.join('\n'), label)
-    }
-  })
-
-  test('agent_session_transcript_count', () => {
-    const config = join(work, 'paridad-config')
-    const home = join(work, 'paridad-home')
-    const probe = join(work, 'paridad.worktree')
-    const link = join(work, 'paridad-enlace')
-    const plainFile = logFile('paridad-archivo.txt', '')
-    mkdirSync(probe)
-    symlinkSync(probe, link)
-    const slug = transcriptStoreSlug(realpathSync.native(probe))
-    const environments = [{ CLAUDE_CONFIG_DIR: config, HOME: home }, { HOME: home }, { CLAUDE_CONFIG_DIR: '', HOME: home }]
-    const compare = (stage: string): void => {
-      for (const extra of environments) {
-        const env = { PATH: process.env.PATH ?? '', ...extra }
-        const dirs = [probe, link, `${probe}/`, plainFile, join(work, 'no-existe'), '']
-        const fromBash = bashLibrary('for dir in "$@"; do agent_session_transcript_count "$dir" || echo fallo; done', dirs, { env })
-        assert.equal(
-          dirs.map((dir) => `${agentSessionTranscriptCount(dir, { env, home })}\n`).join(''),
-          fromBash.stdout,
-          `${stage} ${JSON.stringify(extra)}`,
-        )
-      }
-    }
-    compare('sin store')
-    for (const [root, names] of [
-      [config, ['aaa.jsonl', 'bbb.jsonl', '.oculto.jsonl', 'notas.txt']],
-      [join(home, '.claude'), ['unica.jsonl', 'x.jsonl.bak']],
-    ] as const) {
-      const store = join(root, 'projects', slug)
-      mkdirSync(store, { recursive: true })
-      for (const name of names) writeFileSync(join(store, name), '')
-      mkdirSync(join(store, 'carpeta.jsonl'))
-    }
-    compare('con store')
-    assert.equal(agentSessionTranscriptCount(probe, { env: { CLAUDE_CONFIG_DIR: config } }), 3)
-  })
-
-  test('agent_resume_prompt', () => {
-    for (const [stage, agent] of [
-      ['2', 'reviewer'],
-      ['merge', 'implementer'],
-      ['2b', 'smoke-test-writer'],
-      ['$HOME', 'a b`c`'],
-      ['', ''],
-    ] as const) {
-      const fromBash = bashLibrary('agent_resume_prompt "$1" "$2"', [stage, agent])
-      assert.equal(fromBash.status, 0)
-      assert.equal(agentResumePrompt(stage, agent), fromBash.stdout, `${stage} ${agent}`)
-    }
-  })
-
-  test('_pc_epoch_at', () => {
-    const cases: [date: string, time: string][] = [
-      ['2026-06-15', '12:00:00'],
-      ['2026-01-01', '00:00:00'],
-      ['2026-12-31', '23:59:59'],
-      ['2024-02-29', '06:30:15'],
-      ['1999-07-04', '18:45:09'],
-      ['2026-13-01', '10:00:00'],
-      ['2026-06-32', '10:00:00'],
-      ['2026-06-15', '24:00:00'],
-      ['2026-06-15', '12:60:00'],
-      ['junio', '12:00:00'],
-      ['2026-06-15', 'mediodia'],
-    ]
-    const script = 'while [ "$#" -gt 0 ]; do epoch=$(_pc_epoch_at "$1" "$2"); printf "%s %s\\n" "$?" "$epoch"; shift 2; done'
-    assert.deepEqual(
-      cases.map(([date, time]) => {
-        const epoch = localEpochAt(date, time)
-        return epoch === null ? '1 ' : `0 ${epoch}`
-      }),
-      chomp(bashLibrary(script, cases.flat()).stdout).split('\n'),
-    )
-    assert.equal(localEpochAt('2026-06-15', '12:00:00'), NOW_EPOCH)
-  })
-
-  test('format_hold_status', () => {
-    const now = new Date()
-    const at = (deltaSeconds: number): string => clockTime(new Date(now.getTime() + deltaSeconds * 1000))
-    const logs = [
-      logFile('p-activa.log', `=== SESSION TOOLING 20260101-000000 issue:42 from-stage:1 ===\n${announce(at(-180), at(600))}\n`),
-      logFile('p-pasada.log', `${announce(at(-900), at(-600), 'PROVIDER_UNAVAILABLE')}\n`),
-      logFile('p-varias.log', `${announce(at(-900), at(-600))}\n${announce(at(-180), at(600), 'PROVIDER_UNAVAILABLE')}\n`),
-      logFile('p-otro-dia.log', `${announce(at(7200), at(7500))}\n`),
-      logFile('p-reanudacion.log', `[${at(-60)}][hold][resume] writer: reintento desde cero (sin -c)\n`),
-      logFile('p-sin-salto-final.log', announce(at(-180), at(600))),
-      logFile('p-vacio.log', ''),
-      join(work, 'p-no-existe.log'),
-    ]
-    const cases = logs.flatMap((log, index) => (index === 0 ? [0, 1, 2] : [0]).map((fromLine): [string, number] => [log, fromLine]))
-    const script = 'while [ "$#" -gt 0 ]; do status=$(format_hold_status "$1" "$2"); printf "%s %s\\n" "$?" "$status"; shift 2; done'
-    assert.deepEqual(
-      cases.map(([log, fromLine]) => {
-        const status = formatHoldStatus(log, now, fromLine)
-        return status === null ? '1 ' : `0 ${status}`
-      }),
-      chomp(bashLibrary(script, cases.flat().map(String)).stdout).split('\n'),
-    )
-    assert.equal(formatHoldStatus(logs[0] ?? '', now), `RATE_LIMIT: esperando, proxima sonda ${at(600)} (techo 23:59)`)
-  })
-
-  test('fmt_hold_duration y hold_note_suffix', () => {
-    const durations = [0, 1, 59, 60, 61, 130, 3599, 3600, 21_600, 86_399, -1, -130]
-    const script = 'for seconds in "$@"; do printf "%s|%s|" "$(fmt_hold_duration "$seconds")" "$(hold_note_suffix "$seconds")"; hold_note_suffix "$seconds" >/dev/null; printf "%s\\n" "$?"; done'
-    assert.deepEqual(
-      durations.map((seconds) => `${fmtHoldDuration(seconds)}|${holdNoteSuffix(seconds)}|0`),
-      chomp(bashLibrary(script, durations.map(String)).stdout).split('\n'),
-    )
-  })
-
-  test('hold_seconds_in_range', () => {
-    const now = new Date()
-    const logs = [
-      logFile('p-range.log', RANGE_LOG),
-      logFile('p-edge.log', EDGE_LOG),
-      logFile('p-edge-con-salto.log', `${EDGE_LOG}\n`),
-      logFile('p-range-vacio.log', ''),
-      join(work, 'p-range-no-existe.log'),
-      work,
-    ]
-    const ranges: [fromLine: number, issue: string][] = [
-      ...['', '41', '42', '43', '7', '8', '70', 'file', '4'].map((issue): [number, string] => [0, issue]),
-      [2, ''],
-      [2, '41'],
-      [5, ''],
-      [5, '70'],
-      [99, ''],
-    ]
-    // Solo los tres primeros tienen anuncios; cada uno le cuesta a bash varios procesos.
-    const cases = logs.flatMap((log, index) =>
-      (index < 3 ? ranges : ranges.slice(0, 2)).map(([fromLine, issue]): [string, number, string] => [log, fromLine, issue]),
-    )
-    const script = 'while [ "$#" -gt 0 ]; do hold_seconds_in_range "$1" "$2" "$3" || echo fallo; shift 3; done'
-    assert.deepEqual(
-      cases.map(([log, fromLine, issue]) => String(holdSecondsInRange(log, now, fromLine, issue))),
-      chomp(bashLibrary(script, cases.flat().map(String)).stdout).split('\n'),
-    )
-    assert.equal(holdSecondsInRange(logs[0] ?? '', now), 1500)
-    assert.equal(existsSync(join(work, 'p-range-no-existe.log')), false)
   })
 })

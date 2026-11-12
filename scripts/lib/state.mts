@@ -1,8 +1,5 @@
 // Estado operativo del pipeline (MEF-ADR-0053): se escribe solo en `.mefisto/pipeline`;
 // `.claude/pipeline` queda como fallback de lectura.
-//
-// Gemela de `mefisto_state_path` y `mefisto_state_read_paths` de `_pipeline-common.sh` y de
-// `mefisto-state.sh`: mientras tengan llamadores en bash, un cambio va en los dos lados.
 
 import { existsSync, mkdirSync } from 'node:fs'
 import { dirname, join } from 'node:path'

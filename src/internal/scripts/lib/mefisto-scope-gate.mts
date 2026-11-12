@@ -1,9 +1,5 @@
 // Gate de scope de los pipelines internos: lo que cambia un stage solo puede caer en las rutas
 // del propio plugin (MEF-ADR-0019).
-//
-// Gemela de `validate_mefisto_scope_changes` de `_mefisto-common.sh`: mientras tenga llamadores
-// en bash, un cambio va en los dos lados. La paridad la verifica
-// `.claude/scripts/tests/mefisto-scope-gate.test.mts`.
 
 import type { ScopeCheck } from '../../../../scripts/lib/pipeline/consumer-scope.mts'
 import { changedPaths } from './mefisto-changed-paths.mts'

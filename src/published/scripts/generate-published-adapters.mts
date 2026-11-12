@@ -58,7 +58,6 @@ const HAS_MODES = process.platform !== 'win32'
 // una frontera de producto plana y ordenada a proposito: no se amplia con globs, que expondrian
 // pipelines, fixtures o adaptadores de prueba que todavia no pertenecen a una release.
 export const TOOLING_CLOSURE_ASSETS: readonly string[] = [
-  'scripts/_pipeline-common.sh|0755',
   'scripts/lib/cli.mts|0644',
   'scripts/lib/state.mts|0644',
   'scripts/lib/field-note.mts|0644',
@@ -180,16 +179,10 @@ export const TOOLING_CLOSURE_ASSETS: readonly string[] = [
   'scripts/lib/package-reference-pin.mts|0644',
   'src/runtime/mefisto-run-agent.sh|0755',
   'src/runtime/mefisto-run-agent.mts|0644',
-  'src/runtime/lib/mefisto-runtime.sh|0755',
   'src/runtime/lib/mefisto-runtime.mts|0644',
-  'src/runtime/lib/mefisto-models.sh|0644',
   'src/runtime/lib/mefisto-models.mts|0644',
-  'src/runtime/lib/mefisto-process.sh|0755',
   'src/runtime/lib/mefisto-process.mts|0644',
-  'src/runtime/lib/runtime-claude.sh|0755',
   'src/runtime/lib/runtime-claude.mts|0644',
-  'src/runtime/lib/runtime-claude.jq|0644',
-  'src/runtime/contract/models.validate.jq|0644',
 ]
 
 // El marketplace Claude instala hoy la raiz del checkout (`source: "./"`). Hasta que esa raiz sea

@@ -13,21 +13,10 @@ import {
   agentStreamCompletedSuccessfully,
   hasContent,
 } from '../../../src/internal/scripts/lib/mefisto-agent-events.mts'
-import {
-  ERROR_AS_TEXT,
-  FIXTURE_FILES,
-  INTERNAL_EVENTS,
-  NEUTRAL_EVENTS,
-  NO_BASH_JQ,
-  RECORD,
-  REPO_ROOT,
-  mefistoBash,
-  writeFixtures,
-} from './mefisto-agents-parity.mts'
+import { ERROR_AS_TEXT, INTERNAL_EVENTS, REPO_ROOT, writeFixtures } from './mefisto-agents-fixtures.mts'
 
 let work = ''
 let events: Record<string, string> = {}
-let published: Record<string, string> = {}
 let errorAsText = ''
 
 before(() => {
@@ -35,7 +24,6 @@ before(() => {
   events = writeFixtures(work, INTERNAL_EVENTS, '.jsonl')
   errorAsText = join(work, 'error-de-texto.unitario')
   writeFileSync(errorAsText, ERROR_AS_TEXT)
-  published = writeFixtures(work, NEUTRAL_EVENTS, '.publicado.jsonl')
 })
 
 after(() => {
@@ -75,6 +63,13 @@ describe('error.kind y error.detail del terminal', () => {
     assert.equal(agentEventsErrorField(file('cliente'), ''), 'api_error')
     assert.equal(agentEventsErrorField(file('reset-solo-en-error'), 'resets_at'), '2031-01-01T00:00:00Z')
     assert.equal(agentEventsErrorField(file('cliente'), 'no-existe'), '')
+    assert.equal(agentEventsErrorField(file('cliente'), 'resets_at'), '')
+    assert.equal(agentEventsErrorField(file('reset-solo-en-error')), 'rate_limit')
+    assert.equal(agentEventsErrorField(file('kind-objeto'), 'resets_at'), '')
+    for (const name of ['exito', 'vacio']) {
+      assert.equal(agentEventsErrorField(file(name)), '', name)
+      assert.equal(agentEventsErrorField(file(name), 'resets_at'), '', name)
+    }
   })
 
   test('un error que no es objeto no aporta nada', () => {
@@ -99,12 +94,12 @@ describe('error.kind y error.detail del terminal', () => {
   })
 
   test('una linea que no es un objeto JSON se descarta sin perder las demas', () => {
-    assert.equal(agentEventsErrorKind(published['ultima-linea-truncada'] ?? ''), 'rate_limit')
-    assert.equal(agentEventsErrorKind(published['linea-que-no-es-json'] ?? ''), 'rate_limit')
-    assert.equal(agentEventsErrorKind(published['valor-que-no-es-objeto'] ?? ''), 'rate_limit')
+    assert.equal(agentEventsErrorKind(file('ultima-linea-truncada')), 'rate_limit')
+    assert.equal(agentEventsErrorKind(file('linea-que-no-es-json')), 'rate_limit')
+    assert.equal(agentEventsErrorKind(file('valor-que-no-es-objeto')), 'rate_limit')
     assert.equal(agentEventsErrorKind(file('fin-de-linea-windows')), 'timeout')
     // Un valor repartido en varias lineas no es una linea de JSONL.
-    assert.equal(agentEventsErrorKind(published['varias-lineas-por-valor'] ?? ''), '')
+    assert.equal(agentEventsErrorKind(file('varias-lineas-por-valor')), '')
   })
 })
 
@@ -189,36 +184,31 @@ test('hasContent: solo un archivo que existe y no esta vacio', () => {
   assert.equal(hasContent(''), false)
 })
 
-describe('paridad con la gemela bash', { skip: NO_BASH_JQ }, () => {
-  test('lectores del terminal sobre todos los fixtures', () => {
-    const files = [...Object.values(events), ...Object.values(published), ...FIXTURE_FILES, join(work, 'no-existe.jsonl'), work, '']
-    const script = `for f in "$@"; do
-  agent_events_error_kind "$f"; printf '\\036'
-  agent_events_error_detail "$f"; printf '\\036'
-  agent_events_resets_at "$f"; printf '\\036'
-  agent_events_session_id "$f"; printf '\\036'
-  if agent_stream_completed_successfully "$f"; then echo si; else echo no; fi; printf '\\036'
-done`
-    const fromBash = mefistoBash(script, files).stdout.split(RECORD)
-    const own = files.flatMap((eventsFile) => [
-      agentEventsErrorKind(eventsFile),
-      agentEventsErrorDetail(eventsFile),
-      agentEventsResetsAt(eventsFile),
-      agentEventsSessionId(eventsFile),
-      agentStreamCompletedSuccessfully(eventsFile) ? 'si' : 'no',
-    ])
-    assert.deepEqual([...own.map((value) => `${value}\n`), ''], fromBash)
-    assert.ok(own.includes('si') && own.includes('rate_limit') && own.includes('2026-05-07T22:40:00Z'))
-  })
-
-  test('agent_events_error_field con el campo por defecto y con otro campo', () => {
-    const files = ['cliente', 'reset-solo-en-error', 'kind-objeto', 'exito', 'vacio'].map(file)
-    const script = `for f in "$@"; do for field in "" resets_at; do agent_events_error_field "$f" "$field"; printf '\\036'; done; agent_events_error_field "$f"; printf '\\036'; done`
-    const own = files.flatMap((eventsFile) => [
-      agentEventsErrorField(eventsFile, ''),
-      agentEventsErrorField(eventsFile, 'resets_at'),
-      agentEventsErrorField(eventsFile),
-    ])
-    assert.deepEqual([...own.map((value) => `${value}\n`), ''], mefistoBash(script, files).stdout.split(RECORD))
-  })
+test('lectores del terminal sobre los fixtures del contrato', () => {
+  const expected: Record<string, [string, string, string, string, boolean]> = {
+    'invalid-missing-cost-name': ['', '', '', '', true],
+    'invalid-missing-field': ['', '', '', '', true],
+    'invalid-status-mismatch': ['timeout', 'un terminal exitoso no puede declararse timeout', '', '', false],
+    'invalid-two-terminals': ['nonzero_exit', 'segundo terminal, no deberia existir', '', '', false],
+    'invalid-unknown-type': ['', '', '', '', false],
+    'legacy-cost-usd': ['', '', '', '', true],
+    'valid-failed': ['api_error', 'API Error: 529 overloaded', '', '', false],
+    'valid-rate-limit-claude': [
+      'rate_limit',
+      'ventana de uso agotada (rateLimitType=five_hour, resetsAt=2026-05-07T22:40:00Z)',
+      '2026-05-07T22:40:00Z',
+      'sess-ratelimit',
+      false,
+    ],
+    'valid-success': ['', '', '', '', true],
+    'valid-timeout': ['timeout', 'el watchdog mato el proceso tras superar 1800s', '', '', false],
+  }
+  for (const [name, values] of Object.entries(expected)) {
+    const path = contract(name)
+    assert.deepEqual(
+      [agentEventsErrorKind(path), agentEventsErrorDetail(path), agentEventsResetsAt(path), agentEventsSessionId(path), agentStreamCompletedSuccessfully(path)],
+      values,
+      name,
+    )
+  }
 })

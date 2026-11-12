@@ -1,9 +1,5 @@
 // Tests en rojo que ya existian antes de la fase roja, y tests que el reviewer toco en la fase
 // refactor (issues #1937, #2062 y #2438).
-//
-// Gemela de `_red_method_body`, `detect_preexisting_red_tests`, `preexisting_red_only`,
-// `list_reviewer_touched_tests` y `render_reviewer_touched_tests_section` de
-// `_pipeline-common.sh`: mientras tengan llamadores en bash, un cambio va en los dos lados.
 
 import { readFileSync, statSync } from 'node:fs'
 import { join } from 'node:path'

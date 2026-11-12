@@ -1,8 +1,5 @@
 // Version e identidad de la release de Mefisto que corre un pipeline. Se leen del paquete donde
 // vive este modulo, no del cwd del pipeline, que es la raiz del consumidor.
-//
-// Gemela de `_pc_script_dir`, `get_harness_version` y `get_harness_identity_json` de
-// `_pipeline-common.sh`: mientras tengan llamadores en bash, un cambio va en los dos lados.
 
 import { existsSync, lstatSync, statSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
@@ -32,7 +29,7 @@ export interface HarnessIdentity {
   identity_state: IdentityState
 }
 
-// El `$` de jq admite un salto de linea final, que la gemela recorta al capturar el valor.
+// Se admite un salto de linea final, que se recorta al capturar el valor.
 const SEMVER = /^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)([-+][0-9A-Za-z.-]+)?\n?$/
 const COMMIT = /^[0-9a-f]{40}\n?$/
 

@@ -1,7 +1,6 @@
 import assert from 'node:assert/strict'
 import {
   appendFileSync,
-  cpSync,
   existsSync,
   mkdirSync,
   mkdtempSync,
@@ -19,7 +18,6 @@ import type { CommandResult } from '../../../scripts/lib/cli.mts'
 import { git, gitOk, isolateGitConfig } from '../../../scripts/tests/field-note-sandbox.mts'
 import { ensureRepoOnBaseBranch, remediateMainAfterRescue } from '../../../src/internal/scripts/lib/mefisto-base-branch.mts'
 import type { BaseBranchCheck, BaseBranchOptions } from '../../../src/internal/scripts/lib/mefisto-base-branch.mts'
-import { mefistoBash, NO_BASH } from './mefisto-common-parity.mts'
 
 const FOREIGN_SHA = '0123456789abcdef0123456789abcdef01234567'
 
@@ -125,13 +123,6 @@ function repoState(work: string): RepoState {
     status: git(work, 'status', '--porcelain'),
     rescued: rescuedContent(work),
   }
-}
-
-/** Copia del checkout que comparte el remoto, para correr la gemela bash sobre el mismo estado. */
-function twinOf(fixture: Fixture): string {
-  const twin = join(fixture.dir, 'work gemelo')
-  cpSync(fixture.work, twin, { recursive: true })
-  return twin
 }
 
 // --- remediate_main_after_rescue ---
@@ -327,25 +318,6 @@ describe('remediateMainAfterRescue', () => {
     assert.equal(remediate('rescatado y arbol limpio', fixture.work, run), null)
     assert.deepEqual(repoState(fixture.work), state)
   })
-
-  describe('paridad con la gemela bash', { skip: NO_BASH }, () => {
-    for (const name of Object.keys(RESCUE_CASES)) {
-      test(name, () => {
-        const { fixture } = arrangeRescue(name)
-        const twin = twinOf(fixture)
-        const { branch: target = 'main', remoteRef = 'origin/main' } = rescueCase(name)
-        const fromBash = mefistoBash(
-          'warn() { printf "WARN:%s\\n" "$1"; }\nremediate_main_after_rescue "$1" "$2" "$3"; printf "RC:%s\\n" "$?"',
-          [twin, target, remoteRef],
-          { cwd: tmp },
-        )
-        const warning = remediate(name, fixture.work)
-        assert.equal(fromBash.stderr, '')
-        assert.equal(fromBash.stdout, warning === null ? 'RC:1\n' : `WARN:${warning}\nRC:0\n`)
-        assert.deepEqual(repoState(twin), repoState(fixture.work))
-      })
-    }
-  })
 })
 
 function runGit(command: string, args: string[], options?: { cwd?: string }): CommandResult {
@@ -364,7 +336,7 @@ function runGit(command: string, args: string[], options?: { cwd?: string }): Co
 interface BaseCase {
   /** Deja el checkout en el estado de partida. */
   arrange: (fixture: Fixture) => void
-  /** Opciones para la gemela TypeScript; por defecto, la raiz explicita del checkout. */
+  /** Opciones del gate; por defecto, la raiz explicita del checkout. */
   options?: (work: string) => BaseBranchOptions
 }
 
@@ -636,6 +608,21 @@ describe('ensureRepoOnBaseBranch', () => {
     assert.equal(readFileSync(rescuedFile(fixture.work), 'utf8'), state?.rescued)
   })
 
+  test('una base sin upstream aborta tras el switch como un pull fallido', () => {
+    const name = 'main sin upstream'
+    const { fixture, before: state } = arrangeBase(name)
+    assert.match(aborted(ensure(name, fixture.work)), /^El repo principal estaba en la rama 'feature-sin-upstream' .*'git pull --ff-only' fallo ahi/)
+    assert.equal(branch(fixture.work), 'main')
+    assert.equal(git(fixture.work, 'rev-parse', 'main'), state?.main)
+  })
+
+  test('un archivo ignorado no ensucia el arbol', () => {
+    const name = 'archivo ignorado en una rama ajena'
+    const { fixture } = arrangeBase(name)
+    assert.deepEqual(passed(ensure(name, fixture.work)).warnings, [recoveredWarning('feature-ignorados', 'main')])
+    assert.equal(branch(fixture.work), 'main')
+  })
+
   test('sin raiz explicita la resuelve con git desde cwd', () => {
     const name = 'raiz resuelta desde una subcarpeta del checkout'
     const { fixture } = arrangeBase(name)
@@ -660,7 +647,7 @@ describe('ensureRepoOnBaseBranch', () => {
     assert.match(check.gitStderr, /HEAD/)
   })
 
-  test('recorre las guardas en el orden de la gemela y solo muta con switch y pull', () => {
+  test('recorre las guardas en orden y solo muta con switch y pull', () => {
     const fake = scripted({ 'rev-parse --abbrev-ref HEAD': { stdout: 'feature\n' } })
     const check = passed(ensureRepoOnBaseBranch({ repoRoot: '/repo', run: fake.run }))
     assert.deepEqual(check, { ok: true, mainBranch: 'main', warnings: [recoveredWarning('feature', 'main')], gitStderr: '' })
@@ -713,35 +700,5 @@ describe('ensureRepoOnBaseBranch', () => {
     })
     const reason = aborted(ensureRepoOnBaseBranch({ repoRoot: join(tmp, 'no-existe'), run: fake.run }))
     assert.ok(reason.endsWith('antes de relanzar el batch. Salida de git: Updating hint: uno fatal: dos'), reason)
-  })
-
-  describe('paridad con la gemela bash', { skip: NO_BASH }, () => {
-    const script = [
-      'warn() { printf "WARN:%s\\n" "$1"; }',
-      'abort() { printf "ABORT:%s\\n" "$1"; }',
-      'MEFISTO_REPO_ROOT="$1"; unset MAIN_BRANCH',
-      'ensure_repo_on_base_branch; rc=$?',
-      'printf "RC:%s\\nMAIN:%s\\n" "$rc" "${MAIN_BRANCH:-}"',
-    ].join('\n')
-
-    function render(check: BaseBranchCheck): string {
-      const lines = check.ok
-        ? [...check.warnings.map((warning) => `WARN:${warning}`), 'RC:0', `MAIN:${check.mainBranch}`]
-        : [`ABORT:${check.abort}`, 'RC:1', 'MAIN:']
-      return lines.map((line) => `${line}\n`).join('')
-    }
-
-    for (const name of Object.keys(BASE_CASES)) {
-      test(name, () => {
-        const { fixture, before: state } = arrangeBase(name)
-        const twin = twinOf(fixture)
-        const options = baseCase(name).options?.(twin)
-        const fromBash = mefistoBash(script, [options === undefined ? twin : ''], { cwd: options?.cwd ?? tmp })
-        const check = ensure(name, fixture.work)
-        assert.equal(fromBash.stdout, render(check))
-        assert.equal(fromBash.stderr, check.gitStderr)
-        if (state !== null) assert.deepEqual(repoState(twin), repoState(fixture.work))
-      })
-    }
   })
 })

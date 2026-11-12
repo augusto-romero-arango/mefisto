@@ -1,29 +1,19 @@
-// Llamadas a `_mefisto-common.sh` y fixtures de JSONL neutral para los tests de sus gemelas de
-// metricas, modelos por stage, eventos y fallos de agentes. Se borra junto con la libreria bash.
+// JSONL neutral para los tests de metricas, eventos y fallos de agentes del lado interno.
 
+import { writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 
-import type { CommandResult } from '../../../scripts/lib/cli.mts'
-import { NEUTRAL_EVENT_FILES, REPO_ROOT, bashLibrary } from '../../../scripts/tests/pipeline-agents-parity.mts'
+export const REPO_ROOT = join(import.meta.dirname, '..', '..', '..')
 
-export {
-  NEUTRAL_EVENTS,
-  NO_BASH,
-  NO_BASH_JQ,
-  REPO_ROOT,
-  chomp,
-  writeFixtures,
-} from '../../../scripts/tests/pipeline-agents-parity.mts'
-
-const MEFISTO_LIBRARY = join(REPO_ROOT, 'src', 'internal', 'scripts', 'lib', '_mefisto-common.sh')
-
-/** Corre `script` en bash con `_mefisto-common.sh` ya cargada; `args` llegan como `$1`, `$2`, ... */
-export function mefistoBash(script: string, args: string[] = []): CommandResult {
-  return bashLibrary(script, args, { library: MEFISTO_LIBRARY })
+/** Escribe `contents` como `<dir>/<nombre><extension>` y devuelve la ruta de cada uno, por nombre. */
+export function writeFixtures(dir: string, contents: Readonly<Record<string, string>>, extension: string): Record<string, string> {
+  const paths: Record<string, string> = {}
+  for (const [name, content] of Object.entries(contents)) {
+    paths[name] = join(dir, `${name}${extension}`)
+    writeFileSync(paths[name], content)
+  }
+  return paths
 }
-
-/** Separador de registros de la salida de bash: los valores pueden traer saltos de linea. */
-export const RECORD = '\u001e'
 
 function line(type: unknown, fields: Record<string, unknown> = {}): string {
   return `${JSON.stringify({ v: 1, type, ts: '2026-09-06T10:00:00Z', ...fields })}\n`
@@ -54,7 +44,7 @@ export const completed = (fields: Record<string, unknown> = {}): string =>
   line('run.completed', { status: 'success', ...TERMINAL_FIELDS, error: null, ...fields })
 
 /** Terminal con todas sus cifras, como lo deja el runner tras una corrida sana. */
-export const FULL_TERMINAL = line('run.completed', {
+const FULL_TERMINAL = line('run.completed', {
   status: 'success',
   runtime: 'claude',
   model: 'claude-sonnet-5',
@@ -69,12 +59,6 @@ export const FULL_TERMINAL = line('run.completed', {
   error: null,
 })
 
-/**
- * JSONL neutral de los tests bash de `_mefisto-common.sh`, mas los bordes de sus filtros. Sin
- * numeros con exponente ni ceros finales y sin dos valores en una linea, que cada version de jq
- * lee distinto. Los que hacen fallar una operacion de un filtro los aparta de su paridad el test
- * de ese filtro.
- */
 export const INTERNAL_EVENTS: Readonly<Record<string, string>> = {
   'fallo-ordinario': message('todo bien') + failed({ error: { kind: 'nonzero_exit', detail: 'stop_reason=? subtype=? exit=1' } }),
   'corte-de-stream': message('trabajando...') + failed({ error: { kind: 'stream_cut', detail: 'el stream se corto a mitad de escritura' } }),
@@ -147,25 +131,13 @@ export const INTERNAL_EVENTS: Readonly<Record<string, string>> = {
   'fin-de-linea-windows': (message('con retorno') + toolStarted('Read') + failed({ session_id: 'crlf', error: { kind: 'timeout', detail: 'd' } })).replaceAll('\n', '\r\n'),
   'sin-salto-final': message('ultimo') + completed({ session_id: 's' }).trimEnd(),
   'tipo-desconocido': line('run.started', { runtime: 'claude' }) + line(7) + line(undefined, { texto: 'sin type' }) + completed(),
+  'ultima-linea-truncada': failed({ error: { kind: 'rate_limit' } }) + '{"v":1,"type":"run.fai',
+  'linea-que-no-es-json': `no soy json\n${failed({ error: { kind: 'rate_limit' } })}`,
+  'valor-que-no-es-objeto': `${failed({ error: { kind: 'rate_limit' }, denials: 1 })}5\n`,
+  'varias-lineas-por-valor': `${JSON.stringify(JSON.parse(failed({ session_id: 'bonito', error: { kind: 'stream_cut' } })), null, 2)}\n`,
   'solo-saltos': '\n\n',
   vacio: '',
 }
 
-/** Fuera de toda paridad: un `error` que no es objeto falla bajo un `//`, y cada version de jq decide distinto si ese error se propaga. */
+/** Un `error` que no es objeto. */
 export const ERROR_AS_TEXT = message('antes') + failed({ error: 'boom' })
-
-/** Fixtures del repo que entran a la paridad, con su ruta absoluta. */
-export const FIXTURE_FILES: readonly string[] = [
-  ...NEUTRAL_EVENT_FILES,
-  ...[
-    'api-error-404',
-    'api-error-529',
-    'killed-no-result',
-    'rate-limit-exhausted',
-    'result-max-turns',
-    'sensitive-redaction',
-    'stream-truncated',
-    'success-minimal',
-    'success',
-  ].map((name) => join('.claude', 'scripts', 'tests', 'fixtures', 'runtime-claude', `${name}.jsonl`)),
-].map((relative) => join(REPO_ROOT, relative))

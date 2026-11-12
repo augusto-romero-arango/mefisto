@@ -1,7 +1,4 @@
 // Lectura, validacion y escritura del `harness.config.json` del consumidor (MEF-ADR-0053).
-//
-// Gemela de `resolve_harness_config_path`, `load_harness_config` y `upsert_harness_secret` de
-// `_pipeline-common.sh`: mientras tengan llamadores en bash, un cambio va en los dos lados.
 
 import { readFileSync, realpathSync, renameSync, rmSync, statSync, writeFileSync } from 'node:fs'
 import { basename, dirname, join, resolve } from 'node:path'
@@ -53,7 +50,7 @@ export interface HarnessConfig {
 
 type Json = null | boolean | number | string | Json[] | { [key: string]: Json }
 
-/** Lectura que en la gemela hace fallar a `jq` y deja el valor vacio. */
+/** Paso de `get` sobre un tipo que no lo admite: el valor leido queda vacio. */
 class JqError extends Error {}
 
 function fail(lines: string[]): never {
@@ -431,7 +428,7 @@ export function loadHarnessConfig(configPath?: string, options: HarnessConfigOpt
   }
 }
 
-/** Las variables `HARNESS_*` que exporta la gemela, para pasarlas a un proceso que aun las lee. */
+/** El config como variables `HARNESS_*`, para pasarlo a un proceso que las lee. */
 export function harnessConfigEnv(config: HarnessConfig): Record<string, string> {
   return {
     HARNESS_CONFIG_PATH: config.configPath,

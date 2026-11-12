@@ -1,10 +1,5 @@
 // Modelo y effort de cada stage de un pipeline: el override `--models`, el modelo declarado en
 // el frontmatter de un agente y el nivel de effort de fabrica de los agentes publicados.
-//
-// Gemela de `resolve_declared_agent_model`, `pipeline_agent_effort_level`,
-// `resolve_pipeline_agent_effort`, `parse_stage_models`, `resolve_stage_model` y
-// `format_stage_models_for_log` de `_pipeline-common.sh`: mientras tengan llamadores en bash, un
-// cambio va en los dos lados.
 
 import { readFileSync, statSync } from 'node:fs'
 import { join } from 'node:path'
@@ -139,7 +134,7 @@ export type StageModelsParse = { models: StageModels } | { error: string }
  */
 export function parseStageModels(spec: string): StageModelsParse {
   const models = new Map<string, string>()
-  // La gemela lee el spec con `read`, que se queda con su primera linea.
+  // Solo cuenta la primera linea del spec.
   const [firstLine = ''] = spec.split('\n')
   for (const entry of firstLine.split(',')) {
     if (entry.length === 0) continue

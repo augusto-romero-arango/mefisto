@@ -67,7 +67,6 @@ describe('[fuente] (b) ausencia de acoplamientos de runtime', () => {
   for (const pattern of [
     'source "$',
     'source "${',
-    '_pipeline-common.sh',
     '.plugin-root',
     'plugins/cache',
     'PLUGIN_ROOT',
@@ -84,7 +83,6 @@ describe('[salidas] adaptador y mirror', () => {
   contains(claudeBody, 'name: "infra-base-scaffolder"', 'Claude expone el id del agente')
   contains(claudeBody, 'model: "sonnet"', 'Claude materializa el perfil balanced como sonnet')
   absent(claudeBody, 'source "${PLUGIN_ROOT', 'claude_body no hace source del script comun')
-  absent(claudeBody, '_pipeline-common.sh', 'claude_body no referencia _pipeline-common.sh')
   absent(claudeBody, 'CONFIG="$REPO_ROOT', 'claude_body no reconstruye la ruta del config a mano')
 })
 

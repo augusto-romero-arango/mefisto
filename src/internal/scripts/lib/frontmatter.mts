@@ -1,6 +1,4 @@
 // Corte del bloque '---' de un artefacto neutral: frontmatter y body.
-//
-// Gemela de `extract_frontmatter` y `extract_body` de `frontmatter.sh`.
 
 export interface Extraction {
   /** 0 bloque delimitado, 1 la primera linea no es '---', 2 falta el cierre. */

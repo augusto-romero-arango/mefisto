@@ -1,9 +1,6 @@
 // Adaptador de runtime Claude Code (MEF-ADR-0049): compone la invocacion `claude -p` y traduce
 // su stream-json al JSONL neutral de `contract/run-events.schema.json`. Es el unico modulo que
 // nombra el CLI y sus flags.
-//
-// Gemela de `runtime-claude.sh` y de `runtime-claude.jq`, que aun cargan los pipelines en bash:
-// un cambio va en los dos lados.
 
 import { readFileSync, statSync } from 'node:fs'
 import { join } from 'node:path'

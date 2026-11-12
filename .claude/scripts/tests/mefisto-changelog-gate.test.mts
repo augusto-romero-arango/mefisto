@@ -11,7 +11,6 @@ import {
   changesRequireChangelog,
   isPathChangelogExempt,
 } from '../../../src/internal/scripts/lib/mefisto-changelog-gate.mts'
-import { mefistoBash, NO_BASH } from './mefisto-common-parity.mts'
 
 const EXEMPT = [
   'docs/bitacora/algo.md',
@@ -34,7 +33,7 @@ const NOTABLE = [
   'src/internal/x.ts',
 ]
 
-// Rutas limite: la gemela bash compara el texto tal cual, sin normalizar.
+// Rutas limite: se compara el texto tal cual, sin normalizar.
 const LIMIT = [
   '',
   'docs/bitacora',
@@ -118,18 +117,13 @@ describe('isPathChangelogExempt', () => {
     }
   })
 
-  test('coincide con is_path_changelog_exempt de la libreria bash', { skip: NO_BASH }, () => {
-    const samples = [...EXEMPT, ...NOTABLE, ...LIMIT, ...FRAGMENT_PATHS]
-    const result = mefistoBash(
-      'for p in "$@"; do if is_path_changelog_exempt "$p"; then echo 1; else echo 0; fi; done',
-      samples,
-    )
-    assert.equal(result.status, 0, result.stderr)
-    const fromBash = result.stdout.trim().split('\n')
-    assert.equal(fromBash.length, samples.length)
-    samples.forEach((path, index) => {
-      assert.equal(isPathChangelogExempt(path), fromBash[index] === '1', JSON.stringify(path))
-    })
+  test('de las rutas limite y de fragmento solo quedan exentas estas', () => {
+    assert.deepEqual([...LIMIT, ...FRAGMENT_PATHS].filter(isPathChangelogExempt), [
+      'docs/bitacora/',
+      'docs/bitacora/../adr/x.md',
+      'docs/bitacora/x -> scripts/x.sh',
+      'docs/bitacora/*',
+    ])
   })
 })
 
@@ -336,64 +330,35 @@ describe('el gate sobre un worktree', () => {
     assert.equal(changelogFragmentAdded('/wt', 'abc', { run: failing }), false)
   })
 
-  describe('paridad con la gemela bash', { skip: NO_BASH }, () => {
-    const script =
-      'changelog_fragment_added "$1" "$2"; printf "fragmento=%s\\n" "$?"; changes_require_changelog "$1" "$2"; printf "notable=%s\\n" "$?"'
-
-    function verdict(worktree: string, from: string, run?: Run): string {
-      const options = run === undefined ? {} : { run }
-      const fragment = changelogFragmentAdded(worktree, from, options) ? 0 : 1
-      const notable = changesRequireChangelog(worktree, from, options) ? 0 : 1
-      return `fragmento=${fragment}\nnotable=${notable}\n`
+  test('ruta a ruta, git diff y git status dan el mismo veredicto y es notable lo que no esta exento', () => {
+    const samples = [...EXEMPT, ...NOTABLE, ...LIMIT, ...FRAGMENT_PATHS].filter((path) => path.length > 0)
+    const verdict = (run: Run): [boolean, boolean] => [
+      changelogFragmentAdded('wt', 'base', { run }),
+      changesRequireChangelog('wt', 'base', { run }),
+    ]
+    const fragments: string[] = []
+    for (const path of samples) {
+      const fromDiff = verdict(fakeGit(`${path}\n`))
+      assert.deepEqual(verdict(fakeGit('', `?? ${path}\n`)), fromDiff, JSON.stringify(path))
+      assert.equal(fromDiff[1], !isPathChangelogExempt(path), JSON.stringify(path))
+      if (fromDiff[0]) fragments.push(path)
     }
+    assert.deepEqual(fragments, [
+      'changelog.d/1.added.md',
+      'changelog.d/380.added.md',
+      'changelog.d/380.adr-index.md',
+      'changelog.d/sub/x.md',
+      'changelog.d/sub/README.md',
+      'changelog.d/.md',
+      'changelog.d/README.md -> changelog.d/1.added.md',
+      'changelog.d/1.added.md -> changelog.d/README.md',
+    ])
+  })
 
-    for (const name of Object.keys(STATES)) {
-      test(name, () => {
-        state(name)
-        const fromBash = mefistoBash(script, [repo, base], { cwd: tmp })
-        assert.equal(fromBash.stderr, '')
-        assert.equal(fromBash.stdout, verdict(repo, base))
-      })
-    }
-
-    test('con una base que no existe y fuera de un repo', () => {
-      state('C-1 cambio notable anotado como fragmento')
-      for (const [worktree, from] of [
-        [repo, 'no-es-un-commit'],
-        [join(tmp, 'no-es-un-repo'), base],
-      ] as const) {
-        assert.equal(mefistoBash(script, [worktree, from], { cwd: tmp }).stdout, verdict(worktree, from))
-      }
-    })
-
-    test('ruta a ruta, como salida de git diff y de git status', () => {
-      const samples = [...EXEMPT, ...NOTABLE, ...LIMIT, ...FRAGMENT_PATHS].filter((path) => path.length > 0)
-      const fake = [
-        'git() {',
-        '  case " $* " in',
-        '    *" diff "*) [ "$FAKE_MODE" = diff ] && printf "%s\\n" "$FAKE_PATH" ;;',
-        '    *" status "*) [ "$FAKE_MODE" = status ] && printf "?? %s\\n" "$FAKE_PATH" ;;',
-        '  esac',
-        '  return 0',
-        '}',
-        'for FAKE_MODE in diff status; do for FAKE_PATH in "$@"; do',
-        '  changelog_fragment_added wt base; f=$?; changes_require_changelog wt base; n=$?',
-        '  printf "%s%s\\n" "$f" "$n"',
-        'done; done',
-      ].join('\n')
-      const fromBash = mefistoBash(fake, samples)
-      assert.equal(fromBash.status, 0, fromBash.stderr)
-      const verdicts = fromBash.stdout.trim().split('\n')
-      assert.equal(verdicts.length, samples.length * 2)
-      samples.forEach((path, index) => {
-        for (const [offset, run] of [
-          [0, fakeGit(`${path}\n`)],
-          [samples.length, fakeGit('', `?? ${path}\n`)],
-        ] as const) {
-          const expected = `${changelogFragmentAdded('wt', 'base', { run }) ? 0 : 1}${changesRequireChangelog('wt', 'base', { run }) ? 0 : 1}`
-          assert.equal(expected, verdicts[index + offset], JSON.stringify(path))
-        }
-      })
-    })
+  test('con una base que no existe cuenta el status; fuera de un repo no hay nada', () => {
+    state('C-1 cambio notable anotado como fragmento')
+    assert.deepEqual([changelogFragmentAdded(repo, 'no-es-un-commit'), changesRequireChangelog(repo, 'no-es-un-commit')], [true, true])
+    const outside = join(tmp, 'no-es-un-repo')
+    assert.deepEqual([changelogFragmentAdded(outside, base), changesRequireChangelog(outside, base)], [false, false])
   })
 })

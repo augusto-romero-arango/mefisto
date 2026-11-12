@@ -2,10 +2,8 @@
 // el vocabulario neutral del runner (`run.started`, `run.completed`, `run.failed`) y el
 // stream-json de Claude previo al contrato.
 //
-// Gemela de `derive_stage_log_from_stream`, `compute_stage_metrics`, `enrich_stage_metrics` y
-// `enrich_tooling_stage_metrics` de `_pipeline-common.sh`: mientras tengan llamadores en bash, un
-// cambio va en los dos lados. Las metricas viajan como el texto JSON que imprime jq, que es lo que
-// se escribe en el historial; `parseJq` de `jq-literals.mts` lo lee sin perder los literales.
+// Las metricas viajan como el texto JSON que imprime jq, que es lo que se escribe en el historial;
+// `parseJq` de `jq-literals.mts` lo lee sin perder los literales.
 
 import { readFileSync, writeFileSync } from 'node:fs'
 

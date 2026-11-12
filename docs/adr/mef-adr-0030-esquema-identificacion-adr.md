@@ -49,7 +49,7 @@ Asignar un rango de numeros exclusivo a cada proyecto (p. ej. `0001-0999` para e
 
 ### Alt 2: mover los ADRs del consumidor a una ruta distinta (`docs/adr-proyecto/`) en vez de prefijo
 
-El harness ya tiene una convencion de guard que menciona una ruta alterna para ADRs del consumidor (`scripts/_pipeline-common.sh`); se considero apoyarse solo en la ruta para desambiguar, sin tocar el ID.
+El harness ya tiene una convencion de guard que menciona una ruta alterna para ADRs del consumidor (`scripts/lib/pipeline/consumer-scope.mts`); se considero apoyarse solo en la ruta para desambiguar, sin tocar el ID.
 
 **Descartada**: resuelve la colision de archivos en disco, pero no la colision en **prosa** -- un agente que cita "ADR-0006" en una respuesta sigue sin declarar de cual juego habla, que es el sintoma que origino este ADR. El prefijo resuelve ambos ejes (archivo y prosa) con un solo cambio; la ruta por si sola solo resuelve uno.
 
@@ -85,3 +85,4 @@ Forzar a todo consumidor a renombrar sus ADRs con su propio prefijo en el mismo 
 ## Control de cambios
 
 - 2026-07-19: creacion como `aceptado` (issue #322). Fija el esquema de identificacion de ADRs con prefijo por proyecto (`MEF-ADR-` para el marco) y la migracion completa de los 27 ADRs previos del marco a ese esquema.
+- 2026-11-12: la alternativa 2 cita `scripts/lib/pipeline/consumer-scope.mts` en lugar de `scripts/_pipeline-common.sh`, que se borra con el port a TypeScript (MEF-ADR-0057). Sin cambio de doctrina.

@@ -1,7 +1,4 @@
 // Seccion "Warnings remanentes" del cuerpo del PR (issue #2408, MEF-ADR-0056).
-//
-// Gemela de `render_warning_remnants_section` de `_pipeline-common.sh`: mientras tenga llamadores
-// en bash, un cambio va en los dos lados.
 
 import { readFileSync, statSync } from 'node:fs'
 import { join } from 'node:path'

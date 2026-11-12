@@ -1,9 +1,6 @@
 // Ejecucion vigilada de un proceso de agente: sin shell, con stdout y stderr a archivo, sin
 // terminal de control, y con un watchdog que corta por timeout, reanuda al grupo si queda
 // detenido y lo termina a pedido.
-//
-// Gemela de `run_agent_with_watchdog` (`mefisto-process.sh`), que aun cargan los pipelines en
-// bash: un cambio va en los dos lados.
 
 import { appendFileSync, closeSync, openSync } from 'node:fs'
 import { constants } from 'node:os'

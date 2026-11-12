@@ -7,7 +7,6 @@ import { after, before, describe, test } from 'node:test'
 import { coverageClassifyFile } from '../lib/pipeline/coverage.mts'
 import type { CoverageClass } from '../lib/pipeline/coverage.mts'
 import { writeIn } from './consumer-sandbox.mts'
-import { NO_BASH_TWIN, bashTwin } from './pipeline-metrics-parity.mts'
 
 interface Case {
   name: string
@@ -16,8 +15,6 @@ interface Case {
   content: string | null
   projection?: boolean
   expected: CoverageClass
-  /** En bash el resultado depende del locale: fuera de la paridad. */
-  localeDependent?: boolean
 }
 
 const cs = (namespace: string, ...body: string[]): string => [`namespace ${namespace};`, ...body, ''].join('\n')
@@ -198,7 +195,7 @@ const CASES: Case[] = [
     expected: 'not_evaluated',
   },
   { name: 'record con CRLF y sin salto final', path: 'src/Foo.ReadModels/CrlfView.cs', content: 'namespace Foo.ReadModels;\r\n\r\n  // comentario\r\npublic sealed record CrlfView(int Valor);', expected: 'excluded' },
-  { name: 'record con identificador acentuado', path: 'src/Foo.ReadModels/AnioView.cs', content: cs('Foo.ReadModels', 'public sealed record AñoView(int Año);'), expected: 'excluded', localeDependent: true },
+  { name: 'record con identificador acentuado', path: 'src/Foo.ReadModels/AnioView.cs', content: cs('Foo.ReadModels', 'public sealed record AñoView(int Año);'), expected: 'excluded' },
   { name: 'record con parametro con valor por defecto entre parentesis', path: 'src/Foo.ReadModels/DefectoView.cs', content: cs('Foo.ReadModels', 'public sealed record DefectoView(Guid Id = default(Guid));'), expected: 'not_evaluated' },
   // Cliente HTTP tipado de un servidor MCP.
   { name: 'Infraestructura/{X}Api.cs sin subcarpeta', path: 'src/Foo.Mcp.Colaboradores/Infraestructura/ColaboradoresApi.cs', content: cs('Foo.Mcp.Colaboradores.Infraestructura', 'internal sealed class ColaboradoresApi { }'), expected: 'excluded' },
@@ -241,18 +238,12 @@ describe('coverageClassifyFile', () => {
   test('sin isProjection el carve-out read-side no aplica', () => {
     assert.equal(coverageClassifyFile('src/Foo.Bar/ListarTurnos/FunctionEndpoint.cs', root), 'logic')
   })
-})
 
-describe('paridad con la gemela bash', { skip: NO_BASH_TWIN }, () => {
-  for (const [index, item] of CASES.entries()) {
-    if (item.localeDependent === true) continue
-    test(`coverage_classify_file: ${item.name}`, () => {
-      const worktree = worktreeFor(index, item)
-      for (const projection of [true, false]) {
-        const bash = bashTwin('coverage_classify_file "$@"', [item.path, worktree, String(projection)])
-        assert.equal(bash.status, 0)
-        assert.equal(`${coverageClassifyFile(item.path, worktree, projection)}\n`, bash.stdout)
-      }
-    })
-  }
+  test('solo el carve-out read-side depende de isProjection', () => {
+    const readSide = new Set(['Obtener{X} bajo tipo:projection', 'Obtener{X} fuera de tipo:projection', 'Listar{X}s bajo tipo:projection', 'ListarEventosDe{Aggregate}'])
+    for (const [index, item] of CASES.entries()) {
+      const flipped = coverageClassifyFile(item.path, worktreeFor(index, item), !(item.projection ?? false))
+      assert.equal(flipped === item.expected, !readSide.has(item.name), item.name)
+    }
+  })
 })

@@ -11,7 +11,6 @@ import {
   renderRunMetricsTable,
 } from '../lib/pipeline/run-history.mts'
 import type { AgentStage, RunStage } from '../lib/pipeline/run-history.mts'
-import { NO_BASH_TWIN, bashTwin } from './pipeline-metrics-parity.mts'
 
 const WRITER =
   '{"model":"openai/gpt-5.6-terra","tokens":{"input":117000,"output":5700,"cache_read":1300000,"cache_write":22000,"reasoning":3000},"estimated_cost_usd":0.59}'
@@ -31,7 +30,7 @@ const agent = (key: string, name: string, duration: string, metrics: string): Ag
 const tokens = (input: unknown, rest = '"output":2,"cache_read":3,"cache_write":4,"reasoning":5'): string =>
   `{"model":"m","tokens":{"input":${String(input)},${rest}},"estimated_cost_usd":0.5}`
 
-// Entradas de la paridad de la tabla: las de los tests de bash y las de cada forma de degradar.
+// Tablas de ejemplo, con cada forma de degradar; sus filas esperadas estan en fixtures/run-history/metrics-tables.json.
 const TABLES: Record<string, RunStage[]> = {
   'metricas completas': [stage('Writer', 907, WRITER), stage('Reviewer', 292, REVIEWER)],
   'metricas null y costo null': [stage('Writer', 60, 'null'), stage('Reviewer', 30, NO_COST)],
@@ -72,7 +71,7 @@ const TABLES: Record<string, RunStage[]> = {
   'duracion larga': [stage('Larga', 3599, FULL), stage('Mas larga', 86400, FULL), stage('Cero', 0, FULL)],
 }
 
-// Grupos de la paridad del objeto `agents`.
+// Grupos de ejemplo del objeto `agents`.
 const AGENTS: Record<string, AgentStage[]> = {
   'dos grupos': [agent('test-writer', 'projection-test-writer', '125', WRITER), agent('reviewer', 'reviewer', '300', 'null')],
   'metricas vacias': [agent('implementer', 'projection-implementer', '', '')],
@@ -275,58 +274,47 @@ describe('appendCompletedHistory', () => {
   })
 })
 
-describe('paridad con la gemela bash', { skip: NO_BASH_TWIN }, () => {
-  for (const [name, stages] of Object.entries(TABLES)) {
-    test(`render_run_metrics_table: ${name}`, () => {
-      const args = stages.flatMap((item) => [item.label, item.duration === null ? '' : String(item.duration), item.metrics])
-      const bash = bashTwin('render_run_metrics_table "$@"', args)
-      assert.equal(bash.status, 0)
-      assert.equal(renderRunMetricsTable(stages), bash.stdout)
-    })
-  }
+describe('casos de ejemplo', () => {
+  const ROWS = JSON.parse(readFileSync(join(import.meta.dirname, 'fixtures', 'run-history', 'metrics-tables.json'), 'utf8')) as Record<string, string[]>
 
-  test('_render_run_metric_count', () => {
-    for (const count of ['0', '7', '999', '1000', '1049', '1050', '1950', '99950', '999949', '999950', '1000000', '1005000', '1125000', '', 'x', '1.5', '-1']) {
-      // Los conteos salen de un `printf` sin salto; el `-`, de un `echo`.
-      assert.equal(renderRunMetricCount(count), bashTwin('_render_run_metric_count "$@"', [count]).stdout.replace(/\n$/, ''), count)
+  test('cada tabla de ejemplo tiene sus filas esperadas', () => {
+    assert.deepEqual(Object.keys(ROWS), Object.keys(TABLES))
+    for (const [name, stages] of Object.entries(TABLES)) {
+      assert.equal(renderRunMetricsTable(stages), `${HEADER}${(ROWS[name] ?? []).map((row) => `${row}\n`).join('')}`, name)
     }
   })
 
-  for (const [name, stages] of Object.entries(AGENTS)) {
-    test(`build_agents_history_json: ${name}`, () => {
-      const bash = bashTwin(
-        'build_agents_history_json "$@"',
-        stages.flatMap((item) => [item.key, item.agent, item.duration, item.metrics]),
-      )
-      assert.equal(bash.status, 0)
-      assert.equal(`${buildAgentsHistoryJson(stages)}\n`, bash.stdout)
-    })
-  }
+  test('renderRunMetricCount en los umbrales de redondeo', () => {
+    const cases: [string, string][] = [
+      ['7', '7'],
+      ['1049', '1k'],
+      ['1950', '1.9k'],
+      ['99950', '100k'],
+      ['999949', '999.9k'],
+      ['1005000', '1.00M'],
+      ['1125000', '1.12M'],
+    ]
+    for (const [count, text] of cases) assert.equal(renderRunMetricCount(count), text, count)
+  })
 
-  test('append_completed_history: entrada valida y comando que falla', () => {
-    const script = 'warn() { printf "%s\\n" "$1" >> "$WARN_LOG"; }; append_completed_history "$@"'
-    const strip = (log: string): string => readFileSync(log, 'utf8').replace(/^\[\d{2}:\d{2}:\d{2}\]/gm, '[hora]')
-    const run = (label: string, ok: boolean): Record<string, string> => {
-      const [bashDir, tsDir] = [mkdtempSync(join(work, `${label}-bash-`)), mkdtempSync(join(work, `${label}-ts-`))]
-      const command = ok ? ['printf', '%s\\n', '{"tests":3}'] : ['false']
-      const bash = bashTwin(script, [join(bashDir, 'history.jsonl'), join(bashDir, 'events.log'), ...command], { WARN_LOG: join(bashDir, 'warn.log') })
-      assert.equal(bash.status, 0)
-      const warnings: string[] = []
-      const entry = (): string => {
-        if (!ok) throw new Error('fallo')
-        return '{"tests":3}'
-      }
-      appendCompletedHistory(join(tsDir, 'history.jsonl'), join(tsDir, 'events.log'), entry, {
-        warn: (message) => warnings.push(message),
-        now: () => new Date(),
-      })
-      const read = (dir: string, file: string): string => (existsSync(join(dir, file)) ? strip(join(dir, file)) : '(ausente)')
-      assert.equal(read(tsDir, 'history.jsonl'), read(bashDir, 'history.jsonl'))
-      assert.equal(read(tsDir, 'events.log'), read(bashDir, 'events.log'))
-      assert.equal(warnings.map((message) => `${message}\n`).join('') || '(ausente)', read(bashDir, 'warn.log'))
-      return {}
-    }
-    run('ok', true)
-    run('fallo', false)
+  test('cada grupo de ejemplo da su objeto agents', () => {
+    const expected: [string, string][] = [
+      ['dos grupos', '{"test-writer":{"duration":125,"metrics":{"model":"openai/gpt-5.6-terra","tokens":{"input":117000,"output":5700,"cache_read":1300000,"cache_write":22000,"reasoning":3000},"estimated_cost_usd":0.59,"agent":"projection-test-writer"}},"reviewer":{"duration":300,"metrics":null}}'],
+      ['metricas vacias', '{"implementer":{"duration":null,"metrics":null}}'],
+      ['agente vacio', '{"reviewer":{"duration":300,"metrics":{"turns":5}}}'],
+      ['siete grupos', '{"test-writer":{"duration":60,"metrics":null},"implementer":{"duration":90,"metrics":null},"smoke-test-writer":{"duration":40,"metrics":null},"reviewer":{"duration":120,"metrics":null},"scaffolder":{"duration":300,"metrics":null},"patch-test-writer":{"duration":30,"metrics":null},"patch-implementer":{"duration":20,"metrics":null}}'],
+      ['sin grupos', '{}'],
+      ['metricas con agent previo', '{"writer":{"duration":1,"metrics":{"agent":"nuevo","turns":1}}}'],
+      ['clave repetida', '{"a":{"duration":3,"metrics":{"n":2,"agent":"z"}},"b":{"duration":2,"metrics":null}}'],
+      ['duraciones raras', '{"a":{"duration":null,"metrics":null},"b":{"duration":1.50,"metrics":null},"c":{"duration":null,"metrics":null},"e":{"duration":1E+3,"metrics":null},"f":{"duration":7,"metrics":null},"g":{"duration":null,"metrics":null},"h":{"duration":null,"metrics":null}}'],
+      ['metricas invalidas', '{"a":{"duration":1,"metrics":null},"b":{"duration":2,"metrics":null},"c":{"duration":3,"metrics":null}}'],
+      ['metricas con literales', '{"a":{"duration":1,"metrics":{"cost":0.10,"ms":1E+3,"t":{"n":1.0},"agent":"x"}}}'],
+      ['clave con caracteres que se escapan', '{"con \\"comillas\\"":{"duration":1,"metrics":{"a":1,"agent":"ñ\\t"}}}'],
+      ['metricas que no son objeto, sin agente', '{"a":{"duration":1,"metrics":5},"b":{"duration":2,"metrics":[1,2]},"c":{"duration":3,"metrics":false}}'],
+      ['metricas que no son objeto, con agente', '{"a":{"duration":125},"b":{"duration":null}}'],
+      ['metricas false con agente', '{"a":{"duration":null}}'],
+    ]
+    assert.deepEqual(expected.map(([name]) => name), Object.keys(AGENTS))
+    for (const [name, json] of expected) assert.equal(buildAgentsHistoryJson(AGENTS[name] ?? []), json, name)
   })
 })

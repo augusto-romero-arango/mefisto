@@ -1,12 +1,5 @@
 // Politica ante el fallo de un agente del pipeline interno: la etiqueta del fallo, si se
 // reintenta, si es irrecuperable y si el trabajo que dejo en el worktree es confiable.
-//
-// Gemela de `agent_failure_is_unrecoverable`, `classify_agent_failure`,
-// `agent_failure_is_retryable` y `agent_work_is_trustworthy` de `_mefisto-common.sh`: mientras
-// tengan llamadores en bash, un cambio va en los dos lados. Las gemelas de
-// `agent_failure_is_holdable` y de `iso8601_to_epoch` son las del lado publicado:
-// `agentFailureIsHoldable` de `scripts/lib/pipeline/agent-failures.mts` y `resetsAtEpoch` de
-// `scripts/lib/pipeline/agent-hold.mts`.
 
 import type { Run } from '../../../../scripts/lib/azure-cli.mts'
 import { capture } from '../../../../scripts/lib/cli.mts'
@@ -64,7 +57,7 @@ export function agentFailureIsRetryable(failureType: string): boolean {
  * `true` si el trabajo que dejo un agente fallido en `worktree` sirve para dar el stage por
  * hecho: el fallo es recuperable, el agente alcanzo a escribir su resumen (`summaryFile`, lo
  * ultimo que hace) y hay cambios contra `base` o sin commitear. Un `git diff` que falla cuenta
- * como cambios, igual que en la gemela.
+ * como cambios.
  */
 export function agentWorkIsTrustworthy(
   worktree: string,

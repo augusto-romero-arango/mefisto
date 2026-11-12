@@ -346,7 +346,7 @@ describe('guiones del runtime falso', { concurrency: true }, () => {
     const stderrLog = join(work, 'desconocido.stderr')
     const run = await fake('no-existe', ['--stderr-log', stderrLog])
     assertOutcome(run, 65, 'protocol_invalid', 'protocol_invalid')
-    assert.equal(readFileSync(stderrLog, 'utf8'), "runtime-fake.sh: MEFISTO_FAKE_SCRIPT desconocido: 'no-existe'\n")
+    assert.equal(readFileSync(stderrLog, 'utf8'), "runtime-fake: MEFISTO_FAKE_SCRIPT desconocido: 'no-existe'\n")
   })
 
   test('self-stop: el watchdog reanuda al proceso detenido y la corrida termina bien', { skip: process.platform === 'win32' ? 'Windows no tiene SIGSTOP' : false }, async () => {

@@ -15,7 +15,7 @@ hooks/hooks.json       # salida Claude generada: SessionStart (.mefisto/pipeline
 .claude/               # skills/agentes/pipelines INTERNOS (no se publican)
   commands/            # /mefisto-tooling, /mefisto-plan, /mefisto-bug, ...
   agents/              # mefisto-investigator, mefisto-planner, mefisto-historiador
-  scripts/             # _mefisto-common.sh, mefisto-tooling-pipeline.sh, ...
+  scripts/             # shims de los pipelines internos: mefisto-tooling-pipeline.sh, ...
 docs/
   adr/                 # ADRs del marco
   testing/harness-cheatsheet.md
@@ -67,7 +67,7 @@ node --test ".claude/scripts/**/*.test.mts" "scripts/**/*.test.mts" "src/**/*.te
 - **Shim**: mientras algo en bash o un comando invoque `x.sh`, queda como shim de una linea de codigo: `exec node "$(dirname "$0")/x.mts" "$@"`. Cuando no quede ningun llamador, se borra.
 - **Forma del modulo**: funciones puras exportadas que el test importa, y un `main` que solo corre cuando el archivo es el punto de entrada (`isEntryPoint(import.meta.url)` de `scripts/lib/cli.mts`). Los errores previstos se lanzan como `CliError` y `runMain` los traduce a mensaje en stderr y codigo de salida.
 - **Procesos**: siempre con lista de argumentos y sin shell (`capture` de `scripts/lib/cli.mts`). Nada de `exec` con una cadena.
-- **Librerias compartidas**: lo publicado vive en `scripts/lib/`; lo interno, en `src/internal/scripts/lib/`. Lo interno puede importar lo publicado, nunca al reves. Una funcion que tambien existe en una libreria bash se anota como gemela en los dos lados hasta que la de bash pierda sus llamadores.
+- **Librerias compartidas**: lo publicado vive en `scripts/lib/`; lo interno, en `src/internal/scripts/lib/`. Lo interno puede importar lo publicado, nunca al reves.
 - **Rutas**: se arman con `node:path`, nunca concatenando `/`. Para decidir si una ruta cae dentro de otra se comparan rutas reales con `realpathSync.native`, que es la unica variante que expande los nombres cortos de Windows.
 - **Salida**: los mensajes y codigos de salida del script en bash se conservan; son contrato para los comandos y agentes que los leen.
-- **Tests**: con `node:test` y `node:assert/strict`, sobre carpetas temporales y repos git creados en el propio test. Nada que dependa de bash, salvo un test de paridad con una gemela en bash, que se salta en Windows.
+- **Tests**: con `node:test` y `node:assert/strict`, sobre carpetas temporales y repos git creados en el propio test. Nada que dependa de bash, salvo los que ejecutan un bloque de bash de un comando o agente con `scripts/tests/markdown-bash.mts`, que en Windows usa Git Bash.

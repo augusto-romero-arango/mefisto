@@ -4,7 +4,6 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { after, describe, test } from 'node:test'
 
-import { capture } from '../lib/cli.mts'
 import type { CommandResult } from '../lib/cli.mts'
 import { loggedThrough } from '../lib/pipeline/pipeline-log.mts'
 import {
@@ -23,7 +22,6 @@ import {
   zoneAbbreviation,
 } from '../lib/pipeline/pipeline-pr.mts'
 import type { GithubTools } from '../lib/pipeline/pipeline-pr.mts'
-import { NO_BASH } from './pipeline-agents-parity.mts'
 
 const work = mkdtempSync(join(tmpdir(), 'mefisto pipeline pr '))
 after(() => rmSync(work, { recursive: true, force: true }))
@@ -48,12 +46,6 @@ describe('repoSlugFromRemoteUrl', () => {
   ]
   test('saca owner/repo de un remoto de GitHub con .git y deja igual lo demas', () => {
     for (const [url, slug] of CASES) assert.equal(repoSlugFromRemoteUrl(url), slug, url)
-  })
-  test('paridad con el sed de los pipelines bash', { skip: NO_BASH }, () => {
-    for (const [url] of CASES) {
-      const bash = capture('bash', ['-c', `printf '%s\\n' "$1" | sed 's/.*github.com[:/]\\(.*\\)\\.git/\\1/'`, 'bash', url])
-      assert.equal(repoSlugFromRemoteUrl(url), bash.stdout.replace(/\n+$/, ''), url)
-    }
   })
 })
 

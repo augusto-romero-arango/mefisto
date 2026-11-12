@@ -868,18 +868,11 @@ describe('repo real', () => {
     )
   })
 
-  test('runtime, modelos y runner salen de src/runtime/, sin fronteras internas temporales', () => {
+  test('runtime, modelos y runner salen de src/runtime/', () => {
     const source = readFileSync(join(REPO_ROOT, 'src', 'internal', 'scripts', 'mefisto-tooling-pipeline.mts'), 'utf8')
     assert.ok(source.includes("from '../../runtime/lib/mefisto-runtime.mts'"))
     assert.ok(source.includes("from '../../runtime/lib/mefisto-models.mts'"))
     assert.ok(source.includes("'runtime', 'mefisto-run-agent.mts'"))
-    for (const legacy of [
-      ['src', 'internal', 'scripts', 'mefisto-run-agent.sh'],
-      ['src', 'internal', 'scripts', 'lib', 'mefisto-models.sh'],
-      ['src', 'internal', 'scripts', 'lib', 'runtime-claude.sh'],
-    ]) {
-      assert.equal(existsSync(join(REPO_ROOT, ...legacy)), false, legacy.join('/'))
-    }
   })
 
   test('el gate de changelog es solo de fragmentos: nada del gate viejo sobre CHANGELOG.md', () => {

@@ -3,9 +3,7 @@
 // `tool.completed`, `run.completed`, `run.failed`): no interpreta el stream nativo de ningun
 // runtime.
 //
-// Gemela de `derive_stage_log_from_stream` y `compute_stage_metrics` de `_mefisto-common.sh`:
-// mientras tengan llamadores en bash, un cambio va en los dos lados. Las metricas viajan como el
-// texto JSON que imprime jq, que es lo que se escribe en el historial.
+// Las metricas viajan como el texto JSON que imprime jq, que es lo que se escribe en el historial.
 
 import { appendFileSync, readFileSync, writeFileSync } from 'node:fs'
 

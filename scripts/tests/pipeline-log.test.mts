@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { after, describe, test } from 'node:test'
 
-import { COLOR, capture } from '../lib/cli.mts'
+import { COLOR } from '../lib/cli.mts'
 import { PipelineAbort } from '../lib/pipeline/pipeline-exit.mts'
 import {
   ASCII_GLYPHS,
@@ -17,7 +17,6 @@ import {
   stripAnsi,
   tailLogForAbort,
 } from '../lib/pipeline/pipeline-log.mts'
-import { NO_BASH } from './pipeline-agents-parity.mts'
 
 const work = mkdtempSync(join(tmpdir(), 'mefisto pipeline log '))
 after(() => rmSync(work, { recursive: true, force: true }))
@@ -138,13 +137,16 @@ describe('lastLines y tailLogForAbort', () => {
     assert.equal(stripAnsi(tailLogForAbort(file, 20)), 'Ultimas 20 lineas del log:\na\nb\nc')
   })
 
-  test('paridad con tail y sed de los pipelines bash', { skip: NO_BASH }, () => {
-    for (const content of ['a\nb\nc\n', 'una sola', `x\n\n${COLOR.red}rojo${COLOR.reset}\n\n\n`, `${'l\n'.repeat(40)}fin`]) {
+  test('cuenta las lineas vacias del final, quita los colores y tolera la falta de salto final', () => {
+    const cases: [string, string][] = [
+      ['una sola', 'una sola'],
+      [`x\n\n${COLOR.red}rojo${COLOR.reset}\n\n\n`, 'x\n\nrojo'],
+      [`${'l\n'.repeat(40)}fin`, 'l\nl\nl\nl\nfin'],
+    ]
+    for (const [content, expected] of cases) {
       const file = logFile()
       writeFileSync(file, content)
-      const bash = capture('bash', ['-c', `t="$(tail -n 5 "$1" | sed 's/\\x1b\\[[0-9;]*m//g')"; [ -n "$t" ] && printf '%s' "$t"`, 'bash', file])
-      const tail = tailLogForAbort(file, 5)
-      assert.equal(tail.length === 0 ? '' : tail.slice(tail.indexOf('\n') + 1), bash.stdout, JSON.stringify(content))
+      assert.equal(stripAnsi(tailLogForAbort(file, 5)), `Ultimas 5 lineas del log:\n${expected}`, JSON.stringify(content))
     }
   })
 })

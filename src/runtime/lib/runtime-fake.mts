@@ -20,9 +20,6 @@
 //                      una terminal (`STDIN_TTY=0|1` en MEFISTO_FAKE_ARGS_FILE, o `<volcado>.tty`).
 //
 // MEFISTO_FAKE_ARGS_FILE recibe el argv del "CLI", un argumento por linea.
-//
-// Gemela de `runtime-fake.sh`, que aun cargan los tests en bash: un cambio de guion va en los
-// dos lados.
 
 import { appendFileSync, closeSync, openSync, readFileSync, readSync, statSync, writeFileSync, writeSync } from 'node:fs'
 import { join } from 'node:path'
@@ -315,7 +312,7 @@ export async function emit(argv: string[], env: NodeJS.ProcessEnv): Promise<numb
       out(success)
       return 0
     default:
-      writeSync(2, `runtime-fake.sh: MEFISTO_FAKE_SCRIPT desconocido: '${script}'\n`)
+      writeSync(2, `runtime-fake: MEFISTO_FAKE_SCRIPT desconocido: '${script}'\n`)
       return 2
   }
 }

@@ -1,9 +1,5 @@
 // Smoke tests del consumidor: carril "solo smoke" (issue #2357) y smokes existentes que invocan
 // una tool MCP o una ruta HTTP que el issue modifico (issues #2473 y #2480).
-//
-// Gemela de `detect_smoke_only`, `smoke_tool_name`, `list_smokes_invoking_tools` y
-// `list_smokes_invoking_routes` de `_pipeline-common.sh`: mientras tengan llamadores en bash, un
-// cambio va en los dos lados.
 
 import { readdirSync, readFileSync, realpathSync, statSync } from 'node:fs'
 import { join } from 'node:path'
