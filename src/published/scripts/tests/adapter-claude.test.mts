@@ -25,6 +25,7 @@ import { createAdapter } from '../adapters/adapter-claude.mts'
 import { generatePublishedAdapters } from '../generate-published-adapters.mts'
 import { claudeEffort, renderClaude } from '../lib/adapter-claude.mts'
 import { AdapterError } from '../lib/published-adapter.mts'
+import { defaultEffort } from '../../../runtime/lib/runtime-claude.mts'
 import { validatePublishedArtifacts } from '../validate-published-artifacts.mts'
 
 const HERE = import.meta.dirname
@@ -709,21 +710,7 @@ describe('effort', () => {
     assert.throws(() => render(path), new AdapterError(`${path}: effort: nivel 'raro' sin mapping Claude`))
   })
 
-  test('coincide con el effort por defecto del runner en los cinco niveles', { skip: NO_SHELL }, () => {
-    const runtime = join(REPO_ROOT, 'src', 'runtime', 'lib', 'runtime-claude.sh')
-    const levels = LEVELS.map(([level]) => level)
-    const result = spawnSync(
-      'bash',
-      [
-        '-c',
-        'source "$1"; shift; for level in "$@"; do runtime_claude_default_effort "$level"; echo; done',
-        '_',
-        runtime,
-        ...levels,
-      ],
-      { encoding: 'utf8' },
-    )
-    assert.equal(result.status, 0, result.stderr)
-    assert.deepEqual(result.stdout.trimEnd().split('\n'), levels.map(claudeEffort))
+  test('coincide con el effort por defecto del runner en los cinco niveles', () => {
+    for (const [level] of LEVELS) assert.equal(defaultEffort(level), claudeEffort(level), level)
   })
 })

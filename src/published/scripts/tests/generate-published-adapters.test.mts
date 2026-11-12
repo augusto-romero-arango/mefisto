@@ -371,28 +371,28 @@ describe('dos adaptadores', () => {
 
   test('--check detecta contenido divergente en la clausura', async () => {
     await fresh()
-    appendFileSync(pathIn(out, 'dist/alpha/scripts/_pipeline-common.sh'), 'alterada\n')
+    appendFileSync(pathIn(out, 'dist/alpha/scripts/upgrade.sh'), 'alterada\n')
     const result = await check()
     assert.equal(result.status, 1)
-    assert.ok(result.out.includes('dist/alpha/scripts/_pipeline-common.sh: distinta'), result.out)
+    assert.ok(result.out.includes('dist/alpha/scripts/upgrade.sh: distinta'), result.out)
   })
 
   test('--check detecta el modo divergente en la clausura', { skip: WINDOWS }, async () => {
     await fresh()
-    chmodSync(pathIn(out, 'dist/alpha/scripts/_pipeline-common.sh'), 0o644)
+    chmodSync(pathIn(out, 'dist/alpha/scripts/upgrade.sh'), 0o644)
     const result = await check()
     assert.equal(result.status, 1)
-    assert.ok(result.out.includes('dist/alpha/scripts/_pipeline-common.sh: modo divergente'), result.out)
+    assert.ok(result.out.includes('dist/alpha/scripts/upgrade.sh: modo divergente'), result.out)
   })
 
   test('--check rechaza un symlink en una salida de la clausura', { skip: WINDOWS }, async () => {
     await fresh()
-    const published = pathIn(out, 'dist/alpha/scripts/_pipeline-common.sh')
+    const published = pathIn(out, 'dist/alpha/scripts/upgrade.sh')
     rmSync(published)
-    symlinkSync(pathIn(repo, 'scripts/_pipeline-common.sh'), published)
+    symlinkSync(pathIn(repo, 'scripts/upgrade.sh'), published)
     const result = await check()
     assert.equal(result.status, 1)
-    assert.ok(result.out.includes('dist/alpha/scripts/_pipeline-common.sh: enlace simbolico'), result.out)
+    assert.ok(result.out.includes('dist/alpha/scripts/upgrade.sh: enlace simbolico'), result.out)
   })
 
   test('--check detecta un symlink huerfano', { skip: WINDOWS }, async () => {
@@ -762,7 +762,7 @@ describe('clausura declarada', () => {
   test('declara los scripts que arrancan el TDD publicado', () => {
     const sources = CLOSURE.map((asset) => asset.source)
     assert.ok(sources.includes('scripts/tdd-pipeline.sh'))
-    assert.ok(sources.includes('src/runtime/lib/mefisto-process.sh'))
+    assert.ok(sources.includes('src/runtime/lib/mefisto-process.mts'))
   })
 })
 

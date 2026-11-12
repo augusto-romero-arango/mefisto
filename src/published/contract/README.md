@@ -201,8 +201,8 @@ a la variable ya resuelta, de modo que varios usos en el mismo body comparten
 esa única inicialización. Si existen ambas variantes de una misma ruta, el
 bloque generado elige la canónica, informa por stderr que ignora la legacy y
 nunca combina contenido de las dos. Para `config-path`, la precedencia y el
-texto de los diagnósticos coinciden con `resolve_harness_config_path read` de
-`scripts/_pipeline-common.sh` -- con las rutas expresadas relativas a la raíz
+texto de los diagnósticos coinciden con `resolveHarnessConfigPath('read')` de
+`scripts/lib/harness-config.mts` -- con las rutas expresadas relativas a la raíz
 del consumidor, donde el resolver las interpola absolutas; para `instructions-path`, el mismo mecanismo
 aplica sobre las directivas del consumidor y el diagnóstico de ausencia total
 apunta a `{{mefisto:command onboard}}`. Los nombres de archivo legacy

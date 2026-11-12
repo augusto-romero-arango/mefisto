@@ -11,7 +11,7 @@ export function needsInstructionsPath(body: string): boolean {
   return body.includes('{{mefisto:instructions-path}}')
 }
 
-// Replica mensajes y precedencia de `resolve_harness_config_path read` (scripts/_pipeline-common.sh).
+// Replica mensajes y precedencia de `resolveHarnessConfigPath('read')` (scripts/lib/harness-config.mts).
 const CONFIG_BLOCK = [
   'if [ -f ".mefisto/harness.config.json" ]; then',
   '    if [ -f ".claude/harness.config.json" ]; then',
