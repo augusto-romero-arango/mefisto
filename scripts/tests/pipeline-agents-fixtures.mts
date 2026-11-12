@@ -1,41 +1,9 @@
-// Llamadas a `_pipeline-common.sh` y fixtures de eventos para los tests de sus gemelas de
-// invocacion de agentes (`scripts/lib/pipeline/{stage-models,agent-*}.mts`). Las llamadas a bash
-// se borran junto con la libreria.
+// Fixtures de eventos neutrales compartidos por los tests de `scripts/lib/pipeline/agent-*.mts`.
 
 import { writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 
-import { capture, commandExists } from '../lib/cli.mts'
-import type { CommandResult } from '../lib/cli.mts'
-
 export const REPO_ROOT = join(import.meta.dirname, '..', '..')
-export const BASH_LIBRARY = join(REPO_ROOT, 'scripts', '_pipeline-common.sh')
-export const RUNTIME_LIB_DIR = join(REPO_ROOT, 'src', 'runtime', 'lib')
-
-/** Motivo para saltar un test de paridad, o `false` si se puede correr: en Windows no se exige bash. */
-export const NO_BASH: string | false =
-  process.platform === 'win32' || !commandExists('bash') ? 'requiere bash' : false
-export const NO_BASH_JQ: string | false = NO_BASH || (commandExists('jq') ? false : 'requiere jq')
-
-export interface BashOptions {
-  /** Copia de la libreria a cargar en vez de la del repo. */
-  library?: string
-  env?: NodeJS.ProcessEnv
-}
-
-/** Corre `script` en bash con la libreria ya cargada; `args` llegan como `$1`, `$2`, ... */
-export function bashLibrary(script: string, args: string[] = [], options: BashOptions = {}): CommandResult {
-  return capture(
-    'bash',
-    ['-c', `set +u; source "$0" >/dev/null 2>&1\n${script}`, options.library ?? BASH_LIBRARY, ...args],
-    { env: options.env ?? process.env },
-  )
-}
-
-/** Quita los saltos finales, como una sustitucion de comando de bash. */
-export function chomp(text: string): string {
-  return text.replace(/\n+$/, '')
-}
 
 function terminal(type: string, fields: Record<string, unknown>): string {
   return `${JSON.stringify({ v: 1, type, ts: '2026-08-05T10:00:00Z', runtime: 'claude', ...fields })}\n`
@@ -46,11 +14,7 @@ const completed = (fields: Record<string, unknown> = {}): string =>
   terminal('run.completed', { status: 'success', error: null, ...fields })
 const MESSAGE = '{"v":1,"type":"message","ts":"2026-08-05T10:00:00Z","role":"assistant","text":"trabajando"}\n'
 
-/**
- * JSONL neutral de los tests bash de la politica de fallos, mas los bordes de la lectura del
- * terminal. Entran a la paridad: ninguno depende de la version de jq (sin `//` sobre un error,
- * sin numeros que no sean enteros, sin valores pegados).
- */
+/** JSONL neutral de la politica de fallos, mas los bordes de la lectura del terminal. */
 export const NEUTRAL_EVENTS: Readonly<Record<string, string>> = {
   'tooling-fallido': '{"type":"run.failed","status":"failed","session_id":"s 1","denials":2,"resets_at":"2030-01-01T00:00:00Z","error":{"kind":"rate_limit"}}\n',
   'tooling-exito': '{"type":"run.completed","status":"success","session_id":null,"denials":0,"error":null}\n',

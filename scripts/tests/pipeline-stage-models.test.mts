@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { copyFileSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { after, before, describe, test } from 'node:test'
@@ -14,7 +14,9 @@ import {
   resolveStageModel,
 } from '../lib/pipeline/stage-models.mts'
 import type { StageModels } from '../lib/pipeline/stage-models.mts'
-import { BASH_LIBRARY, NO_BASH, NO_BASH_JQ, REPO_ROOT, RUNTIME_LIB_DIR, bashLibrary, chomp } from './pipeline-agents-parity.mts'
+
+const REPO_ROOT = join(import.meta.dirname, '..', '..')
+const RUNTIME_LIB_DIR = join(REPO_ROOT, 'src', 'runtime', 'lib')
 
 const AGENT_FIXTURES: Readonly<Record<string, string>> = {
   'con-modelo': '---\nname: fixture-con-modelo\nmodel: "modelo-fixture"\n---\n',
@@ -41,9 +43,7 @@ before(() => {
   work = mkdtempSync(join(tmpdir(), 'mefisto stage models '))
   plugin = join(work, 'plugin')
   agentsDir = join(plugin, 'agents')
-  mkdirSync(join(plugin, 'scripts'), { recursive: true })
-  mkdirSync(agentsDir)
-  copyFileSync(BASH_LIBRARY, join(plugin, 'scripts', '_pipeline-common.sh'))
+  mkdirSync(agentsDir, { recursive: true })
   for (const [agent, content] of Object.entries(AGENT_FIXTURES)) writeFileSync(join(agentsDir, `${agent}.md`), content)
   mkdirSync(join(agentsDir, 'es-carpeta.md'))
   eventsLog = join(work, 'events.log')
@@ -74,6 +74,7 @@ describe('resolveDeclaredAgentModel', () => {
     assert.equal(resolveDeclaredAgentModel('agente-inexistente', agentsDir), '')
     assert.equal(resolveDeclaredAgentModel('es-carpeta', agentsDir), '')
     assert.equal(resolveDeclaredAgentModel('con-modelo', join(work, 'no-existe')), '')
+    assert.equal(resolveDeclaredAgentModel('', agentsDir), '')
   })
 
   test('descarta el comentario, los espacios y las comillas del valor', () => {
@@ -194,7 +195,22 @@ describe('resolvePipelineAgentEffort', () => {
     const unknownRuntime = await resolvePipelineAgentEffort({ ...request('writer', 'tooling-writer', ''), runtime: 'no_existe' })
     assert.ok('error' in unknownRuntime)
     assert.match(unknownRuntime.error, /^runtime 'no_existe' no tiene adaptador/)
+    assert.deepEqual(await resolvePipelineAgentEffort({ ...request('writer', 'tooling-writer', ''), runtime: 'No-Valido' }), {
+      error: "runtime invalido: 'No-Valido'",
+    })
+    const broken = join(work, 'roto.json')
+    writeFileSync(broken, '{"fake":')
+    assert.deepEqual(await resolvePipelineAgentEffort(request('writer', 'tooling-writer', broken)), {
+      error: `${broken}: no es JSON valido`,
+    })
     assert.equal(readFileSync(eventsLog, 'utf8'), '')
+  })
+
+  test('el adaptador claude traduce el nivel de fabrica', async () => {
+    assert.deepEqual(
+      await resolvePipelineAgentEffort({ key: 'scaffold', agentId: 'domain-scaffolder', runtime: 'claude', env: {}, libDir: RUNTIME_LIB_DIR }),
+      { effort: 'medium', level: 'light' },
+    )
   })
 
   test('sin events.log no anota, y uno que no se puede escribir no impide resolver', async () => {
@@ -235,12 +251,27 @@ describe('parseStageModels', () => {
   })
 
   test('[6] una clave o un valor vacio fallan', () => {
+    assert.equal(parseError('='), "entrada '=': agente y modelo no pueden estar vacios")
     assert.equal(parseError('=opus'), "entrada '=opus': agente y modelo no pueden estar vacios")
     assert.equal(parseError('reviewer='), "entrada 'reviewer=': agente y modelo no pueden estar vacios")
   })
 
   test('[7] un agente repetido falla nombrandolo', () => {
     assert.equal(parseError('writer=sonnet,writer=opus'), "el agente 'writer' esta repetido")
+  })
+
+  test('no recorta espacios ni interpreta el valor', () => {
+    assert.equal(models(',').size, 0)
+    assert.deepEqual([...models(' a = b ')], [[' a ', ' b ']])
+    assert.deepEqual(
+      [...models('a=*,writer=$HOME')],
+      [
+        ['a', '*'],
+        ['writer', '$HOME'],
+      ],
+    )
+    assert.equal(resolveStageModel(models(' a = b '), 'a', 'por-defecto'), 'por-defecto')
+    assert.equal(resolveStageModel(models('writer=sonnet'), '', 'por-defecto'), 'por-defecto')
   })
 
   test('solo lee la primera linea del spec', () => {
@@ -287,126 +318,4 @@ test('[10] formatStageModelsForLog: vacio sin mapa, una linea con el', () => {
   assert.equal(formatStageModelsForLog(models('')), '')
   assert.equal(formatStageModelsForLog(models('reviewer=opus')), 'reviewer=opus')
   assert.equal(formatStageModelsForLog(models('writer=sonnet,reviewer=opus')), 'writer=sonnet, reviewer=opus')
-})
-
-describe('paridad con la gemela bash', { skip: NO_BASH }, () => {
-  test('resolve_declared_agent_model', () => {
-    const library = join(plugin, 'scripts', '_pipeline-common.sh')
-    const agents = [...Object.keys(AGENT_FIXTURES), 'agente-inexistente', 'es-carpeta', '']
-    const script = 'for agent in "$@"; do model=$(resolve_declared_agent_model "$agent"); printf "%s %s\\n" "$?" "$model"; done'
-    assert.deepEqual(
-      agents.map((agent) => `0 ${resolveDeclaredAgentModel(agent, agentsDir)}`),
-      chomp(bashLibrary(script, agents, { library }).stdout).split('\n'),
-    )
-  })
-
-  test('pipeline_agent_effort_level', () => {
-    const agents = [...Object.keys(PIPELINE_AGENT_EFFORT_LEVELS), 'agente-inexistente', 'toString', '']
-    const script = 'for agent in "$@"; do level=$(pipeline_agent_effort_level "$agent"); printf "%s %s\\n" "$?" "$level"; done'
-    assert.deepEqual(
-      agents.map((agent) => {
-        const level = pipelineAgentEffortLevel(agent)
-        return level === null ? '1 ' : `0 ${level}`
-      }),
-      chomp(bashLibrary(script, agents).stdout).split('\n'),
-    )
-  })
-
-  test('resolve_pipeline_agent_effort', { skip: NO_BASH_JQ }, async () => {
-    const mapping = join(work, 'paridad-models.json')
-    writeFileSync(
-      mapping,
-      '{"fake":{"efforts":{"levels":{"light":"n-light","thorough":"n-thorough"},"agents":{"tooling-reviewer":"thorough"}}}}\n',
-    )
-    const invalid = join(work, 'paridad-invalido.json')
-    writeFileSync(invalid, '{"fake":{"efforts":{"levels":"no-es-un-objeto"}}}\n')
-    const broken = join(work, 'paridad-roto.json')
-    writeFileSync(broken, '{"fake":')
-    const script = [
-      'source "$1/mefisto-models.sh"',
-      'MEFISTO_RUNTIME_RESUELTO="$2"; CONSUMER_MODELS_FILE="$3"; EVENTS_LOG_ABS="$4"',
-      'resolve_pipeline_agent_effort "$5" "$6"',
-      'printf "%s\\n%s\\n%s\\n" "$?" "$RESOLVED_PIPELINE_EFFORT" "$PIPELINE_EFFORT_ERROR"',
-    ].join('\n')
-    const cases: [runtime: string, mappingFile: string, key: string, agent: string, env: Record<string, string>][] = [
-      ['fake', '', 'writer', 'tooling-writer', {}],
-      ['fake', join(work, 'ausente.json'), 'writer', 'tooling-writer', {}],
-      ['fake', '', 'reviewer', 'tooling-reviewer', { MEFISTO_FAKE_DEFAULT_EFFORT: 'fx-default' }],
-      ['fake', mapping, 'writer', 'tooling-writer', {}],
-      ['fake', mapping, 'implementer', 'implementer', { MEFISTO_FAKE_DEFAULT_EFFORT: 'fx-default' }],
-      ['fake', mapping, 'reviewer', 'tooling-reviewer', {}],
-      ['fake', mapping, 'x', 'agente-inexistente', {}],
-      ['fake', invalid, 'writer', 'tooling-writer', {}],
-      ['fake', broken, 'writer', 'tooling-writer', {}],
-      ['no_existe', '', 'writer', 'tooling-writer', {}],
-      ['No-Valido', '', 'writer', 'tooling-writer', {}],
-      ['claude', '', 'scaffold', 'domain-scaffolder', {}],
-    ]
-    for (const [runtime, mappingFile, key, agent, extra] of cases) {
-      const env = { PATH: process.env.PATH ?? '', MEFISTO_RUNTIME_LIB_DIR: RUNTIME_LIB_DIR, ...extra }
-      const bashLog = join(work, 'paridad-bash.log')
-      const ownLog = join(work, 'paridad-ts.log')
-      for (const log of [bashLog, ownLog]) writeFileSync(log, '')
-      const fromBash = bashLibrary(script, [RUNTIME_LIB_DIR, runtime, mappingFile, bashLog, key, agent], { env })
-      const resolved = await resolvePipelineAgentEffort({ key, agentId: agent, runtime, mappingFile, eventsLog: ownLog, env })
-      const label = `${runtime} ${key} ${agent} ${mappingFile}`
-      assert.equal(
-        'error' in resolved ? `1\n\n${resolved.error}\n` : `0\n${resolved.effort}\n\n`,
-        // El adaptador bash vive en un `.sh` y el de TypeScript en un `.mts`.
-        fromBash.stdout.replace(/(runtime-[a-z0-9_]+)\.sh\)/, '$1.mts)'),
-        label,
-      )
-      const withoutClock = (log: string): string => readFileSync(log, 'utf8').replace(/^\[\d{2}:\d{2}:\d{2}\]/gm, '[]')
-      assert.equal(withoutClock(ownLog), withoutClock(bashLog), label)
-    }
-  })
-
-  test('parse_stage_models, resolve_stage_model y format_stage_models_for_log', () => {
-    // Tras un spec invalido el llamador aborta: el mapa a medias de la gemela no se compara.
-    const script = [
-      'for spec in "$@"; do (',
-      '  parse_stage_models "$spec" || { printf "1\\n%s\\n\\036" "$PIPELINE_STAGE_MODELS_ERROR"; exit 0; }',
-      '  printf "0\\n%s\\n%s\\n" "$PIPELINE_STAGE_MODELS_ERROR" "$(format_stage_models_for_log)"',
-      '  for agent in writer reviewer a " a " test-writer write ""; do resolve_stage_model "$agent" "por-defecto"; done',
-      '  printf "\\036"',
-      '); done',
-    ].join('\n')
-    const agents = ['writer', 'reviewer', 'a', ' a ', 'test-writer', 'write', '']
-    const specs = [
-      '',
-      'reviewer=opus',
-      'writer=sonnet,reviewer=opus',
-      'writer=claude-opus-5[1m]',
-      'reviewer-opus',
-      '=opus',
-      'reviewer=',
-      '=',
-      'writer=sonnet,writer=opus',
-      'writer=sonnet,reviewer-opus',
-      ',,a=b,,',
-      ',',
-      'a=b=c',
-      'a=b,',
-      ' a = b ',
-      'a=*,writer=$HOME',
-      'a=b\nc=d',
-      'test-writer=opus,patch-test-writer=haiku',
-    ]
-    const fromBash = bashLibrary(script, specs).stdout.split('\u001e')
-    assert.equal(fromBash.length, specs.length + 1)
-    specs.forEach((spec, index) => {
-      const parsed = parseStageModels(spec)
-      const expected =
-        'error' in parsed
-          ? ['1', parsed.error, '']
-          : [
-              '0',
-              '',
-              formatStageModelsForLog(parsed.models),
-              ...agents.map((agent) => resolveStageModel(parsed.models, agent, 'por-defecto')),
-              '',
-            ]
-      assert.equal(expected.join('\n'), fromBash[index], JSON.stringify(spec))
-    })
-  })
 })

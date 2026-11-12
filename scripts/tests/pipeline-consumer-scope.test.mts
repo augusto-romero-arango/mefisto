@@ -8,7 +8,6 @@ import type { Run } from '../lib/azure-cli.mts'
 import { resolveHarnessConfigPath } from '../lib/harness-config.mts'
 import { isPathInConsumerBlocklist, validateConsumerScopeChanges } from '../lib/pipeline/consumer-scope.mts'
 import { git, isolateGitConfig } from './field-note-sandbox.mts'
-import { bashLibrary, NO_BASH } from './pipeline-scope-parity.mts'
 
 const BLOCKED = [
   'commands/foo.md',
@@ -54,7 +53,7 @@ const ALLOWED = [
   '.mcp.json',
 ]
 
-// Rutas limite: la gemela bash compara el texto tal cual, sin normalizar.
+// Rutas limite: fuera de Windows se compara el texto tal cual, sin normalizar.
 const LIMIT = [
   '',
   '.',
@@ -165,18 +164,28 @@ describe('isPathInConsumerBlocklist', () => {
     }
   })
 
-  test('coincide con is_path_in_consumer_blocklist de la libreria bash', { skip: NO_BASH }, () => {
-    const samples = [...BLOCKED, ...ALLOWED, ...LIMIT]
-    const result = bashLibrary(
-      'for p in "$@"; do if is_path_in_consumer_blocklist "$p"; then echo 1; else echo 0; fi; done',
-      samples,
-    )
-    assert.equal(result.status, 0, result.stderr)
-    const fromBash = result.stdout.trim().split('\n')
-    assert.equal(fromBash.length, samples.length)
-    samples.forEach((path, index) => {
-      assert.equal(isPathInConsumerBlocklist(path), fromBash[index] === '1', JSON.stringify(path))
-    })
+  test('de las rutas limite, fuera de Windows solo bloquea las que empiezan con el prefijo literal', () => {
+    const blocked = [
+      'commands/',
+      'dist/',
+      'src/published/',
+      'docs/adr/mef-adr-',
+      'commands/../src/Foo.cs',
+      'commands//foo.md',
+      'commands/foo.md ',
+      'commands/a\nb',
+      'commands/*',
+      'docs/adr/mef-adr-*',
+      'commands/"x"',
+      'commands/ñandú.md',
+    ]
+    for (const platform of ['linux', 'darwin'] as const) {
+      assert.deepEqual(
+        LIMIT.filter((path) => isPathInConsumerBlocklist(path, platform)),
+        blocked,
+        platform,
+      )
+    }
   })
 })
 
@@ -285,7 +294,7 @@ describe('validateConsumerScopeChanges', () => {
     ])
   })
 
-  test('como la gemela, no ve el destino de un renombre pendiente ni una ruta citada', () => {
+  test('no ve el destino de un renombre pendiente ni una ruta citada', () => {
     const { run } = fakeGit({
       diff: '',
       status: 'R  src/a.md -> commands/a.md\nA  "commands/a\\303\\261o.md"\n',
@@ -328,19 +337,19 @@ describe('validateConsumerScopeChanges', () => {
     }
   })
 
-  describe('paridad con la gemela bash', { skip: NO_BASH }, () => {
+  describe('sobre un repo git real', () => {
     let repo = ''
     let base = ''
     let restoreGit = (): void => {}
 
     before(() => {
       restoreGit = isolateGitConfig(tmp)
-      repo = join(tmp, 'repo paridad')
+      repo = join(tmp, 'repo con espacio')
       mkdirSync(repo)
       git(repo, 'init', '-q', '-b', 'main')
       git(repo, 'config', 'user.email', 'test@local')
       git(repo, 'config', 'user.name', 'Test')
-      writeFileSync(join(repo, 'README.md'), '')
+      write('README.md')
       git(repo, 'add', 'README.md')
       git(repo, 'commit', '-q', '-m', 'base')
       base = git(repo, 'rev-parse', 'HEAD')
@@ -350,32 +359,21 @@ describe('validateConsumerScopeChanges', () => {
       restoreGit()
     })
 
-    function write(path: string, content = ''): void {
+    // Contenidos distintos para que git no empareje renombres entre archivos vacios.
+    function write(path: string, content = `${path}\n`): void {
       mkdirSync(dirname(join(repo, path)), { recursive: true })
       writeFileSync(join(repo, path), content)
     }
 
-    function assertParity(configPath?: string): number {
-      const env = { ...process.env }
-      delete env.HARNESS_CONFIG_PATH
-      if (configPath !== undefined) env.HARNESS_CONFIG_PATH = configPath
-      const fromBash = bashLibrary('validate_consumer_scope_changes "$1" "$2"', [repo, base], { env, cwd: tmp })
-      const check = validateConsumerScopeChanges(repo, base, configPath === undefined ? {} : { configPath })
-      assert.equal(fromBash.stdout, '')
-      assert.equal(fromBash.status, check.violations.length > 0 ? 1 : 0)
-      assert.equal(fromBash.stderr, check.message.map((line) => `${line}\n`).join(''))
-      return check.violations.length
-    }
-
-    test('sin cambios y con cambios del consumidor', () => {
-      assert.equal(assertParity(), 0)
+    test('sin cambios y con cambios del consumidor no hay violaciones', () => {
+      assert.deepEqual(validateConsumerScopeChanges(repo, base), { violations: [], message: [] })
       write('docs/testing/mefisto-certification/fixture.md')
       git(repo, 'add', '-A')
       write('src/Foo.cs', 'class Foo {}\n')
-      assert.equal(assertParity(), 0)
+      assert.deepEqual(validateConsumerScopeChanges(repo, base), { violations: [], message: [] })
     })
 
-    test('con violaciones commiteadas, preparadas, sin seguimiento y renombradas', () => {
+    test('ve lo commiteado, lo preparado y lo sin seguimiento, con HEAD separado y con una base que no existe', () => {
       write('commands/x.md')
       write('docs/adr/0028-x.md')
       git(repo, 'add', '-A')
@@ -385,19 +383,15 @@ describe('validateConsumerScopeChanges', () => {
       git(repo, 'add', 'docs/adr/mef-adr-0001-ejemplo.md')
       write('hooks/h.json')
       write('skills/con espacio/SKILL.md')
-      write('agents/año.md')
       git(repo, 'mv', 'docs/adr/0028-x.md', 'mefisto-manifest.json')
-      assert.ok(assertParity() >= 5)
-      assert.ok(assertParity(configFile('fork-paridad', 'org/fork')) >= 5)
-      assert.ok(assertParity(configFile('sin-slug-paridad', '')) >= 5)
-      assert.ok(assertParity(join(tmp, 'no-existe.json')) >= 5)
-    })
+      const violations = ['commands/x.md', 'commands/x.md', 'docs/adr/mef-adr-0001-ejemplo.md', 'hooks/', 'skills/']
+      const check = validateConsumerScopeChanges(repo, base)
+      assert.deepEqual(check.violations, violations)
+      assert.deepEqual(check.message, diagnostic(violations, DEFAULT_SLUG, 'main'))
 
-    test('con HEAD separado y con una base que no existe', () => {
       git(repo, 'checkout', '-q', '--detach')
-      assert.ok(assertParity() >= 5)
-      base = 'no-es-un-commit'
-      assert.ok(assertParity() >= 1)
+      assert.deepEqual(validateConsumerScopeChanges(repo, base).message, diagnostic(violations, DEFAULT_SLUG, 'HEAD'))
+      assert.deepEqual(validateConsumerScopeChanges(repo, 'no-es-un-commit').violations, violations.slice(1))
     })
   })
 })

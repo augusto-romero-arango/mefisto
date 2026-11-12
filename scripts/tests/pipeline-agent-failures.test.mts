@@ -5,15 +5,7 @@ import { join } from 'node:path'
 import { after, before, describe, test } from 'node:test'
 
 import { agentFailureIsHoldable, classifyAgentFailure, classifyNeutralAgentFailure } from '../lib/pipeline/agent-failures.mts'
-import {
-  NEUTRAL_EVENTS,
-  NEUTRAL_EVENT_FILES,
-  NO_BASH,
-  NO_BASH_JQ,
-  REPO_ROOT,
-  bashLibrary,
-  writeFixtures,
-} from './pipeline-agents-parity.mts'
+import { NEUTRAL_EVENTS, NEUTRAL_EVENT_FILES, REPO_ROOT, writeFixtures } from './pipeline-agents-fixtures.mts'
 
 const LOGS: Readonly<Record<string, string>> = {
   vacio: '',
@@ -53,20 +45,6 @@ const STREAMS: Readonly<Record<string, string>> = {
   'otro-tipo': '{"type":"rate_limit","rate_limit_info":{"status":"rejected"}}\n',
   vacio: '',
 }
-
-const RAW_STREAM_FILES = [
-  'api-error-404',
-  'api-error-529',
-  'killed-no-result',
-  'rate-limit-exhausted',
-  'result-max-turns',
-  'sensitive-redaction',
-  'stream-truncated',
-  'success-minimal',
-  'success',
-]
-  .map((name) => join(REPO_ROOT, '.claude', 'scripts', 'tests', 'fixtures', 'runtime-claude', `${name}.jsonl`))
-  .concat(join(REPO_ROOT, 'scripts', 'tests', 'fixtures', 'stream-watch', 'legacy-claude.stream.jsonl'))
 
 let work = ''
 let events: Record<string, string> = {}
@@ -185,62 +163,39 @@ test('[7] agentFailureIsHoldable: solo RATE_LIMIT y PROVIDER_UNAVAILABLE amerita
   assert.equal(agentFailureIsHoldable('TIMEOUT (signal 137, 5s)'), false)
   assert.equal(agentFailureIsHoldable(' RATE_LIMIT'), false)
   assert.equal(agentFailureIsHoldable(''), false)
+  for (const label of ['TIMEOUT', 'KILLED', 'STREAM_CUT', 'PROTOCOL_INVALID', 'rate_limit']) {
+    assert.equal(agentFailureIsHoldable(label), false, label)
+  }
+  // Compara el prefijo, como el `case` del que se porto.
+  assert.equal(agentFailureIsHoldable('RATE_LIMITADO'), true)
 })
 
-describe('paridad con la gemela bash', { skip: NO_BASH }, () => {
-  test('classify_neutral_agent_failure sobre los fixtures de eventos', { skip: NO_BASH_JQ }, () => {
-    const exits = ['1', '65', '124', '137']
-    const files = [
-      ...Object.values(events),
-      ...NEUTRAL_EVENT_FILES.map((relative) => join(REPO_ROOT, relative)),
-      join(work, 'no-existe.jsonl'),
-      '',
-    ]
-    const script = `for f in "$@"; do for code in ${exits.join(' ')}; do classify_neutral_agent_failure "$code" "$f"; done; done`
-    const fromBash = bashLibrary(script, files).stdout.split('\n')
-    const own = files.flatMap((eventsFile) => exits.map((code) => classifyNeutralAgentFailure(code, eventsFile)))
-    assert.deepEqual([...own, ''], fromBash)
-  })
-
-  test('classify_agent_failure sobre los logs y los streams crudos', { skip: NO_BASH_JQ }, () => {
-    const exits = ['1', '137', '143']
-    const allLogs = [...Object.values(logs), join(work, 'no-existe.log'), work]
-    // Fuera queda el stream cuyo resultado depende de como trata `//` un error en cada version de jq.
-    const stable = Object.entries(streams).flatMap(([name, path]) => (name === 'info-que-no-es-objeto' ? [] : [path]))
-    const allStreams = [...stable, ...RAW_STREAM_FILES, join(work, 'no-existe.stream.jsonl'), '']
-    // Cada stream contra tres logs y cada log contra dos streams: el producto completo tarda un minuto en bash.
-    const pairs: [log: string, stream: string][] = [
-      ...allStreams.flatMap((streamFile) => ['generico', '5xx', '429-con-limite'].map((name): [string, string] => [log(name), streamFile])),
-      ...allLogs.flatMap((logFile) => ['', stream('solo-allowed')].map((streamFile): [string, string] => [logFile, streamFile])),
-    ]
-    const script = `while [ "$#" -gt 0 ]; do for code in ${exits.join(' ')}; do classify_agent_failure "$code" 12 "$1" "$2"; done; shift 2; done`
-    const fromBash = bashLibrary(script, pairs.flat()).stdout.split('\n')
-    const own = pairs.flatMap(([logFile, streamFile]) => exits.map((code) => classifyAgentFailure(code, 12, logFile, streamFile)))
-    assert.deepEqual([...own, ''], fromBash)
-    for (const label of ['RATE_LIMIT', 'PROVIDER_UNAVAILABLE', 'API_ERROR_CLIENT', 'CLI_ERROR']) {
-      assert.ok(own.includes(`${label} (exit 1)`), label)
+describe('fixtures del repo', () => {
+  test('classifyNeutralAgentFailure lee el error.kind de los fixtures de eventos', () => {
+    const expected: Record<string, string> = {
+      'invalid-status-mismatch': 'TIMEOUT',
+      'valid-failed': 'API_ERROR_CLIENT',
+      'valid-rate-limit-claude': 'RATE_LIMIT',
+      'valid-rate-limit-sin-reset': 'RATE_LIMIT',
+      'valid-timeout': 'TIMEOUT',
+      'neutral-failed.events': 'API_ERROR_CLIENT',
+      'hold.events': 'RATE_LIMIT',
+    }
+    for (const relative of NEUTRAL_EVENT_FILES) {
+      const name = relative.split(/[\\/]/).pop()?.replace(/\.jsonl$/, '') ?? ''
+      assert.equal(classifyNeutralAgentFailure(1, join(REPO_ROOT, relative)), expected[name] ?? 'CLI_ERROR', name)
+      assert.equal(classifyNeutralAgentFailure(124, join(REPO_ROOT, relative)), 'TIMEOUT', name)
     }
   })
 
-  test('agent_failure_is_holdable', () => {
-    const labels = [
-      'RATE_LIMIT (exit 1)',
-      'PROVIDER_UNAVAILABLE (exit 1)',
-      'RATE_LIMIT',
-      'PROVIDER_UNAVAILABLE',
-      'RATE_LIMITADO',
-      'API_ERROR_CLIENT (exit 1)',
-      'CLI_ERROR (exit 1)',
-      'TIMEOUT (signal 137, 5s)',
-      'TIMEOUT',
-      'KILLED',
-      'STREAM_CUT',
-      'PROTOCOL_INVALID',
-      ' RATE_LIMIT',
-      'rate_limit',
-      '',
-    ]
-    const script = 'for label in "$@"; do if agent_failure_is_holdable "$label"; then printf 1; else printf 0; fi; done'
-    assert.equal(labels.map((label) => (agentFailureIsHoldable(label) ? '1' : '0')).join(''), bashLibrary(script, labels).stdout)
+  test('classifyAgentFailure solo ve RATE_LIMIT en el stream crudo con un evento rechazado', () => {
+    const raw = join(REPO_ROOT, '.claude', 'scripts', 'tests', 'fixtures', 'runtime-claude')
+    const names = ['api-error-404', 'api-error-529', 'killed-no-result', 'result-max-turns', 'sensitive-redaction', 'stream-truncated', 'success-minimal', 'success']
+    for (const name of names) {
+      assert.equal(classifyAgentFailure(1, 12, log('generico'), join(raw, `${name}.jsonl`)), 'CLI_ERROR (exit 1)', name)
+      assert.equal(classifyAgentFailure(1, 12, log('5xx'), join(raw, `${name}.jsonl`)), 'PROVIDER_UNAVAILABLE (exit 1)', name)
+    }
+    assert.equal(classifyAgentFailure(1, 12, log('generico'), join(raw, 'rate-limit-exhausted.jsonl')), 'RATE_LIMIT (exit 1)')
+    assert.equal(classifyAgentFailure(137, 12, log('generico'), join(raw, 'rate-limit-exhausted.jsonl')), 'TIMEOUT (signal 137, 12s)')
   })
 })

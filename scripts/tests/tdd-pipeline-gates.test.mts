@@ -7,7 +7,6 @@ import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, test } from 'node:test'
 
-import { capture } from '../lib/cli.mts'
 import { coverageClassifyFile } from '../lib/pipeline/coverage.mts'
 import { renderRunMetricsTable } from '../lib/pipeline/run-history.mts'
 import {
@@ -332,20 +331,13 @@ describe('nombres de rama y de proyecto', () => {
     assert.equal(tddIssueSlug('Pre-cargar Ñandú: año'), 'precargar-andu-ao')
     assert.equal(tddIssueSlug('Un titulo muy largo que pasa de los cuarenta caracteres'), 'un-titulo-muy-largo-que-pasa-de-los-cuar')
     assert.equal(tddIssueSlug('Termina en espacio de corte xxxxxxxxxxx yy'), 'termina-en-espacio-de-corte-xxxxxxxxxxx')
+    assert.equal(tddIssueSlug(' Espacio inicial y  doble'), '-espacio-inicial-y-doble')
   })
   test('slug de un archivo de HU: cada signo un guion', () => {
     assert.equal(tddFileSlug('HU-25 Registrar turno'), 'hu-25-registrar-turno')
     assert.equal(tddFileSlug('HU  25__día'), 'hu-25-d-a')
-  })
-  test('paridad con el tr y sed del pipeline bash', { skip: process.platform === 'win32' }, () => {
-    const issueScript = 'echo "$1" | tr "[:upper:]" "[:lower:]" | tr " áéíóúàèìòùäëïöü" " aeiouaeiouaeiou" | sed "s/[^a-z0-9 ]//g" | tr -s " " "-" | cut -c1-40 | sed "s/-$//"'
-    const fileScript = 'echo "$1" | tr "[:upper:]" "[:lower:]" | sed "s/[^a-zA-Z0-9]/-/g" | tr -s "-" | cut -c1-40 | sed "s/-$//"'
-    const bash = (script: string, title: string): string => capture('bash', ['-c', script, '_', title]).stdout.replace(/\n$/, '')
-    for (const title of ['Registrar Ausencia del Colaborador', 'Crear jornada día ÚNICO (versión 2)', 'Pre-cargar Ñandú: año', ' Espacio inicial y  doble']) {
-      // El tr de GNU no es multibyte: la transliteracion de acentos solo coincide con el de macOS.
-      if (process.platform === 'darwin' || !/[^\x00-\x7f]/.test(title)) assert.equal(tddIssueSlug(title), bash(issueScript, title), title)
-      assert.equal(tddFileSlug(title.replace(/[^\x00-\x7f]/g, 'x')), bash(fileScript, title.replace(/[^\x00-\x7f]/g, 'x')), title)
-    }
+    assert.equal(tddFileSlug(' Espacio inicial y  doble'), '-espacio-inicial-y-doble')
+    assert.equal(tddFileSlug('Pre-cargar xandx: axo'), 'pre-cargar-xandx-axo')
   })
   test('dominio kebab a PascalCase', () => {
     assert.equal(pascalCase('control-horas'), 'ControlHoras')

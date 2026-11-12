@@ -8,7 +8,6 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { after, describe, test } from 'node:test'
 
-import { capture, commandExists } from '../lib/cli.mts'
 import { OTEL_PIN_CANONICO, XmlError, checkOtelPin, parseXmlElements } from '../lib/pipeline/scaffold-otel-pins.mts'
 import { renderWarningRemnantsSection } from '../lib/pipeline/warning-remnants.mts'
 import {
@@ -23,7 +22,6 @@ import {
 import { FIXTURES } from './scaffold-pipeline-sandbox.mts'
 
 const REPO_ROOT = join(import.meta.dirname, '..', '..')
-const NO_BASH = process.platform === 'win32'
 const work = mkdtempSync(join(tmpdir(), 'mefisto scaffold prompts '))
 after(() => rmSync(work, { recursive: true, force: true }))
 
@@ -97,28 +95,26 @@ describe('dominio', () => {
     assert.equal(pascalCase('v2-api'), 'V2Api')
   })
 
-  test('paridad con el sed, tr, grep y awk de scaffold-pipeline.sh', { skip: NO_BASH }, () => {
-    const inputs = ['CalculoHoras', 'calculo_horas', 'v2Api', 'aBC', 'Ventas-Online', 'x', 'mal!nombre']
-    for (const input of inputs) {
-      const script = [
-        'D=$(echo "$1" | sed \'s/_/-/g\' | sed \'s/\\([a-z0-9]\\)\\([A-Z]\\)/\\1-\\2/g\' | tr \'[:upper:]\' \'[:lower:]\')',
-        'printf "%s\\n" "$D"',
-        'if echo "$D" | grep -qE \'^[a-z][a-z0-9]*(-[a-z0-9]+)*$\'; then echo ok; else echo no; fi',
-        "echo \"$D\" | awk -F'-' '{for(i=1;i<=NF;i++) $i=toupper(substr($i,1,1)) substr($i,2)}1' OFS=''",
-      ].join('\n')
-      const result = capture('bash', ['-c', script, 'paridad', input])
-      const normalized = normalizeDomain(input)
-      assert.equal(result.stdout, `${normalized}\n${isKebabDomain(normalized) ? 'ok' : 'no'}\n${pascalCase(normalized)}\n`, input)
+  test('normaliza, valida y deriva PascalCase de los nombres que recibe', () => {
+    const cases: [input: string, normalized: string, kebab: boolean, pascal: string][] = [
+      ['CalculoHoras', 'calculo-horas', true, 'CalculoHoras'],
+      ['calculo_horas', 'calculo-horas', true, 'CalculoHoras'],
+      ['aBC', 'a-bc', true, 'ABc'],
+      ['Ventas-Online', 'ventas-online', true, 'VentasOnline'],
+      ['x', 'x', true, 'X'],
+      ['mal!nombre', 'mal!nombre', false, 'Mal!nombre'],
+    ]
+    for (const [input, normalized, kebab, pascal] of cases) {
+      assert.equal(normalizeDomain(input), normalized, input)
+      assert.equal(isKebabDomain(normalized), kebab, input)
+      assert.equal(pascalCase(normalized), pascal, input)
     }
-    for (const body of ['x\nDominio: Calculo-Horas y mas\n', 'dominio:\t ab_c', 'Dominio: a Dominio: b']) {
-      const result = capture('bash', [
-        '-c',
-        'echo "$1" | sed -n \'s/.*[Dd]ominio:[[:space:]]*\\([a-zA-Z][a-zA-Z0-9-]*\\).*/\\1/p\' | head -1',
-        'paridad',
-        body,
-      ])
-      assert.equal(result.stdout.replace(/\n$/, ''), domainFromIssueBody(body), body)
-    }
+  })
+
+  test('lee el dominio del cuerpo del issue: el primero, cortado en el primer caracter invalido', () => {
+    assert.equal(domainFromIssueBody('x\nDominio: Calculo-Horas y mas\n'), 'Calculo-Horas')
+    assert.equal(domainFromIssueBody('dominio:\t ab_c'), 'ab')
+    assert.equal(domainFromIssueBody('Dominio: a Dominio: b'), 'b')
   })
 })
 
@@ -178,50 +174,20 @@ describe('gate de pines OpenTelemetry', () => {
     )
   })
 
-  const PYTHON_GATE = `
-import sys
-import xml.etree.ElementTree as ET
-paquete, version, archivo = sys.argv[1:]
-try:
-    raiz = ET.parse(archivo).getroot()
-except ET.ParseError:
-    print("XML")
-    raise SystemExit(1)
-refs = [e for e in raiz.iter() if e.tag.rsplit("}", 1)[-1] == "PackageReference" and e.get("Include") == paquete]
-if len(refs) != 1:
-    print(f"N {len(refs)}")
-    raise SystemExit(1)
-real = refs[0].get("Version")
-if real != version:
-    print(f"V {real or 'ningun valor'}")
-    raise SystemExit(1)
-`
-  test('paridad con el ElementTree que usaba el bash', { skip: NO_BASH || !commandExists('python3') }, () => {
-    const documents = [
-      `<Project>${ref('1.15.3')}</Project>`,
-      `<Project><ItemGroup>${ref('1.15.3')}${ref('1.13.1')}</ItemGroup></Project>`,
-      `<Project xmlns="urn:x"><ItemGroup>${ref('1.13.1')}</ItemGroup></Project>`,
-      `<Project><PackageReference Include="${HOSTING}" Version="" /></Project>`,
-      `<Project><PackageReference Include="${HOSTING}" Version="1.15.3"></Project>`,
-      '<Project/><Otro/>',
-      `<Project>&amp;${ref('1.15.3')}</Project>`,
-      `﻿<?xml version="1.0"?><!DOCTYPE Project><Project>${ref('1.15.3')}</Project>`,
+  test('casos limite: varias referencias, espacio de nombres, version vacia, XML roto, entidades y BOM', () => {
+    const fail = (file: string, detail: string): string => `ERROR: paquete ${HOSTING}: se esperaba ${detail.replaceAll('<f>', file)}`
+    const cases: [document: string, expected: (file: string) => string | null][] = [
+      [`<Project><ItemGroup>${ref('1.15.3')}${ref('1.13.1')}</ItemGroup></Project>`, (f) => fail(f, 'exactamente una referencia con pin 1.15.3 en <f>; se encontraron 2.')],
+      [`<Project xmlns="urn:x"><ItemGroup>${ref('1.13.1')}</ItemGroup></Project>`, (f) => fail(f, 'el pin 1.15.3 en <f>; se encontro 1.13.1 como atributo Version.')],
+      [`<Project><PackageReference Include="${HOSTING}" Version="" /></Project>`, (f) => fail(f, 'el pin 1.15.3 en <f>; se encontro ningun valor como atributo Version.')],
+      [`<Project><PackageReference Include="${HOSTING}" Version="1.15.3"></Project>`, (f) => fail(f, 'el pin 1.15.3 en <f>, pero el XML no es valido: mismatched tag: line 1, column 89.')],
+      ['<Project/><Otro/>', (f) => fail(f, 'el pin 1.15.3 en <f>, pero el XML no es valido: junk after document element: line 1, column 10.')],
+      [`<Project>&amp;${ref('1.15.3')}</Project>`, () => null],
+      [`\ufeff<?xml version="1.0"?><!DOCTYPE Project><Project>${ref('1.15.3')}</Project>`, () => null],
     ]
-    for (const document of documents) {
+    for (const [document, expected] of cases) {
       const file = csproj(document)
-      const python = capture('python3', ['-c', PYTHON_GATE, HOSTING, '1.15.3', file])
-      const mine = checkOtelPin(HOSTING, '1.15.3', file)
-      const expected =
-        python.status === 0
-          ? null
-          : python.stdout.startsWith('XML')
-            ? 'XML'
-            : python.stdout.startsWith('N ')
-              ? `exactamente una referencia con pin 1.15.3 en ${file}; se encontraron ${python.stdout.slice(2).trim()}.`
-              : `se encontro ${python.stdout.slice(2).trim()} como atributo Version.`
-      if (expected === null) assert.equal(mine, null, document)
-      else if (expected === 'XML') assert.match(mine ?? '', /pero el XML no es valido: /, document)
-      else assert.ok((mine ?? '').endsWith(expected), `${document}: ${mine}`)
+      assert.equal(checkOtelPin(HOSTING, '1.15.3', file), expected(file), document)
     }
   })
 
@@ -239,7 +205,7 @@ describe('frontera neutral: el pipeline no conoce ningun runtime concreto', () =
     .map((file) => readFileSync(join(REPO_ROOT, ...file.split('/')), 'utf8'))
     .join('\n')
 
-  for (const forbidden of ['claude -p', '--permission-mode', 'bypassPermissions', 'output-format', 'resolveDeclaredAgentModel', '.claude/settings.json', 'checkout -- .claude/', '_pipeline-common.sh', 'API Error', 'process.kill']) {
+  for (const forbidden of ['claude -p', '--permission-mode', 'bypassPermissions', 'output-format', 'resolveDeclaredAgentModel', '.claude/settings.json', 'checkout -- .claude/', 'API Error', 'process.kill']) {
     test(`no menciona ${forbidden}`, () => {
       assert.equal(code.includes(forbidden), false)
     })

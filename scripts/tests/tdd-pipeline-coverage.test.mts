@@ -177,15 +177,13 @@ describe('textos de Python que la tabla conserva', () => {
     assert.equal(pythonRound1(0.25), '0.2')
     assert.equal(pythonRound1(0.75), '0.8')
     assert.equal(pythonRound1(99.95), '100.0')
+    assert.equal(pythonRound1(12.25), '12.2')
+    assert.equal(pythonRound1(0.05), '0.1')
+    assert.equal(pythonRound1(33.349999), '33.3')
   })
   test('rangos de lineas consecutivas, en el orden del XML', () => {
     assert.deepEqual(uncoveredRanges([3, 4, 5, 9, 11, 12]), ['- L3-L5', '- L9', '- L11-L12'])
     assert.deepEqual(uncoveredRanges([7]), ['- L7'])
     assert.deepEqual(uncoveredRanges([]), [])
-  })
-  test('paridad con el round de Python', { skip: process.platform === 'win32' || capture('python3', ['-c', '0']).status !== 0 }, () => {
-    const values = [0.25, 0.75, 12.25, 83.33, 99.95, 100, 0.05, 33.349999]
-    const python = capture('python3', ['-c', `print('\\n'.join(str(round(float(v), 1)) for v in [${values.join(',')}]))`]).stdout.trim().split('\n')
-    assert.deepEqual(values.map(pythonRound1), python)
   })
 })

@@ -12,7 +12,6 @@ import {
   stageMetricsFromStream,
 } from '../lib/pipeline/stage-metrics.mts'
 import type { StageCorrelation } from '../lib/pipeline/stage-metrics.mts'
-import { NO_BASH_TWIN, bashTwin } from './pipeline-metrics-parity.mts'
 
 const FIXTURES = join(import.meta.dirname, 'fixtures', 'tooling-observability')
 const jsonl = (...events: unknown[]): string => events.map((event) => `${JSON.stringify(event)}\n`).join('')
@@ -77,7 +76,7 @@ const done = (id: unknown, timestamp?: unknown): unknown => ({
 })
 const RESULT = { type: 'result', num_turns: 9, duration_ms: 5000, duration_api_ms: 4100, total_cost_usd: 0.25 }
 
-// Entradas de la paridad: las de los tests de bash y las que ejercitan cada rama del filtro.
+// Streams de ejemplo que ejercitan cada rama del filtro; sus salidas esperadas estan en fixtures/stage-metrics/expected.json.
 const STREAMS: Record<string, string> = {
   'neutral completo': NEUTRAL_COMPLETE,
   'neutral con nulos': NEUTRAL_NULLS,
@@ -499,58 +498,37 @@ describe('deriveStageLogFromStream', () => {
   })
 })
 
-describe('paridad con la gemela bash', { skip: NO_BASH_TWIN }, () => {
+describe('streams de ejemplo', () => {
+  interface Expected {
+    metrics: string
+    log: string
+    logSinStderr: string
+    enriched: string
+    enrichedSinBase: string
+  }
+  const EXPECTED = JSON.parse(readFileSync(join(import.meta.dirname, 'fixtures', 'stage-metrics', 'expected.json'), 'utf8')) as {
+    streams: Record<string, Expected>
+    invalidArguments: [string, string][]
+  }
+
+  test('cada stream de ejemplo tiene sus salidas esperadas', () => {
+    assert.deepEqual(Object.keys(EXPECTED.streams), Object.keys(STREAMS))
+  })
+
   for (const [name, stream] of Object.entries(STREAMS)) {
-    test(`compute_stage_metrics: ${name}`, () => {
-      const file = fileWith(stream)
-      const bash = bashTwin('compute_stage_metrics "$@"', [file])
-      assert.equal(bash.status, 0)
-      assert.equal(`${computeStageMetrics(file)}\n`, bash.stdout)
-    })
-
-    test(`derive_stage_log_from_stream: ${name}`, () => {
-      const file = fileWith(stream)
-      for (const stderr of [fileWith(''), fileWith('API Error: 500 desde stderr\nsegunda linea'), '']) {
-        const fromBash = join(work, `bash-${counter++}.log`)
-        const fromTypescript = join(work, `ts-${counter++}.log`)
-        assert.equal(bashTwin('derive_stage_log_from_stream "$@"', [file, stderr, fromBash]).status, 0)
-        deriveStageLogFromStream(file, stderr, fromTypescript)
-        assert.deepEqual(readFileSync(fromTypescript), readFileSync(fromBash))
-      }
-    })
-
-    test(`enrich_stage_metrics: ${name}`, () => {
+    test(name, () => {
+      const expected = EXPECTED.streams[name] ?? assert.fail(`sin esperado para ${name}`)
+      assert.equal(computeStageMetrics(fileWith(stream)), expected.metrics)
+      assert.equal(derive(stream, 'API Error: 500 desde stderr\nsegunda linea'), expected.log)
+      assert.equal(derive(stream, null), expected.logSinStderr)
+      assert.equal(derive(stream, ''), expected.logSinStderr)
       const input = correlation(stream)
-      const args = (value: StageCorrelation): string[] => [
-        value.pipeline,
-        value.eventsFile,
-        value.baseMetrics,
-        value.issue,
-        value.variantJson,
-        value.stage,
-        value.agent,
-        value.profile,
-        value.identityJson,
-      ]
-      for (const variant of [input, { ...input, baseMetrics: '', variantJson: 'null', identityJson: '{}' }]) {
-        assert.equal(`${enrichStageMetrics(variant)}\n`, bashTwin('enrich_stage_metrics "$@"', args(variant)).stdout)
-      }
+      assert.equal(enrichStageMetrics(input), expected.enriched)
+      assert.equal(enrichStageMetrics({ ...input, baseMetrics: '', variantJson: 'null', identityJson: '{}' }), expected.enrichedSinBase)
     })
   }
 
-  test('compute_stage_metrics y derive_stage_log_from_stream sin archivo o con el stream vacio', () => {
-    for (const file of [fileWith(''), join(work, 'no-existe.jsonl')]) {
-      assert.equal(`${computeStageMetrics(file)}\n`, bashTwin('compute_stage_metrics "$@"', [file]).stdout)
-      const fromBash = join(work, `bash-${counter++}.log`)
-      const fromTypescript = join(work, `ts-${counter++}.log`)
-      const stderr = fileWith('stderr sin stream\n')
-      bashTwin('derive_stage_log_from_stream "$@"', [file, stderr, fromBash])
-      deriveStageLogFromStream(file, stderr, fromTypescript)
-      assert.deepEqual(readFileSync(fromTypescript), readFileSync(fromBash))
-    }
-  })
-
-  test('enrich_stage_metrics y enrich_tooling_stage_metrics con argumentos invalidos', () => {
+  test('enrichStageMetrics y enrichToolingStageMetrics con argumentos invalidos', () => {
     const base = correlation(NEUTRAL_COMPLETE)
     const cases: Partial<StageCorrelation>[] = [
       { baseMetrics: '{' },
@@ -564,11 +542,10 @@ describe('paridad con la gemela bash', { skip: NO_BASH_TWIN }, () => {
       { eventsFile: join(work, 'no-existe.jsonl') },
       { issue: 'con "comillas" y \\ barra', agent: 'ñandú\t' },
     ]
-    for (const extra of cases) {
+    assert.equal(cases.length, EXPECTED.invalidArguments.length)
+    cases.forEach((extra, index) => {
       const input = { ...base, ...extra }
-      const rest = [input.eventsFile, input.baseMetrics, input.issue, input.variantJson, input.stage, input.agent, input.profile, input.identityJson]
-      assert.equal(`${enrichStageMetrics(input)}\n`, bashTwin('enrich_stage_metrics "$@"', [input.pipeline, ...rest]).stdout)
-      assert.equal(`${enrichToolingStageMetrics(input)}\n`, bashTwin('enrich_tooling_stage_metrics "$@"', rest).stdout)
-    }
+      assert.deepEqual([enrichStageMetrics(input), enrichToolingStageMetrics(input)], EXPECTED.invalidArguments[index], JSON.stringify(extra))
+    })
   })
 })

@@ -3,7 +3,6 @@ import { describe, test } from 'node:test'
 
 import type { Run } from '../lib/azure-cli.mts'
 import { findOpenPrForBranch } from '../lib/pipeline/pull-requests.mts'
-import { bashLibrary, FAKE_GH, NO_BASH_JQ } from './pipeline-scope-parity.mts'
 
 interface FakeGh {
   run: Run
@@ -25,6 +24,11 @@ describe('findOpenPrForBranch', () => {
   test('con un PR abierto devuelve su URL', () => {
     const gh = fakeGh(PR_42)
     assert.equal(findOpenPrForBranch('worktree-issue-1-x', { run: gh.run }), 'https://github.com/owner/repo/pull/42')
+  })
+
+  test('con varios PR abiertos devuelve el primero', () => {
+    const several = '[{"url":"https://github.com/o/r/pull/1"},{"url":"https://github.com/o/r/pull/2"}]'
+    assert.equal(findOpenPrForBranch('rama', { run: fakeGh(several).run }), 'https://github.com/o/r/pull/1')
   })
 
   test('filtra por la base main si no se indica otra', () => {
@@ -69,48 +73,4 @@ describe('findOpenPrForBranch', () => {
     }
   })
 
-  test('coincide con find_open_pr_for_branch de la libreria bash', { skip: NO_BASH_JQ }, () => {
-    const responses: [string, number][] = [
-      [PR_42, 0],
-      ['[{"url":"https://github.com/o/r/pull/1"},{"url":"https://github.com/o/r/pull/2"}]', 0],
-      ['[]', 0],
-      ['[{"url":null}]', 0],
-      ['[{}]', 0],
-      ['[{"url":"null"}]', 0],
-      [PR_42, 1],
-    ]
-    const script = `${FAKE_GH}
-find_open_pr_for_branch "$1" "$2" "$3"; echo "rc=$?"`
-    for (const [stdout, status] of responses) {
-      for (const [branch, repo, base] of [
-        ['worktree-issue-1-x', '', ''],
-        ['worktree-issue-1-x', 'owner/repo', 'develop'],
-        ['', '', ''],
-      ] as const) {
-        const env = { ...process.env, GH_JSON: stdout, GH_RC: String(status) }
-        const fromBash = bashLibrary(script, [branch, repo, base], { env })
-        const options = { run: fakeGh(stdout, status).run, repo, ...(base.length > 0 ? { base } : {}) }
-        assert.equal(`${findOpenPrForBranch(branch, options) ?? ''}\nrc=0\n`, fromBash.stdout, `${stdout} ${branch}`)
-      }
-    }
-  })
-
-  test('pasa a gh los mismos filtros que la libreria bash', { skip: NO_BASH_JQ }, () => {
-    const script = `gh() { printf '%s\\n' "$@"; }
-find_open_pr_for_branch "$1" "$2" "$3"`
-    for (const [repo, base] of [
-      ['', ''],
-      ['owner/repo', ''],
-      ['', 'develop'],
-      ['owner/repo', 'develop'],
-    ] as const) {
-      const gh = fakeGh('[]')
-      findOpenPrForBranch('rama-x', { run: gh.run, repo, ...(base.length > 0 ? { base } : {}) })
-      const fromBash = bashLibrary(script, ['rama-x', repo, base]).stdout.trimEnd().split('\n')
-      // La gemela bash delega en `-q` de gh lo que aqui se lee del JSON.
-      const query = fromBash.indexOf('-q')
-      assert.deepEqual(fromBash.splice(query, 2), ['-q', '.[0].url'])
-      assert.deepEqual(gh.calls[0]?.slice(1), fromBash)
-    }
-  })
 })

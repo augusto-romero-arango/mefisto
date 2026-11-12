@@ -183,7 +183,7 @@ describe('frontera neutral: el pipeline no conoce ningun runtime concreto', () =
   const sources = ['scripts/tooling-pipeline.mts', 'scripts/lib/pipeline/pipeline-agent-run.mts'].map((file) => readFileSync(join(REPO_ROOT, ...file.split('/')), 'utf8'))
   const code = sources.join('\n')
 
-  for (const forbidden of ['claude -p', 'CLAUDE_CONFIG_DIR', 'bypassPermissions', 'output-format', '--raw-log', '--stderr-log', 'fork-session', 'process.kill', '_pipeline-common.sh']) {
+  for (const forbidden of ['claude -p', 'CLAUDE_CONFIG_DIR', 'bypassPermissions', 'output-format', '--raw-log', '--stderr-log', 'fork-session', 'process.kill']) {
     test(`no menciona ${forbidden}`, () => {
       assert.equal(code.includes(forbidden), false)
     })

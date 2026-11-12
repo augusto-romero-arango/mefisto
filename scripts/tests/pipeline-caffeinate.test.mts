@@ -5,7 +5,6 @@ import { join } from 'node:path'
 import { after, before, describe, test } from 'node:test'
 
 import { caffeinatePrefix } from '../lib/pipeline/caffeinate.mts'
-import { bashLibrary, NO_BASH } from './pipeline-scope-parity.mts'
 
 let tmp = ''
 let withBinary = ''
@@ -41,10 +40,4 @@ describe('caffeinatePrefix', () => {
     assert.deepEqual(caffeinatePrefix({ PATH: withBinary }, 'win32'), [])
   })
 
-  test('coincide con caffeinate_prefix de la libreria bash', { skip: NO_BASH }, () => {
-    for (const path of [withBinary, withoutBinary, '']) {
-      const fromBash = bashLibrary('PATH="$1"; caffeinate_prefix', [path])
-      assert.equal(caffeinatePrefix({ PATH: path }, 'darwin').join(' '), fromBash.stdout, path)
-    }
-  })
 })

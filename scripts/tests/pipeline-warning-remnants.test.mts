@@ -5,20 +5,6 @@ import { join } from 'node:path'
 import { after, before, describe, test } from 'node:test'
 
 import { renderWarningRemnantsSection, warningRemnantRefs } from '../lib/pipeline/warning-remnants.mts'
-import { NO_BASH_TWIN, bashTwin } from './pipeline-metrics-parity.mts'
-
-// Contenidos de warnings-remanentes.txt de la paridad; `null`: sin archivo.
-const CONTENTS: (string | null)[] = [
-  null,
-  '',
-  'nada\n\n  texto suelto\n',
-  '#12\n15\n',
-  'owner/repo#7\n',
-  '#5\n5\n#5\nbasura\n',
-  '  #3 \r\n\t4\t\r\nmi-org/mi.repo_x#10\r\n',
-  '#1 #2\n# 3\n#\nowner/repo#\n/repo#1\nowner/#1\nowner/repo/x#1\n-5\n1.5\n#12',
-  '0007\n#0007\n7\n',
-]
 
 let worktree = ''
 let file = ''
@@ -61,16 +47,11 @@ describe('renderWarningRemnantsSection', () => {
 
   test('warningRemnantRefs ignora espacios, CR y lo que no es una referencia', () => {
     assert.deepEqual(warningRemnantRefs('  #3 \r\n\t4\t\r\nmi-org/mi.repo_x#10\r\n#1 #2\n# 3\n'), ['#3', '#4', 'mi-org/mi.repo_x#10'])
+    assert.deepEqual(warningRemnantRefs('#\nowner/repo#\n/repo#1\nowner/#1\nowner/repo/x#1\n-5\n1.5\n#12'), ['#12'])
+    assert.deepEqual(warningRemnantRefs(''), [])
   })
-})
 
-describe('paridad con la gemela bash', { skip: NO_BASH_TWIN }, () => {
-  for (const [index, content] of CONTENTS.entries()) {
-    test(`render_warning_remnants_section: contenido ${index}`, () => {
-      setContent(content)
-      const bash = bashTwin('render_warning_remnants_section "$@"', [worktree])
-      assert.equal(bash.status, 0)
-      assert.equal(renderWarningRemnantsSection(worktree), bash.stdout)
-    })
-  }
+  test('los ceros a la izquierda distinguen referencias', () => {
+    assert.deepEqual(warningRemnantRefs('0007\n#0007\n7\n'), ['#0007', '#7'])
+  })
 })

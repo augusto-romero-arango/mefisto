@@ -13,17 +13,14 @@ import {
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { after, before, describe, test } from 'node:test'
-import { fileURLToPath } from 'node:url'
 
-import { capture, CliError, commandExists } from '../lib/cli.mts'
+import { capture, CliError } from '../lib/cli.mts'
 import {
   harnessConfigEnv,
   loadHarnessConfig,
   resolveHarnessConfigPath,
   upsertHarnessSecret,
 } from '../lib/harness-config.mts'
-
-const BASH_LIBRARY = join(dirname(fileURLToPath(import.meta.url)), '..', '_pipeline-common.sh')
 
 const BASE = {
   projectName: 'MiControlPlane',
@@ -720,50 +717,13 @@ const HARNESS_VARIABLES = [
   'HARNESS_RESOURCE_SEQUENCE',
 ]
 
-const BASH_LOAD = `
-set +u
-source "$1" 2>/dev/null
-shift
-load_harness_config "$@"
-rc=$?
-if [ "$rc" -eq 0 ]; then
-    for name in ${HARNESS_VARIABLES.join(' ')}; do
-        printf '%s=%s\\0' "$name" "\${!name}"
-    done
-fi
-exit "$rc"
-`
-const BASH_CALL = 'set +u; source "$1" 2>/dev/null; shift; "$@"'
-
 interface Outcome {
   status: number | null
   stdout: string
   stderr: string
 }
 
-function bashEnv(): NodeJS.ProcessEnv {
-  return Object.fromEntries(Object.entries(process.env).filter(([name]) => !name.startsWith('HARNESS_')))
-}
-
-/** Sin el ruido de `jq` y de la aritmetica de bash que la gemela deja pasar a stderr ante tipos inesperados. */
-function withoutShellNoise(stderr: string): string {
-  return stderr
-    .split('\n')
-    .filter((line) => !/^jq: error|integer expression expected|syntax error: operand expected/.test(line))
-    .join('\n')
-}
-
-function bashLoad(args: string[], cwd: string): Outcome {
-  const result = capture('bash', ['-c', BASH_LOAD, 'bash', BASH_LIBRARY, ...args], { cwd, env: bashEnv() })
-  return { status: result.status, stdout: result.stdout, stderr: withoutShellNoise(result.stderr) }
-}
-
-function bashCall(args: string[], cwd: string): Outcome {
-  const result = capture('bash', ['-c', BASH_CALL, 'bash', BASH_LIBRARY, ...args], { cwd, env: bashEnv() })
-  return { status: result.status, stdout: result.stdout, stderr: withoutShellNoise(result.stderr) }
-}
-
-/** Corre la funcion TypeScript y la presenta como el proceso bash: codigo, stdout y stderr. */
+/** Corre la funcion y la presenta como un proceso: codigo, stdout y stderr. */
 function asProcess(run: (warn: (message: string) => void) => string): Outcome {
   const messages: string[] = []
   let stdout = ''
@@ -778,14 +738,29 @@ function asProcess(run: (warn: (message: string) => void) => string): Outcome {
   return { status, stdout, stderr: messages.map((message) => `${message}\n`).join('') }
 }
 
-function typescriptLoad(config: string | undefined, cwd: string): Outcome {
-  return asProcess((warn) => {
-    const env = harnessConfigEnv(loadHarnessConfig(config, { cwd, warn }))
-    return HARNESS_VARIABLES.map((name) => `${name}=${env[name]}\0`).join('')
-  })
+interface LoadResult {
+  status: number
+  env: Record<string, string> | null
+  stderr: string
 }
 
-const PARITY_CONFIGS: Record<string, string> = {
+/** Codigo, variables HARNESS_* y mensajes de la carga, con la ruta temporal del config cambiada por `<config>`. */
+function loadResult(config: string): LoadResult {
+  const portablePath = (text: string): string => text.replaceAll(config, '<config>')
+  const messages: string[] = []
+  const stderr = (): string => portablePath(messages.map((message) => `${message}\n`).join(''))
+  try {
+    const env = harnessConfigEnv(loadHarnessConfig(config, { cwd: tmp, warn: (message) => void messages.push(message) }))
+    return { status: 0, env: Object.fromEntries(HARNESS_VARIABLES.map((name) => [name, portablePath(String(env[name]))])), stderr: stderr() }
+  } catch (error) {
+    if (!(error instanceof CliError)) throw error
+    messages.push(error.message)
+    return { status: error.exitCode, env: null, stderr: stderr() }
+  }
+}
+
+// Configs de ejemplo con cada forma de degradar; su resultado esperado esta en fixtures/harness-config/expected.json.
+const EXAMPLE_CONFIGS: Record<string, string> = {
   'valido minimo': JSON.stringify(BASE),
   'valido completo': JSON.stringify({
     ...BASE,
@@ -913,120 +888,66 @@ const PARITY_CONFIGS: Record<string, string> = {
   'naming objeto': JSON.stringify({ ...BASE, azureRegionShort: {}, resourceSequence: [] }),
 }
 
-const NO_BASH = process.platform === 'win32' || !commandExists('bash') || !commandExists('jq')
+const UPSERT_CONFIGS: Record<string, string> = {
+  'sin secrets': `${JSON.stringify(BASE, null, 2)}\n`,
+  'compacto y con secrets en medio': JSON.stringify({ projectName: 'P', secrets: [{ name: 'otro', source: { type: 'output', value: 'o' } }], solutionFile: 'S' }),
+  'entrada existente': JSON.stringify({ ...BASE, secrets: [{ name: 'a', source: { type: 'output', value: 'viejo' }, extra: 1 }, { name: 'nuevo', source: { type: 'composite', value: 'viejo' } }, { name: 'nuevo', sobra: true }] }),
+  'secrets null': JSON.stringify({ ...BASE, secrets: null }),
+  'secrets texto': JSON.stringify({ ...BASE, secrets: 'x' }),
+  'secrets objeto con la entrada': JSON.stringify({ ...BASE, secrets: { a: { name: 'nuevo' }, b: { name: 'b' } } }),
+  'secrets objeto sin la entrada': JSON.stringify({ ...BASE, secrets: { a: { name: 'a' } } }),
+  'secrets con elemento texto': JSON.stringify({ ...BASE, secrets: ['x'] }),
+  'secrets con null': JSON.stringify({ ...BASE, secrets: [null] }),
+  'valores vacios y anidados': JSON.stringify({ a: {}, b: [], c: [[], {}], d: 'ñ "comillas" \\ \t', e: null, f: true, g: -12 }),
+  'raiz null': 'null',
+  'raiz arreglo': '[1, 2]',
+  'archivo vacio': '',
+  'json invalido': '{ invalido',
+  'con BOM': `\ufeff${JSON.stringify(BASE)}`,
+}
 
-describe('paridad con la gemela bash', { skip: NO_BASH ? 'requiere bash y jq' : false }, () => {
-  for (const [name, content] of Object.entries(PARITY_CONFIGS)) {
-    test(`load_harness_config: ${name}`, () => {
-      const config = writeRaw(content)
-      assert.deepEqual(typescriptLoad(config, tmp), bashLoad([config], tmp))
-    })
+/** El resultado con la ruta temporal del config cambiada por `<config>`. */
+function portable(outcome: Outcome, config: string): Outcome {
+  const replace = (text: string): string => text.replaceAll(config, '<config>')
+  return { status: outcome.status, stdout: replace(outcome.stdout), stderr: replace(outcome.stderr) }
+}
+
+function upsertObservation(content: string): { outcome: Outcome; content: string; leftovers: string[]; mode: number } {
+  const config = join(tmp, `upsert-${++sequence}.json`)
+  writeFileSync(config, content, { mode: 0o644 })
+  const outcome = asProcess(() => {
+    upsertHarnessSecret('nuevo', 'github-secret', 'VALOR "raro" ñ', config)
+    return ''
+  })
+  const leftovers = readdirSync(dirname(config)).filter((entry) => entry.includes('.tmp'))
+  return { outcome: portable(outcome, config), content: readFileSync(config, 'utf8'), leftovers, mode: statSync(config).mode & 0o777 }
+}
+
+describe('configs de ejemplo', () => {
+  const EXPECTED = JSON.parse(readFileSync(join(import.meta.dirname, 'fixtures', 'harness-config', 'expected.json'), 'utf8')) as {
+    load: Record<string, LoadResult>
+    upsert: Record<string, ReturnType<typeof upsertObservation>>
   }
 
-  test('load_harness_config con ruta ausente o vacia', () => {
-    const missing = join(tmp, 'paridad-ausente.json')
-    assert.deepEqual(typescriptLoad(missing, tmp), bashLoad([missing], tmp))
-    assert.deepEqual(typescriptLoad('', tmp), bashLoad([''], tmp))
+  test('cada config de ejemplo tiene su resultado esperado', () => {
+    assert.deepEqual(Object.keys(EXPECTED.load), Object.keys(EXAMPLE_CONFIGS))
+    assert.deepEqual(Object.keys(EXPECTED.upsert), Object.keys(UPSERT_CONFIGS))
   })
 
-  test('resolve_harness_config_path y la carga por defecto en cada estado del repo', () => {
-    const { root, canonical, legacy } = newRepo()
-    const nested = join(root, 'src')
-    mkdirSync(nested)
-    const compare = (): void => {
-      for (const mode of ['read', 'write', 'otro'] as const) {
-        assert.deepEqual(
-          asProcess((warn) => `${resolveHarnessConfigPath(mode as never, root, { warn })}\n`),
-          bashCall(['resolve_harness_config_path', mode, root], tmp),
-        )
-        assert.deepEqual(
-          asProcess((warn) => `${resolveHarnessConfigPath(mode as never, undefined, { cwd: nested, warn })}\n`),
-          bashCall(['resolve_harness_config_path', mode], nested),
-        )
-      }
-      assert.deepEqual(typescriptLoad(undefined, nested), bashLoad([], nested))
-    }
-
-    compare()
-    writeRaw(configText('Legacy'), legacy)
-    compare()
-    writeRaw(configText('Canonico'), canonical)
-    compare()
-    rmSync(legacy)
-    compare()
-    writeRaw('{ invalido', canonical)
-    writeRaw(configText('Legacy'), legacy)
-    compare()
-  })
-
-  test('resolve_harness_config_path con raiz inexistente', () => {
-    const missing = join(tmp, 'paridad-sin-raiz')
-    assert.deepEqual(
-      asProcess(() => `${resolveHarnessConfigPath('read', missing)}\n`),
-      bashCall(['resolve_harness_config_path', 'read', missing], tmp),
-    )
-  })
-
-  const UPSERT_CONFIGS: Record<string, string> = {
-    'sin secrets': `${JSON.stringify(BASE, null, 2)}\n`,
-    'compacto y con secrets en medio': JSON.stringify({ projectName: 'P', secrets: [{ name: 'otro', source: { type: 'output', value: 'o' } }], solutionFile: 'S' }),
-    'entrada existente': JSON.stringify({ ...BASE, secrets: [{ name: 'a', source: { type: 'output', value: 'viejo' }, extra: 1 }, { name: 'nuevo', source: { type: 'composite', value: 'viejo' } }, { name: 'nuevo', sobra: true }] }),
-    'secrets null': JSON.stringify({ ...BASE, secrets: null }),
-    'secrets texto': JSON.stringify({ ...BASE, secrets: 'x' }),
-    'secrets objeto con la entrada': JSON.stringify({ ...BASE, secrets: { a: { name: 'nuevo' }, b: { name: 'b' } } }),
-    'secrets objeto sin la entrada': JSON.stringify({ ...BASE, secrets: { a: { name: 'a' } } }),
-    'secrets con elemento texto': JSON.stringify({ ...BASE, secrets: ['x'] }),
-    'secrets con null': JSON.stringify({ ...BASE, secrets: [null] }),
-    'valores vacios y anidados': JSON.stringify({ a: {}, b: [], c: [[], {}], d: 'ñ "comillas" \\ \t', e: null, f: true, g: -12 }),
-    'raiz null': 'null',
-    'raiz arreglo': '[1, 2]',
-    'archivo vacio': '',
-    'json invalido': '{ invalido',
-    'con BOM': `\ufeff${JSON.stringify(BASE)}`,
+  for (const [name, content] of Object.entries(EXAMPLE_CONFIGS)) {
+    test(`loadHarnessConfig: ${name}`, () => {
+      assert.deepEqual(loadResult(writeRaw(content)), EXPECTED.load[name])
+    })
   }
 
   for (const [name, content] of Object.entries(UPSERT_CONFIGS)) {
-    test(`upsert_harness_secret: ${name}`, () => {
-      const config = join(tmp, `upsert-${++sequence}.json`)
-      const observe = (run: () => Outcome): unknown => {
-        writeFileSync(config, content, { mode: 0o644 })
-        const outcome = run()
-        const leftovers = readdirSync(dirname(config)).filter((entry) => entry.includes('.tmp'))
-        return { outcome, content: readFileSync(config, 'utf8'), mode: statSync(config).mode & 0o777, leftovers }
-      }
-      assert.deepEqual(
-        observe(() =>
-          asProcess(() => {
-            upsertHarnessSecret('nuevo', 'github-secret', 'VALOR "raro" ñ', config)
-            return ''
-          }),
-        ),
-        observe(() => bashCall(['upsert_harness_secret', 'nuevo', 'github-secret', 'VALOR "raro" ñ', config], tmp)),
-      )
+    test(`upsertHarnessSecret: ${name}`, () => {
+      const expected = EXPECTED.upsert[name] ?? assert.fail(`sin esperado para ${name}`)
+      const observed = upsertObservation(content)
+      // Windows no tiene los permisos POSIX: alli el modo no se compara.
+      if (process.platform === 'win32') observed.mode = expected.mode
+      assert.deepEqual(observed, expected)
     })
   }
-
-  test('upsert_harness_secret sin ruta en cada estado del repo', () => {
-    const { root, canonical, legacy } = newRepo()
-    const states: (() => void)[] = [
-      () => undefined,
-      () => writeRaw(configText('Legacy'), legacy),
-      () => writeRaw(configText('Canonico'), canonical),
-    ]
-    for (const prepare of states) {
-      prepare()
-      const snapshot = (): unknown => ({
-        canonical: existsSync(canonical) ? readFileSync(canonical, 'utf8') : null,
-        legacy: existsSync(legacy) ? readFileSync(legacy, 'utf8') : null,
-      })
-      const typescript = asProcess(() => {
-        upsertHarnessSecret('uno', 'output', 'valor', undefined, { cwd: root })
-        return ''
-      })
-      const afterTypescript = snapshot()
-      if (existsSync(canonical)) writeRaw(configText('Canonico'), canonical)
-      assert.deepEqual(typescript, bashCall(['upsert_harness_secret', 'uno', 'output', 'valor'], root))
-      assert.deepEqual(afterTypescript, snapshot())
-    }
-  })
 })
+

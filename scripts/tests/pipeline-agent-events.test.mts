@@ -15,15 +15,7 @@ import {
   jsonLineObjects,
   readText,
 } from '../lib/pipeline/agent-events.mts'
-import {
-  NEUTRAL_EVENTS,
-  NEUTRAL_EVENT_FILES,
-  NO_BASH_JQ,
-  REPO_ROOT,
-  bashLibrary,
-  chomp,
-  writeFixtures,
-} from './pipeline-agents-parity.mts'
+import { NEUTRAL_EVENTS, NEUTRAL_EVENT_FILES, REPO_ROOT, writeFixtures } from './pipeline-agents-fixtures.mts'
 
 let work = ''
 let events: Record<string, string> = {}
@@ -189,30 +181,35 @@ describe('lectura tolerante por lineas', () => {
   })
 })
 
-describe('paridad con la gemela bash', { skip: NO_BASH_JQ }, () => {
-  test('agent_events_* sobre los fixtures de eventos del repo y los de los tests bash', () => {
-    const files = [
-      ...Object.values(events),
-      ...NEUTRAL_EVENT_FILES.map((relative) => join(REPO_ROOT, relative)),
-      join(work, 'no-existe.jsonl'),
-      '',
-    ]
-    const script = [
-      'for f in "$@"; do',
-      '  printf "%s\\037%s\\037%s\\037%s\\037" "$(agent_events_kind "$f")" "$(agent_events_resets_at "$f")" "$(agent_events_session_id "$f")" "$(agent_events_denials "$f")"',
-      // El codigo de un fallo es el de jq (1 o 5): solo cuenta si es cero.
-      '  if agent_events_completed_successfully "$f"; then printf "0\\036"; else printf "1\\036"; fi',
-      'done',
-    ].join('\n')
-    const fromBash = bashLibrary(script, files).stdout.split('\u001e')
-    assert.equal(fromBash.length, files.length + 1)
-    files.forEach((eventsFile, index) => {
-      const own = read(eventsFile)
-      assert.equal(
-        [own.kind, own.resetsAt, own.sessionId, own.denials].map(chomp).concat(own.completed ? '0' : '1').join('\u001f'),
-        fromBash[index],
-        eventsFile,
-      )
-    })
+describe('fixtures de eventos del repo', () => {
+  // [kind, resetsAt, sessionId, denials, completed] de cada fixture, por nombre de archivo.
+  const EXPECTED: Readonly<Record<string, [string, string, string, string, boolean]>> = {
+    'invalid-missing-cost-name': ['', '', '', '0', true],
+    'invalid-missing-field': ['', '', '', '0', true],
+    'invalid-status-mismatch': ['timeout', '', '', '0', false],
+    'invalid-two-terminals': ['nonzero_exit', '', '', '0', false],
+    'invalid-unknown-type': ['', '', '', '0', false],
+    'legacy-cost-usd': ['', '', '', '0', true],
+    'valid-failed': ['api_error', '', '', '0', false],
+    'valid-rate-limit-claude': ['rate_limit', '2026-05-07T22:40:00Z', 'sess-ratelimit', '0', false],
+    'valid-rate-limit-sin-reset': ['rate_limit', '', '', '0', false],
+    'valid-success': ['', '', '', '0', true],
+    'valid-timeout': ['timeout', '', '', '0', false],
+    'neutral-claude.events': ['', '', '', '0', true],
+    'neutral-failed.events': ['api_error', '', '', '0', false],
+    'neutral-sensitive-unknown.events': ['', '', '', '0', false],
+    'legacy-claude.stream': ['', '', '', '0', false],
+    'hold.events': ['rate_limit', '2026-09-08T10:05:00Z', 'ses-hold', '0', false],
+    'success.events': ['', '', 'ses-success', '0', true],
+    'truncated-input.events': ['', '', '', '', false],
+  }
+
+  test('se leen con el terminal que declaran', () => {
+    assert.equal(NEUTRAL_EVENT_FILES.length, Object.keys(EXPECTED).length)
+    for (const relative of NEUTRAL_EVENT_FILES) {
+      const name = relative.split(/[\\/]/).pop()?.replace(/\.jsonl$/, '') ?? ''
+      const [kind, resetsAt, sessionId, denials, completed] = EXPECTED[name] ?? assert.fail(`sin esperado para ${name}`)
+      assert.deepEqual(read(join(REPO_ROOT, relative)), { kind, resetsAt, sessionId, denials, completed }, name)
+    }
   })
 })

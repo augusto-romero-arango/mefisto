@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { after, before, describe, test } from 'node:test'
@@ -14,7 +14,6 @@ import {
 } from '../lib/pipeline/red-tests.mts'
 import { writeIn } from './consumer-sandbox.mts'
 import { git, isolateGitConfig } from './field-note-sandbox.mts'
-import { NO_BASH_TWIN, bashTwin } from './pipeline-metrics-parity.mts'
 
 const PIN_TESTS = `public class PinTests
 {
@@ -56,7 +55,7 @@ const PIN_FILE = 'tests/X.Dom.Tests/PinTests.cs'
 
 const failed = (...names: string[]): string => `${names.map((name) => `  failed ${name} (12ms)\n    Assert.Equal() Failure\n`).join('')}Test run summary: Failed!\n`
 
-// Salidas de la fase roja de la paridad.
+// Salidas de la fase roja.
 const OUTPUTS: Record<string, string> = {
   'preexistente, modificado y nuevo': failed('X.Dom.Tests.PinTests.Pin_NoTocado', 'X.Dom.Tests.PinTests.Pin_Modificado', 'X.Dom.Tests.NuevosTests.Nuevo_Rojo'),
   'solo preexistentes': failed('X.Dom.Tests.PinTests.Pin_NoTocado', 'X.Dom.Tests.PinTests.Pin_Flecha'),
@@ -122,6 +121,15 @@ describe('redMethodBody', () => {
     assert.equal(redMethodBody('Pin_NoTocado()\n{\n}\n', 'Pin_NoTocado'), '')
   })
 
+  test('respeta CRLF y no mira dentro de comentarios ni de inicializadores', () => {
+    const crlf = 'void F()\r\n{\r\n}\r\nvoid G() =>\r\n  1;\r\n'
+    assert.equal(redMethodBody(crlf, 'F'), 'void F()\r\n{\r\n}\r\n')
+    assert.equal(redMethodBody(crlf, 'G'), 'void G() =>\r\n  1;\r\n')
+    const oneLiners = '  int Tres() => new[] { 1 }.Length;\n  int Cuatro() { return 4; } // }\n'
+    assert.equal(redMethodBody(oneLiners, 'Tres'), '  int Tres() => new[] { 1 }.Length;\n')
+    assert.equal(redMethodBody(oneLiners, 'Cuatro'), '  int Cuatro() { return 4; } // }\n')
+  })
+
   test('un metodo sin cerrar llega al final del archivo', () => {
     assert.equal(redMethodBody('  void Abierto()\n  {\n    x();', 'Abierto'), '  void Abierto()\n  {\n    x();\n')
   })
@@ -143,6 +151,34 @@ describe('detectPreexistingRedTests', () => {
     assert.deepEqual(detectPreexistingRedTests(worktree, snapshot, 'basura sin formato'), { status: 2, tests: [] })
     assert.deepEqual(detectPreexistingRedTests(worktree, 'deadbeef', OUTPUTS['solo preexistentes'] ?? ''), { status: 2, tests: [] })
   })
+})
+
+describe('salidas de la fase roja', () => {
+  const PIN = (...names: string[]): string => names.map((name) => `${name}\t${PIN_FILE}\n`).join('')
+  // [status y tests de detectPreexistingRedTests, status y tests de preexistingRedOnly]
+  const EXPECTED: Record<string, [number, string, number, string]> = {
+    'preexistente, modificado y nuevo': [0, PIN('Pin_NoTocado'), 1, ''],
+    'solo preexistentes': [0, PIN('Pin_NoTocado', 'Pin_Flecha'), 0, PIN('Pin_NoTocado', 'Pin_Flecha')],
+    'teoria con parametros y repetida': [0, PIN('Pin_Teoria'), 0, PIN('Pin_Teoria')],
+    'archivo borrado y test borrado': [0, '', 1, ''],
+    'con colores y otros marcadores': [0, PIN('Pin_NoTocado', 'Pin_Flecha', 'Pin_Teoria'), 0, PIN('Pin_NoTocado', 'Pin_Flecha', 'Pin_Teoria')],
+    'nombre que no es identificador': [0, PIN('Pin_NoTocado'), 1, ''],
+    'sin formato': [2, '', 2, ''],
+    vacia: [2, '', 2, ''],
+    'failed sin nombre': [2, '', 2, ''],
+  }
+
+  for (const [name, output] of Object.entries(OUTPUTS)) {
+    test(name, () => {
+      const [detectedStatus, detectedTests, onlyStatus, onlyTests] = EXPECTED[name] ?? assert.fail(`sin esperado para ${name}`)
+      const detected = detectPreexistingRedTests(worktree, snapshot, output)
+      assert.deepEqual([detected.status, redTestsText(detected.tests)], [detectedStatus, detectedTests])
+      const only = preexistingRedOnly(worktree, snapshot, output)
+      assert.deepEqual([only.status, redTestsText(only.tests)], [onlyStatus, onlyTests])
+      assert.equal(detectPreexistingRedTests(worktree, 'deadbeef', output).status, 2)
+      assert.equal(preexistingRedOnly(worktree, 'deadbeef', output).status, 2)
+    })
+  }
 })
 
 describe('preexistingRedOnly', () => {
@@ -194,6 +230,7 @@ describe('tests que toca el reviewer', () => {
     git(repo, 'commit', '-qm', 'reviewer ajusta guarda')
     assert.deepEqual(listReviewerTouchedTests(repo, base), ['tests/X.Tests/GuardTests.cs', 'tests/X.Tests/ViejoTests.cs'])
     assert.deepEqual(listReviewerTouchedTests(repo, 'no-existe'), [])
+    assert.deepEqual(listReviewerTouchedTests(repo, 'HEAD'), [])
   })
 
   test('seccion del PR: una linea por archivo, y la del destrabe solo si lo hubo', () => {
@@ -209,51 +246,4 @@ describe('tests que toca el reviewer', () => {
     assert.match(renderReviewerTouchedTestsSection(files, true), /\n\nLo hizo al destrabar tests en rojo despues de la fase verde\.\n\n- `tests/)
   })
 
-  test('paridad: list_reviewer_touched_tests y render_reviewer_touched_tests_section', { skip: NO_BASH_TWIN }, () => {
-    for (const ref of [base, 'HEAD', 'no-existe']) {
-      const bash = bashTwin('list_reviewer_touched_tests "$@"', [repo, ref])
-      assert.equal(listReviewerTouchedTests(repo, ref).map((file) => `${file}\n`).join(''), bash.stdout, ref)
-    }
-    for (const files of [[], ['tests/A.Tests/ATests.cs'], ['tests/A.Tests/ATests.cs', '', 'tests/B con espacio/B`Tests.cs']]) {
-      for (const resolved of [false, true]) {
-        const bash = bashTwin('render_reviewer_touched_tests_section "$@"', [files.join('\n'), String(resolved)])
-        assert.equal(renderReviewerTouchedTestsSection(files, resolved), bash.stdout)
-      }
-    }
-  })
 })
-
-describe('paridad con la gemela bash', { skip: NO_BASH_TWIN }, () => {
-  test('_red_method_body', () => {
-    const current = readFileSync(join(worktree, ...PIN_FILE.split('/')), 'utf8')
-    const sources = [PIN_TESTS, current, '  int Uno() => 1;\n  int Dos() => 2;\n', '  void Abierto()\n  {\n    x();', 'void F()\r\n{\r\n}\r\nvoid G() =>\r\n  1;\r\n', '  int Tres() => new[] { 1 }.Length;\n  int Cuatro() { return 4; } // }\n']
-    for (const source of sources) {
-      for (const method of ['Pin_NoTocado', 'Pin_Modificado', 'Pin_Teoria', 'Pin_Flecha', 'Pin_Borrado', 'Nuevo_Rojo', 'Uno', 'Dos', 'Abierto', 'F', 'G', 'Tres', 'Cuatro', 'NoExiste']) {
-        const bash = capture(source, method)
-        assert.equal(redMethodBody(source, method), bash, `${method} en ${JSON.stringify(source.slice(0, 30))}`)
-      }
-    }
-  })
-
-  for (const [name, output] of Object.entries(OUTPUTS)) {
-    test(`detect_preexisting_red_tests y preexisting_red_only: ${name}`, () => {
-      for (const ref of [snapshot, 'deadbeef']) {
-        const detected = detectPreexistingRedTests(worktree, ref, output)
-        const bashDetected = bashTwin('detect_preexisting_red_tests "$@"', [worktree, ref, output])
-        assert.equal(detected.status, bashDetected.status)
-        assert.equal(redTestsText(detected.tests), bashDetected.stdout)
-        const only = preexistingRedOnly(worktree, ref, output)
-        const bashOnly = bashTwin('preexisting_red_only "$@"', [worktree, ref, output])
-        assert.equal(only.status, bashOnly.status)
-        assert.equal(redTestsText(only.tests), bashOnly.stdout)
-      }
-    })
-  }
-})
-
-/** Salida de `_red_method_body` con `source` por la entrada estandar. */
-function capture(source: string, method: string): string {
-  const file = join(work, 'fuente.cs')
-  writeFileSync(file, source)
-  return bashTwin('_red_method_body "$2" < "$1"', [file, method]).stdout
-}

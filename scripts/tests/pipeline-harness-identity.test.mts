@@ -1,6 +1,5 @@
 import assert from 'node:assert/strict'
 import {
-  copyFileSync,
   existsSync,
   mkdirSync,
   mkdtempSync,
@@ -20,8 +19,8 @@ import {
   harnessIdentityJson,
   pipelineScriptsDir,
 } from '../lib/pipeline/harness-identity.mts'
-import { BASH_LIBRARY, bashLibrary, NO_BASH, NO_BASH_JQ, REPO_ROOT } from './pipeline-scope-parity.mts'
 
+const REPO_ROOT = join(import.meta.dirname, '..', '..')
 const COMMIT = '4906fb885588801ce412e33263f558d187075b64'
 const NO_SYMLINKS = process.platform === 'win32' ? 'los enlaces simbolicos requieren privilegio en Windows' : false
 
@@ -94,9 +93,22 @@ describe('getHarnessVersion', () => {
   })
 
   test('un plugin.json ilegible o con version nula da cadena vacia', () => {
-    for (const content of ['no soy json {{{', '', '[]', '"texto"', '{"version":null}', '{"version":false}', '{"version":"null"}']) {
+    for (const content of ['no soy json {{{', '', '[]', '"texto"', 'null', '{"version":null}', '{"version":false}', '{"version":"null"}', '{"version":""}']) {
       writeFileSync(pluginJson, content)
       assert.equal(getHarnessVersion(scriptsDir), '', content)
+    }
+  })
+
+  test('quita el BOM y el salto final, e imprime como JSON lo que no es texto', () => {
+    const cases: [string, string][] = [
+      ['\ufeff{"version":"4.5.6"}', '4.5.6'],
+      ['{"version":"1.0.0\\n"}', '1.0.0'],
+      ['{"version":3}', '3'],
+      ['{"version":{"mayor":1,"menor":[2,3]}}', '{\n  "mayor": 1,\n  "menor": [\n    2,\n    3\n  ]\n}'],
+    ]
+    for (const [content, version] of cases) {
+      writeFileSync(pluginJson, content)
+      assert.equal(getHarnessVersion(scriptsDir), version, content)
     }
   })
 
@@ -123,6 +135,22 @@ describe('getHarnessIdentity', () => {
   test('manifiesto de otro runtime: metadata_invalid', () => {
     writeFileSync(manifest, manifestJson())
     assert.deepEqual(getHarnessIdentity('otro-runtime', scriptsDir), INVALID)
+    writeFileSync(manifest, manifestJson({ runtime: '' }))
+    assert.equal(getHarnessIdentity('', scriptsDir).identity_state, 'complete')
+    assert.deepEqual(getHarnessIdentity('claude', scriptsDir), INVALID)
+  })
+
+  test('tolera el BOM, campos de mas y un salto final en version o commit', () => {
+    const complete = { harness_version: '1.2.3', harness_commit: COMMIT, identity_state: 'complete' }
+    for (const content of [
+      `\ufeff${manifestJson()}`,
+      manifestJson({ extra: true }),
+      manifestJson({ version: '1.2.3\n' }),
+      manifestJson({ commit: `${COMMIT}\n` }),
+    ]) {
+      writeFileSync(manifest, content)
+      assert.deepEqual(getHarnessIdentity('', scriptsDir), complete, content)
+    }
   })
 
   test('acepta versiones con prerelease o build', () => {
@@ -152,7 +180,10 @@ describe('getHarnessIdentity', () => {
       manifestJson({ commit: COMMIT.slice(1) }),
       manifestJson({ commit: `${COMMIT}0` }),
       manifestJson({ commit: undefined }),
-      // Mas de un valor JSON: la gemela lo da por completo con versiones multilinea.
+      manifestJson({ version: '1.2.3-rc.1+build.5' }),
+      manifestJson({ version: '1.2.3\n\n' }),
+      manifestJson({ version: 'x\n1.2.3' }),
+      '"texto"',
       manifestJson() + manifestJson(),
     ]
     for (const content of contents) {
@@ -196,109 +227,5 @@ describe('harnessIdentityJson', () => {
       harnessIdentityJson({ harness_version: null, harness_commit: null, identity_state: 'metadata_missing' }),
       '{"harness_version":null,"harness_commit":null,"identity_state":"metadata_missing"}',
     )
-  })
-})
-
-describe('paridad con la gemela bash', { skip: NO_BASH }, () => {
-  let library = ''
-
-  before(() => {
-    library = join(scriptsDir, '_pipeline-common.sh')
-    copyFileSync(BASH_LIBRARY, library)
-  })
-
-  test('_pc_script_dir', () => {
-    const fromBash = bashLibrary('_pc_script_dir', [], { cwd: tmp })
-    assert.equal(fromBash.status, 0, fromBash.stderr)
-    assert.equal(realpathSync.native(fromBash.stdout.trim()), realpathSync.native(pipelineScriptsDir()))
-  })
-
-  test('get_harness_version', { skip: NO_BASH_JQ }, () => {
-    const contents = [
-      null,
-      '{\n  "name": "mefisto",\n  "version": "9.9.9"\n}\n',
-      '{"name":"mefisto"}',
-      '{"version":"1.2.3","description":"algo con la palabra version adentro"}',
-      '{"version":null}',
-      '{"version":false}',
-      '{"version":"null"}',
-      '{"version":""}',
-      '{"version":3}',
-      '{"version":{"mayor":1,"menor":[2,3]}}',
-      '{"version":"1.0.0\\n"}',
-      '﻿{"version":"4.5.6"}',
-      'no soy json {{{',
-      '',
-      '[]',
-      '"texto"',
-      'null',
-    ]
-    for (const content of contents) {
-      rmSync(pluginJson, { force: true })
-      if (content !== null) writeFileSync(pluginJson, content)
-      const fromBash = bashLibrary('get_harness_version', [], { library, cwd: tmp })
-      assert.equal(fromBash.status, 0, fromBash.stderr)
-      assert.equal(`${getHarnessVersion(scriptsDir)}\n`, fromBash.stdout, String(content))
-    }
-  })
-
-  test('get_harness_identity_json', { skip: NO_BASH_JQ }, () => {
-    const contents = [
-      null,
-      manifestJson(),
-      `﻿${manifestJson()}`,
-      manifestJson({ schemaVersion: 1.0, extra: true }),
-      manifestJson({ version: '1.2.3-rc.1+build.5' }),
-      manifestJson({ version: '1.2.3\n' }),
-      manifestJson({ commit: `${COMMIT}\n` }),
-      manifestJson({ version: '1.2.3\n\n' }),
-      manifestJson({ version: 'x\n1.2.3' }),
-      manifestJson({ runtime: 'otro-runtime' }),
-      manifestJson({ runtime: '' }),
-      manifestJson({ schemaVersion: 2 }),
-      manifestJson({ schemaVersion: '1' }),
-      manifestJson({ runtime: 7 }),
-      manifestJson({ runtime: undefined }),
-      manifestJson({ version: '1.2' }),
-      manifestJson({ version: '01.2.3' }),
-      manifestJson({ version: undefined }),
-      manifestJson({ commit: COMMIT.toUpperCase() }),
-      manifestJson({ commit: COMMIT.slice(1) }),
-      manifestJson({ commit: undefined }),
-      'no soy json {{{',
-      '',
-      '[]',
-      'null',
-      '"texto"',
-    ]
-    for (const content of contents) {
-      rmSync(manifest, { force: true })
-      if (content !== null) writeFileSync(manifest, content)
-      for (const runtime of ['', 'claude', 'otro-runtime']) {
-        const fromBash = bashLibrary('get_harness_identity_json "$1"', [runtime], { library, cwd: tmp })
-        assert.equal(fromBash.status, 0, fromBash.stderr)
-        assert.equal(
-          `${harnessIdentityJson(getHarnessIdentity(runtime, scriptsDir))}\n`,
-          fromBash.stdout,
-          `${String(content)} [${runtime}]`,
-        )
-      }
-    }
-  })
-
-  test('get_harness_identity_json con un directorio o un enlace por manifiesto', { skip: NO_BASH_JQ }, () => {
-    const real = join(tmp, 'manifiesto-paridad.json')
-    writeFileSync(real, manifestJson())
-    const shapes: (() => void)[] = [
-      () => mkdirSync(manifest),
-      () => symlinkSync(real, manifest),
-      () => symlinkSync(join(tmp, 'no-existe.json'), manifest),
-    ]
-    for (const shape of shapes) {
-      rmSync(manifest, { recursive: true, force: true })
-      shape()
-      const fromBash = bashLibrary('get_harness_identity_json', [], { library, cwd: tmp })
-      assert.equal(`${harnessIdentityJson(getHarnessIdentity('', scriptsDir))}\n`, fromBash.stdout)
-    }
   })
 })

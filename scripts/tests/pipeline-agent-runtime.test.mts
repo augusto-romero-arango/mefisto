@@ -1,11 +1,12 @@
 import assert from 'node:assert/strict'
 import { chmodSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
-import { delimiter, join } from 'node:path'
+import { join } from 'node:path'
 import { after, before, describe, test } from 'node:test'
 
 import { runtimeCliAvailable, runtimeSupportsResume } from '../lib/pipeline/agent-runtime.mts'
-import { NO_BASH, RUNTIME_LIB_DIR, bashLibrary } from './pipeline-agents-parity.mts'
+
+const RUNTIME_LIB_DIR = join(import.meta.dirname, '..', '..', 'src', 'runtime', 'lib')
 
 let work = ''
 let customLib = ''
@@ -33,11 +34,17 @@ describe('runtimeCliAvailable', () => {
     const libDir = RUNTIME_LIB_DIR
     assert.equal(await runtimeCliAvailable('fake', { env: { MEFISTO_FAKE_AVAILABLE: '1' }, libDir }), true)
     assert.equal(await runtimeCliAvailable('fake', { env: {}, libDir }), false)
+    assert.equal(await runtimeCliAvailable('fake', { env: { MEFISTO_FAKE_AVAILABLE: '0' }, libDir }), false)
     assert.equal(await runtimeCliAvailable('claude', { env: {}, libDir, hasCommand: (command) => command === 'claude' }), true)
     assert.equal(await runtimeCliAvailable('claude', { env: {}, libDir, hasCommand: () => false }), false)
   })
 
   test('sin hasCommand busca el CLI en el PATH del entorno', async () => {
+    const bin = join(work, 'bin')
+    mkdirSync(bin)
+    writeFileSync(join(bin, 'claude'), '#!/bin/sh\n')
+    chmodSync(join(bin, 'claude'), 0o755)
+    assert.equal(await runtimeCliAvailable('claude', { env: { PATH: bin }, libDir: RUNTIME_LIB_DIR }), process.platform !== 'win32')
     assert.equal(await runtimeCliAvailable('claude', { env: { PATH: join(work, 'vacio') }, libDir: RUNTIME_LIB_DIR }), false)
   })
 
@@ -59,40 +66,14 @@ describe('runtimeSupportsResume', () => {
     assert.equal(await runtimeSupportsResume('claude', { env: {}, libDir }), true)
     assert.equal(await runtimeSupportsResume('fake', { env: { MEFISTO_FAKE_SUPPORTS_RESUME: '1' }, libDir }), true)
     assert.equal(await runtimeSupportsResume('fake', { env: {}, libDir }), false)
+    assert.equal(await runtimeSupportsResume('fake', { env: { MEFISTO_FAKE_SUPPORTS_RESUME: 'si' }, libDir }), false)
+    assert.equal(await runtimeSupportsResume('claude', { env: { PATH: join(work, 'vacio') }, libDir }), true)
     assert.equal(await runtimeSupportsResume('capaz', { env: {}, libDir: customLib }), true)
   })
 
   test('[pre-2] un runtime sin adaptador o sin la capacidad degrada a no soportado', async () => {
     for (const runtime of ['incapaz', 'mudo', 'roto', 'ilegible', 'runtime-inexistente', '']) {
       assert.equal(await runtimeSupportsResume(runtime, { env: {}, libDir: customLib }), false, runtime)
-    }
-  })
-})
-
-describe('paridad con la gemela bash', { skip: NO_BASH }, () => {
-  test('runtime_cli_available y runtime_supports_resume', async () => {
-    const bin = join(work, 'bin')
-    mkdirSync(bin)
-    writeFileSync(join(bin, 'claude'), '#!/bin/sh\n')
-    chmodSync(join(bin, 'claude'), 0o755)
-    const system = `/usr/bin${delimiter}/bin`
-    const environments: Record<string, string>[] = [
-      { PATH: system },
-      { PATH: `${bin}${delimiter}${system}` },
-      { PATH: system, MEFISTO_FAKE_AVAILABLE: '1', MEFISTO_FAKE_SUPPORTS_RESUME: '1' },
-      { PATH: system, MEFISTO_FAKE_AVAILABLE: '0', MEFISTO_FAKE_SUPPORTS_RESUME: 'si' },
-    ]
-    const script = 'runtime_cli_available "$1"; printf "%s " "$?"; runtime_supports_resume "$1"; printf "%s" "$?"'
-    for (const extra of environments) {
-      const env = { ...extra, MEFISTO_RUNTIME_LIB_DIR: RUNTIME_LIB_DIR }
-      for (const runtime of ['claude', 'fake', 'inexistente', '']) {
-        const own = [await runtimeCliAvailable(runtime, { env }), await runtimeSupportsResume(runtime, { env })]
-        assert.equal(
-          own.map((yes) => (yes ? '0' : '1')).join(' '),
-          bashLibrary(script, [runtime], { env }).stdout,
-          `${runtime} ${JSON.stringify(extra)}`,
-        )
-      }
     }
   })
 })

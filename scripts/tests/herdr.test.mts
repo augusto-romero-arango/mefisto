@@ -356,13 +356,13 @@ describe('marcadores de despacho', () => {
 })
 
 describe('utilidades del runner', () => {
-  test('runnableCommand corre con Node los .mts y la gemela de un .sh', () => {
-    const dir = join(work, 'gemelas')
+  test('runnableCommand corre con Node los .mts y el .mts junto a un .sh', () => {
+    const dir = join(work, 'runnable')
     mkdirSync(dir, { recursive: true })
-    writeFileSync(join(dir, 'con-gemela.mts'), '')
+    writeFileSync(join(dir, 'con-mts.mts'), '')
     assert.deepEqual(runnableCommand([join(dir, 'x.mts'), '1'], 'node'), ['node', join(dir, 'x.mts'), '1'])
-    assert.deepEqual(runnableCommand([join(dir, 'con-gemela.sh'), '1'], 'node'), ['node', join(dir, 'con-gemela.mts'), '1'])
-    assert.deepEqual(runnableCommand([join(dir, 'sin-gemela.sh')], 'node'), ['bash', join(dir, 'sin-gemela.sh')])
+    assert.deepEqual(runnableCommand([join(dir, 'con-mts.sh'), '1'], 'node'), ['node', join(dir, 'con-mts.mts'), '1'])
+    assert.deepEqual(runnableCommand([join(dir, 'sin-mts.sh')], 'node'), ['bash', join(dir, 'sin-mts.sh')])
     assert.deepEqual(runnableCommand(['touch', 'x'], 'node'), ['touch', 'x'])
   })
 

@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { existsSync } from 'node:fs'
 import { tmpdir } from 'node:os'
-import { basename, dirname, isAbsolute, join } from 'node:path'
+import { basename, isAbsolute, join } from 'node:path'
 import { describe, test } from 'node:test'
 
 import type { Run } from '../lib/azure-cli.mts'
@@ -16,7 +16,6 @@ import {
   resolvePipelineWithState,
 } from '../lib/pipeline/pipeline-resolution.mts'
 import type { Resolution } from '../lib/pipeline/pipeline-resolution.mts'
-import { BASH_LIBRARY, bashLibrary, FAKE_GH, NO_BASH, NO_BASH_JQ } from './pipeline-scope-parity.mts'
 
 interface FakeGh {
   run: Run
@@ -120,6 +119,9 @@ describe('resolveFromLabels', () => {
     })
     assertPipeline(resolveFromLabels(['tipo:infra', 'tipo:tooling', 'tipo:refactor']), 'tdd')
     assertPipeline(resolveFromLabels(['tipo:infra', 'tipo:tooling']), 'tooling')
+    for (const labels of [['tipo:Feature', ' tipo:tooling', 'tipo:infra '], [''], ['tipo:projection-experimental']]) {
+      assert.deepEqual(resolveFromLabels(labels), { kind: 'skip', reason: 'no-tipo' }, JSON.stringify(labels))
+    }
   })
 
   test('la ruta sale del directorio de scripts indicado', () => {
@@ -208,6 +210,12 @@ describe('resolvePipelineWithState', () => {
     unknownOverride(() => resolvePipelineWithState(999, 'foo', { run: fakeGh(null).run }), 'foo')
   })
 
+  test('un issue cerrado conserva su estado y su pipeline', () => {
+    const result = resolvePipelineWithState(994, '', { run: fakeGh({ state: 'CLOSED', labels: ['tipo:tooling'] }).run })
+    assert.equal(result.state, 'CLOSED')
+    assertPipeline(result.resolution, 'tooling')
+  })
+
   test('[S-2] solo lleva estado y pipeline, sin el flag de projection', () => {
     const result = resolvePipelineWithState(995, '', { run: fakeGh({ state: 'OPEN', labels: ['tipo:projection'] }).run })
     assert.deepEqual(Object.keys(result), ['state', 'resolution'])
@@ -226,114 +234,5 @@ describe('canLaunchNow', () => {
     assert.equal(canLaunchNow(2, 1, true, true), false)
     assert.equal(canLaunchNow(2, 1, false, true), true)
     assert.equal(canLaunchNow(2, 3, false, false), false)
-  })
-})
-
-describe('paridad con la gemela bash', { skip: NO_BASH }, () => {
-  const scriptsDir = dirname(BASH_LIBRARY)
-  const LABEL_SETS = [
-    [],
-    ['tipo:feature'],
-    ['tipo:refactor'],
-    ['tipo:projection'],
-    ['tipo:tooling'],
-    ['tipo:infra'],
-    ['otra-cosa'],
-    ['estado:listo', 'tipo:projection', 'dom:facturacion'],
-    ['tipo:projection-experimental'],
-    ['xtipo:tooling', 'tipo:feature-x', 'tipo:infraestructura'],
-    ['tipo:infra', 'tipo:tooling'],
-    ['tipo:infra', 'tipo:tooling', 'tipo:refactor'],
-    ['tipo:Feature', ' tipo:tooling', 'tipo:infra '],
-    [''],
-  ]
-
-  test('_resolve_from_labels y _is_tipo_projection_from_labels', () => {
-    for (const labels of LABEL_SETS) {
-      const fromBash = bashLibrary(
-        '_resolve_from_labels "$1"; if _is_tipo_projection_from_labels "$1"; then echo true; else echo false; fi',
-        [labels.join('\n')],
-      )
-      assert.equal(fromBash.status, 0, fromBash.stderr)
-      assert.equal(
-        `${resolutionText(resolveFromLabels(labels, scriptsDir))}\n${String(isTipoProjectionFromLabels(labels))}\n`,
-        fromBash.stdout,
-        JSON.stringify(labels),
-      )
-    }
-  })
-
-  test('can_launch_now', () => {
-    const cases: [number, number, boolean, boolean][] = []
-    for (const max of [0, 1, 2, 3]) {
-      for (const running of [0, 1, 2, 5]) {
-        for (const isProjection of [false, true]) {
-          for (const projectionRunning of [false, true]) cases.push([max, running, isProjection, projectionRunning])
-        }
-      }
-    }
-    const fromBash = bashLibrary(
-      'while [ $# -gt 0 ]; do if can_launch_now "$1" "$2" "$3" "$4"; then echo true; else echo false; fi; shift 4; done',
-      cases.flat().map(String),
-    )
-    assert.equal(fromBash.status, 0, fromBash.stderr)
-    assert.deepEqual(
-      cases.map((args) => String(canLaunchNow(...args))),
-      fromBash.stdout.trim().split('\n'),
-    )
-  })
-
-  test('resolve_pipeline, resolve_pipeline_with_state y resolve_issue_facts', { skip: NO_BASH_JQ }, () => {
-    const OVERRIDES = ['', 'tdd', 'tooling', 'foo']
-    const issues = [
-      null,
-      ...LABEL_SETS.map((labels) => ({ state: 'OPEN', labels })),
-      { state: 'CLOSED', labels: ['tipo:tooling'] },
-    ]
-    const script = `${FAKE_GH}
-for fn in resolve_pipeline resolve_pipeline_with_state resolve_issue_facts; do
-  for override in "" tdd tooling foo; do
-    out=$("$fn" 7 "$override" 2>&1); printf '%s[%s] rc=%s %s\\n' "$fn" "$override" "$?" "$out"
-  done
-done`
-
-    function line(name: string, override: string, text: () => string): string {
-      try {
-        return `${name}[${override}] rc=0 ${text()}`
-      } catch (error) {
-        if (!(error instanceof CliError)) throw error
-        return `${name}[${override}] rc=${error.exitCode} ${error.message}`
-      }
-    }
-
-    for (const issue of issues) {
-      const gh = fakeGh(issue)
-      const options = { run: gh.run, scriptsDir }
-      const expected = [
-        ...OVERRIDES.map((override) =>
-          line('resolve_pipeline', override, () => resolutionText(resolvePipeline(7, override, options))),
-        ),
-        ...OVERRIDES.map((override) =>
-          line('resolve_pipeline_with_state', override, () => {
-            const { state, resolution } = resolvePipelineWithState(7, override, options)
-            return `${state}|${resolutionText(resolution)}`
-          }),
-        ),
-        ...OVERRIDES.map((override) =>
-          line('resolve_issue_facts', override, () => {
-            const { state, isProjection, resolution } = resolveIssueFacts(7, override, options)
-            return `${state}|${String(isProjection)}|${resolutionText(resolution)}`
-          }),
-        ),
-      ]
-      const env = {
-        ...process.env,
-        GH_RC: issue === null ? '1' : '0',
-        GH_JSON: issue === null ? '' : JSON.stringify({ state: issue.state, labels: issue.labels.map((name) => ({ name })) }),
-      }
-      const fromBash = bashLibrary(script, [], { env })
-      assert.equal(fromBash.status, 0, fromBash.stderr)
-      assert.deepEqual(fromBash.stdout.trimEnd().split('\n'), expected, JSON.stringify(issue))
-    }
   })
 })
