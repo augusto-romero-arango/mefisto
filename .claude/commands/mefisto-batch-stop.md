@@ -30,16 +30,19 @@ Criterio elegido (el mas simple de los disponibles): el proceso real del motor,
 terminada sin volver a parsear su contenido.
 
 ```bash
-pgrep -f "[m]efisto-batch-pipeline\.sh" >/dev/null 2>&1
+pgrep -f "[m]efisto-batch-pipeline\.(sh|mts)" >/dev/null 2>&1
 ```
 
-Dos detalles del patron, ambos deliberados:
+Tres detalles del patron, los tres deliberados:
 
 - `[m]efisto` en vez de `mefisto`: el patron viaja en la linea de comandos del
   propio shell que corre este `pgrep`, y `pgrep -f` la mira igual que cualquier
   otra. Con la clase de un solo caracter, el texto literal del patron
   (`[m]efisto...`) ya no encaja con la expresion, asi que la deteccion no puede
   auto-cumplirse: sin batch corriendo, el exit es 1.
+- `\.(sh|mts)` porque el `.sh` es un shim que se reemplaza por
+  `node .../mefisto-batch-pipeline.mts` (MEF-ADR-0057): el proceso vivo lleva en
+  su linea de comandos el `.mts`, no el `.sh`.
 - El criterio es **por maquina**, no por checkout: si el batch corre en otro
   clon de Mefisto, aqui tambien da positivo y la senal se escribe en ESTE
   repo, donde nadie la va a consumir hasta la proxima corrida local (que se
