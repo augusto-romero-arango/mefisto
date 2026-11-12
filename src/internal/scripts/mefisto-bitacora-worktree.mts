@@ -27,8 +27,8 @@ const BRANCH_PREFIX = 'docs/bitacora-hasta-'
 const DATE = /^[0-9]{4}-[0-9]{2}-[0-9]{2}$/
 const USAGE = [
   'Uso:',
-  '  mefisto-bitacora-worktree.sh prepare --fecha <YYYY-MM-DD>',
-  '  mefisto-bitacora-worktree.sh deliver --worktree <ruta>',
+  '  mefisto-bitacora-worktree.mts prepare --fecha <YYYY-MM-DD>',
+  '  mefisto-bitacora-worktree.mts deliver --worktree <ruta>',
 ].join('\n')
 
 export interface BitacoraContext {

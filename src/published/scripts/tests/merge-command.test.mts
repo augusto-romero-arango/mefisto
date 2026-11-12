@@ -11,9 +11,9 @@ import {
   contains,
   generatorIsUpToDate,
   hasExactMetadata,
-  isExecutable,
   linesWith,
   mirrorMatches,
+  repoFileExists,
   sourceValidates,
 } from './command-contract-kit.mts'
 
@@ -28,11 +28,11 @@ describe('[fuente] contrato neutral', () => {
     'metadata sin agent ni capabilities',
   )
   contains(body, '{{mefisto:assert-consumer-repo}}', 'guard consumidor presente')
-  contains(body, '{{mefisto:run pr-sync.sh <PRs> --merge}}', 'invoca pr-sync.sh con lista de PRs')
-  contains(body, '{{mefisto:run pr-sync.sh --all --merge}}', 'invoca pr-sync.sh con --all')
+  contains(body, '{{mefisto:run pr-sync.mts <PRs> --merge}}', 'invoca pr-sync.mts con lista de PRs')
+  contains(body, '{{mefisto:run pr-sync.mts --all --merge}}', 'invoca pr-sync.mts con --all')
   contains(
     body,
-    '{{mefisto:run herdr-pipeline.sh --collapse-panes}}',
+    '{{mefisto:run herdr-pipeline.mts --collapse-panes}}',
     'colapsa paneles Herdr via directiva run',
   )
   contains(body, 'HERDR_ENV=1', 'colapso de paneles condicionado a HERDR_ENV=1')
@@ -69,19 +69,19 @@ describe('[salidas] adaptador y mirror', () => {
   claudeOutputExists(command)
   contains(
     claude,
-    'MEFISTO_RUNTIME=claude "${MEFISTO_PACKAGE_ROOT}/scripts/pr-sync.sh" <PRs> --merge',
-    'Claude invoca pr-sync.sh con lista de PRs y fija su runtime',
+    'MEFISTO_RUNTIME=claude node "${MEFISTO_PACKAGE_ROOT}/scripts/pr-sync.mts" <PRs> --merge',
+    'Claude invoca pr-sync.mts con lista de PRs y fija su runtime',
   )
   contains(
     claude,
-    'MEFISTO_RUNTIME=claude "${MEFISTO_PACKAGE_ROOT}/scripts/pr-sync.sh" --all --merge',
-    'Claude invoca pr-sync.sh con --all y fija su runtime',
+    'MEFISTO_RUNTIME=claude node "${MEFISTO_PACKAGE_ROOT}/scripts/pr-sync.mts" --all --merge',
+    'Claude invoca pr-sync.mts con --all y fija su runtime',
   )
   contains(claude, 'model: "haiku"', 'Claude materializa el perfil fast')
   // Solo las lineas que invocan los scripts: el preambulo generado que resuelve
   // MEFISTO_PACKAGE_ROOT si cita el marcador legacy, como fallback de lectura.
   absentAll(
-    linesWith(claude, /scripts\/(pr-sync|herdr-pipeline)\.sh"/),
+    linesWith(claude, /scripts\/(pr-sync|herdr-pipeline)\.mts"/),
     ['.claude/pipeline/.plugin-root', 'plugins/cache'],
     (path) => `invocacion Claude no reimplementa el lookup legacy (${path})`,
   )
@@ -92,13 +92,13 @@ describe('[salidas] adaptador y mirror', () => {
   mirrorMatches(command)
   contains(
     mirror,
-    '<!-- GENERADO por src/published/scripts/generate-published-adapters.sh desde src/published/commands/merge.md. No editar a mano. -->',
+    '<!-- GENERADO por src/published/scripts/generate-published-adapters.mts desde src/published/commands/merge.md. No editar a mano. -->',
     'mirror conserva marcador generado',
   )
   check(
-    'pr-sync.sh empaquetado en dist/claude/scripts',
-    () => isExecutable('dist/claude/scripts/pr-sync.sh'),
-    'falta dist/claude/scripts/pr-sync.sh',
+    'pr-sync.mts empaquetado en dist/claude/scripts',
+    () => repoFileExists('dist/claude/scripts/pr-sync.mts'),
+    'falta dist/claude/scripts/pr-sync.mts',
   )
   generatorIsUpToDate()
 })

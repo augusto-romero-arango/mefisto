@@ -1,11 +1,11 @@
 // Pipeline INTERNO de tooling para el repo de Mefisto.
 //
 // Uso:
-//   mefisto-tooling-pipeline.sh 42
-//   mefisto-tooling-pipeline.sh --issue 42
-//   mefisto-tooling-pipeline.sh 42 --from-stage 2
-//   mefisto-tooling-pipeline.sh 42 --models 'reviewer=<modelo>,writer=<modelo>'   modelo por stage
-//   mefisto-tooling-pipeline.sh 42 --variant experimento-a    corrida paralela del mismo issue: sin PR, rama local
+//   mefisto-tooling-pipeline.mts 42
+//   mefisto-tooling-pipeline.mts --issue 42
+//   mefisto-tooling-pipeline.mts 42 --from-stage 2
+//   mefisto-tooling-pipeline.mts 42 --models 'reviewer=<modelo>,writer=<modelo>'   modelo por stage
+//   mefisto-tooling-pipeline.mts 42 --variant experimento-a    corrida paralela del mismo issue: sin PR, rama local
 //
 // Ciclo: issue -> worktree -> writer -> reviewer -> sync con main -> PR -> limpieza. Solo modifica
 // archivos del propio plugin; no corre dotnet ni terraform.
@@ -560,7 +560,7 @@ export async function mefistoToolingPipeline(deps: MefistoToolingDeps): Promise<
       return { passed: result.status === 0, output: chomp(result.stdout + result.stderr) }
     }
     const resumeCommand = (stage: string): string =>
-      `  ./.claude/scripts/mefisto-tooling-pipeline.sh ${issue} --from-stage ${stage}${variant.length > 0 ? ` --variant ${variant}` : ''}`
+      `  node src/internal/scripts/mefisto-tooling-pipeline.mts ${issue} --from-stage ${stage}${variant.length > 0 ? ` --variant ${variant}` : ''}`
 
     // El gate se carga del checkout principal y escanea el worktree. Antes de abortar, el mismo rol
     // tiene un unico intento de corregir la fuga.

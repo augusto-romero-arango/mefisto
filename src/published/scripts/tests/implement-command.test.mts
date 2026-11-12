@@ -87,15 +87,15 @@ describe('[fuente] contrato neutral', () => {
   contains(body, 'Workflow:', 'opcion de scaffold describe el workflow')
   contains(body, 'dentro del worktree del issue', 'scaffold y TDD comparten worktree')
   contains(body, 'solo se admite un scaffold por invocacion', 'limita scaffold por invocacion')
-  contains(body, '{{mefisto:run launch-pipeline.sh $ARGUMENTS}}', 'despacho sin scaffold')
+  contains(body, '{{mefisto:run launch-pipeline.mts $ARGUMENTS}}', 'despacho sin scaffold')
   contains(
     body,
-    '{{mefisto:run launch-pipeline.sh $ARGUMENTS --scaffold-domain <dominio-kebab-confirmado>}}',
+    '{{mefisto:run launch-pipeline.mts $ARGUMENTS --scaffold-domain <dominio-kebab-confirmado>}}',
     'despacho con scaffold confirmado',
   )
   check(
     'existen dos rutas de lanzamiento',
-    () => lineCount(command.source, '{{mefisto:run launch-pipeline.sh') === 2,
+    () => lineCount(command.source, '{{mefisto:run launch-pipeline.mts') === 2,
     'las rutas de lanzamiento no son dos',
   )
   absentAll(
@@ -138,13 +138,13 @@ describe('[salidas] adaptador y mirror', () => {
   )
   contains(
     claude,
-    'MEFISTO_RUNTIME=claude "${MEFISTO_PACKAGE_ROOT}/scripts/launch-pipeline.sh" $ARGUMENTS',
+    'MEFISTO_RUNTIME=claude node "${MEFISTO_PACKAGE_ROOT}/scripts/launch-pipeline.mts" $ARGUMENTS',
     'Claude conserva package root con espacios y fija su runtime',
   )
   mirrorMatches(command)
   contains(
     mirror,
-    '<!-- GENERADO por src/published/scripts/generate-published-adapters.sh desde src/published/commands/implement.md. No editar a mano. -->',
+    '<!-- GENERADO por src/published/scripts/generate-published-adapters.mts desde src/published/commands/implement.md. No editar a mano. -->',
     'mirror conserva marcador generado',
   )
   generatorIsUpToDate()

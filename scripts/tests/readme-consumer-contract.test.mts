@@ -35,10 +35,10 @@ test('una misma linea instruye .gitignore y .mefisto/pipeline/', () => {
   )
 })
 
-test('la instruccion replica la regla de scripts/onboard-diagnose.sh (agrega exactamente)', () => {
+test('la instruccion replica la regla de scripts/onboard-diagnose.mts (agrega exactamente)', () => {
   assert.ok(
     matchingLines(CORPUS, '.mefisto/pipeline/').some((line) => line.text.includes('Agrega exactamente')),
-    "la instruccion no replica la regla de scripts/onboard-diagnose.sh (falta 'Agrega exactamente')",
+    "la instruccion no replica la regla de scripts/onboard-diagnose.mts (falta 'Agrega exactamente')",
   )
 })
 

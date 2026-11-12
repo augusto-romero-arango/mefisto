@@ -1,5 +1,5 @@
 // Textos que arma `tooling-pipeline.mts`: prompts del writer, del reviewer y del merge y cuerpo
-// del PR, byte a byte contra los que producia tooling-pipeline.sh (`fixtures/tooling-pipeline/`),
+// del PR, byte a byte contra los que producia tooling-pipeline.mts (`fixtures/tooling-pipeline/`),
 // y el contrato de alcance y de frontera neutral que esos textos y el modulo sostienen.
 
 import assert from 'node:assert/strict'
@@ -50,7 +50,7 @@ const BODY = {
   metricsTable: METRICS_TABLE,
 }
 
-describe('prompts identicos a los de tooling-pipeline.sh', () => {
+describe('prompts identicos a los de tooling-pipeline.mts', () => {
   test('writer (Stage 1)', () => {
     assert.equal(stage1Prompt(STAGE1), golden('stage-1-writer.prompt.txt'))
   })
@@ -65,7 +65,7 @@ describe('prompts identicos a los de tooling-pipeline.sh', () => {
   })
 })
 
-describe('cuerpo del PR identico al de tooling-pipeline.sh', () => {
+describe('cuerpo del PR identico al de tooling-pipeline.mts', () => {
   test('la tabla de metricas de la corrida', () => {
     assert.equal(METRICS_TABLE.replace(/\n+$/, ''), golden('metrics-table.txt'))
   })
@@ -89,10 +89,10 @@ describe('cuerpo del PR identico al de tooling-pipeline.sh', () => {
 })
 
 describe('politica de cero warnings nuevos (MEF-ADR-0056)', () => {
-  test('el writer recibe el commit base y los dos prompts nombran warnings-diff.sh con --base', () => {
+  test('el writer recibe el commit base y los dos prompts nombran warnings-diff.mts con --base', () => {
     assert.ok(stage1Prompt(STAGE1).includes(`Commit base: ${SNAPSHOT}\n`))
     for (const prompt of [stage1Prompt(STAGE1), stage2Prompt(STAGE2)]) {
-      assert.ok(prompt.includes(`scripts/warnings-diff.sh del plugin (politica de cero warnings nuevos, MEF-ADR-0056); sigue la doctrina de tu agente con --base ${SNAPSHOT}.`))
+      assert.ok(prompt.includes(`scripts/warnings-diff.mts del plugin (politica de cero warnings nuevos, MEF-ADR-0056); sigue la doctrina de tu agente con --base ${SNAPSHOT}.`))
     }
   })
 })

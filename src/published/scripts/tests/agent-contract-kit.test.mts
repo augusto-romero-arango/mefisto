@@ -14,13 +14,10 @@ import {
   lowerAscii,
   metadataMatches,
   metadataOf,
-  pipelineReferences,
   readInventory,
   readOrEmpty,
   regularFilesUnder,
   sameBytes,
-  scanClosureText,
-  scanPipelineClosure,
   sha256Of,
 } from './agent-contract-kit.mts'
 
@@ -139,8 +136,8 @@ test('readInventory lee los assets y tolera un inventario ausente o ilegible', (
 })
 
 test('closureAssets separa ruta y modo y descarta lo que no es `ruta|modo`', () => {
-  assert.deepEqual(closureAssets(['scripts/a.sh|0755', 'scripts/lib/b.mts|0644', 'scripts/c.sh|0600', 'x']), [
-    { source: 'scripts/a.sh', mode: '0755' },
+  assert.deepEqual(closureAssets(['scripts/a.mts|0755', 'scripts/lib/b.mts|0644', 'scripts/c.mts|0600', 'x']), [
+    { source: 'scripts/a.mts', mode: '0755' },
     { source: 'scripts/lib/b.mts', mode: '0644' },
   ])
   const real = closureAssets()
@@ -148,50 +145,3 @@ test('closureAssets separa ruta y modo y descarta lo que no es `ruta|modo`', () 
   assert.ok(real.every((asset) => asset.source.length > 0 && /^0(644|755)$/.test(asset.mode)))
 })
 
-const PIPELINE = [
-  '#!/usr/bin/env bash',
-  'source "$(dirname "${BASH_SOURCE[0]}")/_pipeline-common.sh"',
-  "source '$(dirname \"$0\")'/lib/otro.sh",
-  '# source "$(dirname "$0")/comentado.sh"',
-  '    # "$SCRIPT_DIR/tambien-comentado.sh"',
-  'source "$SCRIPT_DIR/sin-dirname.sh"',
-  '  "${SCRIPT_DIR}/../scripts/run-tests.sh" && jq -f "$RUNTIME_LIB_DIR/runtime-claude.jq"',
-  'bash "$RUNTIME_DIR/lib/../mefisto-process.sh" "$SCRIPT_DIR/datos.json"',
-  'echo "$OTRO_DIR/ajeno.sh" "$(dirname "$0")/sin-source.sh"',
-  '',
-].join('\n')
-
-test('pipelineReferences reconoce los source con dirname y las rutas bajo las tres bases', () => {
-  assert.deepEqual(pipelineReferences(PIPELINE), [
-    'scripts/_pipeline-common.sh',
-    'scripts/lib/otro.sh',
-    'scripts/run-tests.sh',
-    'scripts/sin-dirname.sh',
-    'src/runtime/lib/runtime-claude.jq',
-    'src/runtime/mefisto-process.sh',
-  ])
-  assert.deepEqual(pipelineReferences(''), [])
-})
-
-test('scanPipelineClosure exige que cada referencia este declarada y un minimo de cuatro', () => {
-  const declared = [
-    'scripts/_pipeline-common.sh|0755',
-    'scripts/lib/otro.sh|0644',
-    'scripts/run-tests.sh|0755',
-    'scripts/sin-dirname.sh|0755',
-    'src/runtime/lib/runtime-claude.jq|0644',
-    'src/runtime/mefisto-process.sh|0755',
-  ]
-  const full = scanClosureText(PIPELINE, declared)
-  assert.equal(full.problem, '')
-  assert.equal(full.references, 6)
-
-  const undeclared = scanClosureText(PIPELINE, declared.slice(1))
-  assert.equal(undeclared.references, full.references)
-  assert.equal(undeclared.problem, 'scripts/_pipeline-common.sh')
-
-  assert.deepEqual(scanPipelineClosure('scripts/no-existe.sh'), {
-    references: 0,
-    problem: 'el barrido solo reconocio 0 dependencias; se esperaban al menos 4',
-  })
-})

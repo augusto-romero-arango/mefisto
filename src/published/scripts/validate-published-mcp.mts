@@ -1,5 +1,5 @@
 // Valida el registro MCP neutral publicado y su proyeccion Claude.
-// Uso: validate-published-mcp.sh [--registry archivo] [--artifact-schema archivo] [--claude-config archivo]
+// Uso: validate-published-mcp.mts [--registry archivo] [--artifact-schema archivo] [--claude-config archivo]
 
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
@@ -23,7 +23,7 @@ import { isFile, parseSingleJson } from './lib/published-source.mts'
 
 export const REPO_ROOT = join(import.meta.dirname, '..', '..', '..')
 const USAGE =
-  'Uso: validate-published-mcp.sh [--registry archivo] [--artifact-schema archivo] [--claude-config archivo]'
+  'Uso: validate-published-mcp.mts [--registry archivo] [--artifact-schema archivo] [--claude-config archivo]'
 const SENSITIVE_KEY = jqRegExp('^(headers?|environment|env|oauth|token|secret|credential)s?$', 'i')
 const HTTPS = jqRegExp('^https://')
 

@@ -1,8 +1,8 @@
 import type { BoardItem, BoardList } from './types'
 
-export const NEXT_ORDER_FILE = 'scripts/next-order.sh'
+export const NEXT_ORDER_FILE = 'scripts/next-order.mts'
 
-/** Ruta de next-order.sh bajo la raiz del plugin (`root` sin barra final). */
+/** Ruta de next-order.mts bajo la raiz del plugin (`root` sin barra final). */
 export function nextOrderPath(root: string): string {
   return `${root.replace(/\/+$/, '')}/${NEXT_ORDER_FILE}`
 }
@@ -197,9 +197,9 @@ export function applyPending(list: BoardList, pending: Pending, nowMs: number): 
   return { list: items === list.items ? list : { ...list, items }, pending: kept }
 }
 
-/** El cierre del planner: ejecuta field-note.sh, con ruta sin comillas o entre comillas (puede tener espacios). */
+/** El cierre del planner: ejecuta field-note.mts, con ruta sin comillas o entre comillas (puede tener espacios). */
 export function isPlannerClosing(command: string): boolean {
-  return runs(command, String.raw`(?:\S*/|"(?:[^"]*/)?|'(?:[^']*/)?)?field-note\.sh\b`) !== null
+  return runs(command, String.raw`(?:node\s+)?(?:\S*/|"(?:[^"]*/)?|'(?:[^']*/)?)?field-note\.mts\b`) !== null
 }
 
 /** Numero del issue que `gh issue create` imprime como URL. */
@@ -288,7 +288,7 @@ export function cropGrid(grid: Grid, cols: { from: number; to: number }): Grid {
 
 /**
  * El manifiesto `.claude-plugin/plugin.json` en la raiz del repo es el del propio plugin Mefisto: ahi el tablero
- * es el mod interno (`.claude/mods/mefisto-planner-board`) y el publicado no aplica (su next-order.sh es solo del
+ * es el mod interno (`.claude/mods/mefisto-planner-board`) y el publicado no aplica (su next-order.mts es solo del
  * consumidor).
  */
 export function isMefistoManifest(raw: string): boolean {

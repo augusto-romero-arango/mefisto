@@ -123,16 +123,11 @@ describe('como proceso', () => {
     assert.match(result.stdout, /^Uso: .*mefisto-tooling-pipeline\.mts \[--issue NUM \| NUM\] /)
   })
 
-  for (const shim of [
-    ['src', 'internal', 'scripts', 'mefisto-tooling-pipeline.sh'],
-    ['.claude', 'scripts', 'mefisto-tooling-pipeline.sh'],
-  ]) {
-    test(`${shim.join('/')} lanza el modulo con sus argumentos`, { skip: process.platform === 'win32' }, () => {
-      const result = capture('bash', [join(REPO_ROOT, ...shim), '42', '--from-stage', '9'], { cwd: mefisto().root })
-      assert.equal(result.status, 1)
-      assert.match(stripAnsi(result.stderr), /^x ERROR: --from-stage debe ser 1 o 2 \(recibido: 9\)\n/m)
-    })
-  }
+  test('pasa sus argumentos al modulo', () => {
+    const result = capture(process.execPath, [SCRIPT, '42', '--from-stage', '9'], { cwd: mefisto().root })
+    assert.equal(result.status, 1)
+    assert.match(stripAnsi(result.stderr), /^x ERROR: --from-stage debe ser 1 o 2 \(recibido: 9\)\n/m)
+  })
 })
 
 describe('argumentos y frontera neutral: abortan antes de crear el worktree', () => {
@@ -522,8 +517,8 @@ describe('gate de neutralidad de runtime', () => {
     assert.equal(run.code, 1)
     assert.match(errText(run), /src\/internal\/agents\/fx-leak\.md:\d+: R1\n/)
     assert.match(errText(run), /\nR1: reformula la mencion/)
-    assert.doesNotMatch(errText(run), /R4:|adapters-check:/)
-    assert.ok(errText(run).includes('\n  ./.claude/scripts/mefisto-tooling-pipeline.sh 42 --from-stage 1\n'))
+    assert.doesNotMatch(errText(run), /adapters-check:/)
+    assert.ok(errText(run).includes('\n  node src/internal/scripts/mefisto-tooling-pipeline.mts 42 --from-stage 1\n'))
     assert.match(errText(run), /^x ERROR: El intento de correccion de neutralidad ya fallo -- la fuga persiste\. Stage 1 fallido: el writer dejo fuga\(s\)/)
     assert.deepEqual(ghCalls(run, 'pr', 'create'), [])
     assert.equal(readJson(statusFile(repo)).state, 'failed')
@@ -627,7 +622,7 @@ describe('gate de fragmentos de changelog.d/', () => {
         "x ERROR: Cambio notable sin fragmento en changelog.d/.\nEl writer debio crear 'changelog.d/42.<categoria>.md' (added/changed/fixed/removed)\n-- ver changelog.d/README.md para el formato. NUNCA se edita CHANGELOG.md directamente.\nCrea el fragmento en el worktree (",
       ),
     )
-    assert.ok(errText(run).includes('y retoma con:\n  ./.claude/scripts/mefisto-tooling-pipeline.sh 42 --from-stage 2 --variant exp\n'))
+    assert.ok(errText(run).includes('y retoma con:\n  node src/internal/scripts/mefisto-tooling-pipeline.mts 42 --from-stage 2 --variant exp\n'))
   })
 
   test('un cambio solo de bitacora queda exento', async () => {
@@ -860,14 +855,6 @@ describe('sincronizacion con main', () => {
 })
 
 describe('repo real', () => {
-  test('el canonico es un shim de tres lineas hacia el modulo', () => {
-    const shim = readFileSync(join(REPO_ROOT, 'src', 'internal', 'scripts', 'mefisto-tooling-pipeline.sh'), 'utf8')
-    assert.equal(
-      shim,
-      '#!/usr/bin/env bash\n# Shim: la implementacion vive en mefisto-tooling-pipeline.mts (MEF-ADR-0057). No editar.\nexec node "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)/mefisto-tooling-pipeline.mts" "$@"\n',
-    )
-  })
-
   test('runtime, modelos y runner salen de src/runtime/', () => {
     const source = readFileSync(join(REPO_ROOT, 'src', 'internal', 'scripts', 'mefisto-tooling-pipeline.mts'), 'utf8')
     assert.ok(source.includes("from '../../runtime/lib/mefisto-runtime.mts'"))

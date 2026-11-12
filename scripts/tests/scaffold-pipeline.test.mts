@@ -75,7 +75,7 @@ describe('guardas previas', () => {
     assert.equal(run.code, 1)
     assert.equal(
       run.err,
-      'ERROR: scripts/scaffold-pipeline.sh es del plugin publicado y solo aplica al consumidor.\n' +
+      'ERROR: scripts/scaffold-pipeline.mts es del plugin publicado y solo aplica al consumidor.\n' +
         'Estas en el repo de Mefisto, que no crea dominios de negocio.\n' +
         'Para mejorar el plugin usa /mefisto-tooling.\n',
     )
@@ -189,21 +189,10 @@ describe('como proceso', () => {
     assert.equal(stripAnsi(result.stderr), '\nx Argumento desconocido: --raro. Usa --help para ver el uso.\n')
   })
 
-  test('scaffold-pipeline.sh es el shim que lo lanza con sus argumentos', { skip: process.platform === 'win32' }, () => {
-    const repo = consumer()
-    // Sin runtime fijado, el resultado dependeria de si `claude` esta en el PATH de la maquina.
-    const result = capture('bash', [join(REPO_ROOT, 'scripts', 'scaffold-pipeline.sh'), '--domain', 'Mal_Nombre!'], {
-      cwd: repo.root,
-      env: { ...process.env, MEFISTO_RUNTIME: 'fake', MEFISTO_FAKE_AVAILABLE: '1' },
-    })
-    assert.equal(result.status, 1)
-    assert.equal(stripAnsi(result.stderr), '\nx El nombre del dominio no se pudo normalizar a kebab-case. Recibido: mal-nombre!\n')
-  })
-
   test('en el repo de Mefisto el proceso se niega', () => {
     const result = capture(process.execPath, [join(REPO_ROOT, 'scripts', 'scaffold-pipeline.mts'), '--domain', 'x'], { cwd: REPO_ROOT })
     assert.equal(result.status, 1)
-    assert.match(result.stderr, /^ERROR: scripts\/scaffold-pipeline\.sh es del plugin publicado y solo aplica al consumidor\.\n/)
+    assert.match(result.stderr, /^ERROR: scripts\/scaffold-pipeline\.mts es del plugin publicado y solo aplica al consumidor\.\n/)
   })
 })
 

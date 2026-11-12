@@ -59,7 +59,7 @@ describe('adaptadores generados de los agentes', () => {
   for (const [id, profile] of AGENTS) {
     test(`${id}: lleva el marcador y el modelo de su perfil (${profile})`, () => {
       const generated = readFileSync(join(REPO_ROOT, '.claude', 'agents', `${id}.md`), 'utf8')
-      assert.match(generated, /^<!-- GENERADO por src\/internal\/scripts\/generate-internal-adapters\.sh/m)
+      assert.match(generated, /^<!-- GENERADO por src\/internal\/scripts\/generate-internal-adapters\.mts/m)
       assert.ok(generated.split('\n').includes(`model: "${MODEL_OF[profile]}"`))
     })
   }

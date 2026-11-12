@@ -22,12 +22,10 @@ import type { RecordingTools, Sandbox, SandboxToolsOptions } from './field-note-
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 const REPO_ROOT = join(HERE, '..', '..')
-const SHIM = join(REPO_ROOT, 'scripts', 'field-note.sh')
 const SLUG = 'acme/consumer-fake'
 const TIMESTAMP = '2026-01-01-0000'
 const NOTE_REL = `docs/bitacora/field-notes/${TIMESTAMP}-planner.md`
 const GLOSSARY_REL = 'docs/ddd/ubiquitous-language.yaml'
-const NOT_WINDOWS = process.platform === 'win32' ? 'el shim es bash' : false
 
 let work = ''
 let restoreGitConfig = (): void => {}
@@ -87,8 +85,8 @@ describe('guard y argumentos', () => {
     assert.equal(code, 1)
     assert.equal(
       tools.stderr,
-      'ERROR: scripts/field-note.sh es del plugin publicado y solo aplica al consumidor.\n' +
-        'Mefisto entrega sus propias field notes con src/internal/scripts/mefisto-field-note.sh.\n',
+      'ERROR: scripts/field-note.mts es del plugin publicado y solo aplica al consumidor.\n' +
+        'Mefisto entrega sus propias field notes con src/internal/scripts/mefisto-field-note.mts.\n',
     )
     assert.deepEqual(tools.commands, [])
   })
@@ -113,15 +111,15 @@ describe('guard y argumentos', () => {
     const gh = new FakeGh(SLUG)
     const missing = run(sandbox, gh, ['--session-id', 's'])
     assert.equal(missing.code, 1)
-    assert.match(missing.tools.stderr, /^ERROR: --session-id, --timestamp y --field-note son obligatorios\nUso: field-note\.sh /)
+    assert.match(missing.tools.stderr, /^ERROR: --session-id, --timestamp y --field-note son obligatorios\nUso: field-note\.mts /)
 
     const unknown = run(sandbox, gh, ['--agent', 'x'])
     assert.equal(unknown.code, 1)
-    assert.match(unknown.tools.stderr, /^ERROR: argumento desconocido '--agent'\nUso: field-note\.sh /)
+    assert.match(unknown.tools.stderr, /^ERROR: argumento desconocido '--agent'\nUso: field-note\.mts /)
 
     const help = run(sandbox, gh, ['--help'])
     assert.equal(help.code, 0)
-    assert.match(help.tools.stderr, /^Uso: field-note\.sh .*rama por defecto del repo\.\n$/s)
+    assert.match(help.tools.stderr, /^Uso: field-note\.mts .*rama por defecto del repo\.\n$/s)
     assert.equal(help.tools.stdout, '')
     assert.deepEqual(gh.calls, [])
   })
@@ -153,26 +151,6 @@ describe('guard y argumentos', () => {
     const { code, tools } = run(sandbox, new FakeGh(SLUG), noteArgs('s', note), { missing: ['gh'] })
     assert.equal(code, 1)
     assert.equal(tools.stderr, "ERROR: 'gh' no esta disponible en PATH\n")
-  })
-})
-
-describe('shim', () => {
-  test('scripts/field-note.sh es el shim hacia field-note.mts', () => {
-    assert.equal(
-      readFileSync(SHIM, 'utf8').replaceAll('\r\n', '\n'),
-      [
-        '#!/usr/bin/env bash',
-        '# Shim: la implementacion vive en field-note.mts (MEF-ADR-0057). No editar.',
-        'exec node "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)/field-note.mts" "$@"',
-        '',
-      ].join('\n'),
-    )
-  })
-
-  test('el shim reenvia argumentos y codigo de salida', { skip: NOT_WINDOWS }, () => {
-    const result = spawnSync(SHIM, ['--help'], { cwd: REPO_ROOT, encoding: 'utf8' })
-    assert.equal(result.status, 1)
-    assert.match(result.stderr, /plugin publicado y solo aplica al consumidor/)
   })
 })
 

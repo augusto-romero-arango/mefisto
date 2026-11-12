@@ -58,8 +58,8 @@ describe('[fuente] (a) metadata y perfil', () => {
   contains(body, '{{mefisto:command onboard}}', 'remite al diagnostico via command onboard')
   contains(
     body,
-    '{{mefisto:run register-harness-secret.sh',
-    'Paso 2b.0 delega en register-harness-secret.sh via run',
+    '{{mefisto:run register-harness-secret.mts',
+    'Paso 2b.0 delega en register-harness-secret.mts via run',
   )
 })
 
@@ -89,7 +89,7 @@ describe('[salidas] adaptador y mirror', () => {
 describe('[c] Paso 2b.0 invoca el script distribuido con el runtime de su adaptador', () => {
   contains(
     claudeBody,
-    'MEFISTO_RUNTIME=claude "${MEFISTO_PACKAGE_ROOT}/scripts/register-harness-secret.sh" "marten-connection" "composite" "marten-connection"',
+    'MEFISTO_RUNTIME=claude node "${MEFISTO_PACKAGE_ROOT}/scripts/register-harness-secret.mts" "marten-connection" "composite" "marten-connection"',
     'Claude registra marten-connection como composite',
   )
   contains(

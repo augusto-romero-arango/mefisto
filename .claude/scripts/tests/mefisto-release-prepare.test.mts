@@ -64,9 +64,9 @@ describe('deteccion de fase y precondiciones comunes', () => {
 
   test('sin el generador publicado aborta', () => {
     const sb = workspace.sandbox()
-    const generator = join(sb.repo, 'src', 'published', 'scripts', 'generate-published-adapters.sh')
+    const generator = join(sb.repo, 'src', 'published', 'scripts', 'generate-published-adapters.mts')
     rmSync(generator)
-    sb.assertAborted(sb.release('patch'), `No existe o no es ejecutable el generador publicado: ${generator}`)
+    sb.assertAborted(sb.release('patch'), `No existe el generador publicado: ${generator}`)
   })
 
   test('sin tags vX.Y.Z aborta', () => {
@@ -106,7 +106,7 @@ describe('fase prepare: argumentos y precondiciones', () => {
     assert.equal(
       sb.output.stderr,
       [
-        'Uso: mefisto-release.sh {patch|minor|major} [--prepare-only]',
+        'Uso: mefisto-release.mts {patch|minor|major} [--prepare-only]',
         '',
         'plugin.json.version (1.2.2) ya coincide con el ultimo tag (v1.2.2).',
         'Necesitas indicar la magnitud del bump para preparar el PR de release.',
@@ -119,7 +119,7 @@ describe('fase prepare: argumentos y precondiciones', () => {
   test('--prepare-only sin magnitud tambien imprime el uso', () => {
     const sb = workspace.sandbox()
     assert.equal(sb.release('--prepare-only'), 1)
-    assert.ok(sb.output.stderr.startsWith('Uso: mefisto-release.sh {patch|minor|major} [--prepare-only]\n'))
+    assert.ok(sb.output.stderr.startsWith('Uso: mefisto-release.mts {patch|minor|major} [--prepare-only]\n'))
   })
 
   test('un argumento desconocido y dos magnitudes abortan', () => {
@@ -133,13 +133,6 @@ describe('fase prepare: argumentos y precondiciones', () => {
       twice.release('patch', 'minor'),
       "Solo se admite una magnitud de bump (patch|minor|major); recibido tambien 'minor'.",
     )
-  })
-
-  test('sin bash aborta: el gate y el generador lo necesitan', () => {
-    const sb = workspace.sandbox()
-    sb.missingCommands.add('bash')
-    sb.assertAborted(sb.release('patch'), 'Falta comando requerido: bash')
-    assertNothingPrepared(sb)
   })
 
   test('con cambios sin commitear aborta', () => {
@@ -396,7 +389,7 @@ describe('fase prepare: gate de neutralidad', () => {
       [
         `${ABORT}Fuga(s) de neutralidad de runtime (MEF-ADR-0049) en origin/main:`,
         GATE_LINE,
-        'adapters-check: regenera los adaptadores con src/internal/scripts/generate-internal-adapters.sh (sin --check); su salida (.claude/{agents,commands}/) no se edita a mano -- se edita la fuente neutral de src/internal/{agents,commands}/ y se regenera.',
+        'adapters-check: regenera los adaptadores con src/internal/scripts/generate-internal-adapters.mts (sin --check); su salida (.claude/{agents,commands}/) no se edita a mano -- se edita la fuente neutral de src/internal/{agents,commands}/ y se regenera.',
         `Una release no se publica con fugas: corrigelas en main via PR de issue (el pipeline de tooling corre este mismo gate) y reintenta '/mefisto-release patch'. La rama ${RELEASE_BRANCH} se deshizo (no tenia commits propios); estas de vuelta en ${ORIGINAL_BRANCH}.`,
         '',
       ].join('\n'),

@@ -293,7 +293,7 @@ describe('registro MCP y proyeccion Claude', () => {
     assert.deepEqual(mcp('--registry'), { status: 2, text: 'ERROR: falta el archivo para --registry' })
     assert.deepEqual(mcp('--otra'), {
       status: 2,
-      text: 'Uso: validate-published-mcp.sh [--registry archivo] [--artifact-schema archivo] [--claude-config archivo]',
+      text: 'Uso: validate-published-mcp.mts [--registry archivo] [--artifact-schema archivo] [--claude-config archivo]',
     })
     const missing = join(work, 'no-existe.json')
     assert.deepEqual(mcp('--registry', missing), { status: 1, text: `ERROR: no existe '${missing}'` })

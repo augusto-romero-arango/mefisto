@@ -53,10 +53,10 @@ describe('[fuente] contrato neutral', () => {
   contains(body, 'postgresql_region_short', 'recordatorio defaults regionales')
   contains(
     body,
-    '{{mefisto:package-root}}/scripts/bootstrap-backend.sh',
-    'cita bootstrap-backend.sh del paquete',
+    '{{mefisto:package-root}}/scripts/bootstrap-backend.mts',
+    'cita bootstrap-backend.mts del paquete',
   )
-  contains(body, '{{mefisto:package-root}}/scripts/setup-github-ci.sh', 'cita setup-github-ci.sh del paquete')
+  contains(body, '{{mefisto:package-root}}/scripts/setup-github-ci.mts', 'cita setup-github-ci.mts del paquete')
   contains(body, '{{mefisto:command infra}}', 'referencia infra')
   contains(body, '{{mefisto:command scaffold}}', 'referencia scaffold')
   contains(body, 'No generes la infraestructura tu mismo', 'regla: no generar')
@@ -89,7 +89,7 @@ describe('[salidas] adaptador y mirror', () => {
   mirrorMatches(command)
   contains(
     mirror,
-    '<!-- GENERADO por src/published/scripts/generate-published-adapters.sh desde src/published/commands/infra-base.md. No editar a mano. -->',
+    '<!-- GENERADO por src/published/scripts/generate-published-adapters.mts desde src/published/commands/infra-base.md. No editar a mano. -->',
     'mirror conserva marcador generado',
   )
   check(

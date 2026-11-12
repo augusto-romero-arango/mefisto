@@ -4,7 +4,7 @@ Implementa los cambios de infraestructura del issue #42.
 
 - **Ambiente**: dev
 - **Estado**: HCL escrito y revisado localmente (sin plan ni apply local); pendiente de aplicar por CI
-- **Pipeline**: iac-pipeline.sh
+- **Pipeline**: iac-pipeline.mts
 
 ## Decisiones del pipeline
 

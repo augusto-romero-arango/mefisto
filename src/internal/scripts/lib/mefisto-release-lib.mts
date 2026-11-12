@@ -162,16 +162,12 @@ const REMEDIES: readonly (readonly [string, string])[] = [
     'R3: reformula la mencion citando MEF-ADR-0050 en vez de nombrar la ruta o la variable de entorno de un runtime concreto; solo como ultimo recurso, y solo si el contenido es correcto y permanente, registra una excepcion en la allowlist en un PR previo (MEF-ADR-0019 seccion E).',
   ],
   [
-    'R4',
-    "R4: restaura el shim byte a byte desde la plantilla documentada en src/internal/scripts/README.md; si el archivo de verdad no es un shim, registralo en 'not_migrated' de la allowlist en vez de reformularlo.",
-  ],
-  [
     'adapters-check',
-    'adapters-check: regenera los adaptadores con src/internal/scripts/generate-internal-adapters.sh (sin --check); su salida (.claude/{agents,commands}/) no se edita a mano -- se edita la fuente neutral de src/internal/{agents,commands}/ y se regenera.',
+    'adapters-check: regenera los adaptadores con src/internal/scripts/generate-internal-adapters.mts (sin --check); su salida (.claude/{agents,commands}/) no se edita a mano -- se edita la fuente neutral de src/internal/{agents,commands}/ y se regenera.',
   ],
   [
     'published-adapters-check',
-    'published-adapters-check: regenera la distribucion publicada con src/published/scripts/generate-published-adapters.sh (sin --check); su salida (dist/) no se edita a mano -- se edita la fuente publicada de src/published/ o src/runtime/ y se regenera.',
+    'published-adapters-check: regenera la distribucion publicada con src/published/scripts/generate-published-adapters.mts (sin --check); su salida (dist/) no se edita a mano -- se edita la fuente publicada de src/published/ o src/runtime/ y se regenera.',
   ],
 ]
 

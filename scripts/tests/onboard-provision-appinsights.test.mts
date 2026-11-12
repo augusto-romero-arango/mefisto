@@ -139,7 +139,7 @@ describe('[P-2] apply', () => {
     assert.equal(
       content,
       [
-        '# Nombres de recursos Azure para appinsights-query.sh (solo nombres, sin secretos). Generado por /onboard (issue #2387).',
+        '# Nombres de recursos Azure para appinsights-query.mts (solo nombres, sin secretos). Generado por /onboard (issue #2387).',
         'APPINSIGHTS_APP=appi-proy',
         'APPINSIGHTS_RG=rg-proy-dev',
         'SERVICEBUS_NAMESPACE=sb-proy',
@@ -268,7 +268,7 @@ describe('[P-5] entorno y guard', () => {
     const result = run(mefisto, ['--preview'])
     assert.equal(result.status, 1)
     assert.deepEqual(result.err, [
-      'ERROR: scripts/onboard-provision-appinsights.sh es del plugin publicado y solo aplica al consumidor.',
+      'ERROR: scripts/onboard-provision-appinsights.mts es del plugin publicado y solo aplica al consumidor.',
     ])
     assert.deepEqual(result.calls, [])
   })

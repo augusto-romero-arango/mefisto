@@ -58,7 +58,7 @@ test('pipelineScriptsDir es el scripts/ del plugin, absoluto y sin depender del 
   const dir = pipelineScriptsDir()
   assert.equal(isAbsolute(dir), true)
   assert.equal(realpathSync.native(dir), realpathSync.native(join(REPO_ROOT, 'scripts')))
-  assert.equal(existsSync(join(dir, 'tdd-pipeline.sh')), true)
+  assert.equal(existsSync(join(dir, 'tdd-pipeline.mts')), true)
 
   const previous = process.cwd()
   process.chdir(tmp)

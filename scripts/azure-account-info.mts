@@ -46,7 +46,7 @@ export function azureAccountInfo(deps: AccountDeps): string {
   if (root === null) throw new CliError('ERROR: no estas en un repositorio git')
   if (existsSync(join(root, '.claude-plugin', 'plugin.json'))) {
     throw new CliError(
-      'ERROR: scripts/azure-account-info.sh es del plugin publicado y solo aplica al consumidor.',
+      'ERROR: scripts/azure-account-info.mts es del plugin publicado y solo aplica al consumidor.',
     )
   }
   if (!deps.hasCommand('az')) throw new CliError(NO_SESSION)

@@ -70,7 +70,7 @@ describe('[salidas] adaptador y mirror', () => {
   contains(beforeCall, 'Paso 1', 'claude: pasos previos a la llamada')
   contains(
     beforeCall,
-    'aborta si existe `src/internal/scripts/generate-internal-adapters.sh`',
+    'aborta si existe `src/internal/scripts/generate-internal-adapters.mts`',
     'claude: guard precede a la llamada',
   )
   contains(
@@ -82,7 +82,7 @@ describe('[salidas] adaptador y mirror', () => {
   mirrorMatches(command)
   contains(
     mirror,
-    'GENERADO por src/published/scripts/generate-published-adapters.sh desde src/published/commands/eraser-diagram.md',
+    'GENERADO por src/published/scripts/generate-published-adapters.mts desde src/published/commands/eraser-diagram.md',
     'mirror conserva marcador generado',
   )
   check(

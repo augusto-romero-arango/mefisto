@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { accessSync, constants, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { after, before, test } from 'node:test'
@@ -12,7 +12,7 @@ import { capture } from '../lib/cli.mts'
 
 const REPO_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..')
 const DIST = join(REPO_ROOT, 'dist', 'claude')
-const CLOSURE = ['scripts/metrics-report.sh', 'scripts/metrics-report.mts', 'scripts/lib/metrics-report.mts', 'scripts/lib/jq-values.mts']
+const CLOSURE = ['scripts/metrics-report.mts', 'scripts/metrics-report.mts', 'scripts/lib/metrics-report.mts', 'scripts/lib/jq-values.mts']
 
 // Dos runtimes; la fila del segundo trae tokens y costo en null.
 const HISTORY = `{"issue":"1","pipeline":"tdd","started":"20260901-090000","state":"completed","runtime":"claude","agents":{"implementer":{"duration":60,"metrics":{"turns":5,"duration_ms":60000,"duration_api_ms":50000,"non_api_ms":10000,"cost_usd":0.5,"tokens":{"input":100,"output":50},"model":"opus","tool_calls":[{"name":"Read","count":2}]}}}}
@@ -38,10 +38,6 @@ test('dist/claude trae el reporte identico al fuente y registrado en el inventar
     assert.deepEqual(readFileSync(join(DIST, file)), readFileSync(join(REPO_ROOT, file)), file)
     assert.ok(registered.has(file), `${file} falta en el inventario`)
   }
-})
-
-test('el shim de dist es ejecutable', { skip: process.platform === 'win32' }, () => {
-  accessSync(join(DIST, 'scripts', 'metrics-report.sh'), constants.X_OK)
 })
 
 test('el reporte de dist corre sobre un repo temporal', () => {

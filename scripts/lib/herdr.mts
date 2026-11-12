@@ -632,14 +632,10 @@ function parseRunnerArgs(argv: readonly string[], flavor: PaneRunnerFlavor, abor
   return parsed
 }
 
-/** Comando con que el runner lanza `argv`: los `.mts` y los `.sh` con su gemela se corren con Node. */
+/** Comando con que el runner lanza `argv`: los `.mts` se corren con Node. */
 export function runnableCommand(argv: readonly string[], execPath: string): string[] {
   const [head = '', ...rest] = argv
   if (/\.(mts|mjs|js)$/.test(head)) return [execPath, head, ...rest]
-  if (head.endsWith('.sh')) {
-    const twin = `${head.slice(0, -3)}.mts`
-    return existsSync(twin) ? [execPath, twin, ...rest] : ['bash', head, ...rest]
-  }
   return [...argv]
 }
 

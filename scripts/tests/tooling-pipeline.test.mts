@@ -85,8 +85,8 @@ describe('guardas previas', () => {
     assert.equal(run.code, 1)
     assert.equal(
       run.err,
-      'ERROR: scripts/tooling-pipeline.sh es del plugin publicado y solo aplica al consumidor.\n' +
-        'Estas en el repo de Mefisto. Para mejorar el plugin, usa .claude/scripts/mefisto-tooling-pipeline.sh.\n',
+      'ERROR: scripts/tooling-pipeline.mts es del plugin publicado y solo aplica al consumidor.\n' +
+        'Estas en el repo de Mefisto. Para mejorar el plugin, usa src/internal/scripts/mefisto-tooling-pipeline.mts.\n',
     )
     assert.deepEqual(run.tools.gh, [])
     assert.equal(existsSync(repo.stateDir), false, 'no deja estado')
@@ -120,17 +120,10 @@ describe('como proceso', () => {
     assert.match(stripAnsi(result.stdout), /x ERROR: Argumento no reconocido: --raro\n/)
   })
 
-  test('tooling-pipeline.sh es el shim que lo lanza con sus argumentos', { skip: process.platform === 'win32' }, () => {
-    const repo = consumer()
-    const result = capture('bash', [join(REPO_ROOT, 'scripts', 'tooling-pipeline.sh'), '42', '--from-stage', '9'], { cwd: repo.root })
-    assert.equal(result.status, 1)
-    assert.match(stripAnsi(result.stdout), /x ERROR: --from-stage debe ser 1 o 2 \(recibido: 9\)\n/)
-  })
-
   test('en el repo de Mefisto el proceso se niega', () => {
     const result = capture(process.execPath, [join(REPO_ROOT, 'scripts', 'tooling-pipeline.mts'), '42'], { cwd: REPO_ROOT })
     assert.equal(result.status, 1)
-    assert.match(result.stderr, /^ERROR: scripts\/tooling-pipeline\.sh es del plugin publicado y solo aplica al consumidor\.\n/)
+    assert.match(result.stderr, /^ERROR: scripts\/tooling-pipeline\.mts es del plugin publicado y solo aplica al consumidor\.\n/)
   })
 })
 

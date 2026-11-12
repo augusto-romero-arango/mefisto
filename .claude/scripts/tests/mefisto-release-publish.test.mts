@@ -9,8 +9,8 @@ import { COLOR } from '../../../scripts/lib/cli.mts'
 import { git, gitOk } from '../../../scripts/tests/field-note-sandbox.mts'
 import { ABORT, RELEASE_NOTES, Workspace, remoteTag } from './mefisto-release-sandbox.mts'
 
-const STABLE_SHIM = join(dirname(fileURLToPath(import.meta.url)), '..', 'mefisto-release.sh')
-const NOT_WINDOWS = process.platform === 'win32' ? 'el shim, el gh simulado y los generadores son bash' : false
+const RELEASE = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..', 'src', 'internal', 'scripts', 'mefisto-release.mts')
+const NOT_WINDOWS = process.platform === 'win32' ? 'el gh simulado es bash' : false
 const FAKE_GH = `#!/usr/bin/env bash
 printf '%s\\n' "$*" >> "$GH_LOG"
 case "$1 $2" in
@@ -22,11 +22,14 @@ case "$1 $2" in
   *) echo "gh simulado no esperaba: $*" >&2; exit 64 ;;
 esac
 `
-const FAKE_GENERATOR = `#!/usr/bin/env bash
-root="$(cd "$(dirname "\${BASH_SOURCE[0]}")/../../.." && pwd -P)"
-cp "$root/mefisto-manifest.json" "$root/dist/claude/mefisto-manifest.json"
-printf '%s\\n' '{"schemaVersion":1,"assets":[]}' > "$root/dist/claude/.mefisto-generated-assets.json"
-`
+const FAKE_GENERATOR = [
+  "import { copyFileSync, writeFileSync } from 'node:fs'",
+  "import { join } from 'node:path'",
+  "const root = join(import.meta.dirname, '..', '..', '..')",
+  "copyFileSync(join(root, 'mefisto-manifest.json'), join(root, 'dist', 'claude', 'mefisto-manifest.json'))",
+  "writeFileSync(join(root, 'dist', 'claude', '.mefisto-generated-assets.json'), '{\"schemaVersion\":1,\"assets\":[]}\\n')",
+  '',
+].join('\n')
 
 let workspace: Workspace
 
@@ -227,11 +230,11 @@ describe('fase publish', () => {
   })
 })
 
-describe('proceso real, por el shim estable', { skip: NOT_WINDOWS }, () => {
-  test('prepara y publica con git real, bash real para gate y generador, y gh simulado en el PATH', () => {
+describe('proceso real', { skip: NOT_WINDOWS }, () => {
+  test('prepara y publica con git real, gate y generador simulados en Node, y gh simulado en el PATH', () => {
     const sb = workspace.sandbox({
-      'src/internal/scripts/mefisto-neutrality-gate.sh': '#!/usr/bin/env bash\nexit 0\n',
-      'src/published/scripts/generate-published-adapters.sh': FAKE_GENERATOR,
+      'src/internal/scripts/mefisto-neutrality-gate.mts': 'process.exitCode = 0\n',
+      'src/published/scripts/generate-published-adapters.mts': FAKE_GENERATOR,
     })
     const bin = join(sb.dir, 'bin')
     const ghLog = join(sb.dir, 'gh.log')
@@ -239,7 +242,7 @@ describe('proceso real, por el shim estable', { skip: NOT_WINDOWS }, () => {
     writeFileSync(join(bin, 'gh'), FAKE_GH)
     chmodSync(join(bin, 'gh'), 0o755)
     const run = (...args: string[]) =>
-      spawnSync(STABLE_SHIM, args, {
+      spawnSync(process.execPath, [RELEASE, ...args], {
         cwd: sb.repo,
         encoding: 'utf8',
         env: { ...process.env, PATH: `${bin}${delimiter}${process.env.PATH ?? ''}`, GH_LOG: ghLog },

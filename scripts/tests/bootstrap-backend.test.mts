@@ -252,7 +252,7 @@ describe('argumentos', () => {
     assert.equal(result.status, 1)
     assert.equal(
       result.stderr,
-      'ERROR: scripts/bootstrap-backend.sh es del plugin publicado y solo aplica al consumidor.\n' +
+      'ERROR: scripts/bootstrap-backend.mts es del plugin publicado y solo aplica al consumidor.\n' +
         'Mefisto no se despliega a Azure ni tiene backend de Terraform.\n' +
         'Para mejorar el plugin usa /mefisto-tooling.\n',
     )
@@ -304,7 +304,7 @@ describe('naming legacy', () => {
     assert.equal(
       readFileSync(backendTf(repo), 'utf8'),
       [
-        '# Generado por scripts/bootstrap-backend.sh -- no editar a mano.',
+        '# Generado por scripts/bootstrap-backend.mts -- no editar a mano.',
         "# Backend remoto del estado de Terraform para el ambiente 'dev'.",
         "# 'use_azuread_auth = true': acceso keyless por AAD/RBAC, nunca por access key",
         '# (MEF-ADR-0025, MEF-ADR-0022; developer.hashicorp.com/terraform/language/backend/azurerm).',
@@ -340,11 +340,11 @@ describe('naming legacy', () => {
         'El backend es keyless (AAD/RBAC, MEF-ADR-0025): ningun access key se emite ni se',
         "persiste para el tfstate. El principal que hace 'terraform apply' en CI",
         "requiere el rol 'Storage Blob Data Contributor' (lectura+escritura, no solo",
-        'lectura) sobre esta Storage Account -- lo asigna scripts/setup-github-ci.sh',
+        'lectura) sobre esta Storage Account -- lo asigna scripts/setup-github-ci.mts',
         '(issue #195), no este script.',
         '',
         "Siguiente paso: el pipeline IaC ejecuta 'terraform init' en infra/environments/dev",
-        'y reutiliza este backend. Lanzalo con /infra o scripts/iac-pipeline.sh.',
+        'y reutiliza este backend. Lanzalo con /infra o scripts/iac-pipeline.mts.',
         'Listo.',
         '',
       ].join('\n'),
@@ -548,7 +548,7 @@ describe('escritura de backend.tf', () => {
 
 describe('distribucion', () => {
   test('dist/claude trae el shim y el script identicos a scripts/, y los inventaria', () => {
-    assertDistributed(['bootstrap-backend.sh', 'bootstrap-backend.mts', 'lib/tfstate-naming.mts'])
+    assertDistributed(['bootstrap-backend.mts', 'bootstrap-backend.mts', 'lib/tfstate-naming.mts'])
   })
 
   test('la copia de dist resuelve sus modulos: llega hasta el cargador del config', () => {

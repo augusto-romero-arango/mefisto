@@ -166,7 +166,7 @@ test('en el repo de Mefisto se niega sin invocar gh', () => {
   assert.equal(result.status, 1)
   assert.deepEqual(result.err, [
     [
-      'ERROR: scripts/setup-github-labels.sh es del plugin publicado y solo aplica al consumidor.',
+      'ERROR: scripts/setup-github-labels.mts es del plugin publicado y solo aplica al consumidor.',
       'Los labels de Mefisto se configuran manualmente o con un script interno.',
     ].join('\n'),
   ])

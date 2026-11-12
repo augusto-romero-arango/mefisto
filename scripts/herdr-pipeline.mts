@@ -1,14 +1,14 @@
 // Interfaz herdr de los pipelines publicados (issue #690).
 //
-// Uso (misma superficie de modos que launch-pipeline.sh):
-//   herdr-pipeline.sh 42                          issue unico (enruta por label)
-//   herdr-pipeline.sh 42 --from-stage 3           retomar desde Stage 3
-//   herdr-pipeline.sh --pipeline tooling 42       forzar pipeline
-//   herdr-pipeline.sh --tooling 42 | --infra 42 | --scaffold 42 --domain x
-//   herdr-pipeline.sh --batch 42 43 44            secuencial
-//   herdr-pipeline.sh --parallel 42 43            paralelo: un pane apilado por issue
-//   herdr-pipeline.sh --collapse-panes            poda paneles libres sobrantes sin despachar
-//   herdr-pipeline.sh --refresh-agents            refresca agentes interactivos sin despachar
+// Uso (misma superficie de modos que launch-pipeline.mts):
+//   herdr-pipeline.mts 42                          issue unico (enruta por label)
+//   herdr-pipeline.mts 42 --from-stage 3           retomar desde Stage 3
+//   herdr-pipeline.mts --pipeline tooling 42       forzar pipeline
+//   herdr-pipeline.mts --tooling 42 | --infra 42 | --scaffold 42 --domain x
+//   herdr-pipeline.mts --batch 42 43 44            secuencial
+//   herdr-pipeline.mts --parallel 42 43            paralelo: un pane apilado por issue
+//   herdr-pipeline.mts --collapse-panes            poda paneles libres sobrantes sin despachar
+//   herdr-pipeline.mts --refresh-agents            refresca agentes interactivos sin despachar
 //
 // Trabaja dentro del workspace herdr actual: reutiliza (o crea a la derecha del pane que
 // despacha) un pane de ejecucion y le teclea `node "<este script>" --_pane-runner --dispatch
@@ -22,7 +22,7 @@
 // (MEF-ADR-0017).
 //
 // Requiere correr dentro de un pane herdr (HERDR_ENV=1): la autodeteccion vive en
-// launch-pipeline.sh.
+// launch-pipeline.mts.
 
 import { appendFileSync, existsSync } from 'node:fs'
 import { basename, join, resolve } from 'node:path'
@@ -111,48 +111,41 @@ const H = { cyan: '\\033[0;36m', bold: '\\033[1m', nc: '\\033[0m' }
 
 export function helpText(): string {
   return `
-${H.cyan}${H.bold}herdr-pipeline.sh${H.nc} --- Interfaz herdr de los pipelines publicados
+${H.cyan}${H.bold}herdr-pipeline.mts${H.nc} --- Interfaz herdr de los pipelines publicados
 
-${H.bold}Uso (misma superficie que launch-pipeline.sh):${H.nc}
-  herdr-pipeline.sh 42                                   Issue unico (enruta por label)
-  herdr-pipeline.sh 42 --from-stage 3                    Retomar issue #42 desde Stage 3
-  herdr-pipeline.sh --pipeline tooling 42                Forzar pipeline tooling
-  herdr-pipeline.sh --tooling 42                         Issue de tooling
-  herdr-pipeline.sh --tooling 42 --models 'reviewer=opus'  Modelo por stage (experimentos)
-  herdr-pipeline.sh 42 --models 'reviewer=opus,test-writer=sonnet'  Idem, enrutando por label a tdd-pipeline.sh
-  herdr-pipeline.sh --tooling 42 --variant experimento-a Corrida paralela del mismo issue (sin PR, rama local)
-  herdr-pipeline.sh 42 --variant a --models 'test-writer=sonnet'  Idem, enrutando por label a tdd-pipeline.sh
-  herdr-pipeline.sh --infra 42                           Issue de infraestructura (IaC)
-  herdr-pipeline.sh --scaffold 42 --domain nombre        Scaffold de dominio
-  herdr-pipeline.sh --batch 42 43 44                     Secuencial
-  herdr-pipeline.sh --parallel 42 43                     Paralelo: un pane apilado por issue
-  herdr-pipeline.sh --collapse-panes                     Poda paneles libres sobrantes sin despachar (usado por /merge)
-  herdr-pipeline.sh --refresh-agents                     Refresca los agentes interactivos del workspace
+${H.bold}Uso (misma superficie que launch-pipeline.mts):${H.nc}
+  herdr-pipeline.mts 42                                   Issue unico (enruta por label)
+  herdr-pipeline.mts 42 --from-stage 3                    Retomar issue #42 desde Stage 3
+  herdr-pipeline.mts --pipeline tooling 42                Forzar pipeline tooling
+  herdr-pipeline.mts --tooling 42                         Issue de tooling
+  herdr-pipeline.mts --tooling 42 --models 'reviewer=opus'  Modelo por stage (experimentos)
+  herdr-pipeline.mts 42 --models 'reviewer=opus,test-writer=sonnet'  Idem, enrutando por label a tdd-pipeline.mts
+  herdr-pipeline.mts --tooling 42 --variant experimento-a Corrida paralela del mismo issue (sin PR, rama local)
+  herdr-pipeline.mts 42 --variant a --models 'test-writer=sonnet'  Idem, enrutando por label a tdd-pipeline.mts
+  herdr-pipeline.mts --infra 42                           Issue de infraestructura (IaC)
+  herdr-pipeline.mts --scaffold 42 --domain nombre        Scaffold de dominio
+  herdr-pipeline.mts --batch 42 43 44                     Secuencial
+  herdr-pipeline.mts --parallel 42 43                     Paralelo: un pane apilado por issue
+  herdr-pipeline.mts --collapse-panes                     Poda paneles libres sobrantes sin despachar (usado por /merge)
+  herdr-pipeline.mts --refresh-agents                     Refresca los agentes interactivos del workspace
 
 ${H.bold}Que hace:${H.nc}
   Reutiliza (o crea) un pane de ejecucion en el workspace herdr actual: el
   pipeline corre en background con su reporte a un log y el pane muestra el
-  visor en vivo (stream-watch.sh) del agente en curso, un solo pane para toda
+  visor en vivo (stream-watch.mts) del agente en curso, un solo pane para toda
   la secuencia de agentes del issue. Si el pane sigue ocupado con otra
   corrida, se abre un pane adicional; los libres se reutilizan.
 
   Con --parallel, cada issue corre en su propio pane apilado bajo el pane de
   ejecucion (alturas parejas, visor por issue, arranques escalonados de 30s
   dentro de cada pane). Un lote con dos o mas issues tipo:projection se
-  rechaza: usa /sequential o parallel-pipeline.sh, que si los serializa.
+  rechaza: usa /sequential o parallel-pipeline.mts, que si los serializa.
 
 ${H.bold}Requisitos:${H.nc} correr dentro de un pane herdr (HERDR_ENV=1) y jq.
-  Fuera de herdr usa launch-pipeline.sh, que ademas autodetecta herdr y delega
+  Fuera de herdr usa launch-pipeline.mts, que ademas autodetecta herdr y delega
   aqui solo cuando aplica (para correr sin panes: MEFISTO_UI=mod).
 
 `
-}
-
-/** Pipeline a correr: la gemela `.mts` de un `.sh` si existe. */
-function runnable(script: string): string {
-  if (!script.endsWith('.sh')) return script
-  const twin = `${script.slice(0, -3)}.mts`
-  return existsSync(twin) ? twin : script
 }
 
 // `read -r` con IFS de tabulador: los tabuladores seguidos cuentan como uno y el ultimo campo
@@ -202,7 +195,7 @@ export async function herdrPipeline(deps: HerdrPipelineDeps): Promise<number> {
     const projectRoot = resolve(chomp(toplevel.stdout))
     if (existsSync(join(projectRoot, '.claude-plugin', 'plugin.json'))) {
       throw new CliError(
-        'ERROR: scripts/herdr-pipeline.sh es del plugin publicado y solo aplica al consumidor.\nEstas en el repo de Mefisto. Para trabajar issues del plugin usa los skills internos /mefisto-tooling o /mefisto-sequential.',
+        'ERROR: scripts/herdr-pipeline.mts es del plugin publicado y solo aplica al consumidor.\nEstas en el repo de Mefisto. Para trabajar issues del plugin usa los skills internos /mefisto-tooling o /mefisto-sequential.',
       )
     }
     const logDirAbs = resolve(launcherStatePath(join('logs', '.state'), projectRoot, env), '..')
@@ -426,7 +419,7 @@ export async function herdrPipeline(deps: HerdrPipelineDeps): Promise<number> {
     }
     if (filtered.length === 0) {
       abort(
-        `Faltan argumentos posicionales (numero de issue o modo). Corre '${join(scriptDir, 'herdr-pipeline.sh')} --help' para ver el uso.`,
+        `Faltan argumentos posicionales (numero de issue o modo). Corre 'node ${join(scriptDir, 'herdr-pipeline.mts')} --help' para ver el uso.`,
       )
     }
 
@@ -445,10 +438,10 @@ export async function herdrPipeline(deps: HerdrPipelineDeps): Promise<number> {
 
     const requireHerdrContext = async (): Promise<Dispatcher> => {
       if (!deps.hasCommand('herdr')) {
-        abort('herdr no esta instalado (https://herdr.dev). Fuera de herdr usa: launch-pipeline.sh')
+        abort('herdr no esta instalado (https://herdr.dev). Fuera de herdr usa: launch-pipeline.mts')
       }
       if (env.HERDR_ENV !== '1') {
-        abort('No estas dentro de un pane de herdr (HERDR_ENV != 1). Fuera de herdr usa: launch-pipeline.sh')
+        abort('No estas dentro de un pane de herdr (HERDR_ENV != 1). Fuera de herdr usa: launch-pipeline.mts')
       }
       if (paneId === '' || workspaceId === '') {
         abort('Faltan HERDR_PANE_ID/HERDR_WORKSPACE_ID en el entorno (los inyecta herdr en cada pane).')
@@ -495,9 +488,9 @@ export async function herdrPipeline(deps: HerdrPipelineDeps): Promise<number> {
       const resolution = resolvePipeline(issue, pipelineOverride, { run, scriptsDir: scriptDir })
       if (resolution.kind === 'skip') abort(`Issue #${issue} no se puede enrutar a un pipeline (${resolution.reason}).`)
       const script = (resolution as { script: string }).script
-      const name = basename(script, '.sh').replace(/-pipeline$/, '')
+      const name = basename(script, '.mts').replace(/-pipeline$/, '')
       const title = variantSpec !== '' ? `${name} #${issue} (${variantSpec})` : `${name} #${issue}`
-      await d.dispatch(title, issue, [runnable(script), issue, ...pipelineArgs(extra, modelsSpec, variantSpec)])
+      await d.dispatch(title, issue, [script, issue, ...pipelineArgs(extra, modelsSpec, variantSpec)])
     }
 
     const cmdScaffold = async (d: Dispatcher, args: string[]): Promise<void> => {
@@ -519,7 +512,7 @@ export async function herdrPipeline(deps: HerdrPipelineDeps): Promise<number> {
       if (domain === '') abort('Falta --domain para --scaffold. Uso: --scaffold [issue] --domain nombre')
       domain = kebabDomain(domain)
       const pipelineArgv = [...(issue !== '' ? [issue] : []), '--domain', domain]
-      await d.dispatch(`scaffold ${domain}`, issue, [runnable(join(scriptDir, 'scaffold-pipeline.sh')), ...pipelineArgv])
+      await d.dispatch(`scaffold ${domain}`, issue, [join(scriptDir, 'scaffold-pipeline.mts'), ...pipelineArgv])
     }
 
     const cmdBatch = async (d: Dispatcher, args: string[]): Promise<void> => {
@@ -534,14 +527,14 @@ export async function herdrPipeline(deps: HerdrPipelineDeps): Promise<number> {
       if (issues.length === 0) abort('Debes especificar al menos un issue. Uso: --batch 42 43 44')
       const csv = issues.join(',')
       const batchArgs = [...(batchOverride !== '' ? ['--pipeline', batchOverride] : []), ...issues]
-      await d.dispatch(`batch ${csv}`, csv, [runnable(join(scriptDir, 'batch-pipeline.sh')), ...batchArgs])
+      await d.dispatch(`batch ${csv}`, csv, [join(scriptDir, 'batch-pipeline.mts'), ...batchArgs])
     }
 
     const cmdParallel = async (d: Dispatcher, args: string[]): Promise<void> => {
       let parallelOverride = ''
       const issues: string[] = []
       const maxParallelWarning =
-        '--max-parallel no aplica en modo herdr (cada issue corre en su propio pane). Para limitar concurrencia usa parallel-pipeline.sh directo.'
+        '--max-parallel no aplica en modo herdr (cada issue corre en su propio pane). Para limitar concurrencia usa parallel-pipeline.mts directo.'
       for (let i = 0; i < args.length; i++) {
         const arg = args[i] as string
         if (arg === '--pipeline') {
@@ -580,7 +573,7 @@ export async function herdrPipeline(deps: HerdrPipelineDeps): Promise<number> {
       if (valid.length === 0) abort('No hay issues validos para procesar en paralelo.')
       if (projections > 1) {
         abort(
-          `${projections} issues tipo:projection en el lote: comparten el worker de proyecciones (MEF-ADR-0034) y en modo pane no se serializan entre si. Usa /sequential, o parallel-pipeline.sh directo (su scheduler si los serializa).`,
+          `${projections} issues tipo:projection en el lote: comparten el worker de proyecciones (MEF-ADR-0034) y en modo pane no se serializan entre si. Usa /sequential, o parallel-pipeline.mts directo (su scheduler si los serializa).`,
         )
       }
 
@@ -603,9 +596,9 @@ export async function herdrPipeline(deps: HerdrPipelineDeps): Promise<number> {
       const failed: string[] = []
       for (const [i, { issue, script }] of valid.entries()) {
         const pane = panes[i] as string
-        const title = `${basename(script, '.sh').replace(/-pipeline$/, '')} #${issue}`
+        const title = `${basename(script, '.mts').replace(/-pipeline$/, '')} #${issue}`
         const delay = i * PARALLEL_STAGGER
-        const outcome = await d.startInPane(pane, { title, issues: issue, delay, command: [runnable(script), issue] })
+        const outcome = await d.startInPane(pane, { title, issues: issue, delay, command: [script, issue] })
         if (outcome === 'run-failed') abort(`No se pudo lanzar el issue #${issue} en el pane ${pane} (herdr pane run fallo).`)
         if (outcome === 'confirmed') {
           log(delay > 0 ? `Issue #${issue} -> pane ${pane} (${title}, arranca en ${delay}s)` : `Issue #${issue} -> pane ${pane} (${title})`)
@@ -641,10 +634,10 @@ export async function herdrPipeline(deps: HerdrPipelineDeps): Promise<number> {
         abort('--from-stage no es valido con --parallel (seria ambiguo sobre varios issues). Usalo con un unico issue.')
       }
       if (modelsSpec !== '') {
-        abort("--models no es valido con --parallel (seria ambiguo sobre varios issues). Usalo con un unico issue: herdr-pipeline.sh --tooling <issue> --models 'agente=modelo'")
+        abort("--models no es valido con --parallel (seria ambiguo sobre varios issues). Usalo con un unico issue: herdr-pipeline.mts --tooling <issue> --models 'agente=modelo'")
       }
       if (variantSpec !== '') {
-        abort('--variant no es valido con --parallel (seria ambiguo sobre varios issues). Usalo con un unico issue: herdr-pipeline.sh --tooling <issue> --variant <label>')
+        abort('--variant no es valido con --parallel (seria ambiguo sobre varios issues). Usalo con un unico issue: herdr-pipeline.mts --tooling <issue> --variant <label>')
       }
       await parallelWith(modeArgs)
     } else if (mode === '--tooling') {
@@ -653,29 +646,29 @@ export async function herdrPipeline(deps: HerdrPipelineDeps): Promise<number> {
       if (issue === undefined) abort('Debes especificar un issue. Uso: --tooling 42')
       const title = variantSpec !== '' ? `tooling #${issue} (${variantSpec})` : `tooling #${issue}`
       await d.dispatch(title, issue as string, [
-        runnable(join(scriptDir, 'tooling-pipeline.sh')),
+        join(scriptDir, 'tooling-pipeline.mts'),
         issue as string,
         ...pipelineArgs(fromStageExtra, modelsSpec, variantSpec),
       ])
     } else if (mode === '--infra') {
       if (modelsSpec !== '') {
-        abort("--models todavia no es valido con --infra (iac-pipeline.sh no implementa el flag). Usalo con --tooling: herdr-pipeline.sh --tooling <issue> --models 'agente=modelo'")
+        abort("--models todavia no es valido con --infra (iac-pipeline.mts no implementa el flag). Usalo con --tooling: herdr-pipeline.mts --tooling <issue> --models 'agente=modelo'")
       }
       if (variantSpec !== '') {
-        abort('--variant todavia no es valido con --infra (iac-pipeline.sh no implementa el flag). Usalo con --tooling: herdr-pipeline.sh --tooling <issue> --variant <label>')
+        abort('--variant todavia no es valido con --infra (iac-pipeline.mts no implementa el flag). Usalo con --tooling: herdr-pipeline.mts --tooling <issue> --variant <label>')
       }
       const d = await requireHerdrContext()
       const issue = modeArgs[0]
       if (issue === undefined) abort('Debes especificar un issue. Uso: --infra 42')
       await d.dispatch(`infra #${issue}`, issue as string, [
-        runnable(join(scriptDir, 'iac-pipeline.sh')),
+        join(scriptDir, 'iac-pipeline.mts'),
         issue as string,
         ...words(fromStageExtra),
       ])
     } else if (mode === '--scaffold') {
-      if (fromStageExtra !== '') abort('--from-stage no es valido con --scaffold (scaffold-pipeline.sh no tiene stages retomables).')
-      if (modelsSpec !== '') abort('--models no es valido con --scaffold (scaffold-pipeline.sh no implementa el flag).')
-      if (variantSpec !== '') abort('--variant no es valido con --scaffold (scaffold-pipeline.sh no implementa el flag).')
+      if (fromStageExtra !== '') abort('--from-stage no es valido con --scaffold (scaffold-pipeline.mts no tiene stages retomables).')
+      if (modelsSpec !== '') abort('--models no es valido con --scaffold (scaffold-pipeline.mts no implementa el flag).')
+      if (variantSpec !== '') abort('--variant no es valido con --scaffold (scaffold-pipeline.mts no implementa el flag).')
       await cmdScaffold(await requireHerdrContext(), modeArgs)
     } else if (mode === '--batch') {
       if (modeArgs.length === 0) abort('Debes especificar al menos un issue. Uso: --batch 42 43 44')
@@ -683,10 +676,10 @@ export async function herdrPipeline(deps: HerdrPipelineDeps): Promise<number> {
         abort('--from-stage no es valido con --batch (seria ambiguo sobre varios issues). Usalo con un unico issue.')
       }
       if (modelsSpec !== '') {
-        abort("--models no es valido con --batch (seria ambiguo sobre varios issues). Usalo con un unico issue: herdr-pipeline.sh --tooling <issue> --models 'agente=modelo'")
+        abort("--models no es valido con --batch (seria ambiguo sobre varios issues). Usalo con un unico issue: herdr-pipeline.mts --tooling <issue> --models 'agente=modelo'")
       }
       if (variantSpec !== '') {
-        abort('--variant no es valido con --batch (seria ambiguo sobre varios issues). Usalo con un unico issue: herdr-pipeline.sh --tooling <issue> --variant <label>')
+        abort('--variant no es valido con --batch (seria ambiguo sobre varios issues). Usalo con un unico issue: herdr-pipeline.mts --tooling <issue> --variant <label>')
       }
       const d = await requireHerdrContext()
       await cmdBatch(d, pipelineOverride !== '' ? ['--pipeline', pipelineOverride, ...modeArgs] : modeArgs)
@@ -696,10 +689,10 @@ export async function herdrPipeline(deps: HerdrPipelineDeps): Promise<number> {
           abort('--from-stage no es valido con multiples issues (se interpretaria como --parallel). Especifica un unico issue.')
         }
         if (modelsSpec !== '') {
-          abort("--models no es valido con multiples issues (se interpretaria como --parallel). Usa: herdr-pipeline.sh --tooling <issue> --models 'agente=modelo'")
+          abort("--models no es valido con multiples issues (se interpretaria como --parallel). Usa: herdr-pipeline.mts --tooling <issue> --models 'agente=modelo'")
         }
         if (variantSpec !== '') {
-          abort('--variant no es valido con multiples issues (se interpretaria como --parallel). Usa: herdr-pipeline.sh --tooling <issue> --variant <label>')
+          abort('--variant no es valido con multiples issues (se interpretaria como --parallel). Usa: herdr-pipeline.mts --tooling <issue> --variant <label>')
         }
         warn('Multiples issues sin modo especificado. Usando --parallel.')
         await parallelWith(filtered)

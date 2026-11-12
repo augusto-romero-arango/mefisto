@@ -183,7 +183,7 @@ test('deteccion del planner y del repo de Mefisto', () => {
 })
 
 test('rutas', () => {
-  expect(nextOrderPath('/p/')).toBe('/p/scripts/next-order.sh')
+  expect(nextOrderPath('/p/')).toBe('/p/scripts/next-order.mts')
   expect(transcriptPathOf('/h/.c', '/a/b', 's1')).toBe('/h/.c/projects/-a-b/s1.jsonl')
 })
 
@@ -661,8 +661,8 @@ test('closeRowText, closeTotalText y statsTotal arman la tabla de cierre', () =>
 
 const ribbon = (finishedMs: number | null = null) => ({ prs: mergePrsOf('12 13', [{ number: '12', title: 'Uno' }]), startedMs: 0, finishedMs })
 
-test('mergeRunArgsOf reconoce un merge de pr-sync.sh y devuelve sus PRs o --all', () => {
-  const script = 'MEFISTO_RUNTIME=claude "/x/mefisto/0.46.3/scripts/pr-sync.sh"'
+test('mergeRunArgsOf reconoce un merge de pr-sync.mts y devuelve sus PRs o --all', () => {
+  const script = 'MEFISTO_RUNTIME=claude node "/x/mefisto/0.46.3/scripts/pr-sync.mts"'
   expect(mergeRunArgsOf(`${script} 12 13 --merge`)).toBe('12 13')
   expect(mergeRunArgsOf(`${script} --all --merge`)).toBe('--all')
   expect(mergeRunArgsOf(`${script} 12`)).toBeNull()
@@ -877,14 +877,14 @@ test('eventLineOf: ultimo evento como linea', () => {
 })
 
 test('isPipelineLaunch: detecta el lanzamiento de pipelines en un comando Bash', () => {
-  expect(isPipelineLaunch('bash "${CLAUDE_PLUGIN_ROOT}/scripts/batch-pipeline.sh" 853')).toBe(true)
-  expect(isPipelineLaunch('scripts/tdd-pipeline.sh 853 --verbose')).toBe(true)
-  expect(isPipelineLaunch('cd x && ./scripts/tooling-pipeline.sh 12')).toBe(true)
-  expect(isPipelineLaunch('scripts/launch-pipeline.sh 1 2')).toBe(true)
-  expect(isPipelineLaunch('MEFISTO_RUNTIME=claude "${MEFISTO_PACKAGE_ROOT}/scripts/launch-pipeline.sh" --batch 1 2')).toBe(true)
-  expect(isPipelineLaunch('scripts/iac-pipeline.sh 9')).toBe(true)
-  expect(isPipelineLaunch('scripts/pr-sync.sh 12 --merge')).toBe(false)
-  expect(isPipelineLaunch('cat scripts/tdd-pipeline.sh.bak')).toBe(false)
+  expect(isPipelineLaunch('node "${CLAUDE_PLUGIN_ROOT}/scripts/batch-pipeline.mts" 853')).toBe(true)
+  expect(isPipelineLaunch('scripts/tdd-pipeline.mts 853 --verbose')).toBe(true)
+  expect(isPipelineLaunch('cd x && node scripts/tooling-pipeline.mts 12')).toBe(true)
+  expect(isPipelineLaunch('scripts/launch-pipeline.mts 1 2')).toBe(true)
+  expect(isPipelineLaunch('MEFISTO_RUNTIME=claude node "${MEFISTO_PACKAGE_ROOT}/scripts/launch-pipeline.mts" --batch 1 2')).toBe(true)
+  expect(isPipelineLaunch('scripts/iac-pipeline.mts 9')).toBe(true)
+  expect(isPipelineLaunch('scripts/pr-sync.mts 12 --merge')).toBe(false)
+  expect(isPipelineLaunch('cat scripts/tdd-pipeline.mts.bak')).toBe(false)
   expect(isPipelineLaunch(undefined)).toBe(false)
 })
 

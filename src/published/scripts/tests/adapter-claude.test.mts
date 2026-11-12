@@ -136,7 +136,7 @@ describe('interfaz', () => {
       command(
         'cmd-lr',
         {},
-        "MEFISTO_LOADED_ROOT='{{mefisto:loaded-root}}' {{mefisto:run upgrade.sh --prune}}",
+        "MEFISTO_LOADED_ROOT='{{mefisto:loaded-root}}' {{mefisto:run upgrade.mts --prune}}",
       ),
     )
     assert.ok(rendered.includes("MEFISTO_LOADED_ROOT='${CLAUDE_PLUGIN_ROOT}' MEFISTO_RUNTIME=claude"))
@@ -177,7 +177,7 @@ describe('render', () => {
       'MEFISTO_CONFIG_PATH=".mefisto/harness.config.json"',
       'MEFISTO_INSTRUCTIONS_PATH="AGENTS.md"',
       '.mefisto/pipeline/logs/con-espacio.log',
-      '"${MEFISTO_PACKAGE_ROOT}/scripts/prueba.sh" "$ARGUMENTS con espacios"',
+      '"${MEFISTO_PACKAGE_ROOT}/scripts/prueba.mts" "$ARGUMENTS con espacios"',
       'MEFISTO_PACKAGE_ROOT="$mefisto_claude_root"',
       '/mefisto:otra-orden',
       'Guard inline: Antes de continuar',
@@ -202,13 +202,13 @@ describe('render', () => {
       'raiz-skill',
       ['skill'],
       { skills: ['projections'] },
-      'Recursos: {{mefisto:skill-root projections}}/read-apis.md y {{mefisto:skill-root projections}}/recipes.md; paquete {{mefisto:package-root}}; ejecuta {{mefisto:run prueba.sh "$ARGUMENTS con espacios"}}.',
+      'Recursos: {{mefisto:skill-root projections}}/read-apis.md y {{mefisto:skill-root projections}}/recipes.md; paquete {{mefisto:package-root}}; ejecuta {{mefisto:run prueba.mts "$ARGUMENTS con espacios"}}.',
     )
     const output = render(path)
     assert.ok(output.includes('"${MEFISTO_PACKAGE_ROOT}/skills/projections"/read-apis.md'))
     assert.ok(
       output.includes(
-        'paquete ${MEFISTO_PACKAGE_ROOT}; ejecuta MEFISTO_RUNTIME=claude "${MEFISTO_PACKAGE_ROOT}/scripts/prueba.sh" "$ARGUMENTS con espacios"',
+        'paquete ${MEFISTO_PACKAGE_ROOT}; ejecuta MEFISTO_RUNTIME=claude node "${MEFISTO_PACKAGE_ROOT}/scripts/prueba.mts" "$ARGUMENTS con espacios"',
       ),
     )
     assert.equal(occurrences(output, 'MEFISTO_PACKAGE_ROOT="$mefisto_claude_root"'), 1)

@@ -122,7 +122,7 @@ describe('delegacion en update-plugin.mts', () => {
     for (const argv of [[], ['--disable-user']]) {
       const result = run(argv, { scriptDir: join(work, 'cache') })
       assert.equal(result.status, 1)
-      assert.deepEqual(result.err, ['ERROR: no se hallo update-plugin.sh junto a upgrade.sh.'])
+      assert.deepEqual(result.err, ['ERROR: no se hallo update-plugin.mts junto a upgrade.mts.'])
       assert.deepEqual(result.delegated, [])
     }
   })
@@ -262,7 +262,7 @@ describe('guard del consumidor', () => {
       assert.deepEqual(result.err, [
         [
           'ERROR: /mefisto:upgrade no aplica al repo de Mefisto.',
-          '       scripts/upgrade.sh es del plugin publicado y solo aplica al consumidor.',
+          '       scripts/upgrade.mts es del plugin publicado y solo aplica al consumidor.',
           '       Mefisto se actualiza a si mismo por su propio flujo de release (/mefisto-release).',
         ].join('\n'),
       ])

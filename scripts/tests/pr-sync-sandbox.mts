@@ -220,7 +220,7 @@ export async function runPrSync(repo: Consumer, scratchRoot: string, argv: strin
     argv,
     cwd: repo.root,
     env: pipelineEnv(repo, options.env),
-    scriptPath: 'scripts/pr-sync.sh',
+    scriptPath: 'scripts/pr-sync.mts',
     out: (text) => {
       result.out += text
     },

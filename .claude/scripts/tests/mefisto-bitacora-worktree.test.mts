@@ -33,16 +33,13 @@ import type { BitacoraContext } from '../../../src/internal/scripts/mefisto-bita
 const HERE = dirname(fileURLToPath(import.meta.url))
 const REPO_ROOT = join(HERE, '..', '..', '..')
 const SCRIPT = join(REPO_ROOT, 'src', 'internal', 'scripts', 'mefisto-bitacora-worktree.mts')
-const CANONICAL_SHIM = join(REPO_ROOT, 'src', 'internal', 'scripts', 'mefisto-bitacora-worktree.sh')
-const STABLE_SHIM = join(REPO_ROOT, '.claude', 'scripts', 'mefisto-bitacora-worktree.sh')
-const POSIX = process.platform !== 'win32'
 const FECHA = '2026-10-08'
 const BRANCH = `docs/bitacora-hasta-${FECHA}`
 const SLUG = 'acme/mefisto-fake'
 const USAGE = [
   'Uso:',
-  '  mefisto-bitacora-worktree.sh prepare --fecha <YYYY-MM-DD>',
-  '  mefisto-bitacora-worktree.sh deliver --worktree <ruta>',
+  '  mefisto-bitacora-worktree.mts prepare --fecha <YYYY-MM-DD>',
+  '  mefisto-bitacora-worktree.mts deliver --worktree <ruta>',
 ].join('\n')
 
 const GIT_ENV: Record<string, string> = {
@@ -468,33 +465,5 @@ describe('argumentos', () => {
     const help = spawnSync(process.execPath, [SCRIPT, '--help'], { encoding: 'utf8' })
     assert.equal(help.status, 0)
     assert.equal(help.stderr, `${USAGE}\n`)
-  })
-})
-
-describe('[E] shim', () => {
-  test('el canonico en bash es el shim hacia el .mts', () => {
-    assert.equal(
-      readFileSync(CANONICAL_SHIM, 'utf8'),
-      [
-        '#!/usr/bin/env bash',
-        '# Shim: la implementacion vive en mefisto-bitacora-worktree.mts (MEF-ADR-0057). No editar.',
-        'exec node "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)/mefisto-bitacora-worktree.mts" "$@"',
-        '',
-      ].join('\n'),
-    )
-    if (POSIX) assert.notEqual(statSync(CANONICAL_SHIM).mode & 0o111, 0)
-  })
-
-  test('el shim estable conserva la plantilla de exec', () => {
-    assert.equal(
-      readFileSync(STABLE_SHIM, 'utf8').split('\n')[2],
-      'exec "$(cd "$(dirname "$0")/../.." && pwd)/src/internal/scripts/$(basename "$0")" "$@"',
-    )
-  })
-
-  test('el shim estable llega al .mts', { skip: !POSIX }, () => {
-    const result = spawnSync(STABLE_SHIM, ['deliver'], { encoding: 'utf8' })
-    assert.equal(result.status, 1)
-    assert.equal(result.stderr, 'ERROR: --worktree es obligatorio\n')
   })
 })

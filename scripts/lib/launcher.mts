@@ -3,7 +3,7 @@
 // lanzamiento sin terminal y delegacion en el script de herdr.
 
 import { spawnSync } from 'node:child_process'
-import { closeSync, existsSync, mkdirSync, openSync, utimesSync, writeSync } from 'node:fs'
+import { closeSync, mkdirSync, openSync, utimesSync, writeSync } from 'node:fs'
 import { constants } from 'node:os'
 import { dirname, join } from 'node:path'
 
@@ -54,14 +54,9 @@ export function detachedEnv(env: NodeJS.ProcessEnv, extra: Record<string, string
 export interface PipelineCommand {
   command: string
   args: string[]
-  /** El pipeline aun no tiene `.mts` y corre con su `.sh`. */
-  viaBash: boolean
 }
 
-/**
- * Comando que corre el pipeline `name` de `scriptsDir`: `node <name>.mts` si existe, y si no
- * `bash <name>.sh`. `prefix` (p. ej. `caffeinate -i`) se antepone tal cual.
- */
+/** Comando que corre el pipeline `name` de `scriptsDir` con Node; `prefix` (p. ej. `caffeinate -i`) se antepone tal cual. */
 export function pipelineCommand(
   scriptsDir: string,
   name: string,
@@ -69,12 +64,8 @@ export function pipelineCommand(
   prefix: readonly string[] = [],
   nodePath: string = process.execPath,
 ): PipelineCommand {
-  const mts = join(scriptsDir, `${name}.mts`)
-  const viaBash = !existsSync(mts)
-  const [command, ...rest] = viaBash
-    ? [...prefix, 'bash', join(scriptsDir, `${name}.sh`), ...args]
-    : [...prefix, nodePath, mts, ...args]
-  return { command: command ?? '', args: rest, viaBash }
+  const [command, ...rest] = [...prefix, nodePath, join(scriptsDir, `${name}.mts`), ...args]
+  return { command: command ?? '', args: rest }
 }
 
 export interface DetachedLaunch {
@@ -92,7 +83,7 @@ export type LaunchDetached = (spec: DetachedLaunch) => number | undefined
 /**
  * Lanza el pipeline como proceso desacoplado que sobrevive al lanzador: sesion propia (POSIX),
  * consola propia oculta (Windows), sin entrada y con la salida en `reportLog`. Un fallo al
- * arrancar se anota en `reportLog`, como lo dejaba `nohup`.
+ * arrancar se anota en `reportLog`.
  */
 export function launchDetached(spec: DetachedLaunch): number | undefined {
   const fd = openSync(spec.reportLog, 'w')

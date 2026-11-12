@@ -99,7 +99,7 @@ describe('[salidas] adaptador y mirror', () => {
   mirrorMatches(command, 'mirror Claude coincide byte a byte (CA-5e)', 'mirror Claude diverge')
   contains(
     mirror,
-    '<!-- GENERADO por src/published/scripts/generate-published-adapters.sh desde src/published/commands/draft.md. No editar a mano. -->',
+    '<!-- GENERADO por src/published/scripts/generate-published-adapters.mts desde src/published/commands/draft.md. No editar a mano. -->',
     'mirror conserva marcador generado',
   )
   check(

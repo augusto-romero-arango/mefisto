@@ -1,5 +1,5 @@
 // Textos que arma `tdd-pipeline.mts`: prompts de cada stage, cuerpo del PR, tabla de metricas,
-// tabla de cobertura y patch spec, byte a byte contra los que producia tdd-pipeline.sh
+// tabla de cobertura y patch spec, byte a byte contra los que producia tdd-pipeline.mts
 // (`fixtures/tdd-pipeline/`, generados con los mismos valores desde el bash).
 
 import assert from 'node:assert/strict'
@@ -54,7 +54,7 @@ const CONTEXT = '# Issue #42: Registrar "turno" con $HOME y `backticks`\n\nCuerp
 const STAGE1_FILES = 'tests/Empresa.Proyecto.Turnos.Tests/RegistrarTurnoTests.cs\nsrc/Empresa.Proyecto.Turnos/RegistrarTurno/Stub.cs'
 const BASE = { projectName: PROJECT, issueContext: CONTEXT, stage1Agent: 'projection-test-writer' }
 
-describe('prompts identicos a los de tdd-pipeline.sh', () => {
+describe('prompts identicos a los de tdd-pipeline.mts', () => {
   test('test-writer (Stage 1)', () => {
     assert.equal(stage1Prompt(BASE), golden('stage-1.prompt.txt'))
   })
@@ -146,7 +146,7 @@ describe('prompts identicos a los de tdd-pipeline.sh', () => {
   })
 })
 
-describe('coverage gate identico al de tdd-pipeline.sh', () => {
+describe('coverage gate identico al de tdd-pipeline.mts', () => {
   const xml = golden('coverage.cobertura.xml')
   const logic = [
     'src/X.Turnos/RegistrarTurnoCommandHandler.cs',
@@ -198,7 +198,7 @@ const TW_SUMMARY = '## Tests\\n\\n- `RegistrarTurnoTests` con $VARIABLES sin exp
 const IM_SUMMARY = '_(El agente no generó resumen)_'
 const COMMITS = '89abcde refactor(hu-42): revisión y refactor\n0123456 test(hu-42): tests fase roja'
 
-describe('cuerpo del PR identico al de tdd-pipeline.sh', () => {
+describe('cuerpo del PR identico al de tdd-pipeline.mts', () => {
   test('corrida completa: todas las secciones opcionales en orden y la tabla de metricas', () => {
     const stages: RunStages = {
       scaffold: { duration: 10, metrics: FULL },

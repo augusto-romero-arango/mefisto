@@ -49,18 +49,18 @@ describe('[fuente] contrato neutral', () => {
   contains(body, '{{mefisto:assert-consumer-repo}}', 'guard consumidor presente')
   contains(body, '{{mefisto:config-path}}', 'lee domainLabels desde config-path')
   contains(body, 'domainLabels', 'menciona domainLabels')
-  contains(body, '{{mefisto:run appinsights-query.sh custom "', 'fuente usa appinsights-query.sh custom')
+  contains(body, '{{mefisto:run appinsights-query.mts custom "', 'fuente usa appinsights-query.mts custom')
   contains(
     body,
-    '{{mefisto:run purge-store.sh --domain "$DOMINIO_KEBAB" --env "$ENV" --dry-run}}',
-    'fuente usa purge-store.sh --dry-run',
+    '{{mefisto:run purge-store.mts --domain "$DOMINIO_KEBAB" --env "$ENV" --dry-run}}',
+    'fuente usa purge-store.mts --dry-run',
   )
   contains(
     body,
-    '{{mefisto:run purge-store.sh --domain "$DOMINIO_KEBAB" --env "$ENV"}}',
-    'fuente usa purge-store.sh de purga',
+    '{{mefisto:run purge-store.mts --domain "$DOMINIO_KEBAB" --env "$ENV"}}',
+    'fuente usa purge-store.mts de purga',
   )
-  contains(body, '{{mefisto:run azure-account-info.sh', 'fuente valida sesion con azure-account-info.sh')
+  contains(body, '{{mefisto:run azure-account-info.mts', 'fuente valida sesion con azure-account-info.mts')
   contains(body, '.mefisto/appinsights.env', 'fuente cita .mefisto/appinsights.env')
   contains(body, 'gh run rerun "$RUN_ID" --failed', 'conserva rerun --failed')
   contains(body, 'ATTEMPT_PREVIO', 'espera el intento nuevo')
@@ -79,23 +79,23 @@ describe('[salida] adaptador', () => {
   claudeOutputExists(command)
   contains(
     claude,
-    'MEFISTO_RUNTIME=claude "${MEFISTO_PACKAGE_ROOT}/scripts/purge-store.sh" --domain "$DOMINIO_KEBAB" --env "$ENV" --dry-run',
-    'claude invoca purge-store.sh --dry-run',
+    'MEFISTO_RUNTIME=claude node "${MEFISTO_PACKAGE_ROOT}/scripts/purge-store.mts" --domain "$DOMINIO_KEBAB" --env "$ENV" --dry-run',
+    'claude invoca purge-store.mts --dry-run',
   )
   contains(
     claude,
-    'MEFISTO_RUNTIME=claude "${MEFISTO_PACKAGE_ROOT}/scripts/purge-store.sh" --domain "$DOMINIO_KEBAB" --env "$ENV"',
-    'claude invoca purge-store.sh',
+    'MEFISTO_RUNTIME=claude node "${MEFISTO_PACKAGE_ROOT}/scripts/purge-store.mts" --domain "$DOMINIO_KEBAB" --env "$ENV"',
+    'claude invoca purge-store.mts',
   )
   contains(
     claude,
-    'MEFISTO_RUNTIME=claude "${MEFISTO_PACKAGE_ROOT}/scripts/appinsights-query.sh" custom',
-    'claude invoca appinsights-query.sh',
+    'MEFISTO_RUNTIME=claude node "${MEFISTO_PACKAGE_ROOT}/scripts/appinsights-query.mts" custom',
+    'claude invoca appinsights-query.mts',
   )
   contains(
     claude,
-    '"${MEFISTO_PACKAGE_ROOT}/scripts/azure-account-info.sh"',
-    'claude invoca azure-account-info.sh',
+    '"${MEFISTO_PACKAGE_ROOT}/scripts/azure-account-info.mts"',
+    'claude invoca azure-account-info.mts',
   )
   absent(claude, '{{mefisto:', 'claude sin directivas sin resolver')
   absent(claude, 'az ', 'claude sin az directo')
@@ -104,7 +104,7 @@ describe('[salida] adaptador', () => {
     'claude respeta el orden evidencia -> dry-run -> confirmacion -> purga -> rerun',
     () =>
       misplacedOffsets(claude, [
-        'appinsights-query.sh',
+        'appinsights-query.mts',
         '--dry-run',
         'Continuar con la purga',
         '--env "$ENV"\n```',
@@ -114,7 +114,7 @@ describe('[salida] adaptador', () => {
   contains(claude, 'model: "sonnet"', 'Claude materializa el perfil balanced')
 })
 
-// La distribucion de purge-store.sh la cubre scripts/tests/purge-store.test.mts.
+// La distribucion de purge-store.mts la cubre scripts/tests/purge-store.test.mts.
 describe('[assets] comando inventariado', () => {
   check(
     'inventario de dist/claude incluye el comando',
@@ -127,7 +127,7 @@ describe('[mirror]', () => {
   mirrorMatches(command)
   contains(
     mirror,
-    'GENERADO por src/published/scripts/generate-published-adapters.sh desde src/published/commands/purge-store.md',
+    'GENERADO por src/published/scripts/generate-published-adapters.mts desde src/published/commands/purge-store.md',
     'mirror conserva marcador generado',
   )
   generatorIsUpToDate()

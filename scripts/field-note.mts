@@ -29,7 +29,7 @@ import {
 } from './lib/field-note.mts'
 import type { Tools } from './lib/field-note.mts'
 
-const USAGE = `Uso: field-note.sh --session-id <id> --timestamp <YYYY-MM-DD-HHMM> --field-note <archivo-local> [--glossary-path <ruta-repo> --glossary <archivo-local>]
+const USAGE = `Uso: field-note.mts --session-id <id> --timestamp <YYYY-MM-DD-HHMM> --field-note <archivo-local> [--glossary-path <ruta-repo> --glossary <archivo-local>]
 
 Entrega, en un worktree aislado del checkout principal, la field note de
 cierre del planner (y opcionalmente el delta ya fusionado del glosario de
@@ -87,8 +87,8 @@ export function deliver(argv: string[], options: DeliverOptions = {}): number {
     if (existsSync(join(root, '.claude-plugin', 'plugin.json'))) {
       throw new CliError(
         [
-          'ERROR: scripts/field-note.sh es del plugin publicado y solo aplica al consumidor.',
-          'Mefisto entrega sus propias field notes con src/internal/scripts/mefisto-field-note.sh.',
+          'ERROR: scripts/field-note.mts es del plugin publicado y solo aplica al consumidor.',
+          'Mefisto entrega sus propias field notes con src/internal/scripts/mefisto-field-note.mts.',
         ].join('\n'),
       )
     }

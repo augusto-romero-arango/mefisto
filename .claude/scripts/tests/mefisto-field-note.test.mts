@@ -1,9 +1,7 @@
 import assert from 'node:assert/strict'
 import { spawnSync } from 'node:child_process'
 import {
-  accessSync,
   chmodSync,
-  constants,
   existsSync,
   mkdirSync,
   mkdtempSync,
@@ -35,11 +33,8 @@ import { deliver, latestPr } from '../../../src/internal/scripts/mefisto-field-n
 const HERE = dirname(fileURLToPath(import.meta.url))
 const REPO_ROOT = join(HERE, '..', '..', '..')
 const SCRIPT = join(REPO_ROOT, 'src', 'internal', 'scripts', 'mefisto-field-note.mts')
-const CANONICAL_SH = join(REPO_ROOT, 'src', 'internal', 'scripts', 'mefisto-field-note.sh')
-const SHIM = join(REPO_ROOT, '.claude', 'scripts', 'mefisto-field-note.sh')
 const SLUG = 'acme/mefisto-fake'
 const AGENT = 'mefisto-planner'
-const NOT_WINDOWS = process.platform === 'win32' ? 'los shims son bash' : false
 
 let work = ''
 let restoreGitConfig = (): void => {}
@@ -110,46 +105,6 @@ function hasRemoteBranch(sandbox: Sandbox, branch: string): boolean {
   return gitOk(sandbox.bare, 'show-ref', '--verify', '--quiet', `refs/heads/${branch}`)
 }
 
-describe('shims', () => {
-  test('el canonico .sh es el shim hacia mefisto-field-note.mts', () => {
-    assert.equal(
-      readFileSync(CANONICAL_SH, 'utf8').replaceAll('\r\n', '\n'),
-      [
-        '#!/usr/bin/env bash',
-        '# Shim: la implementacion vive en mefisto-field-note.mts (MEF-ADR-0057). No editar.',
-        'exec node "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)/mefisto-field-note.mts" "$@"',
-        '',
-      ].join('\n'),
-    )
-  })
-
-  test('el shim de .claude/scripts sigue la plantilla de tres lineas', () => {
-    assert.equal(
-      readFileSync(SHIM, 'utf8').replaceAll('\r\n', '\n'),
-      [
-        '#!/usr/bin/env bash',
-        '# Shim de compatibilidad (MEF-ADR-0049): la implementacion canonica vive en src/internal/scripts/. No editar.',
-        'exec "$(cd "$(dirname "$0")/../.." && pwd)/src/internal/scripts/$(basename "$0")" "$@"',
-        '',
-      ].join('\n'),
-    )
-  })
-
-  test('los dos .sh conservan el bit de ejecucion', { skip: NOT_WINDOWS }, () => {
-    accessSync(CANONICAL_SH, constants.X_OK)
-    accessSync(SHIM, constants.X_OK)
-  })
-
-  test('el shim de .claude/scripts llega al .mts con el mismo codigo de salida', { skip: NOT_WINDOWS }, () => {
-    const direct = spawnSync(process.execPath, [SCRIPT], { cwd: REPO_ROOT, input: '', encoding: 'utf8' })
-    const shim = spawnSync(SHIM, [], { cwd: REPO_ROOT, input: '', encoding: 'utf8' })
-    assert.equal(direct.status, 1)
-    assert.equal(shim.status, direct.status)
-    assert.equal(shim.stderr, direct.stderr)
-    assert.match(shim.stderr, /son obligatorios/)
-  })
-})
-
 describe('validacion de argumentos, sin tocar git', () => {
   let outside = ''
 
@@ -171,7 +126,7 @@ describe('validacion de argumentos, sin tocar git', () => {
   test('sin argumentos pide los tres obligatorios y muestra el uso', () => {
     const result = cli()
     assert.equal(result.status, 1)
-    assert.match(result.stderr, /^ERROR: --agent, --timestamp y --session-id son obligatorios\nUso: mefisto-field-note\.sh /)
+    assert.match(result.stderr, /^ERROR: --agent, --timestamp y --session-id son obligatorios\nUso: mefisto-field-note\.mts /)
   })
 
   test('rechaza un --agent o un --session-id que no sean un slug', () => {
@@ -196,7 +151,7 @@ describe('validacion de argumentos, sin tocar git', () => {
   test('--help muestra el uso por stderr y sale con 0', () => {
     const result = cli('--help')
     assert.equal(result.status, 0)
-    assert.match(result.stderr, /^Uso: mefisto-field-note\.sh /)
+    assert.match(result.stderr, /^Uso: mefisto-field-note\.mts /)
   })
 
   test('con argumentos validos y fuera de un repo, el guard aborta', () => {

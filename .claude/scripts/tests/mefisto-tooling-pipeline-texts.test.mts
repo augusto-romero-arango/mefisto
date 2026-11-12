@@ -1,6 +1,6 @@
 // Textos del pipeline interno de tooling: prompts de cada stage, del intento de correccion de
 // neutralidad, de la reanudacion y de los conflictos, y cuerpo del PR, byte a byte contra los que
-// producia mefisto-tooling-pipeline.sh (`fixtures/mefisto-tooling-pipeline/`).
+// producia mefisto-tooling-pipeline.mts (`fixtures/mefisto-tooling-pipeline/`).
 
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
@@ -43,7 +43,7 @@ const COMMITS = '89abcde mefisto-tooling(#42): revision y correcciones\n0123456 
 const WRITER_SUMMARY = '## Implementado\n\n- Script `ci.sh` con $VARIABLES sin expandir.'
 const NO_SUMMARY = '_(El agente no genero resumen)_'
 
-describe('prompts identicos a los de mefisto-tooling-pipeline.sh', () => {
+describe('prompts identicos a los de mefisto-tooling-pipeline.mts', () => {
   test('bloque de neutralidad de runtime', () => {
     assert.equal(NEUTRALITY_RUNTIME_BLOCK, golden('neutrality-block.txt'))
   })
@@ -115,7 +115,7 @@ describe('doctrina de los prompts', () => {
   })
 })
 
-describe('cuerpo del PR identico al de mefisto-tooling-pipeline.sh', () => {
+describe('cuerpo del PR identico al de mefisto-tooling-pipeline.mts', () => {
   test('sin esperas y con Closes', () => {
     const body = pullRequestBody({
       writer: { seconds: '125', holdSeconds: 0, resumed: false, summary: WRITER_SUMMARY },

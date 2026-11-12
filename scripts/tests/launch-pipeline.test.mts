@@ -29,11 +29,10 @@ let counter = 0
 before(() => {
   work = realpathSync.native(mkdtempSync(join(tmpdir(), 'mefisto launch pipeline ')))
   restoreGit = isolateGitConfig(work)
-  // batch-pipeline queda solo con su `.sh`: el camino que aun corre por bash.
   pkg = join(work, 'pkg', 'scripts')
   mkdirSync(pkg, { recursive: true })
   for (const name of PIPELINES) copyFileSync(join(FIXTURES, 'stub-pipeline.mts'), join(pkg, `${name}-pipeline.mts`))
-  writeFileSync(join(pkg, 'batch-pipeline.sh'), '#!/usr/bin/env bash\necho "stub batch $*"\n')
+  writeFileSync(join(pkg, 'batch-pipeline.mts'), "console.log(`stub batch ${process.argv.slice(2).join(' ')}`)\n")
 })
 
 after(() => {
@@ -175,7 +174,7 @@ describe('guardas', () => {
       assert.equal(run.code, 1)
       assert.equal(
         run.err,
-        'ERROR: scripts/launch-pipeline.sh es del plugin publicado y solo aplica al consumidor.\n' +
+        'ERROR: scripts/launch-pipeline.mts es del plugin publicado y solo aplica al consumidor.\n' +
           'Estas en el repo de Mefisto. Para trabajar issues del plugin usa los skills internos /mefisto-tooling o /mefisto-sequential.\n',
       )
       assert.equal(run.launches.length, 0)
@@ -194,8 +193,8 @@ describe('ayuda y flags retirados', () => {
     for (const argv of [[], ['--help'], ['--tooling', '42', '-h']]) {
       const run = await launcher(argv)
       assert.equal(run.code, 0)
-      assert.ok(run.out.startsWith('\n\u001b[0;36m\u001b[1mlaunch-pipeline.sh\u001b[0m --- Despachador de los pipelines publicados\n'))
-      assert.ok(run.out.endsWith('  igual, usa /sequential o parallel-pipeline.sh directo.\n\n'))
+      assert.ok(run.out.startsWith('\n\u001b[0;36m\u001b[1mlaunch-pipeline.mts\u001b[0m --- Despachador de los pipelines publicados\n'))
+      assert.ok(run.out.endsWith('  igual, usa /sequential o parallel-pipeline.mts directo.\n\n'))
       assert.equal(run.launches.length, 0)
     }
   })
@@ -203,7 +202,7 @@ describe('ayuda y flags retirados', () => {
   test('--help no depende del modo de UI', async () => {
     const run = await launcher(['--help'], { env: { MEFISTO_UI: 'sesiones' } })
     assert.equal(run.code, 0)
-    assert.ok(run.out.includes('launch-pipeline.sh'))
+    assert.ok(run.out.includes('launch-pipeline.mts'))
   })
 
   for (const argv of [['--attach'], ['--attach', 'tooling-2285'], ['--tooling', '2285', '--if-exists', 'replace']]) {
@@ -280,7 +279,7 @@ describe('decision del modo de UI', () => {
     const run = await launcher(['--parallel', '1', '2', '3'], { env: { MEFISTO_UI: undefined, ...OUTSIDE_HERDR } })
     assert.deepEqual(single(run), { name: 'parallel-pipeline.mts', argv: ['1', '2', '3'] })
     assert.ok(reportOf(run).endsWith(`parallel-run-${STAMP}.report.log`))
-    assert.ok(run.out.includes(`Visor en otra terminal: '${join(pkg, 'stream-watch.sh')}' --issues 1,2,3`))
+    assert.ok(run.out.includes(`Visor en otra terminal: node '${join(pkg, 'stream-watch.mts')}' --issues 1,2,3`))
   })
 
   test('un runtime distinto de claude dentro de herdr delega en herdr-pipeline.mts con los argumentos originales', async () => {
@@ -331,14 +330,14 @@ describe('decision del modo de UI', () => {
       run.out,
       '\u001b[0;32m\u001b[1m✓\u001b[0m Pipeline tooling-issue-2285 iniciado (sin pane)\n' +
         `\u001b[0;34m[09:08:07]\u001b[0m Log: ${report}\n` +
-        `\u001b[0;34m[09:08:07]\u001b[0m Visor en otra terminal: '${join(pkg, 'stream-watch.sh')}' --issues 2285\n`,
+        `\u001b[0;34m[09:08:07]\u001b[0m Visor en otra terminal: node '${join(pkg, 'stream-watch.mts')}' --issues 2285\n`,
     )
     assert.equal(run.err, '')
   })
 
   test('scaffold sin issue: el visor se sugiere sin --issues', async () => {
     const run = await launcher(['--scaffold', '--domain', 'pagos'], { env: { MEFISTO_RUNTIME: 'fake', MEFISTO_UI: undefined, ...OUTSIDE_HERDR } })
-    assert.ok(stripAnsi(run.out).endsWith(`Visor en otra terminal: '${join(pkg, 'stream-watch.sh')}'\n`))
+    assert.ok(stripAnsi(run.out).endsWith(`Visor en otra terminal: node '${join(pkg, 'stream-watch.mts')}'\n`))
   })
 })
 
@@ -368,13 +367,15 @@ describe('entorno y comando del pipeline desacoplado', () => {
     })
   })
 
-  test('un pipeline sin .mts corre con bash y su .sh', async () => {
+  test('el lote corre su .mts con Node', async () => {
     const run = await launcher(['--batch', '1', '2'])
     const spec = run.launches[0]
-    assert.equal(spec?.command, 'bash')
-    assert.deepEqual(spec?.args, [join(pkg, 'batch-pipeline.sh'), '1', '2'])
-    assert.equal(pipelineCommand(pkg, 'batch-pipeline', []).viaBash, true)
-    assert.equal(pipelineCommand(pkg, 'tooling-pipeline', []).viaBash, false)
+    assert.equal(spec?.command, process.execPath)
+    assert.deepEqual(spec?.args, [join(pkg, 'batch-pipeline.mts'), '1', '2'])
+    assert.deepEqual(pipelineCommand(pkg, 'batch-pipeline', ['3'], ['caffeinate', '-i'], 'node'), {
+      command: 'caffeinate',
+      args: ['-i', 'node', join(pkg, 'batch-pipeline.mts'), '3'],
+    })
   })
 
   test('en macOS con caffeinate en el PATH el pipeline arranca envuelto en caffeinate -i', async () => {
@@ -438,7 +439,7 @@ describe('preparseo de --from-stage', () => {
   test('solo flags, sin argumento posicional: mensaje de uso', async () => {
     const run = await launcher(['--from-stage', '4'])
     assertAborts(run, 'Faltan argumentos posicionales (numero de issue o modo).')
-    assert.ok(run.err.includes(`Corre '${join(pkg, 'launch-pipeline.sh')} --help' para ver el uso.`))
+    assert.ok(run.err.includes(`Corre 'node ${join(pkg, 'launch-pipeline.mts')} --help' para ver el uso.`))
   })
 
   test('--pipeline y --scaffold-domain sin valor abortan', async () => {
@@ -564,9 +565,9 @@ describe('enrutamiento de un issue suelto', () => {
 describe('--batch y --parallel', () => {
   test('--batch lanza batch-pipeline con los issues y el override en orden', async () => {
     const run = await launcher(['--batch', '--pipeline', 'tooling', '42', '43'])
-    assert.deepEqual(single(run), { name: 'batch-pipeline.sh', argv: ['--pipeline', 'tooling', '42', '43'] })
+    assert.deepEqual(single(run), { name: 'batch-pipeline.mts', argv: ['--pipeline', 'tooling', '42', '43'] })
     assert.ok(reportOf(run).endsWith(`batch-run-${STAMP}.report.log`))
-    assert.ok(stripAnsi(run.out).includes("stream-watch.sh' --issues 42,43"))
+    assert.ok(stripAnsi(run.out).includes("stream-watch.mts' --issues 42,43"))
   })
 
   test('--batch rechaza issues no numericos, un override invalido y la falta de issues', async () => {
@@ -596,7 +597,7 @@ describe('--batch y --parallel', () => {
   test('--max-parallel sin valor sale con 1, como el `set -u` del bash', async () => {
     const run = await launcher(['--parallel', '4', '5', '--max-parallel'])
     assert.equal(run.code, 1)
-    assert.equal(run.err, `${join(pkg, 'launch-pipeline.sh')}: $2: unbound variable\n`)
+    assert.equal(run.err, `${join(pkg, 'launch-pipeline.mts')}: $2: unbound variable\n`)
   })
 
   test('varios issues sin modo avisan y corren como --parallel', async () => {
@@ -664,7 +665,7 @@ describe('lanzamiento real del pipeline desacoplado', () => {
     )
   })
 
-  test('un pipeline sin .mts corre por bash', { skip: process.platform === 'win32' ? 'requiere bash' : false }, async () => {
+  test('el lote desacoplado corre su .mts con Node', async () => {
     const run = await launcher(['--batch', '7', '8'], { launch: launchDetached })
     const report = join(run.root, '.mefisto', 'pipeline', 'logs', `batch-run-${STAMP}.report.log`)
     for (let i = 0; i < 100 && !(existsSync(report) && readFileSync(report, 'utf8').length > 0); i++) {

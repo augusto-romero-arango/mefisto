@@ -28,7 +28,7 @@ import type { CommandOutput, PullRequest, Tools } from '../../../scripts/lib/fie
 import { assertInMefisto, ensureGithooksInstalled } from './lib/mefisto-repo.mts'
 import type { MefistoRepo } from './lib/mefisto-repo.mts'
 
-const USAGE = `Uso: mefisto-field-note.sh --agent <nombre> --timestamp <YYYY-MM-DD-HHMM> --session-id <id-seguro>
+const USAGE = `Uso: mefisto-field-note.mts --agent <nombre> --timestamp <YYYY-MM-DD-HHMM> --session-id <id-seguro>
 
 Recibe el contenido Markdown de la field note por stdin. Crea (o recupera, si
 ya existe de una entrega anterior de la misma sesion) un worktree temporal

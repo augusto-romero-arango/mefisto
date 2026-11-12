@@ -4,10 +4,10 @@
 // sus metricas. Un campo que el runtime no provee se muestra como `n/d`, nunca como cero.
 //
 // Uso:
-//   mefisto-stream-watch.sh                      sigue el archivo mas reciente y cambia al siguiente
-//   mefisto-stream-watch.sh <ruta>               sigue o inspecciona ese archivo
-//   mefisto-stream-watch.sh --issues 42,43       solo los eventos de esos issues
-//   mefisto-stream-watch.sh --newer-than <epoch> ignora lo modificado antes de ese segundo
+//   mefisto-stream-watch.mts                      sigue el archivo mas reciente y cambia al siguiente
+//   mefisto-stream-watch.mts <ruta>               sigue o inspecciona ese archivo
+//   mefisto-stream-watch.mts --issues 42,43       solo los eventos de esos issues
+//   mefisto-stream-watch.mts --newer-than <epoch> ignora lo modificado antes de ese segundo
 
 import { existsSync, statSync } from 'node:fs'
 import { basename, join } from 'node:path'

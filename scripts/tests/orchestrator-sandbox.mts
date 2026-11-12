@@ -171,7 +171,7 @@ export async function runBatch(
     argv,
     cwd: repo.root,
     env: orchestratorEnv(repo, options.env),
-    scriptPath: 'scripts/batch-pipeline.sh',
+    scriptPath: 'scripts/batch-pipeline.mts',
     out: (text) => {
       result.out += text
     },
@@ -215,7 +215,7 @@ export async function runParallel(
     argv,
     cwd: repo.root,
     env: orchestratorEnv(repo, options.env),
-    scriptPath: 'scripts/parallel-pipeline.sh',
+    scriptPath: 'scripts/parallel-pipeline.mts',
     out: (text) => {
       result.out += text
     },

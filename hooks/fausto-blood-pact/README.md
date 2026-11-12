@@ -10,7 +10,7 @@ Se activa sola en una sesión **interactiva** del proyecto consumidor. No se act
 - una sesión no interactiva (`-p`),
 - el repo de Mefisto (manifiesto `name: mefisto`).
 
-La cinta de merge sigue la llamada Bash a `pr-sync.sh` con `tool.call`, no `prompt.submit`/`turn.complete` ni `classic.*`: los dos primeros sin matcher los registra el tablero y el engine rechaza el módulo si se registran dos veces (#2294), y el plugin carga en tier user, que no recibe `classic.*` (#2302).
+La cinta de merge sigue la llamada Bash a `pr-sync.mts` con `tool.call`, no `prompt.submit`/`turn.complete` ni `classic.*`: los dos primeros sin matcher los registra el tablero y el engine rechaza el módulo si se registran dos veces (#2294), y el plugin carga en tier user, que no recibe `classic.*` (#2302).
 
 Comandos: `/fausto-blood-pact on` | `off` | `refresh` | `ocultar`. `on`/`off` sobreviven a `/clear`: un vigilante de un segundo (`$.clock.every`, armado una vez en `session.start`) compara la intención guardada en variables del módulo con el atom y reactiva la banda si la consola es elegible y no está apagada, porque `/clear` reinicia el estado sin disparar `session.start` y el engine no entrega `classic.*` a un plugin de tier user. El render no escribe estado (el engine lo rechaza); el vigilante corre desde el reloj y pide `ui.invalidate('ui.render')` tras rearmar.
 
@@ -18,7 +18,7 @@ Si al arrancar no se puede leer la línea de comando de Claude Code y el transcr
 
 ## Capacidad vigente (incremento 1)
 
-Una banda sobre el prompt cuya primera línea (en todas las vistas, a todo el ancho de la banda y por encima de la mascota; en reposo comparte línea con el menú `2: PRs N` / `3: bitácora N`) es `mefisto · listos N` (`mefisto` en el color `claude`, el resto atenuado) seguida del estado de la vista (`· corridas N activas`, `· sequential N/M …`, `· merge N/M …`), con los issues listos (`estado:listo`) en el orden de `scripts/next-order.sh --json`: número de orden, `#issue`, `tipo` y título. Alto fijo (5 filas), paginada con `0`; se refresca cada minuto y con `refresh`. Los issues con PR abierto (`inPr[]` de `next-order.sh --json`) van después de los lanzables, en el mismo orden, como `T #N título… · PR #X`: sin dígito de tecla, toda la fila atenuada (la letra de tipo conserva su color) y cuentan en la paginación `0`; `listos N` cuenta solo los lanzables y, con issues en PR, suma `· en PR M` atenuado. Con un script viejo sin `inPr` se ve como antes. No hay acciones nuevas: mergear sigue por `2: PRs N`. Al pie solo quedan `infra: #N` y `N en ciclo`, que condicionan el lanzamiento. Si `next-order.sh` falla muestra el error sin romper la sesión.
+Una banda sobre el prompt cuya primera línea (en todas las vistas, a todo el ancho de la banda y por encima de la mascota; en reposo comparte línea con el menú `2: PRs N` / `3: bitácora N`) es `mefisto · listos N` (`mefisto` en el color `claude`, el resto atenuado) seguida del estado de la vista (`· corridas N activas`, `· sequential N/M …`, `· merge N/M …`), con los issues listos (`estado:listo`) en el orden de `node scripts/next-order.mts --json`: número de orden, `#issue`, `tipo` y título. Alto fijo (5 filas), paginada con `0`; se refresca cada minuto y con `refresh`. Los issues con PR abierto (`inPr[]` de `next-order.mts --json`) van después de los lanzables, en el mismo orden, como `T #N título… · PR #X`: sin dígito de tecla, toda la fila atenuada (la letra de tipo conserva su color) y cuentan en la paginación `0`; `listos N` cuenta solo los lanzables y, con issues en PR, suma `· en PR M` atenuado. Con un script viejo sin `inPr` se ve como antes. No hay acciones nuevas: mergear sigue por `2: PRs N`. Al pie solo quedan `infra: #N` y `N en ciclo`, que condicionan el lanzamiento. Si `next-order.mts` falla muestra el error sin romper la sesión.
 
 Es solo lectura: no hay teclas ni botones que lancen trabajo, y el orden se lee del script, nunca se calcula aquí.
 
@@ -35,7 +35,7 @@ Las corridas toman la banda solo mientras haya al menos una activa (`running` o 
 
 ## Capacidad vigente (incremento 3): lanzar trabajo
 
-Con la lista de listos visible y el prompt vacío (con la banda mostrando corridas las teclas no actúan), la consola **escribe el comando en el prompt sin enviarlo**; la persona lo revisa y lo envía. Las líneas se leen de `next-order.sh --json --launch-command "/mefisto:sequential" --parallel-command "/mefisto:parallel"`, nunca se calculan aquí.
+Con la lista de listos visible y el prompt vacío (con la banda mostrando corridas las teclas no actúan), la consola **escribe el comando en el prompt sin enviarlo**; la persona lo revisa y lo envía. Las líneas se leen de `next-order.mts --json --launch-command "/mefisto:sequential" --parallel-command "/mefisto:parallel"`, nunca se calculan aquí.
 
 - `1`: línea de `/mefisto:sequential` (sin infra). `4`: línea del lote `/mefisto:parallel` (`p` ya no actúa). `1` y `4` solo escriben el comando en el prompt; nunca lo envían. Con la línea en `null` la tecla no se muestra ni actúa.
 - Con `tipo:infra` listos, `1` y `4` abren un diálogo (`$.ui.ask`): "Infra primero" (`/mefisto:infra <primer infra>`), "Seguir sin infra" o "Cancelar". Cerrar el diálogo o un texto libre no escriben nada.
@@ -74,12 +74,12 @@ Fuera de alcance: mergear PRs que la sesión no vio terminar y resolver comentar
 
 En reposo (listos visibles), si hay PRs abiertos, la primera línea suma, a la derecha, `2: PRs N` (`gh pr list --state open`, sin borradores; incluye los de field notes `docs/planner-field-notes-*`, que además suman en la bitácora, incremento 9; se refresca con los listos y tras cada merge). Sin PRs abiertos el botón no aparece.
 
-- `2`: con un solo PR, `$.ui.ask` con `#N título` y "Cancelar"; con varios, selección múltiple: "Todos" y los 3 más recientes (otros números, en la opción de texto). Ejecuta `/mefisto:merge` con `$.command.run`, anunciado con un toast. "Todos" ejecuta `/mefisto:merge --all` (`pr-sync.sh --all` toma todo PR abierto, borradores incluidos). Cancelar o no elegir no ejecuta nada.
+- `2`: con un solo PR, `$.ui.ask` con `#N título` y "Cancelar"; con varios, selección múltiple: "Todos" y los 3 más recientes (otros números, en la opción de texto). Ejecuta `/mefisto:merge` con `$.command.run`, anunciado con un toast. "Todos" ejecuta `/mefisto:merge --all` (`pr-sync.mts --all` toma todo PR abierto, borradores incluidos). Cancelar o no elegir no ejecuta nada.
 - `/fausto-blood-pact prs`: lo mismo sin teclas.
 
 ## Capacidad vigente (incremento 7): seguir un sequential como lote
 
-Con `pipeline-status-batch.json` (lo escribe `batch-pipeline.sh`, #2202) en `state: running`, **el lote ocupa la banda**. Lectura pura del archivo; la consola nunca lo modifica.
+Con `pipeline-status-batch.json` (lo escribe `batch-pipeline.mts`, #2202) en `state: running`, **el lote ocupa la banda**. Lectura pura del archivo; la consola nunca lo modifica.
 
 - Lote en curso (#2350, igual que la cinta interna): cabecera `mefisto · sequential M/N <MM:SS|H:MM:SS>` (M = mergeados + fallidos; tiempo atenuado desde `started`; con parada pedida, `· se detiene tras #N` en warning) con las acciones arriba a la derecha (`1: detener`, `2: ver PR #X`, `3: log` atenuado mientras corre); sin fila de acciones al pie. Junto a la mascota, con `marginTop=1`: la cola en una línea separada por ` ─ ` (`✓` success, `●` warning con su paso, `✗` error, `⏸` y `○` atenuados), `#N título` atenuado, la espera por rate limit en warning si el eslabón está en `hold` (`en espera por rate limit · próxima sonda HH:MM`; si no, una fila en blanco) y las últimas 3 líneas con hora (`HH:MM:SS texto`; se descartan separadores y líneas sin hora; color: inicio `claude`, éxito `success` —también `<agente> completado en Ns`—, fallo `error`). Sin issue en curso: `preparando el primer issue…`. No hay fila de pasos del agente en el lote; la corrida suelta la conserva. La mascota sigue la regla del incremento 4.
 - `1`: `$.ui.ask` ("Detener tras el actual" / "Seguir"); al aceptar escribe la señal vacía `pipeline-state/batch-stop` en la raíz del checkout principal (`git rev-parse --git-common-dir`), la misma de `/mefisto:batch-stop` (MEF-ADR-0017); nunca mata un proceso. Con `stop_requested` la tecla no se ofrece.
@@ -95,7 +95,7 @@ Con una corrida activa (la del eslabón en curso del lote, o la única corrida s
 - Fila de pasos, de `status.agents` en su orden, separados por ` ─ `: `✓` passed (success), `●` running (warning), `✗` failed (error), `○` pending (atenuado); se recorta al ancho.
 - Título del issue y las 3 últimas líneas útiles, atenuadas: cola del log del pipeline (`status.log`, sin ANSI) y el último evento del agente activo (`HH:MM:SS <Tool>`, o `success · N turnos · $X` al cerrar). Los `events.jsonl` publicados van redactados (MEF-ADR-0053), así que no traen mensajes. Se calculan en el sondeo de 5 s (cola del archivo, `tail -c`) y se guardan en el atom `pactBandLines`; el render no escribe. El seguimiento continuo con `tail -F` es del pane de log (ver abajo).
 - La mascota decide su rol por sufijo del agente (el prefijo `<n>-` del stage se ignora): `*test-writer` y `*coverage-gate` tester, `*reviewer` revisor, `*infra-writer` infraestructura, el resto desarrollador.
-- Arranque inmediato: un `tool.call` Bash cuyo comando invoca `batch-`, `launch-`, `tdd-`, `tooling-` o `iac-pipeline.sh` arma el sondeo de corridas cada 5 s durante 2 minutos aunque aún no haya status, y llama a `refreshRuns` al volver la llamada (mismo matcher `Bash` que ya usa la cinta de merge).
+- Arranque inmediato: un `tool.call` Bash cuyo comando invoca `batch-`, `launch-`, `tdd-`, `tooling-` o `iac-pipeline.mts` arma el sondeo de corridas cada 5 s durante 2 minutos aunque aún no haya status, y llama a `refreshRuns` al volver la llamada (mismo matcher `Bash` que ya usa la cinta de merge).
 
 ### Pane de log (#2321)
 
@@ -109,11 +109,11 @@ Con una corrida activa (la del eslabón en curso del lote, o la única corrida s
 
 ## Capacidad vigente (incremento 8): la cinta de merge en vivo
 
-Cuando el agente lanza `pr-sync.sh <PRs> --merge` (o `--all --merge`) tras un `/mefisto:merge` escrito a mano, o la cinta ya arrancó con la tecla `3`, la `1` o `/fausto-blood-pact merge`, la banda pasa a la cinta de merge mientras `pr-sync.sh` trabaja. La detección es la función pura `mergeRunArgsOf`, que lee solo los tokens tras `pr-sync.sh` (hasta `;`, `&&`, `||` o `|`) y exige `--merge`; una cinta ya arrancada por teclas se adopta, no se duplica. Con `--all`, la lista sale de `gh pr list --state open` al arrancar.
+Cuando el agente lanza `pr-sync.mts <PRs> --merge` (o `--all --merge`) tras un `/mefisto:merge` escrito a mano, o la cinta ya arrancó con la tecla `3`, la `1` o `/fausto-blood-pact merge`, la banda pasa a la cinta de merge mientras `pr-sync.mts` trabaja. La detección es la función pura `mergeRunArgsOf`, que lee solo los tokens tras `pr-sync.mts` (hasta `;`, `&&`, `||` o `|`) y exige `--merge`; una cinta ya arrancada por teclas se adopta, no se duplica. Con `--all`, la lista sale de `gh pr list --state open` al arrancar.
 
 - Cabecera `merge N/M · Mm` (N cuenta los mergeados), una fila por PR (`· #12 título` pendiente, `✓` mergeado, `✗ no mergeado`) y la mascota en pose `cosiendo` (sprite `merge`), a un cuadro por segundo.
-- `pr-sync.sh` corre en una sola llamada Bash, así que el avance sale del sondeo: cada 5 s `gh pr view <n> --json state` de los pendientes; un `MERGED` pasa a `✓`.
-- Al volver la llamada a `pr-sync.sh` (también si falla o se deniega) se hace un último sondeo; lo que siga pendiente queda `✗ no mergeado`, la mascota pasa a `listo` y un toast resume `N mergeados · M fallidos`. Red de seguridad: una cinta arrancada por teclas que no ve su `pr-sync.sh` en 60 s la cierra el reloj de 1 s.
+- `pr-sync.mts` corre en una sola llamada Bash, así que el avance sale del sondeo: cada 5 s `gh pr view <n> --json state` de los pendientes; un `MERGED` pasa a `✓`.
+- Al volver la llamada a `pr-sync.mts` (también si falla o se deniega) se hace un último sondeo; lo que siga pendiente queda `✗ no mergeado`, la mascota pasa a `listo` y un toast resume `N mergeados · M fallidos`. Red de seguridad: una cinta arrancada por teclas que no ve su `pr-sync.mts` en 60 s la cierra el reloj de 1 s.
 - La cinta terminada se oculta sola a los 15 s (se calcula al dibujar con `now - finishedMs`, sin escribir estado desde el render); `4: cerrar` la oculta antes.
 - Precedencia de la banda: lote de `sequential`, cinta de merge, corridas y reposo. El estado vive en `$.state` (atom `pactMerge`); no lee ni escribe `.mefisto/pipeline/`.
 

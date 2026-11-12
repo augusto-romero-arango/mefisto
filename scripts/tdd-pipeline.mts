@@ -1,13 +1,13 @@
 // Pipeline TDD del proyecto consumidor.
 //
 // Uso:
-//   tdd-pipeline.sh 42
-//   tdd-pipeline.sh --issue 42
-//   tdd-pipeline.sh --file "docs/Historias de usuario/HU-25.md"
-//   tdd-pipeline.sh 42 --from-stage 2|3|4                    retoma desde ese stage (4: coverage gate)
-//   tdd-pipeline.sh 42 --models 'reviewer=<modelo>,test-writer=<modelo>'
-//   tdd-pipeline.sh 42 --variant experimento-a              corrida paralela del mismo issue: sin PR, rama local
-//   tdd-pipeline.sh 42 --scaffold-domain <kebab>            crea el dominio antes del Stage 1
+//   tdd-pipeline.mts 42
+//   tdd-pipeline.mts --issue 42
+//   tdd-pipeline.mts --file "docs/Historias de usuario/HU-25.md"
+//   tdd-pipeline.mts 42 --from-stage 2|3|4                    retoma desde ese stage (4: coverage gate)
+//   tdd-pipeline.mts 42 --models 'reviewer=<modelo>,test-writer=<modelo>'
+//   tdd-pipeline.mts 42 --variant experimento-a              corrida paralela del mismo issue: sin PR, rama local
+//   tdd-pipeline.mts 42 --scaffold-domain <kebab>            crea el dominio antes del Stage 1
 //
 // Ciclo: issue -> worktree -> test-writer (rojo) -> implementer (verde) -> smoke-test-writer ->
 // reviewer (refactor) -> sync con main -> coverage gate -> PR -> limpieza. Un issue
@@ -286,7 +286,7 @@ export async function tddPipeline(deps: TddPipelineDeps): Promise<number> {
   }
   const consumerRoot = resolve(chomp(top.stdout))
   if (isFile(join(consumerRoot, '.claude-plugin', 'plugin.json'))) {
-    err('ERROR: scripts/tdd-pipeline.sh es del plugin publicado y solo aplica al consumidor.\n')
+    err('ERROR: scripts/tdd-pipeline.mts es del plugin publicado y solo aplica al consumidor.\n')
     err('Estas en el repo de Mefisto, que no es un proyecto .NET con TDD de dominio.\n')
     err('Para mejorar el plugin usa /mefisto-tooling.\n')
     return 1

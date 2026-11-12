@@ -75,8 +75,8 @@ export const BASE_FILES: Record<string, string> = {
   'changelog.d/README.md': '# doc del mecanismo\n',
   'changelog.d/10.added.md': '- Entrada del fragmento.\n',
   'changelog.d/10.adr-index.md': '| Doctrina X | MEF-ADR-0036 |\n',
-  'src/published/scripts/generate-published-adapters.sh': '# sustituido por el generador simulado\n',
-  'src/internal/scripts/mefisto-neutrality-gate.sh': '# sustituido por el gate simulado\n',
+  'src/published/scripts/generate-published-adapters.mts': '# sustituido por el generador simulado\n',
+  'src/internal/scripts/mefisto-neutrality-gate.mts': '# sustituido por el gate simulado\n',
 }
 
 type Override = (invocation: string) => CommandResult | undefined
@@ -191,7 +191,7 @@ export class ReleaseSandbox {
   }
 
   private dispatch(command: string, args: string[], env: NodeJS.ProcessEnv | undefined): CommandResult {
-    if (command === 'bash') return this.bash(args[0] ?? '', env)
+    if (command === process.execPath) return this.script(args[0] ?? '', env)
     const invocation = `${command} ${args.join(' ')}`
     this.events.push(invocation)
     for (const override of this.overrides) {
@@ -203,8 +203,8 @@ export class ReleaseSandbox {
     throw new Error(`comando inesperado: ${invocation}`)
   }
 
-  private bash(script: string, env: NodeJS.ProcessEnv | undefined): CommandResult {
-    if (script === join(this.repo, 'src', 'internal', 'scripts', 'mefisto-neutrality-gate.sh')) {
+  private script(script: string, env: NodeJS.ProcessEnv | undefined): CommandResult {
+    if (script === join(this.repo, 'src', 'internal', 'scripts', 'mefisto-neutrality-gate.mts')) {
       this.events.push('gate')
       const fragments = join(this.repo, 'changelog.d')
       this.gateSaw = {
@@ -213,7 +213,7 @@ export class ReleaseSandbox {
       }
       return done(this.gate.status, this.gate.stdout)
     }
-    if (script === join(this.repo, 'src', 'published', 'scripts', 'generate-published-adapters.sh')) {
+    if (script === join(this.repo, 'src', 'published', 'scripts', 'generate-published-adapters.mts')) {
       this.events.push('generator')
       this.generatorEnv = env
       const dist = join(this.repo, 'dist', 'claude')
@@ -229,7 +229,7 @@ export class ReleaseSandbox {
       writeFileSync(join(dist, '.mefisto-generated-assets.json'), GENERATED_ASSETS)
       return done(0, 'generado\n')
     }
-    throw new Error(`script bash inesperado: ${script}`)
+    throw new Error(`script inesperado: ${script}`)
   }
 
   private gh(args: string[]): CommandResult {

@@ -65,7 +65,7 @@ function run(argv: string[], deps: ActivateRepoDeps): number {
   if (isFile(join(top, '.claude-plugin', 'plugin.json'))) {
     fail([
       'ERROR: /onboard no aplica al repo de Mefisto.',
-      '       scripts/onboard-activate-repo.sh es del plugin publicado y solo aplica al consumidor.',
+      '       scripts/onboard-activate-repo.mts es del plugin publicado y solo aplica al consumidor.',
     ])
   }
   if (mode !== '--preview' && mode !== '--apply') fail([`Uso: ${deps.program} --preview | --apply`])

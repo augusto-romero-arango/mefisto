@@ -42,7 +42,7 @@ describe('[a] metadata y perfil', () => {
   contains(body, '{{mefisto:instructions-path}}', 'lee RootNamespace via instructions-path')
   contains(
     body,
-    '{{mefisto:run validate-dockerfile.sh src/<RootNamespace>.Projections/Dockerfile}}',
+    '{{mefisto:run validate-dockerfile.mts src/<RootNamespace>.Projections/Dockerfile}}',
     'valida el Dockerfile via run',
   )
 })
@@ -69,7 +69,7 @@ describe('[salidas]', () => {
 describe('[c] validacion del Dockerfile por script distribuido', () => {
   contains(
     claudeBody,
-    'MEFISTO_RUNTIME=claude "${MEFISTO_PACKAGE_ROOT}/scripts/validate-dockerfile.sh"',
+    'MEFISTO_RUNTIME=claude node "${MEFISTO_PACKAGE_ROOT}/scripts/validate-dockerfile.mts"',
     'Claude invoca el script con su runtime',
   )
   absent(claudeBody, 'docker info', 'claude_body no ejecuta docker info directo')
@@ -88,7 +88,7 @@ describe('[d] mirror', () => {
       const inventory = readInventory()
       return (
         inventoriesDestination(inventory, AGENT.mirrorPath) &&
-        inventoriesDestination(inventory, 'scripts/validate-dockerfile.sh')
+        inventoriesDestination(inventory, 'scripts/validate-dockerfile.mts')
       )
     },
     'claude no inventaria agente y script',

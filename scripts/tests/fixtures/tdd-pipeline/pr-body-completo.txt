@@ -37,7 +37,7 @@ Revisado.
 
 ## Anomalia de deteccion (Stage 2b)
 
-Un match bajo `src/` no permitio derivar el proyecto de smoke tests: `src/Empresa.Proyecto/SharedFunction/FunctionEndpoint.cs`. Revisa el patron de deteccion en `scripts/tdd-pipeline.sh` (Stage 2b) -- se salto con `AGENT_ST_RES=skipped`, igual que un dominio sin proyecto SmokeTests, pero aqui la causa es un patron no reconocido.
+Un match bajo `src/` no permitio derivar el proyecto de smoke tests: `src/Empresa.Proyecto/SharedFunction/FunctionEndpoint.cs`. Revisa el patron de deteccion en `scripts/tdd-pipeline.mts` (Stage 2b) -- se salto con `AGENT_ST_RES=skipped`, igual que un dominio sin proyecto SmokeTests, pero aqui la causa es un patron no reconocido.
 ## Smokes que invocan tools modificadas sin cambios
 
 Estos smokes invocan una tool MCP o un endpoint HTTP modificado por la HU y no cambiaron. Puede estar bien; revisa que sigan alineados con el contrato nuevo:

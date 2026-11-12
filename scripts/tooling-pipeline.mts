@@ -1,11 +1,11 @@
 // Pipeline para tareas de tooling (no-TDD) del proyecto consumidor.
 //
 // Uso:
-//   tooling-pipeline.sh 42
-//   tooling-pipeline.sh --issue 42
-//   tooling-pipeline.sh 42 --from-stage 2                       retoma desde el Stage 2
-//   tooling-pipeline.sh 42 --models 'reviewer=<modelo>,writer=<modelo>'
-//   tooling-pipeline.sh 42 --variant experimento-a              corrida paralela del mismo issue: sin PR, rama local
+//   tooling-pipeline.mts 42
+//   tooling-pipeline.mts --issue 42
+//   tooling-pipeline.mts 42 --from-stage 2                       retoma desde el Stage 2
+//   tooling-pipeline.mts 42 --models 'reviewer=<modelo>,writer=<modelo>'
+//   tooling-pipeline.mts 42 --variant experimento-a              corrida paralela del mismo issue: sin PR, rama local
 //
 // Ciclo: issue -> worktree -> writer -> reviewer -> sync con main -> PR -> limpieza. No hay fases
 // roja y verde: los gates son compilacion (Stage 1) y compilacion mas tests existentes (Stage 2).
@@ -168,7 +168,7 @@ Instrucciones:
 2. Reutiliza patrones y convenciones del proyecto (mira archivos similares).
 3. Haz commits frecuentes con mensajes descriptivos en espanol.
 4. Verifica que el proyecto compila con 'dotnet build' si modificaste codigo C#.
-5. Comando de verificacion permitido: scripts/warnings-diff.sh del plugin (politica de cero warnings nuevos, MEF-ADR-0056); sigue la doctrina de tu agente con --base ${input.snapshot}.
+5. Comando de verificacion permitido: scripts/warnings-diff.mts del plugin (politica de cero warnings nuevos, MEF-ADR-0056); sigue la doctrina de tu agente con --base ${input.snapshot}.
 6. Al terminar, escribe un resumen de lo que hiciste en .mefisto/pipeline/summaries/stage-1-writer.md`
 }
 
@@ -229,7 +229,7 @@ Instrucciones:
 2. Revisa calidad: reutilizacion de patrones existentes, naming, legibilidad.
 3. Si hay codigo C#, verifica que compila y que los tests existentes pasan.
 4. Corrige problemas que encuentres directamente (no solo los reportes).
-5. Comando de verificacion permitido: scripts/warnings-diff.sh del plugin (politica de cero warnings nuevos, MEF-ADR-0056); sigue la doctrina de tu agente con --base ${input.snapshot}.
+5. Comando de verificacion permitido: scripts/warnings-diff.mts del plugin (politica de cero warnings nuevos, MEF-ADR-0056); sigue la doctrina de tu agente con --base ${input.snapshot}.
 6. Haz commit de tus correcciones con mensajes descriptivos.
 7. Al terminar, escribe un resumen en .mefisto/pipeline/summaries/stage-2-reviewer.md`
 }
@@ -403,8 +403,8 @@ export async function toolingPipeline(deps: ToolingPipelineDeps): Promise<number
   }
   const consumerRoot = resolve(chomp(top.stdout))
   if (isFile(join(consumerRoot, '.claude-plugin', 'plugin.json'))) {
-    err('ERROR: scripts/tooling-pipeline.sh es del plugin publicado y solo aplica al consumidor.\n')
-    err('Estas en el repo de Mefisto. Para mejorar el plugin, usa .claude/scripts/mefisto-tooling-pipeline.sh.\n')
+    err('ERROR: scripts/tooling-pipeline.mts es del plugin publicado y solo aplica al consumidor.\n')
+    err('Estas en el repo de Mefisto. Para mejorar el plugin, usa src/internal/scripts/mefisto-tooling-pipeline.mts.\n')
     return 1
   }
   let config: HarnessConfig

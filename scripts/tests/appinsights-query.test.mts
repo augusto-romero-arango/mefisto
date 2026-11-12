@@ -396,7 +396,7 @@ describe('comandos KQL', () => {
     assert.equal(result.status, 1)
     assert.ok(
       result.stdout.startsWith(
-        `${COLOR.cyan}${COLOR.bold}appinsights-query.sh${COLOR.reset} - Consultas KQL contra App Insights\n\nComandos KQL (App Insights):\n`,
+        `${COLOR.cyan}${COLOR.bold}appinsights-query.mts${COLOR.reset} - Consultas KQL contra App Insights\n\nComandos KQL (App Insights):\n`,
       ),
     )
     assert.match(result.stdout, /\n {2}plan-sites PLAN_ID /)
@@ -469,7 +469,7 @@ describe('custom', () => {
       )
       assert.equal(
         result.stdout,
-        '  Ejemplo: ./scripts/appinsights-query.sh custom "exceptions | where type has \'NullRef\' | take 5"\n',
+        '  Ejemplo: node scripts/appinsights-query.mts custom "exceptions | where type has \'NullRef\' | take 5"\n',
       )
     }
     assert.ok(!existsSync(join(repo, '.mefisto', 'pipeline')))
@@ -804,14 +804,14 @@ describe('guard y distribucion', () => {
     assert.equal(result.status, 1)
     assert.equal(
       result.stderr,
-      'ERROR: scripts/appinsights-query.sh es del plugin publicado y solo aplica al consumidor.\n' +
+      'ERROR: scripts/appinsights-query.mts es del plugin publicado y solo aplica al consumidor.\n' +
         'Mefisto no tiene entorno desplegado ni App Insights.\n',
     )
     assert.deepEqual(result.cli.calls, [])
   })
 
   test('dist/claude trae el shim y el script identicos a scripts/, y los inventaria', () => {
-    assertDistributed(['appinsights-query.sh', 'appinsights-query.mts', 'lib/state.mts'])
+    assertDistributed(['appinsights-query.mts', 'appinsights-query.mts', 'lib/state.mts'])
   })
 
   test('la copia de dist, ejecutada desde fuera del repo del consumidor, avisa del env que falta y del legacy', () => {

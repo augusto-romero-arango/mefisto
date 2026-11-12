@@ -40,7 +40,7 @@ export interface MigrateDeps {
   err: (line: string) => void
 }
 
-export const USAGE = 'Uso: onboard-migrate-directives.sh --preview | --apply [--with-claude-bridge]'
+export const USAGE = 'Uso: onboard-migrate-directives.mts --preview | --apply [--with-claude-bridge]'
 
 interface Options {
   mode: '--preview' | '--apply'
@@ -134,7 +134,7 @@ function run(argv: string[], deps: MigrateDeps): number {
   const options = parseArgs(argv)
   const root = consumerRepoRoot(deps.cwd, [
     'ERROR: /onboard no aplica al repo de Mefisto.',
-    '       scripts/onboard-migrate-directives.sh es del plugin publicado y solo aplica al consumidor.',
+    '       scripts/onboard-migrate-directives.mts es del plugin publicado y solo aplica al consumidor.',
   ])
 
   let config: HarnessConfig

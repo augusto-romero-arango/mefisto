@@ -1,6 +1,5 @@
 // Contrato del agente planner neutral y su proyeccion publicada (issue #1640).
 
-import assert from 'node:assert/strict'
 import { describe, test } from 'node:test'
 
 import { matchingLines, repoPath } from '../../../../scripts/tests/text-contract.mts'
@@ -11,7 +10,6 @@ import {
   contains,
   distributionIsCurrent,
   generatedMarker,
-  isExecutable,
   isRegularFile,
   metadataMatches,
   readInventory,
@@ -21,8 +19,8 @@ import {
 
 const AGENT = agent('planner')
 const { body, claude: claudeBody } = AGENT
-const FIELD_NOTE_SOURCE = repoPath('scripts/field-note.sh')
-const FIELD_NOTE_CLAUDE = repoPath('dist/claude/scripts/field-note.sh')
+const FIELD_NOTE_SOURCE = repoPath('scripts/field-note.mts')
+const FIELD_NOTE_CLAUDE = repoPath('dist/claude/scripts/field-note.mts')
 
 describe('[fuente] contrato neutral, perfil, skill y mcp', () => {
   check('la fuente valida', () => sourceValidates(repoPath(AGENT.sourcePath)), 'la fuente no valida')
@@ -47,7 +45,7 @@ describe('[fuente] contrato neutral, perfil, skill y mcp', () => {
   contains(body, '{{mefisto:skill-root projections}}', 'resuelve recursos de Nivel 3 del Skill via skill-root')
   contains(body, '{{mefisto:config-path}}', 'lee el config efectivo via config-path')
   contains(body, '{{mefisto:state-path summaries}}', 'redacta los borradores bajo state-path summaries')
-  contains(body, '{{mefisto:run field-note.sh', 'el cierre delega en field-note.sh via directiva run')
+  contains(body, '{{mefisto:run field-note.mts', 'el cierre delega en field-note.mts via directiva run')
   absent(body, '/tmp/planner-', 'fuente no escribe borradores en /tmp')
   absent(body, '.plugin-root', 'fuente no resuelve .plugin-root')
   absent(body, 'plugins/cache', 'fuente no busca el cache del marketplace')
@@ -108,32 +106,22 @@ describe('[salidas] adaptador y mirror', () => {
   absent(claudeBody, 'CONFIG="$REPO_ROOT', 'el cuerpo propio no reconstruye la ruta del config a mano (CONFIG=$REPO_ROOT/...)')
 })
 
-describe('[cierre] invocacion de field-note.sh', () => {
-  contains(claudeBody, '"${MEFISTO_PACKAGE_ROOT}/scripts/field-note.sh"', 'Claude invoca field-note.sh via MEFISTO_PACKAGE_ROOT')
-  contains(claudeBody, 'MEFISTO_RUNTIME=claude "${MEFISTO_PACKAGE_ROOT}/scripts/field-note.sh"', 'Claude fija su propio runtime al invocar field-note.sh')
+describe('[cierre] invocacion de field-note.mts', () => {
+  contains(claudeBody, '"${MEFISTO_PACKAGE_ROOT}/scripts/field-note.mts"', 'Claude invoca field-note.mts via MEFISTO_PACKAGE_ROOT')
+  contains(claudeBody, 'MEFISTO_RUNTIME=claude node "${MEFISTO_PACKAGE_ROOT}/scripts/field-note.mts"', 'Claude fija su propio runtime al invocar field-note.mts')
   contains(claudeBody, '--session-id "$SESSION_ID" --timestamp "$CLOSING_TIMESTAMP" --field-note "$FIELD_NOTE_LOCAL"', 'Claude conserva los flags obligatorios del cierre')
 })
 
-describe('[scripts/field-note.sh] paridad de la clausura de tooling', () => {
-  test(
-    'scripts/field-note.sh conserva el bit de ejecucion',
-    { skip: process.platform === 'win32' },
-    () => {
-      assert.ok(isExecutable(FIELD_NOTE_SOURCE), 'scripts/field-note.sh sin bit de ejecucion')
-    },
-  )
+describe('[scripts/field-note.mts] paridad de la clausura de tooling', () => {
   check(
-    'dist/claude/scripts/field-note.sh es identico a scripts/field-note.sh',
+    'dist/claude/scripts/field-note.mts es identico a scripts/field-note.mts',
     () => isRegularFile(FIELD_NOTE_CLAUDE) && sameBytes(FIELD_NOTE_SOURCE, FIELD_NOTE_CLAUDE),
-    'dist/claude/scripts/field-note.sh diverge de scripts/field-note.sh',
+    'dist/claude/scripts/field-note.mts diverge de scripts/field-note.mts',
   )
   check(
-    'claude/.mefisto-generated-assets.json lista scripts/field-note.sh en 0755',
-    () =>
-      readInventory().assets.some(
-        (asset) => asset.destination === 'scripts/field-note.sh' && asset.mode === '0755',
-      ),
-    'claude/.mefisto-generated-assets.json no lista scripts/field-note.sh en 0755',
+    'claude/.mefisto-generated-assets.json lista scripts/field-note.mts',
+    () => readInventory().assets.some((asset) => asset.destination === 'scripts/field-note.mts'),
+    'claude/.mefisto-generated-assets.json no lista scripts/field-note.mts',
   )
 })
 

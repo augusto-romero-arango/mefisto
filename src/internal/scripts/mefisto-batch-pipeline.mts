@@ -1,8 +1,8 @@
 // Procesa issues internos de Mefisto secuencialmente: el motor de /mefisto-sequential.
 //
 // Uso:
-//   mefisto-batch-pipeline.sh 42 43 44
-//   mefisto-batch-pipeline.sh 42 43 --stop-on-error
+//   mefisto-batch-pipeline.mts 42 43 44
+//   mefisto-batch-pipeline.mts 42 43 --stop-on-error
 //
 // Por issue: raiz ejecutable aislada en el SHA verificado de origin/main -> mefisto-tooling-pipeline
 // desde ahi -> URL del PR -> `gh pr merge --squash --delete-branch` -> reconciliacion best-effort
@@ -296,7 +296,7 @@ export async function mefistoBatchPipeline(deps: MefistoBatchDeps): Promise<numb
       log.log(`Snapshot ejecutable para #${issue}: ${snapshot.sha.slice(0, 12)} (${snapshot.path})`)
 
       // --- Stage 1: pipeline interno; el propio pipeline valida que el issue exista y este OPEN ---
-      log.log(`Ejecutando mefisto-tooling-pipeline.sh para issue #${issue}...`)
+      log.log(`Ejecutando mefisto-tooling-pipeline.mts para issue #${issue}...`)
       const issueLog = join(logDir, `mefisto-batch-issue-${issue}-${timestamp}.log`)
       touch(issueLog)
 
@@ -364,7 +364,7 @@ export async function mefistoBatchPipeline(deps: MefistoBatchDeps): Promise<numb
       // --- Stage 4: reconciliar bloqueos (best-effort: el PR ya se mergeo) ---
       log.log(`Reconciliando bloqueos liberados por el PR #${prNumber}...`)
       const reconcileExit = await runTeed(
-        join(snapshot.path, 'src', 'internal', 'scripts', 'mefisto-validate-batch-deps.sh'),
+        join(snapshot.path, 'src', 'internal', 'scripts', 'mefisto-validate-batch-deps.mts'),
         ['--reconcile-pr', prNumber],
         issueLog,
         {

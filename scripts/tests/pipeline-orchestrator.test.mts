@@ -90,16 +90,10 @@ describe('clausura y pipelines hijos', () => {
     assert.equal(runtimeClosureError(scripts), null)
   })
 
-  test('childCommand prefiere el .mts junto al .sh y si no lanza el .sh', () => {
+  test('childCommand lanza un .mts con Node y cualquier otro ejecutable tal cual', () => {
     const dir = mkdtempSync(join(work, 'hijos-'))
-    writeFileSync(join(dir, 'tooling-pipeline.mts'), '')
-    assert.deepEqual(childCommand(join(dir, 'tooling-pipeline.sh')), { command: process.execPath, args: [join(dir, 'tooling-pipeline.mts')] })
-    assert.deepEqual(childCommand(join(dir, 'tdd-pipeline.sh')), { command: join(dir, 'tdd-pipeline.sh'), args: [] })
-  })
-
-  test('childCommand lanza con Node un hijo que ya es un .mts', () => {
-    const dir = mkdtempSync(join(work, 'hijos-mts-'))
     assert.deepEqual(childCommand(join(dir, 'tooling-pipeline.mts')), { command: process.execPath, args: [join(dir, 'tooling-pipeline.mts')] })
+    assert.deepEqual(childCommand(join(dir, 'hijo')), { command: join(dir, 'hijo'), args: [] })
   })
 
   test('runTeed entrega el proceso hijo a onChild antes de que termine', async () => {
@@ -125,7 +119,7 @@ describe('clausura y pipelines hijos', () => {
     const log = join(dir, 'issue.log')
     writeFileSync(log, 'previo\n')
     let shown = ''
-    const code = await runTeed(join(dir, 'hijo.sh'), [], log, {
+    const code = await runTeed(join(dir, 'hijo.mts'), [], log, {
       cwd: dir,
       env: process.env,
       onOutput: (text) => {
@@ -140,13 +134,13 @@ describe('clausura y pipelines hijos', () => {
   test('launchChild sigue vivo hasta que el hijo termina y un hijo que no arranca da 127', async () => {
     const dir = mkdtempSync(join(work, 'vivo-'))
     writeFileSync(join(dir, 'hijo.mts'), 'setTimeout(() => {}, 150)\n')
-    const run = launchChild(join(dir, 'hijo.sh'), [], { cwd: dir, env: process.env, stdio: 'ignore' })
+    const run = launchChild(join(dir, 'hijo.mts'), [], { cwd: dir, env: process.env, stdio: 'ignore' })
     assert.equal(run.alive(), true)
     assert.equal(await run.done, 0)
     assert.equal(run.alive(), false)
 
     let failure = ''
-    const missing = launchChild(join(dir, 'no-existe.sh'), [], {
+    const missing = launchChild(join(dir, 'no-existe'), [], {
       cwd: dir,
       env: process.env,
       stdio: 'ignore',
@@ -155,6 +149,6 @@ describe('clausura y pipelines hijos', () => {
       },
     })
     assert.equal(await missing.done, 127)
-    assert.match(failure, /no-existe\.sh: /)
+    assert.match(failure, /no-existe: /)
   })
 })

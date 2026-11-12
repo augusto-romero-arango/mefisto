@@ -10,7 +10,7 @@ import { isDeepStrictEqual } from 'node:util'
 
 import type { CommandResult } from '../../../../scripts/lib/cli.mts'
 import { DIST_SCRIPTS, SCRIPTS, runScript, sandbox } from '../../../../scripts/tests/azure-cli-sandbox.mts'
-import { check, isExecutable, isRegularFile, sameBytes } from './agent-contract-kit.mts'
+import { check, isRegularFile, sameBytes } from './agent-contract-kit.mts'
 
 type AccountModule = typeof import('../../../../scripts/azure-account-info.mts')
 
@@ -63,15 +63,11 @@ const NO_AZ_SESSION = { status: 1, stderr: "ERROR: Please run 'az login' to setu
 
 for (const name of ['azure-account-info', 'setup-github-labels']) {
   describe(name, () => {
-    const copy = join(DIST_SCRIPTS, `${name}.sh`)
+    const copy = join(DIST_SCRIPTS, `${name}.mts`)
     check(
-      `${name}: existe, ejecutable e identico a scripts/`,
-      () =>
-        isRegularFile(copy) &&
-        (process.platform === 'win32' || isExecutable(copy)) &&
-        sameBytes(copy, join(SCRIPTS, `${name}.sh`)) &&
-        sameBytes(join(DIST_SCRIPTS, `${name}.mts`), join(SCRIPTS, `${name}.mts`)),
-      `${name}: falta, no es ejecutable o difiere de scripts/`,
+      `${name}: existe e identico a scripts/`,
+      () => isRegularFile(copy) && sameBytes(copy, join(SCRIPTS, `${name}.mts`)),
+      `${name}: falta o difiere de scripts/`,
     )
 
     test(`${name}: resuelve sus dependencias desde dist/ con la salida esperada`, async () => {

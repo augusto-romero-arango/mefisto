@@ -46,7 +46,7 @@ export function defaultValidatorSources(repoRoot: string): string[] {
  * Numeros de linea del body que nombran un runtime concreto: la fuente neutral describe
  * intenciones y esas referencias las introduce el generador. Dos formas literales quedan
  * fuera: `.claude-plugin` es el manifiesto fisico del plugin, identico en cualquier runtime, y
- * `.claude/scripts` es la superficie estable de invocacion que el propio adaptador emite.
+ * `.claude/scripts` guarda el hook de scope del adaptador y los tests internos.
  */
 export function bodyRuntimeReferences(content: string): number[] {
   const lines = fileLines(content)

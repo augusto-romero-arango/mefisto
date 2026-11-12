@@ -625,7 +625,7 @@ async function refreshReady($: EngineInterface) {
   isRefreshingReady = true
   try {
     const [order, listos, prs] = await Promise.all([
-      runInRepo($, [NEXT_ORDER, '--json'], { timeoutMs: SCRIPT_TIMEOUT_MS })
+      runInRepo($, ['node', NEXT_ORDER, '--json'], { timeoutMs: SCRIPT_TIMEOUT_MS })
         .catch(err => ({ exitCode: 2, stdout: '', stderr: String(err) })),
       runInRepo($, ['gh', 'issue', 'list', '--state', 'open', '--label', 'estado:listo', '--limit', '200', '--json', 'number,title'])
         .catch(() => ({ exitCode: 1, stdout: '' })),

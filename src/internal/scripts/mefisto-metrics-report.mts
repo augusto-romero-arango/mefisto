@@ -1,8 +1,8 @@
 // mefisto-metrics-report.mts -- Reporte agregado de metricas del pipeline interno.
 //
 // Uso:
-//   .claude/scripts/mefisto-metrics-report.sh
-//   .claude/scripts/mefisto-metrics-report.sh --desde 2026-07-01
+//   node src/internal/scripts/mefisto-metrics-report.mts
+//   node src/internal/scripts/mefisto-metrics-report.mts --desde 2026-07-01
 //
 // Responde donde se va el tiempo de un issue de tooling interno: agrega las corridas
 // "mefisto-tooling" de pipeline-history.jsonl (ranking de herramientas, reparto API vs no-API
@@ -69,7 +69,7 @@ import { stateDirs } from '../../../scripts/lib/state.mts'
 import { assertInMefisto } from './lib/mefisto-repo.mts'
 import type { MefistoRepo } from './lib/mefisto-repo.mts'
 
-const HELP = `Uso: mefisto-metrics-report.sh [--desde YYYY-MM-DD]
+const HELP = `Uso: mefisto-metrics-report.mts [--desde YYYY-MM-DD]
 
 Reporte agregado de las corridas del pipeline mefisto-tooling: ranking de
 herramientas, reparto del wall-clock (API vs no-API, writer vs reviewer),

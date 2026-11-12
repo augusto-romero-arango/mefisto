@@ -209,7 +209,7 @@ describe('guardas', () => {
   test('fuera de herdr aborta remitiendo al modo desacoplado', async () => {
     const run = await runHerdr(['--tooling', '872'], { env: { HERDR_ENV: undefined } })
     assert.equal(run.code, 1)
-    assert.ok(run.err.includes('mefisto-launch-pipeline.sh sin MEFISTO_UI=herdr'))
+    assert.ok(run.err.includes('mefisto-launch-pipeline.mts sin MEFISTO_UI=herdr'))
     assert.equal(run.fake.calls.length, 0)
   })
 

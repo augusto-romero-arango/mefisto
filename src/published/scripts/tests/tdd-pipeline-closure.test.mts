@@ -1,6 +1,5 @@
-// Los pipelines de TDD y de tooling, ya en TypeScript, solo importan modulos declarados en la
-// clausura publicada (`TOOLING_CLOSURE_ASSETS`), y sus `.sh` son los shims que los lanzan. El
-// arranque de TDD desde `dist/claude` lo cubre scripts/tests/tdd-pipeline.test.mts.
+// Los pipelines de TDD y de tooling solo importan modulos declarados en la clausura publicada
+// (`TOOLING_CLOSURE_ASSETS`). El arranque de TDD desde `dist/claude` lo cubre scripts/tests/tdd-pipeline.test.mts.
 
 import { readFileSync } from 'node:fs'
 import { join, posix } from 'node:path'
@@ -33,11 +32,6 @@ describe('[pre] dependencias de clausura', () => {
       `${pipeline}.mts solo importa modulos declarados en la clausura (${imported.length} verificados)`,
       () => missing.length === 0 && imported.length >= 20,
       `${pipeline}.mts importa modulos fuera de TOOLING_CLOSURE_ASSETS: ${missing.join(', ')}`,
-    )
-    check(
-      `${pipeline}.sh es el shim que lanza ${pipeline}.mts`,
-      () => readFileSync(join(REPO_ROOT, 'scripts', `${pipeline}.sh`), 'utf8').includes(`/${pipeline}.mts" "$@"`),
-      `${pipeline}.sh dejo de delegar en ${pipeline}.mts`,
     )
   }
 })

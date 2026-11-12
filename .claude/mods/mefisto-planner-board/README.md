@@ -2,7 +2,7 @@
 
 Mod de Claude Code para la sesion del planner (MEF-ADR-0055): una banda sobre el prompt que dice que se esta
 haciendo (refinar #N o explorar un tema) y da acceso a los borradores y listos en el orden de
-`mefisto-next-order.sh`.
+`mefisto-next-order.mts`.
 
 ## Cargarlo
 
@@ -33,7 +33,7 @@ dura toda la sesion, tambien tras mensajes y `/clear`, hasta un `/mefisto-planne
 ## Estados
 
 - **refinar #N**: empieza con un mensaje que dice `refina #N`; termina cuando #N pasa a `estado:listo` o con
-  el cierre del planner (`mefisto-field-note.sh`).
+  el cierre del planner (`mefisto-field-note.mts`).
 - **explorar**: cualquier otro mensaje desde reposo; el tema es su primera linea. Termina con el cierre.
 - Los `gh issue create` de ambos se anotan como `creó #…`.
 
@@ -79,5 +79,5 @@ Cuando el planner pasa #N a `estado:listo` o lo cierra (`gh issue close N`), el 
 borradores en el acto, antes de cualquier refresco: "siguiente a refinar", `2 refinar #N` y las teclas `5`-`9`
 apuntan ya a la lista corregida. #N queda como transicion pendiente y todo refresco lo filtra de borradores hasta
 que GitHub confirme el cambio (o pasen 60 s); mientras tanto el contador muestra `actualizando…`. La lista de
-listos no se toca de forma optimista: #N aparece cuando un refresco lo trae, en el orden de `mefisto-next-order.sh`
+listos no se toca de forma optimista: #N aparece cuando un refresco lo trae, en el orden de `mefisto-next-order.mts`
 (MEF-ADR-0055, decisiones 1, 8 y 11).

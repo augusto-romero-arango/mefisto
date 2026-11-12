@@ -1,13 +1,13 @@
 // Interfaz herdr de los pipelines INTERNOS de Mefisto (porte de scripts/herdr-pipeline.mts).
 //
-// Implementacion canonica (MEF-ADR-0049 decision 2); .claude/scripts/mefisto-herdr-pipeline.sh
+// Implementacion canonica (MEF-ADR-0049 decision 2); node src/internal/scripts/mefisto-herdr-pipeline.mts
 // reenvia aqui.
 //
-// Uso (misma superficie de modos que mefisto-launch-pipeline.sh):
-//   src/internal/scripts/mefisto-herdr-pipeline.sh --tooling 42 [--from-stage N]
-//   src/internal/scripts/mefisto-herdr-pipeline.sh --tooling 42 --models 'reviewer=<modelo>'
-//   src/internal/scripts/mefisto-herdr-pipeline.sh --tooling 42 --variant experimento-a
-//   src/internal/scripts/mefisto-herdr-pipeline.sh --batch 42 43 44
+// Uso (misma superficie de modos que mefisto-launch-pipeline.mts):
+//   node src/internal/scripts/mefisto-herdr-pipeline.mts --tooling 42 [--from-stage N]
+//   node src/internal/scripts/mefisto-herdr-pipeline.mts --tooling 42 --models 'reviewer=<modelo>'
+//   node src/internal/scripts/mefisto-herdr-pipeline.mts --tooling 42 --variant experimento-a
+//   node src/internal/scripts/mefisto-herdr-pipeline.mts --batch 42 43 44
 //
 // Reutiliza (o crea) un pane de ejecucion en el workspace herdr actual y le teclea el runner,
 // que corre el sub-pipeline en background y muestra intercalados el visor en vivo
@@ -16,7 +16,7 @@
 //
 // Requiere correr dentro de un pane herdr (HERDR_ENV=1) y dentro del repo de Mefisto.
 
-import { existsSync, mkdirSync } from 'node:fs'
+import { mkdirSync } from 'node:fs'
 import { join, resolve } from 'node:path'
 
 import { words } from '../../../scripts/lib/azure-cli.mts'
@@ -70,26 +70,20 @@ export interface MefistoHerdrDeps {
 
 export function usage(self: string): string {
   return [
-    `Uso: ${self} --tooling <issue> [--from-stage N] [--models 'agente=modelo[,...]'] [--variant <label>]`,
-    `     ${self} --batch <issue1> <issue2> ...`,
+    `Uso: node ${self} --tooling <issue> [--from-stage N] [--models 'agente=modelo[,...]'] [--variant <label>]`,
+    `     node ${self} --batch <issue1> <issue2> ...`,
     '',
     'Interfaz herdr de los pipelines internos: reutiliza (o crea) un pane',
     'de ejecucion en el workspace herdr actual con el visor en vivo',
-    '(mefisto-stream-watch.sh) del agente en curso; una corrida concurrente',
+    '(mefisto-stream-watch.mts) del agente en curso; una corrida concurrente',
     'abre un pane adicional.',
     '--variant <label> (issue #711) corre el mismo issue en un pane propio,',
     'sin push/PR/comentario al issue -- solo valido con --tooling; --batch',
     'lo rechaza (seria ambiguo sobre varios issues).',
-    'Fuera de herdr usa mefisto-launch-pipeline.sh, que autodetecta y delega',
+    'Fuera de herdr usa mefisto-launch-pipeline.mts, que autodetecta y delega',
     'aqui solo cuando aplica.',
     '',
   ].join('\n')
-}
-
-/** Pipeline a correr: la gemela `.mts` de un `.sh` si existe. */
-function runnable(script: string): string {
-  const twin = script.replace(/\.sh$/, '.mts')
-  return twin !== script && existsSync(twin) ? twin : script
 }
 
 export async function mefistoHerdrPipeline(deps: MefistoHerdrDeps): Promise<number> {
@@ -111,7 +105,7 @@ export async function mefistoHerdrPipeline(deps: MefistoHerdrDeps): Promise<numb
     mkdirSync(stateDir, { recursive: true })
     const logDir = join(stateDir, 'logs')
     const caffeinate = caffeinatePrefix(env, deps.platform)
-    const self = join(scriptDir, 'mefisto-herdr-pipeline.sh')
+    const self = join(scriptDir, 'mefisto-herdr-pipeline.mts')
     const argv = deps.argv
 
     if (argv.length === 0) {
@@ -179,7 +173,7 @@ export async function mefistoHerdrPipeline(deps: MefistoHerdrDeps): Promise<numb
     const paneId = env.HERDR_PANE_ID ?? ''
     const workspaceId = env.HERDR_WORKSPACE_ID ?? ''
     const requireHerdrContext = (): void => {
-      const remedy = 'Fuera de herdr lanza con mefisto-launch-pipeline.sh sin MEFISTO_UI=herdr (modo desacoplado).'
+      const remedy = 'Fuera de herdr lanza con mefisto-launch-pipeline.mts sin MEFISTO_UI=herdr (modo desacoplado).'
       if (!deps.hasCommand('herdr')) abort(`herdr no esta instalado (https://herdr.dev). ${remedy}`)
       if (env.HERDR_ENV !== '1') abort(`No estas dentro de un pane de herdr (HERDR_ENV != 1). ${remedy}`)
       if (paneId === '' || workspaceId === '') {
@@ -249,7 +243,7 @@ export async function mefistoHerdrPipeline(deps: MefistoHerdrDeps): Promise<numb
       }
       const title = variant !== '' ? `mefisto-tooling #${issue} (${variant})` : `mefisto-tooling #${issue}`
       await dispatchToPane(title, issue as string, [
-        runnable(join(scriptDir, 'mefisto-tooling-pipeline.sh')),
+        join(scriptDir, 'mefisto-tooling-pipeline.mts'),
         issue as string,
         ...words(fromStage),
         ...(models !== '' ? ['--models', models] : []),
@@ -273,7 +267,7 @@ export async function mefistoHerdrPipeline(deps: MefistoHerdrDeps): Promise<numb
       if (!check.ok) abort(check.abort)
       if (check.ok) for (const warning of check.warnings) warn(warning)
       const csv = rest.join(',')
-      await dispatchToPane(`mefisto-batch ${csv}`, csv, [runnable(join(scriptDir, 'mefisto-batch-pipeline.sh')), ...rest])
+      await dispatchToPane(`mefisto-batch ${csv}`, csv, [join(scriptDir, 'mefisto-batch-pipeline.mts'), ...rest])
     } else if (mode === '') {
       deps.out(usage(self))
       return 1

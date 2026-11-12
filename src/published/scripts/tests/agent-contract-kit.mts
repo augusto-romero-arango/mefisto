@@ -4,8 +4,8 @@
 
 import assert from 'node:assert/strict'
 import { createHash } from 'node:crypto'
-import { accessSync, constants, readFileSync, readdirSync, statSync } from 'node:fs'
-import { join, posix } from 'node:path'
+import { readFileSync, readdirSync, statSync } from 'node:fs'
+import { join } from 'node:path'
 import { test } from 'node:test'
 import { isDeepStrictEqual } from 'node:util'
 
@@ -42,15 +42,6 @@ export function repoText(relative: string): string {
 export function isRegularFile(path: string): boolean {
   try {
     return statSync(path).isFile()
-  } catch {
-    return false
-  }
-}
-
-export function isExecutable(path: string): boolean {
-  try {
-    accessSync(path, constants.X_OK)
-    return true
   } catch {
     return false
   }
@@ -173,7 +164,7 @@ export function agent(id: string): Agent {
 
 /** Marcador que el generador deja en la salida de un agente publicado. */
 export function generatedMarker(id: string): string {
-  return `<!-- GENERADO por src/published/scripts/generate-published-adapters.sh desde src/published/agents/${id}.md. No editar a mano. -->`
+  return `<!-- GENERADO por src/published/scripts/generate-published-adapters.mts desde src/published/agents/${id}.md. No editar a mano. -->`
 }
 
 /** Caso con el mensaje de exito como nombre y el de fallo como diagnostico. */
@@ -271,60 +262,4 @@ export function closureAssets(declared: readonly string[] = TOOLING_CLOSURE_ASSE
     const match = /^([^'|]+)\|(0644|0755)$/.exec(entry)
     return match === null ? [] : [{ source: match[1] ?? '', mode: match[2] ?? '' }]
   })
-}
-
-const REFERENCE_BASES: Record<string, string> = {
-  SCRIPT_DIR: 'scripts',
-  RUNTIME_DIR: 'src/runtime',
-  RUNTIME_LIB_DIR: 'src/runtime/lib',
-}
-
-/**
- * Assets `.sh` y `.jq` que un pipeline bash referencia, como rutas del repo ordenadas: los que
- * carga con `source "$(dirname ...)/x.sh"` y los que nombra bajo `$SCRIPT_DIR`, `$RUNTIME_DIR` o
- * `$RUNTIME_LIB_DIR`. Las lineas de comentario no cuentan.
- */
-export function pipelineReferences(pipeline: string): string[] {
-  const references = new Set<string>()
-  for (const raw of pipeline.split('\n')) {
-    const line = raw.trimStart()
-    if (line === '' || line.startsWith('#')) continue
-    if (line.startsWith('source ') && line.includes('dirname ')) {
-      const sourced = /\)["']?\/([A-Za-z0-9_./-]+\.(?:sh|jq))/.exec(line)
-      if (sourced !== null) references.add(posix.normalize(`scripts/${sourced[1]}`))
-    }
-    for (const named of line.matchAll(
-      /\$\{?(SCRIPT_DIR|RUNTIME_DIR|RUNTIME_LIB_DIR)\}?\/([A-Za-z0-9_./-]+\.(?:sh|jq))/g,
-    )) {
-      references.add(posix.normalize(`${REFERENCE_BASES[named[1] ?? '']}/${named[2]}`))
-    }
-  }
-  return [...references].sort()
-}
-
-export interface ClosureScan {
-  /** Cuantas dependencias reconocio el barrido. */
-  references: number
-  /** Dependencias fuera de la clausura, o el motivo por el que el barrido no vale. */
-  problem: string
-}
-
-/** Compara lo que referencia un pipeline bash del repo con la clausura declarada. */
-export function scanPipelineClosure(relative: string, declared: readonly string[] = TOOLING_CLOSURE_ASSETS): ClosureScan {
-  return scanClosureText(repoText(relative), declared)
-}
-
-/** Como `scanPipelineClosure`, sobre el texto del pipeline. */
-export function scanClosureText(pipeline: string, declared: readonly string[] = TOOLING_CLOSURE_ASSETS): ClosureScan {
-  const known = new Set(closureAssets(declared).map((asset) => asset.source))
-  const references = pipelineReferences(pipeline)
-  const missing = references.filter((reference) => !known.has(reference))
-  if (missing.length > 0) return { references: references.length, problem: missing.join('\n') }
-  if (references.length < 4) {
-    return {
-      references: references.length,
-      problem: `el barrido solo reconocio ${references.length} dependencias; se esperaban al menos 4`,
-    }
-  }
-  return { references: references.length, problem: '' }
 }

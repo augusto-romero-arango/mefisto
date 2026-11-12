@@ -214,7 +214,7 @@ describe('argumentos y repositorio', () => {
     assert.equal(result.status, 1)
     assert.deepEqual(result.errLines, [
       'ERROR: /onboard no aplica al repo de Mefisto.',
-      '       scripts/onboard-activate-repo.sh es del plugin publicado y solo aplica al consumidor.',
+      '       scripts/onboard-activate-repo.mts es del plugin publicado y solo aplica al consumidor.',
     ])
   })
 

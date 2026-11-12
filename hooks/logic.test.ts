@@ -79,7 +79,7 @@ test('el mensaje marca el foco: refinar #N o explorar con tema', async () => {
 test('reconoce las senales de cierre y de borradores creados', async () => {
   expect(issueMarkedListo('gh issue edit 801 --remove-label "estado:borrador" --add-label "estado:listo" --add-label "tipo:tooling"')).toBe(801)
   expect(issueMarkedListo('gh issue edit 801 --add-label bloqueado')).toBe(null)
-  expect(isPlannerClosing('MEFISTO_RUNTIME=claude ./.claude/scripts/field-note.sh --agent mefisto:planner')).toBe(true)
+  expect(isPlannerClosing('MEFISTO_RUNTIME=claude node src/internal/scripts/field-note.mts --agent mefisto:planner')).toBe(true)
   expect(isIssueCreate('gh issue create --title "X" --label "estado:borrador"')).toBe(true)
   expect(createdIssueOf('https://github.com/o/r/issues/2085\n')).toBe(2085)
 })
@@ -140,28 +140,28 @@ test('traduce el tipo a su letra y color, y ? gris si falta', async () => {
 })
 
 test('el cierre acepta la invocacion real del planner, con ruta expandida y comillas', async () => {
-  expect(isPlannerClosing('MEFISTO_RUNTIME=claude "${MEFISTO_PACKAGE_ROOT}/scripts/field-note.sh" --session-id abc')).toBe(true)
-  expect(isPlannerClosing('MEFISTO_RUNTIME=claude "/p/mefisto/scripts/field-note.sh" --session-id abc')).toBe(true)
-  expect(isPlannerClosing('MEFISTO_RUNTIME=claude "/Users/a b/mefisto plugin/scripts/field-note.sh" --session-id abc')).toBe(true)
-  expect(isPlannerClosing('cd x && /p/scripts/field-note.sh --session-id abc')).toBe(true)
-  expect(isPlannerClosing('/p/scripts/mefisto-field-note.sh')).toBe(false)
+  expect(isPlannerClosing('MEFISTO_RUNTIME=claude node "${MEFISTO_PACKAGE_ROOT}/scripts/field-note.mts" --session-id abc')).toBe(true)
+  expect(isPlannerClosing('MEFISTO_RUNTIME=claude node "/p/mefisto/scripts/field-note.mts" --session-id abc')).toBe(true)
+  expect(isPlannerClosing('MEFISTO_RUNTIME=claude node "/Users/a b/mefisto plugin/scripts/field-note.mts" --session-id abc')).toBe(true)
+  expect(isPlannerClosing('cd x && node /p/scripts/field-note.mts --session-id abc')).toBe(true)
+  expect(isPlannerClosing('/p/scripts/mefisto-field-note.mts')).toBe(false)
 })
 
-test('nombrar field-note.sh o gh issue create sin ejecutarlos no cuenta', async () => {
-  expect(isPlannerClosing('cat scripts/field-note.sh')).toBe(false)
-  expect(isPlannerClosing('grep -n foo scripts/field-note.sh')).toBe(false)
-  expect(isPlannerClosing('git show HEAD:scripts/field-note.sh')).toBe(false)
-  expect(isPlannerClosing("cat <<'EOF'\n/p/scripts/field-note.sh --x\nEOF")).toBe(false)
+test('nombrar field-note.mts o gh issue create sin ejecutarlos no cuenta', async () => {
+  expect(isPlannerClosing('cat scripts/field-note.mts')).toBe(false)
+  expect(isPlannerClosing('grep -n foo scripts/field-note.mts')).toBe(false)
+  expect(isPlannerClosing('git show HEAD:scripts/field-note.mts')).toBe(false)
+  expect(isPlannerClosing("cat <<'EOF'\n/p/scripts/field-note.mts --x\nEOF")).toBe(false)
   expect(isIssueCreate('git show abc:x | grep "gh issue create"')).toBe(false)
   expect(isIssueCreate('cat <<EOF\ngh issue create --title x\nEOF')).toBe(false)
   expect(isIssueChange('echo "gh issue edit 1"')).toBe(false)
   expect(issueMarkedListo('gh issue edit 801 --title x; echo --add-label estado:listo')).toBe(null)
 })
 
-test('el cierre es field-note.sh y la ruta de next-order cuelga de la raiz del plugin', async () => {
-  expect(isPlannerClosing('"$root/scripts/field-note.sh" --agent mefisto:planner')).toBe(true)
+test('el cierre es field-note.mts y la ruta de next-order cuelga de la raiz del plugin', async () => {
+  expect(isPlannerClosing('"$root/scripts/field-note.mts" --agent mefisto:planner')).toBe(true)
   expect(isPlannerClosing('gh issue view 3')).toBe(false)
-  expect(nextOrderPath('/p/mefisto/')).toBe('/p/mefisto/scripts/next-order.sh')
+  expect(nextOrderPath('/p/mefisto/')).toBe('/p/mefisto/scripts/next-order.mts')
 })
 
 test('un mismo comando puede crear un borrador y pasar a listo el issue del foco', async () => {

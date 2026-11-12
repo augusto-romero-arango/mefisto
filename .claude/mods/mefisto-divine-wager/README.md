@@ -26,7 +26,7 @@ sesiones `-p` no los cargan. Para probar una copia suelta: `claude --plugin-dir 
 ## Uso
 
 - En reposo, en toda sesion interactiva que no sea la del planner, la banda lista los `estado:listo` en el
-  orden de `mefisto-next-order.sh` (se refresca cada minuto y al cerrar una corrida). Con el prompt vacio,
+  orden de `mefisto-next-order.mts` (se refresca cada minuto y al cerrar una corrida). Con el prompt vacio,
   `1` escribe la linea de `/mefisto-sequential` con todos y `5`-`9` toma un solo issue: el dialogo nativo,
   junto al prompt, pregunta si va con merge (`/mefisto-sequential`) o solo PR (`/mefisto-tooling`). El comando
   queda en el prompt sin Enter para ajustarlo antes de lanzar; `0` pagina. Los bloqueados se ven al final, sin tecla.
@@ -55,12 +55,12 @@ sesiones `-p` no los cargan. Para probar una copia suelta: `claude --plugin-dir 
   escribiendo (`historiador escribiendo la bitácora N/M MM:SS`) y la cinta de sus field notes: al arrancar toma las
   de `docs/bitacora/field-notes/` y las de los PRs de field notes sin mergear (la misma fuente que `bitácora N`), y
   cada una pasa de `●` pendiente a `✓` procesada cuando aparece en `procesadas/`, en el checkout o en el worktree
-  del historiador (`.mefisto/pipeline/summaries/bitacora-<fecha>/`, de `mefisto-bitacora-worktree.sh`). Al terminar,
+  del historiador (`.mefisto/pipeline/summaries/bitacora-<fecha>/`, de `mefisto-bitacora-worktree.mts`). Al terminar,
   `bitácora escrita`; si su PR quedo abierto, la banda lo ofrece: `1` mergea (`/mefisto-merge N`, con su cinta),
   `2` lo abre en GitHub y `3` lo cierra sin mergear y borra la rama (confirma en el dialogo nativo). Si el PR ya
   no esta abierto (el skill lo mergeo), la cinta se limpia sola a los pocos segundos.
 - Mientras corre `/mefisto-release` (lanzado con `4` o escrito a mano), la banda muestra un cohete: en reposo sobre
-  su plataforma mientras se prepara y despegando con llama mientras corre `mefisto-release.sh`. Al lado va la cinta
+  su plataforma mientras se prepara y despegando con llama mientras corre `mefisto-release.mts`. Al lado va la cinta
   del release:
   - **Encabezado:** `release vX.Y.Z` con la version destino, calculada como `bump_version` del script a partir de
     `.claude-plugin/plugin.json` y del bump pedido.
@@ -81,7 +81,7 @@ sesiones `-p` no los cargan. Para probar una copia suelta: `claude --plugin-dir 
   | GitHub Release | `gh release view vX.Y.Z` lo encuentra publicado |
 
   Una fase observada da por hechas las anteriores: la rama se borra al mergear, y un sondeo puede saltarse una
-  fase rapida. Los nombres de la rama y del tag son los de `RELEASE_BRANCH` y `NEW_TAG` en `mefisto-release.sh`.
+  fase rapida. Los nombres de la rama y del tag son los de `RELEASE_BRANCH` y `NEW_TAG` en `mefisto-release.mts`.
   Al cerrar el turno que corrio el script:
   - **Exito:** muestra `release vX.Y.Z publicado` (o `PR #N listo` con `--prepare-only`), y `2` abre la GitHub
     Release o el PR durante 15 segundos.

@@ -349,7 +349,7 @@ function run(argv: string[], deps: UpdatePluginDeps): number {
   if (isFile(join(top, '.claude-plugin', 'plugin.json'))) {
     fail([
       'ERROR: /mefisto:upgrade no aplica al repo de Mefisto.',
-      '       scripts/update-plugin.sh es del plugin publicado y solo aplica al consumidor.',
+      '       scripts/update-plugin.mts es del plugin publicado y solo aplica al consumidor.',
       '       Mefisto se actualiza a si mismo por su propio flujo de release (/mefisto-release).',
     ])
   }

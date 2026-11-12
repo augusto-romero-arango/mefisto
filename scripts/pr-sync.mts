@@ -1,10 +1,10 @@
 // Sincroniza las ramas de PRs abiertos con main y, si se pide, los mergea.
 //
 // Uso:
-//   pr-sync.sh 40 41 42               sincroniza los PRs en orden
-//   pr-sync.sh 40 41 42 --merge       sincroniza y mergea cada uno
-//   pr-sync.sh --all                  todos los PRs abiertos
-//   pr-sync.sh --all --merge          sincroniza y mergea todos
+//   pr-sync.mts 40 41 42               sincroniza los PRs en orden
+//   pr-sync.mts 40 41 42 --merge       sincroniza y mergea cada uno
+//   pr-sync.mts --all                  todos los PRs abiertos
+//   pr-sync.mts --all --merge          sincroniza y mergea todos
 //
 // Por PR: fetch, worktree temporal, merge de origin/main (el implementer resuelve los conflictos),
 // build y tests (el implementer arregla una vez lo que falle), push con --force-with-lease y, con
@@ -408,7 +408,7 @@ export async function prSync(deps: PrSyncDeps): Promise<number> {
   }
   const repoRoot = resolve(chomp(top.stdout))
   if (isFile(join(repoRoot, '.claude-plugin', 'plugin.json'))) {
-    err('ERROR: scripts/pr-sync.sh es del plugin publicado y solo aplica al consumidor.\n')
+    err('ERROR: scripts/pr-sync.mts es del plugin publicado y solo aplica al consumidor.\n')
     err('Estás en el repo de Mefisto. Para mergear PRs del plugin, usa /mefisto-merge.\n')
     return 1
   }
@@ -769,7 +769,7 @@ export async function prSync(deps: PrSyncDeps): Promise<number> {
     if (prNums.some((pr) => getStatus(pr) === 'mergeado')) {
       log.log('Limpiando worktrees mergeados o abandonados...')
       if (logged(process.execPath, [join(SCRIPT_DIR, 'worktree-clean.mts')]) !== 0) {
-        log.warn(`worktree-clean.sh fallo; la limpieza de worktrees quedo pendiente (ver ${logFile})`)
+        log.warn(`worktree-clean.mts fallo; la limpieza de worktrees quedo pendiente (ver ${logFile})`)
       }
     }
 

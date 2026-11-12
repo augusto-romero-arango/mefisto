@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { spawnSync } from 'node:child_process'
-import { chmodSync, cpSync, mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { after, before, describe, test } from 'node:test'
@@ -25,10 +25,7 @@ import type { PrBodyInput } from '../../../src/internal/scripts/mefisto-release.
 const HERE = dirname(fileURLToPath(import.meta.url))
 const REPO_ROOT = join(HERE, '..', '..', '..')
 const SCRIPT = join(REPO_ROOT, 'src', 'internal', 'scripts', 'mefisto-release.mts')
-const CANONICAL_SHIM = join(REPO_ROOT, 'src', 'internal', 'scripts', 'mefisto-release.sh')
-const STABLE_SHIM = join(REPO_ROOT, '.claude', 'scripts', 'mefisto-release.sh')
 const COMMAND = join(REPO_ROOT, '.claude', 'commands', 'mefisto-release.md')
-const NOT_WINDOWS = process.platform === 'win32' ? 'los shims son bash' : false
 const PR_BODY_LIMIT = 65536
 const COMMIT = 'b'.repeat(40)
 
@@ -306,7 +303,7 @@ describe('validaciones de publish', () => {
       'M\tchangelog.d/README.md',
       'D\tchangelog.d/notas.txt',
       'R100\tchangelog.d/10.added.md\tdocs/10.added.md',
-      'M\tdist/claude/scripts/upgrade.sh',
+      'M\tdist/claude/scripts/upgrade.mts',
     ]) {
       assert.equal(isMechanicalDelta(`M\tCHANGELOG.md\n${line}\n`), false, line)
     }
@@ -322,59 +319,6 @@ describe('shims y comando', () => {
 
   after(() => {
     rmSync(work, { recursive: true, force: true })
-  })
-
-  test('el canonico en bash es el shim hacia el .mts y conserva el bit de ejecucion', () => {
-    assert.equal(
-      readFileSync(CANONICAL_SHIM, 'utf8'),
-      [
-        '#!/usr/bin/env bash',
-        '# Shim: la implementacion vive en mefisto-release.mts (MEF-ADR-0057). No editar.',
-        'exec node "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)/mefisto-release.mts" "$@"',
-        '',
-      ].join('\n'),
-    )
-    if (!NOT_WINDOWS) assert.notEqual(statSync(CANONICAL_SHIM).mode & 0o111, 0)
-  })
-
-  test('el shim estable es byte a byte la plantilla que reenvia al canonico', () => {
-    assert.equal(
-      readFileSync(STABLE_SHIM, 'utf8'),
-      [
-        '#!/usr/bin/env bash',
-        '# Shim de compatibilidad (MEF-ADR-0049): la implementacion canonica vive en src/internal/scripts/. No editar.',
-        'exec "$(cd "$(dirname "$0")/../.." && pwd)/src/internal/scripts/$(basename "$0")" "$@"',
-        '',
-      ].join('\n'),
-    )
-    if (!NOT_WINDOWS) assert.notEqual(statSync(STABLE_SHIM).mode & 0o111, 0)
-  })
-
-  test('el shim estable reenvia argumentos y codigo de salida al canonico', { skip: NOT_WINDOWS }, () => {
-    const root = join(work, 'reenvio')
-    const stable = join(root, '.claude', 'scripts', 'mefisto-release.sh')
-    const canonical = join(root, 'src', 'internal', 'scripts', 'mefisto-release.sh')
-    mkdirSync(dirname(stable), { recursive: true })
-    mkdirSync(dirname(canonical), { recursive: true })
-    cpSync(STABLE_SHIM, stable)
-    writeFileSync(
-      canonical,
-      '#!/usr/bin/env bash\nprintf \'ARGC=%s\\n\' "$#"\nfor arg in "$@"; do printf \'ARG=[%s]\\n\' "$arg"; done\nexit 17\n',
-    )
-    chmodSync(stable, 0o755)
-    chmodSync(canonical, 0o755)
-    const result = spawnSync(stable, ['patch', 'un valor con espacios', '--prepare-only'], { encoding: 'utf8' })
-    assert.equal(result.status, 17)
-    assert.equal(result.stdout, 'ARGC=3\nARG=[patch]\nARG=[un valor con espacios]\nARG=[--prepare-only]\n')
-  })
-
-  test('los dos shims llegan al .mts, que se niega a correr fuera de un repo', { skip: NOT_WINDOWS }, () => {
-    for (const shim of [STABLE_SHIM, CANONICAL_SHIM]) {
-      const result = spawnSync(shim, ['patch'], { cwd: work, encoding: 'utf8' })
-      assert.equal(result.status, 1, shim)
-      assert.equal(result.stderr, 'ERROR: no estas en un repositorio git\n', shim)
-      assert.equal(result.stdout, '', shim)
-    }
   })
 
   test('el .mts se niega a correr en un repo que no es el de Mefisto', () => {

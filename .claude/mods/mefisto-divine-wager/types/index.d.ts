@@ -15,7 +15,7 @@ export type PipelineRun = {
 
 export type ReadyItem = { number: number; title: string; after: number[] }
 
-/** Listos en el orden de mefisto-next-order.sh, con la linea de /mefisto-sequential que los lanza a todos. */
+/** Listos en el orden de mefisto-next-order.mts, con la linea de /mefisto-sequential que los lanza a todos. */
 export type BlockedItem = { number: number; title: string; by: number[] }
 
 export type ReadyList = { items: ReadyItem[]; blocked: BlockedItem[]; cycleCount: number; launch: string | null; error: string | null }
@@ -55,7 +55,7 @@ export type BitacoraPr = { number: number; title: string }
 /** El subagente mefisto-historiador escribiendo la bitacora en esta sesion (lo lanza /mefisto-bitacora). */
 export type Historian = { startedMs: number; finishedMs: number | null; notes: BitacoraNote[]; pr: BitacoraPr | null }
 
-/** Una fase de mefisto-release.sh, en el orden en que ocurren. */
+/** Una fase de mefisto-release.mts, en el orden en que ocurren. */
 export type ReleaseStep = 'rama' | 'consolidar' | 'pr' | 'merge' | 'tag' | 'release'
 
 /** Un issue con fragmentos en changelog.d/ al arrancar el release, y sus categorias de Keep a Changelog. */

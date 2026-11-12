@@ -37,8 +37,8 @@ describe('[fuente] contrato neutral', () => {
   contains(body, '{{mefisto:command-doc seed-secret}}', 'lee el documento de seed-secret via command-doc')
   contains(
     body,
-    '{{mefisto:run seed-secret.sh workos-api-key --domain <Dominio> --env <env> --from-github-secret WORKOS_API_KEY}}',
-    'invocacion neutral de seed-secret.sh',
+    '{{mefisto:run seed-secret.mts workos-api-key --domain <Dominio> --env <env> --from-github-secret WORKOS_API_KEY}}',
+    'invocacion neutral de seed-secret.mts',
   )
   contains(body, '{{mefisto:command seed-secret}}', 'remite a seed-secret via command')
   contains(body, '{{mefisto:command install-apim}}', 'remite a install-apim via command')
@@ -76,7 +76,7 @@ describe('[fuente] contrato neutral', () => {
       '¿Continuar? (s/n)',
       'git switch -c install-workos/',
       '{{mefisto:launch-agent',
-      '{{mefisto:run seed-secret.sh',
+      '{{mefisto:run seed-secret.mts',
       'gh pr create',
     ],
     'orden: guard -> confirmacion -> rama -> agente -> seed-secret -> PR',
@@ -93,8 +93,8 @@ describe('[salidas] adaptador y mirror', () => {
   )
   contains(
     claude,
-    'MEFISTO_RUNTIME=claude "${MEFISTO_PACKAGE_ROOT}/scripts/seed-secret.sh" workos-api-key',
-    'Claude invoca seed-secret.sh con su runtime',
+    'MEFISTO_RUNTIME=claude node "${MEFISTO_PACKAGE_ROOT}/scripts/seed-secret.mts" workos-api-key',
+    'Claude invoca seed-secret.mts con su runtime',
   )
   contains(claude, '"${MEFISTO_PACKAGE_ROOT}/commands/seed-secret.md"', 'Claude lee commands/seed-secret.md')
   check(

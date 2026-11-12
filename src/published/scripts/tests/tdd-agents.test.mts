@@ -139,7 +139,7 @@ function blockageVerdict(text: string, reports: boolean): string {
 const ADAPTER_LINES = [
   /\{\{mefisto:assert-consumer-repo\}\}/,
   // El punto de `.sh` es comodin, como en el patron de awk del que viene.
-  /Antes de continuar, aborta si existe `src\/internal\/scripts\/generate-internal-adapters.sh`/,
+  /Antes de continuar, aborta si existe `src\/internal\/scripts\/generate-internal-adapters.mts`/,
   /^<!-- GENERADO por /,
   /^Antes de ejecutar este body, usa la tool nativa `skill` para cargar, en este orden: /,
 ]

@@ -12,7 +12,7 @@ import { main, parseEpoch } from '../work-status-collect.mts'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 const FIXTURES = join(HERE, 'fixtures', 'work-status')
-const SHIM = join(HERE, '..', 'work-status-collect.sh')
+const SCRIPT = join(HERE, '..', 'work-status-collect.mts')
 const NOW = new Date(2026, 5, 15, 12, 0, 0)
 
 let work = ''
@@ -103,7 +103,7 @@ test('--json es obligatorio: cualquier otra forma imprime el uso y sale con 2', 
     const { code, stdout, stderr } = run(argv, env)
     assert.equal(code, 2)
     assert.equal(stdout, '')
-    assert.equal(stderr, `Uso: ${SHIM} --json\n`)
+    assert.equal(stderr, `Uso: node ${SCRIPT} --json\n`)
   }
 })
 

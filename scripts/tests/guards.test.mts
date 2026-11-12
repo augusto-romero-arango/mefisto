@@ -42,7 +42,7 @@ describe('[A] commands/*.md llevan el guard "cwd != Mefisto"', () => {
       const text = readRepoFile(`commands/${name}`)
       assert.ok(
         text.includes('.claude-plugin/plugin.json') ||
-          text.includes('src/internal/scripts/generate-internal-adapters.sh'),
+          text.includes('src/internal/scripts/generate-internal-adapters.mts'),
         `${name}: falta el guard`,
       )
     })
@@ -436,11 +436,11 @@ describe('[H] guarda de deploys ajenos: convenciones acopladas', () => {
   })
 })
 
-describe('[I] agents/planner.md delega el cierre documental en field-note.sh', () => {
+describe('[I] agents/planner.md delega el cierre documental en field-note.mts', () => {
   const PLANNER = readRepoFile('agents/planner.md')
 
   for (const required of [
-    '"${MEFISTO_PACKAGE_ROOT}/scripts/field-note.sh"',
+    '"${MEFISTO_PACKAGE_ROOT}/scripts/field-note.mts"',
     '--session-id "$SESSION_ID"',
     '--timestamp "$CLOSING_TIMESTAMP"',
     '--field-note "$FIELD_NOTE_LOCAL"',
@@ -457,7 +457,7 @@ describe('[I] agents/planner.md delega el cierre documental en field-note.sh', (
     'git -C "$WORKTREE_DIR" commit',
     'gh pr create --base "$DEFAULT_BRANCH" --head "$DOC_BRANCH"',
   ]) {
-    test(`planner no reimplementa '${forbidden}' (delega en field-note.sh)`, () => {
+    test(`planner no reimplementa '${forbidden}' (delega en field-note.mts)`, () => {
       assertAbsent(PLANNER, forbidden)
     })
   }
@@ -472,7 +472,7 @@ describe('[J] mefisto-planner delega el cierre documental en mefisto-field-note 
     'Nunca escribas la field note, crees una rama documental',
     'FIELD_NOTE_DIR="$(git rev-parse --show-toplevel)/.mefisto/pipeline/summaries"',
     'FIELD_NOTE_LOCAL="$FIELD_NOTE_DIR/mefisto-planner-field-note-${SESSION_ID}.md"',
-    '{{mefisto:run mefisto-field-note.sh --agent mefisto-planner --timestamp "$CLOSING_TIMESTAMP" --session-id "$SESSION_ID"}} < "$FIELD_NOTE_LOCAL"',
+    '{{mefisto:run mefisto-field-note.mts --agent mefisto-planner --timestamp "$CLOSING_TIMESTAMP" --session-id "$SESSION_ID"}} < "$FIELD_NOTE_LOCAL"',
     'nunca crees la rama documental ahi',
   ]) {
     test(`mefisto-planner conserva '${required}'`, () => {

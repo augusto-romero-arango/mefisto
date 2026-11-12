@@ -735,7 +735,7 @@ describe('cache y repositorio', () => {
       assert.equal(result.status, 1)
       assert.deepEqual(result.errLines, [
         'ERROR: /mefisto:upgrade no aplica al repo de Mefisto.',
-        '       scripts/update-plugin.sh es del plugin publicado y solo aplica al consumidor.',
+        '       scripts/update-plugin.mts es del plugin publicado y solo aplica al consumidor.',
         '       Mefisto se actualiza a si mismo por su propio flujo de release (/mefisto-release).',
       ])
       assert.deepEqual(result.log, [])

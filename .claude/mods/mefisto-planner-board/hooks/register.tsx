@@ -85,7 +85,7 @@ const ANIMATION_MS = 600
 
 async function runNextOrder($: EngineInterface, args: string[]): Promise<BoardList> {
   const { exitCode, stdout, stderr } = await $.process
-    .run([NEXT_ORDER, ...args], { timeoutMs: SCRIPT_TIMEOUT_MS })
+    .run(['node', NEXT_ORDER, ...args], { timeoutMs: SCRIPT_TIMEOUT_MS })
     .catch(err => ({ exitCode: 2, stdout: '', stderr: String(err) }))
   return parseNextOrder(exitCode, stdout, stderr)
 }
@@ -301,7 +301,7 @@ async function onBash($: EngineInterface, command: string, output: string) {
 
 // Cierre de la exploracion con una tecla: pulsarla ya es la autorizacion, asi que le pide al planner su rutina
 // de cierre (resumen + field note) sin confirmar. El foco se cierra solo cuando el planner corre
-// mefisto-field-note.sh.
+// mefisto-field-note.mts.
 async function closeSession($: EngineInterface) {
   await $.prompt.submit({ text: 'Cierra la sesión ahora, sin pedir confirmación: resumen, field note y entrega.', asUser: true })
 }

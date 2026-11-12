@@ -105,7 +105,7 @@ async function runNextOrder($: EngineInterface, args: string[]): Promise<BoardLi
   const root = await pluginRoot($)
   if (!root) return parseNextOrder(2, '', 'raiz del plugin desconocida')
   const { exitCode, stdout, stderr } = await $.process
-    .run([nextOrderPath(root), ...args], { timeoutMs: SCRIPT_TIMEOUT_MS })
+    .run(['node', nextOrderPath(root), ...args], { timeoutMs: SCRIPT_TIMEOUT_MS })
     .catch(err => ({ exitCode: 2, stdout: '', stderr: String(err) }))
   return parseNextOrder(exitCode, stdout, stderr)
 }
@@ -317,7 +317,7 @@ async function onBash($: EngineInterface, command: string, output: string) {
 
 // Cierre de la exploracion en dos teclas dentro de la banda: el planner corre sin AskUserQuestion, asi
 // que $.ui.ask se rechaza. Al confirmar le pide su rutina de cierre (resumen + field note); el foco se
-// cierra solo cuando el planner corre field-note.sh.
+// cierra solo cuando el planner corre field-note.mts.
 async function closeSession($: EngineInterface, isConfirmed: boolean) {
   if (!isConfirmed) {
     await update($, confirmAtom, () => true)
@@ -349,7 +349,7 @@ async function fill($: EngineInterface, text: string) {
 }
 
 // En el repo del propio Mefisto el tablero es el mod interno (/mefisto-planner-board): el publicado no se registra
-// ni se activa, porque su next-order.sh alli se niega a correr y la banda solo mostraria el fallo.
+// ni se activa, porque su next-order.mts alli se niega a correr y la banda solo mostraria el fallo.
 async function isMefistoRepo($: EngineInterface): Promise<boolean> {
   const top = await $.process.run(['git', 'rev-parse', '--show-toplevel']).catch(() => ({ exitCode: 1, stdout: '' }))
   if (top.exitCode !== 0) return false

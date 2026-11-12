@@ -104,7 +104,7 @@ describe('[salidas] adaptador y mirror', () => {
   mirrorMatches(command)
   contains(
     mirror,
-    '<!-- GENERADO por src/published/scripts/generate-published-adapters.sh desde src/published/commands/fix-review.md. No editar a mano. -->',
+    '<!-- GENERADO por src/published/scripts/generate-published-adapters.mts desde src/published/commands/fix-review.md. No editar a mano. -->',
     'mirror conserva marcador generado',
   )
   generatorIsUpToDate()

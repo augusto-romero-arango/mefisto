@@ -105,7 +105,7 @@ function relay(text: string, sink: (line: string) => void): void {
 
 function run(deps: LabelsDeps): number {
   consumerRepoRoot(deps.cwd, [
-    'ERROR: scripts/setup-github-labels.sh es del plugin publicado y solo aplica al consumidor.',
+    'ERROR: scripts/setup-github-labels.mts es del plugin publicado y solo aplica al consumidor.',
     'Los labels de Mefisto se configuran manualmente o con un script interno.',
   ])
   const config = loadHarnessConfig(undefined, { cwd: deps.cwd, warn: deps.err })

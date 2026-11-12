@@ -1,5 +1,5 @@
 // Genera el adaptador Claude Code de los hooks interactivos publicados.
-// Uso: generate-claude-hooks.sh [--check] [--out <raiz>]
+// Uso: generate-claude-hooks.mts [--check] [--out <raiz>]
 
 import { mkdirSync, mkdtempSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'

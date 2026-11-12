@@ -12,7 +12,7 @@
 // arbol publicado queda fuera; neutrality-allowlist.json lo documenta en "scope_excluded", pero
 // la exclusion real es el filtro de archivos de aqui.
 //
-// Cuatro reglas sobre los archivos VERSIONADOS (`git ls-files`, nunca el working tree sucio:
+// Tres reglas sobre los archivos VERSIONADOS (`git ls-files`, nunca el working tree sucio:
 // un borrador a medio escribir no debe hacer fallar el gate):
 //   R1 - alias e ids de modelo de proveedor (haiku/sonnet/opus/fable, claude-*/gpt-*, prefijos
 //        openai//anthropic/), el campo `model` en frontmatter, y nombres crudos de tools o
@@ -22,15 +22,13 @@
 //   R3 - `.claude/pipeline`, `CLAUDE_PLUGIN_ROOT` y `CLAUDE_PROJECT_DIR` en src/internal/** y
 //        en .claude/scripts/: las rutas se resuelven desde el propio script, nunca desde esas
 //        variables.
-//   R4 - todo .claude/scripts/*.sh de nivel superior es un shim identico byte a byte a la
-//        plantilla de src/internal/scripts/README.md, o esta listado en "not_migrated".
 //
 // Y dos verificaciones estructurales, sobre los generadores del propio --root (el arbol bajo
 // revision):
 //   adapters-check           - generate-internal-adapters --check no reporta divergencias.
 //   published-adapters-check - generate-published-adapters --check, si existe, tampoco.
 //
-// Cada violacion es una linea "<ruta>:<linea>: <regla>" (R1-R4), o "<ruta>: <estado>:
+// Cada violacion es una linea "<ruta>:<linea>: <regla>" (R1-R3), o "<ruta>: <estado>:
 // adapters-check" y "<ruta>: <estado>: published-adapters-check", que reemiten lo que reporta
 // el --check correspondiente. Sale con 1 si hubo alguna y con 0 si no.
 //
@@ -47,7 +45,7 @@ import { CliError, capture, commandExists, isEntryPoint, runMain } from '../../.
 
 const SCRIPT_DIR = dirname(fileURLToPath(import.meta.url))
 
-const USAGE = 'mefisto-neutrality-gate.sh [--root <dir>] [--allowlist <file>]'
+const USAGE = 'node mefisto-neutrality-gate.mts [--root <dir>] [--allowlist <file>]'
 
 // El borde izquierdo de `claude-...` excluye el `.`: sin el, ".claude-plugin" (el manifiesto del
 // plugin, citado en casi todo archivo interno) contaria como id de modelo. `"model" :` es la
@@ -68,13 +66,6 @@ const R1 = new RegExp(
 const R2 = /claude -p([^A-Za-z0-9_-]|$)|claude --agent/
 const R3 = /\.claude\/pipeline|CLAUDE_PLUGIN_ROOT|CLAUDE_PROJECT_DIR/
 
-const SHIM_TEMPLATE = [
-  '#!/usr/bin/env bash',
-  '# Shim de compatibilidad (MEF-ADR-0049): la implementacion canonica vive en src/internal/scripts/. No editar.',
-  'exec "$(cd "$(dirname "$0")/../.." && pwd)/src/internal/scripts/$(basename "$0")" "$@"',
-  '',
-].join('\n')
-
 function isFile(path: string): boolean {
   try {
     return statSync(path).isFile()
@@ -94,7 +85,6 @@ function isDirectory(path: string): boolean {
 interface Allowlist {
   /** Patrones `path` de las excepciones, con las reglas que cubre cada uno. */
   exceptions: { path: string; rules: unknown[] }[]
-  notMigrated: Set<string>
 }
 
 function entriesOf(section: unknown): unknown[] | null {
@@ -123,13 +113,7 @@ export function loadAllowlist(file: string): Allowlist {
     typeof parsed === 'object' && !Array.isArray(parsed) ? (parsed as Record<string, unknown>) : null
   const scopeExcluded = sections === null ? null : entriesOf(sections.scope_excluded)
   const exceptions = sections === null ? null : entriesOf(sections.exceptions)
-  const notMigrated = sections === null ? null : entriesOf(sections.not_migrated)
-  if (
-    scopeExcluded === null ||
-    exceptions === null ||
-    notMigrated === null ||
-    ![...scopeExcluded, ...exceptions, ...notMigrated].every(hasMotivo)
-  ) {
+  if (scopeExcluded === null || exceptions === null || ![...scopeExcluded, ...exceptions].every(hasMotivo)) {
     throw new CliError(`ERROR: '${file}' tiene al menos una entrada sin 'motivo' no vacio (CA-1)`)
   }
 
@@ -138,10 +122,7 @@ export function loadAllowlist(file: string): Allowlist {
       const { path, rules } = entry as Record<string, unknown>
       return typeof path === 'string' ? [{ path, rules: Array.isArray(rules) ? rules : [] }] : []
     })
-  return {
-    exceptions: paths(exceptions),
-    notMigrated: new Set(paths(notMigrated).map((entry) => entry.path)),
-  }
+  return { exceptions: paths(exceptions) }
 }
 
 /**
@@ -215,41 +196,17 @@ function textRule(
   return violations
 }
 
-function isToplevelClaudeScript(path: string): boolean {
-  const prefix = '.claude/scripts/'
-  return path.startsWith(prefix) && path.endsWith('.sh') && !path.slice(prefix.length).includes('/')
-}
-
-function shimViolations(files: string[], root: string, allowlist: Allowlist): string[] {
-  const violations: string[] = []
-  for (const file of files) {
-    if (!isToplevelClaudeScript(file) || allowlist.notMigrated.has(file)) continue
-    let conforms = false
-    try {
-      conforms = readFileSync(`${root}/${file}`).equals(Buffer.from(SHIM_TEMPLATE))
-    } catch {
-      conforms = false
-    }
-    if (!conforms) violations.push(`${file}:1: R4`)
-  }
-  return violations
-}
-
 interface GeneratorCheck {
   status: number
   stdout: string
   stderr: string
 }
 
-/** Corre `--check` del generador de `root`: su `.mts` si existe; si no, su `.sh` con bash. */
+/** Corre `--check` del generador `<script>.mts` de `root`, o `null` si no existe. */
 function runGeneratorCheck(root: string, script: string): GeneratorCheck | null {
-  const env = { ...process.env, LC_ALL: 'C' }
   const module = `${root}/${script}.mts`
-  const shell = `${root}/${script}.sh`
-  let result
-  if (isFile(module)) result = capture(process.execPath, [module, '--check'], { cwd: root, env })
-  else if (isFile(shell)) result = capture('bash', [shell, '--check'], { cwd: root, env })
-  else return null
+  if (!isFile(module)) return null
+  const result = capture(process.execPath, [module, '--check'], { cwd: root, env: { ...process.env, LC_ALL: 'C' } })
   return { status: result.status ?? 127, stdout: result.stdout, stderr: result.stderr }
 }
 
@@ -262,7 +219,7 @@ function structuralCheck(root: string, script: string, rule: string, stderr: str
   if (check.status === 0) return []
   const lines = check.stdout.split('\n').filter((line) => line.length > 0)
   if (lines.length > 0) return lines.map((line) => `${line}: ${rule}`)
-  return [`${script}.sh: exit ${check.status} sin lineas de divergencia: ${rule}`]
+  return [`${script}.mts: exit ${check.status} sin lineas de divergencia: ${rule}`]
 }
 
 export interface GateResult {
@@ -290,7 +247,6 @@ export function scan(root: string, allowlist: Allowlist): GateResult {
     ...textRule('R1', R1, internal, root, allowlist),
     ...textRule('R2', R2, files, root, allowlist),
     ...textRule('R3', R3, resolved, root, allowlist),
-    ...shimViolations(files, root, allowlist),
     ...structuralCheck(root, 'src/internal/scripts/generate-internal-adapters', 'adapters-check', stderr),
     ...structuralCheck(
       root,

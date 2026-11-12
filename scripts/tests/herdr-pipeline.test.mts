@@ -115,7 +115,7 @@ describe('guardas de entrada', () => {
   test('sin argumentos imprime la ayuda y sale 0', async () => {
     const run = await runHerdr([])
     assert.equal(run.code, 0)
-    assert.ok(run.out.includes('herdr-pipeline.sh'))
+    assert.ok(run.out.includes('herdr-pipeline.mts'))
     assert.ok(run.out.includes('--collapse-panes'))
   })
 

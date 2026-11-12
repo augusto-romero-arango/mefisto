@@ -1,10 +1,10 @@
 
-\033[0;36m\033[1mscaffold-pipeline.sh\033[0m - Pipeline para crear un nuevo dominio
+\033[0;36m\033[1mscaffold-pipeline.mts\033[0m - Pipeline para crear un nuevo dominio
 
 \033[1mUso:\033[0m
-  ./scripts/scaffold-pipeline.sh 42                          Issue (extrae dominio del body)
-  ./scripts/scaffold-pipeline.sh 42 --domain calculo-horas   Issue + dominio explicito
-  ./scripts/scaffold-pipeline.sh --domain calculo-horas       Sin issue (solo scaffold + PR)
+  node scripts/scaffold-pipeline.mts 42                          Issue (extrae dominio del body)
+  node scripts/scaffold-pipeline.mts 42 --domain calculo-horas   Issue + dominio explicito
+  node scripts/scaffold-pipeline.mts --domain calculo-horas       Sin issue (solo scaffold + PR)
 
 \033[1mEl issue debe contener en el body:\033[0m
   Dominio: nombre-en-kebab

@@ -12,12 +12,7 @@ import { globToRegExp, runGate } from '../../../src/internal/scripts/mefisto-neu
 const REPO_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..')
 const GATE = join(REPO_ROOT, 'src', 'internal', 'scripts', 'mefisto-neutrality-gate.mts')
 const ALLOWLIST = 'src/internal/contract/neutrality-allowlist.json'
-const EMPTY_ALLOWLIST = '{"scope_excluded": [], "exceptions": [], "not_migrated": []}'
-
-const GENERIC_SHIM = `#!/usr/bin/env bash
-# Shim de compatibilidad (MEF-ADR-0049): la implementacion canonica vive en src/internal/scripts/. No editar.
-exec "$(cd "$(dirname "$0")/../.." && pwd)/src/internal/scripts/$(basename "$0")" "$@"
-`
+const EMPTY_ALLOWLIST = '{"scope_excluded": [], "exceptions": []}'
 
 // Generadores simulados: el gate lanza el `.mts` del arbol que escanea.
 const INTERNAL_GENERATOR = 'src/internal/scripts/generate-internal-adapters.mts'
@@ -72,9 +67,6 @@ describe('arbol sin fugas', () => {
             motivo: "Fixture: este mismo archivo cita 'sonnet' en el motivo de arriba.",
           },
         ],
-        not_migrated: [
-          { path: '.claude/scripts/fx-not-migrated.sh', motivo: 'Fixture: script no migrado.', issue: null },
-        ],
       }),
       {
         'src/internal/scripts/lib/fx-allowed-model.sh':
@@ -84,8 +76,6 @@ describe('arbol sin fugas', () => {
         'src/internal/scripts/lib/fx-plugin-manifest.sh':
           '#!/usr/bin/env bash\n# lee .claude-plugin/plugin.json (manifiesto fisico del plugin, no un id de modelo)\necho ok\n',
         'AGENTS.md': 'doctrina neutral de ejemplo, sin fugas.\n',
-        '.claude/scripts/fx-shim.sh': GENERIC_SHIM,
-        '.claude/scripts/fx-not-migrated.sh': '#!/usr/bin/env bash\necho "no soy un shim, pero estoy en not_migrated"\n',
         [INTERNAL_GENERATOR]: CLEAN_GENERATOR,
       },
     )
@@ -179,27 +169,6 @@ describe('reglas de texto', () => {
   })
 })
 
-describe('R4: conformidad de los shims de .claude/scripts', () => {
-  test('un script que no es shim y un shim con un salto de mas', () => {
-    const dir = newTree('r4-neg', EMPTY_ALLOWLIST, {
-      [INTERNAL_GENERATOR]: CLEAN_GENERATOR,
-      '.claude/scripts/fx-bad-shim.sh': '#!/usr/bin/env bash\necho "no soy un shim conforme"\n',
-      '.claude/scripts/fx-trailing-shim.sh': `${GENERIC_SHIM}\n`,
-      '.claude/scripts/fx-ok.sh': GENERIC_SHIM,
-      // Solo el nivel superior: los tests no son shims.
-      '.claude/scripts/tests/fx-test.sh': '#!/usr/bin/env bash\necho test\n',
-    })
-    assert.deepEqual(gate(dir), ['.claude/scripts/fx-bad-shim.sh:1: R4', '.claude/scripts/fx-trailing-shim.sh:1: R4'])
-  })
-
-  test('los shims reales del repo cumplen la plantilla', () => {
-    const scripts = join(REPO_ROOT, '.claude', 'scripts')
-    const shims = readdirSync(scripts).filter((name) => name.endsWith('.sh'))
-    assert.ok(shims.length > 0)
-    for (const name of shims) assert.equal(readFileSync(join(scripts, name), 'utf8'), GENERIC_SHIM, name)
-  })
-})
-
 describe('verificaciones estructurales', () => {
   test('adapters-check reemite cada divergencia del generador interno', () => {
     const dir = newTree('adapters-check-neg', EMPTY_ALLOWLIST, {
@@ -224,22 +193,10 @@ describe('verificaciones estructurales', () => {
     })
     const result = runGate(['--root', dir, '--allowlist', join(dir, ALLOWLIST)])
     assert.deepEqual(result.violations, [
-      'src/published/scripts/generate-published-adapters.sh: exit 3 sin lineas de divergencia: published-adapters-check',
+      'src/published/scripts/generate-published-adapters.mts: exit 3 sin lineas de divergencia: published-adapters-check',
     ])
     assert.equal(result.stderr, 'ERROR: fallo previo\n')
   })
-
-  test(
-    'un generador que solo existe como .sh se lanza con bash',
-    { skip: process.platform === 'win32' ? 'necesita bash' : false },
-    () => {
-      const dir = newTree('adapters-check-bash', EMPTY_ALLOWLIST, {
-        'src/internal/scripts/generate-internal-adapters.sh':
-          '#!/usr/bin/env bash\nif [ "${1:-}" = "--check" ]; then\n    echo ".claude/agents/fx-agent.md: distinta"\n    exit 1\nfi\nexit 0\n',
-      })
-      assert.deepEqual(gate(dir), ['.claude/agents/fx-agent.md: distinta: adapters-check'])
-    },
-  )
 })
 
 describe('allowlist', () => {
@@ -249,7 +206,6 @@ describe('allowlist', () => {
       JSON.stringify({
         scope_excluded: [],
         exceptions: [{ path: 'src/internal/scripts/lib/whatever.sh', rules: ['R1'] }],
-        not_migrated: [],
       }),
       { [INTERNAL_GENERATOR]: CLEAN_GENERATOR },
     )
@@ -287,7 +243,6 @@ describe('allowlist', () => {
             motivo: 'Fixture: un PR que intenta exonerarse a si mismo desde su propio worktree.',
           },
         ],
-        not_migrated: [],
       }),
       {
         [INTERNAL_GENERATOR]: CLEAN_GENERATOR,
@@ -316,7 +271,7 @@ describe('argumentos', () => {
     assert.throws(
       () => runGate(['--otro']),
       new CliError(
-        'ERROR: argumento desconocido: --otro (uso: mefisto-neutrality-gate.sh [--root <dir>] [--allowlist <file>])',
+        'ERROR: argumento desconocido: --otro (uso: node mefisto-neutrality-gate.mts [--root <dir>] [--allowlist <file>])',
       ),
     )
     const missing = join(work, 'no-existe')

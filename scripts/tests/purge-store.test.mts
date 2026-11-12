@@ -203,7 +203,7 @@ describe('guardas previas a Azure', () => {
     assert.equal(result.status, 1)
     assert.equal(
       result.stderr,
-      'ERROR: scripts/purge-store.sh es del plugin publicado y solo aplica al consumidor.\n' +
+      'ERROR: scripts/purge-store.mts es del plugin publicado y solo aplica al consumidor.\n' +
         'Mefisto no tiene harness.config.json ni un store desplegado que purgar.\n',
     )
     assert.deepEqual(result.cli.calls, [])
@@ -690,7 +690,7 @@ describe('ruta del config', () => {
 
 describe('distribucion', () => {
   test('dist/claude trae el shim y el script identicos a scripts/, y los inventaria', () => {
-    assertDistributed(['purge-store.sh', 'purge-store.mts'])
+    assertDistributed(['purge-store.mts', 'purge-store.mts'])
   })
 
   test('la copia de dist resuelve sus modulos y sale por uso', () => {

@@ -1,11 +1,11 @@
 // Lanzador de los pipelines INTERNOS de Mefisto. Solo corre dentro del repo de Mefisto.
 //
 // Uso:
-//   src/internal/scripts/mefisto-launch-pipeline.sh --tooling 42
-//   src/internal/scripts/mefisto-launch-pipeline.sh --tooling 42 --from-stage 2   # retomar
-//   src/internal/scripts/mefisto-launch-pipeline.sh --tooling 42 --models 'writer=<modelo>'
-//   src/internal/scripts/mefisto-launch-pipeline.sh --tooling 42 --variant experimento-a
-//   src/internal/scripts/mefisto-launch-pipeline.sh --batch 42 43 44   # secuencial
+//   node src/internal/scripts/mefisto-launch-pipeline.mts --tooling 42
+//   node src/internal/scripts/mefisto-launch-pipeline.mts --tooling 42 --from-stage 2   # retomar
+//   node src/internal/scripts/mefisto-launch-pipeline.mts --tooling 42 --models 'writer=<modelo>'
+//   node src/internal/scripts/mefisto-launch-pipeline.mts --tooling 42 --variant experimento-a
+//   node src/internal/scripts/mefisto-launch-pipeline.mts --batch 42 43 44   # secuencial
 //
 // Dos modos de UI (MEF-ADR-0057 decision 5), elegidos en este orden:
 //   1. Desacoplado: MEFISTO_UI=mod, o MEFISTO_UI sin definir con MEFISTO_RUNTIME=claude. Lo
@@ -68,25 +68,25 @@ const { red: RED, green: GREEN, yellow: YELLOW, blue: BLUE, bold: BOLD, reset: N
 
 export function usage(self: string): string {
   return [
-    `Uso: ${self} --tooling <issue> [--from-stage N] [--models 'agente=modelo[,...]'] [--variant <label>]`,
-    `     ${self} --batch <issue1> <issue2> ...`,
+    `Uso: node ${self} --tooling <issue> [--from-stage N] [--models 'agente=modelo[,...]'] [--variant <label>]`,
+    `     node ${self} --batch <issue1> <issue2> ...`,
     '',
     `  Modo de UI (MEFISTO_UI). ${VALID_UI_MODES}`,
     '              Sin MEFISTO_UI: desacoplado con MEFISTO_RUNTIME=claude; si no,',
     '              herdr dentro de un pane herdr; si no, desacoplado.',
     '              En modo desacoplado el script imprime la ruta del report log',
     '              y la linea que abre el visor en vivo en otra terminal:',
-    '                ./.claude/scripts/mefisto-stream-watch.sh --issues <issue>',
+    '                node src/internal/scripts/mefisto-stream-watch.mts --issues <issue>',
     '',
     '  --from-stage N  (issue #449) Retoma una corrida caida desde el Stage N.',
     '                  Solo valido con --tooling (un unico issue); --batch lo',
     '                  rechaza porque seria ambiguo sobre varios issues. El',
-    '                  rango (1-2) lo valida mefisto-tooling-pipeline.sh, no',
+    '                  rango (1-2) lo valida mefisto-tooling-pipeline.mts, no',
     '                  este wrapper.',
     '',
     "  --models 'agente=modelo[,...]'  (issue #709, experimentos A/B de",
     '                  desempeno del harness) Sobreescribe el modelo de un',
-    '                  stage puntual de mefisto-tooling-pipeline.sh. La clave',
+    '                  stage puntual de mefisto-tooling-pipeline.mts. La clave',
     "                  es el nombre de agente que recibe run_agent(): hoy",
     "                  'reviewer' (Stage 2) y 'writer' -- que cubre DOS stages,",
     '                  el Stage 1 y la etapa de merge, ambos invocados con ese',
@@ -142,7 +142,7 @@ export function extractWrapperFlags(args: readonly string[], abort: (msg: string
 
 export async function mefistoLaunchPipeline(ctx: MefistoLaunchContext): Promise<number> {
   const { env } = ctx
-  const self = join(ctx.scriptsDir, 'mefisto-launch-pipeline.sh')
+  const self = join(ctx.scriptsDir, 'mefisto-launch-pipeline.mts')
   const out = (line: string): void => ctx.out(`${line}\n`)
   const log = (msg: string): void => out(`${BLUE}[${clockTime(ctx.now())}]${NC} ${msg}`)
   const success = (msg: string): void => out(`${GREEN}${BOLD}v${NC} ${msg}`)
@@ -207,7 +207,7 @@ export async function mefistoLaunchPipeline(ctx: MefistoLaunchContext): Promise<
     const report = (title: string, reportLog: string, issuesCsv: string): void => {
       success(followedByMod ? `${title} (sin pane: lo sigue el mod mefisto-divine-wager)` : `${title} (sin pane)`)
       log(`Reporte: ${reportLog}`)
-      log(`Visor en otra terminal: ./.claude/scripts/mefisto-stream-watch.sh --issues ${issuesCsv}`)
+      log(`Visor en otra terminal: node src/internal/scripts/mefisto-stream-watch.mts --issues ${issuesCsv}`)
     }
 
     const flags = extractWrapperFlags(rest, abort)

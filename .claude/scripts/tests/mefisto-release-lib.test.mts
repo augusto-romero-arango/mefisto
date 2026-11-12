@@ -231,11 +231,10 @@ describe('neutralityRemedy', () => {
     const remedy = lines(
       neutralityRemedy(
         [
-          'src/internal/scripts/generate-internal-adapters.sh: exit 1 sin lineas de divergencia: adapters-check',
+          'src/internal/scripts/generate-internal-adapters.mts: exit 1 sin lineas de divergencia: adapters-check',
           'src/internal/agents/b.md:9: R3',
           'dist/claude/agents/fx-agent.md: distinta: published-adapters-check',
           'src/internal/agents/a.md:5: R1',
-          '.claude/scripts/mefisto-x.sh:1: R4',
           'src/internal/agents/a2.md:6: R1',
           'src/internal/scripts/foo.sh:2: R2',
           'src/internal/agents/b2.md:10: R3',
@@ -244,21 +243,15 @@ describe('neutralityRemedy', () => {
     )
     assert.deepEqual(
       remedy.map((line) => line.split(' ')[0]),
-      ['R1:', 'R2:', 'R3:', 'R4:', 'adapters-check:', 'published-adapters-check:'],
+      ['R1:', 'R2:', 'R3:', 'adapters-check:', 'published-adapters-check:'],
     )
-  })
-
-  test('R4 tiene su propio remedio, distinto del de las reglas de texto', () => {
-    const remedy = neutralityRemedy('.claude/scripts/mefisto-x.sh:1: R4')
-    assert.ok(remedy.includes('not_migrated'))
-    assert.equal(remedy.includes('reformula la mencion'), false)
   })
 
   test('las dos formas de cada verificacion estructural dan la misma linea', () => {
     const adapters = neutralityRemedy('.claude/agents/fx-agent.md: distinta: adapters-check')
     assert.equal(
       neutralityRemedy(
-        'src/internal/scripts/generate-internal-adapters.sh: exit 2 sin lineas de divergencia: adapters-check',
+        'src/internal/scripts/generate-internal-adapters.mts: exit 2 sin lineas de divergencia: adapters-check',
       ),
       adapters,
     )
@@ -267,7 +260,7 @@ describe('neutralityRemedy', () => {
     const published = neutralityRemedy('dist/claude/agents/fx-agent.md: distinta: published-adapters-check')
     assert.equal(
       neutralityRemedy(
-        'src/published/scripts/generate-published-adapters.sh: exit 2 sin lineas de divergencia: published-adapters-check',
+        'src/published/scripts/generate-published-adapters.mts: exit 2 sin lineas de divergencia: published-adapters-check',
       ),
       published,
     )
