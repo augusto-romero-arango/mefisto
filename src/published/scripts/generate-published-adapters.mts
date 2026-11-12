@@ -82,6 +82,8 @@ export const TOOLING_CLOSURE_ASSETS: readonly string[] = [
   'scripts/tdd-pipeline.sh|0755',
   'scripts/tdd-pipeline.mts|0644',
   'scripts/pr-sync.sh|0755',
+  'scripts/pr-sync.mts|0644',
+  'scripts/lib/pipeline/pr-sync-github.mts|0644',
   'scripts/worktree-clean.sh|0755',
   'scripts/worktree-clean.mts|0644',
   'scripts/work-status-collect.sh|0755',

@@ -1,0 +1,10 @@
+Estás en el directorio raíz del proyecto Proyecto.
+
+Hay conflictos de merge con la rama main en los siguientes archivos:
+README.md
+src/Ventas/Pedido.cs
+
+Resuelve los conflictos manteniendo tanto la funcionalidad nueva (de esta rama) como la existente (de main).
+Después de resolver cada archivo, haz git add del archivo.
+Cuando todos estén resueltos, haz git commit para completar el merge.
+NO elimines código de ninguna de las dos ramas — integra ambos cambios.
