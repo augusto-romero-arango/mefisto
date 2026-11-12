@@ -28,6 +28,8 @@ set -uo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
+# Los bloques leen el config con el script del paquete; el preambulo que fija su raiz no se extrae.
+export MEFISTO_PACKAGE_ROOT="$REPO_ROOT"
 PLANNER="$REPO_ROOT/agents/planner.md"
 INVESTIGATOR="$REPO_ROOT/agents/tooling-investigator.md"
 FIX_REVIEW="$REPO_ROOT/commands/fix-review.md"

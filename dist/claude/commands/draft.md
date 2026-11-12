@@ -5,6 +5,62 @@ model: "haiku"
 ---
 <!-- GENERADO por src/published/scripts/generate-published-adapters.sh desde src/published/commands/draft.md. No editar a mano. -->
 ```bash
+mefisto_claude_root=''
+mefisto_claude_root_from_candidate() {
+    local root
+    case "$mefisto_claude_candidate" in /*) ;; *) return 1 ;; esac
+    root="$(cd "$mefisto_claude_candidate" 2>/dev/null && pwd -P)" || return 1
+    jq -e '
+      .name == "mefisto" and
+      (.version | type == "string" and test("^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)(-[0-9A-Za-z-]+(\\.[0-9A-Za-z-]+)*)?(\\+[0-9A-Za-z-]+(\\.[0-9A-Za-z-]+)*)?$"))
+    ' "$root/.claude-plugin/plugin.json" >/dev/null 2>&1 || return 1
+    jq -e --arg version "$(jq -er '.version | strings' "$root/.claude-plugin/plugin.json" 2>/dev/null)" '
+      (keys | sort) == ["commit", "runtime", "schemaVersion", "version"] and
+      .schemaVersion == 1 and .runtime == "claude" and .version == $version and
+      (.commit | type == "string" and test("^[0-9a-f]{40}$"))
+    ' "$root/mefisto-manifest.json" >/dev/null 2>&1 || return 1
+    printf '%s\n' "$root"
+}
+mefisto_claude_loaded='${CLAUDE_PLUGIN_ROOT}'
+if [[ "$mefisto_claude_loaded" != '${'* ]]; then
+    mefisto_claude_candidate="$mefisto_claude_loaded"
+    mefisto_claude_root="$(mefisto_claude_root_from_candidate)" || {
+        printf 'ERROR Claude: la raiz cargada (%s) es invalida; recargue o reinstale el plugin.\n' "$mefisto_claude_loaded" >&2; exit 1;
+    }
+else
+    mefisto_claude_cursor="$PWD"
+    while :; do
+        if [ -f "$mefisto_claude_cursor/.mefisto/pipeline/.plugin-root" ]; then
+            mefisto_claude_candidate="$(< "$mefisto_claude_cursor/.mefisto/pipeline/.plugin-root")"
+            if mefisto_claude_root="$(mefisto_claude_root_from_candidate)"; then break; fi
+            printf '%s\n' 'ERROR Claude: metadata del marker canonico invalida; reabra o reinstale el plugin.' >&2; exit 1
+        fi
+        if [ "$mefisto_claude_cursor" = / ]; then break; fi
+        mefisto_claude_cursor="$(cd "$mefisto_claude_cursor/.." && pwd -P)"
+    done
+    if [ -z "$mefisto_claude_root" ]; then
+        mefisto_claude_cursor="$PWD"
+        while :; do
+            if [ -f "$mefisto_claude_cursor/.claude/pipeline/.plugin-root" ]; then
+                mefisto_claude_candidate="$(< "$mefisto_claude_cursor/.claude/pipeline/.plugin-root")"
+                if mefisto_claude_root="$(mefisto_claude_root_from_candidate)"; then break; fi
+                printf '%s\n' 'ERROR Claude: metadata del marker Claude invalida; reabra o reinstale el plugin.' >&2; exit 1
+            fi
+            if [ "$mefisto_claude_cursor" = / ]; then break; fi
+            mefisto_claude_cursor="$(cd "$mefisto_claude_cursor/.." && pwd -P)"
+        done
+    fi
+fi
+if [ -z "$mefisto_claude_root" ]; then
+    printf '%s\n' 'ERROR Claude: no se encontro una raiz Claude valida; reabra o reinstale el plugin.' >&2
+    exit 1
+fi
+MEFISTO_PACKAGE_ROOT="$mefisto_claude_root"
+export MEFISTO_PACKAGE_ROOT
+```
+
+Ejecuta este bloque en cada llamada Bash de este comando, sin guardarlo en un archivo ni reutilizar el de otro comando: la raiz que fija es la de la version cargada.
+```bash
 if [ -f ".mefisto/harness.config.json" ]; then
     if [ -f ".claude/harness.config.json" ]; then
         printf '%s\n' 'AVISO: se usara el config canonico .mefisto/harness.config.json; se ignora el legacy .claude/harness.config.json. Migra o elimina conscientemente el archivo legacy para evitar divergencias.' >&2
@@ -73,7 +129,7 @@ Esta es la unica operacion permitida hacia el repo de Mefisto (MEF-ADR-0019). In
 Lee el slug efectivo del repo de Mefisto -- mismo campo y mismo default que usa el agente `planner` (MEF-ADR-0053 decision 4). El campo es opcional: si el config no lo declara o esta vacio, aplica el default sin abortar.
 
 ```bash
-REPO_SLUG=$(jq -r '.repoSlug // empty' "${MEFISTO_CONFIG_PATH}" 2>/dev/null)
+REPO_SLUG=$(node "${MEFISTO_PACKAGE_ROOT}/scripts/json-value.mts" get "${MEFISTO_CONFIG_PATH}" repoSlug --or-empty 2>/dev/null)
 [ -z "$REPO_SLUG" ] && REPO_SLUG="augusto-romero-arango/mefisto"
 echo "$REPO_SLUG"
 ```

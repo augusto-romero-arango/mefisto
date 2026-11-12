@@ -68,7 +68,7 @@ Antes de continuar, aborta si existe `src/internal/scripts/generate-internal-ada
 
 `/mefisto:onboard` es el primer corte del onboarding automatizado (el "doctor" diagnostico). Reporta, sin tocar nada:
 
-1. **Configuracion** (`.mefisto/harness.config.json`, con fallback legacy de solo lectura): existencia, parseo con `jq`, campos requeridos (`projectName`, `namespacePrefix`, `solutionFile`, `boundedContext`) y formato de `terraformStateStorage`. La validacion la hace `load_harness_config` del plugin, que es la **unica fuente de verdad** de las reglas del tfstate (`^[a-z0-9]{3,24}$`) y del BC (`name` 1-63 chars; `domains` subconjunto de `domainLabels`). Con el config válido, valida también el **`repoSlug` efectivo** (MEF-ADR-0053 decisión 4, issue #2353): el declarado o, si falta, el default `augusto-romero-arango/mefisto`, destino de los drafts cross-repo y de las releases que busca `/mefisto:upgrade`. Reporta `FALTA` (con la acción de corregirlo o borrarlo) si coincide con el `origin` del propio consumidor, atajo local sin red, o si el manifiesto `plugin.json` del plugin en ese repo no existe o no declara `name: mefisto`; `OK` si lo declara, y `NO VERIFICADO` si `gh` no está instalado, no está autenticado o no hay red. Incluye además la **versión mínima exigida por el adaptador Claude** (MEF-ADR-0055): 2.1.287, la que publicó los mods que declara `hooks/hooks.json`. Reporta `OK` si la versión instalada la cumple, `FALTA` si es menor (con la acción de actualizar) y `NO VERIFICADO` si no se puede leer la versión; bajo cualquier otro runtime es informativa (`INFO`), MEF-ADR-0050/0053. Reporta también la **activación por repositorio** del runtime activo (MEF-ADR-0053 decisión 2): `OK` si los archivos de proyecto commiteados activan Mefisto, `FALTA` si no (con la provisión opt-in del paso 8), y una fila `INFO` si Mefisto todavía se carga en todos los repos desde un nivel global (`/mefisto:upgrade` ofrece retirarlo).
+1. **Configuracion** (`.mefisto/harness.config.json`, con fallback legacy de solo lectura): existencia, parseo del JSON, campos requeridos (`projectName`, `namespacePrefix`, `solutionFile`, `boundedContext`) y formato de `terraformStateStorage`. La validacion la hace `load_harness_config` del plugin, que es la **unica fuente de verdad** de las reglas del tfstate (`^[a-z0-9]{3,24}$`) y del BC (`name` 1-63 chars; `domains` subconjunto de `domainLabels`). Con el config válido, valida también el **`repoSlug` efectivo** (MEF-ADR-0053 decisión 4, issue #2353): el declarado o, si falta, el default `augusto-romero-arango/mefisto`, destino de los drafts cross-repo y de las releases que busca `/mefisto:upgrade`. Reporta `FALTA` (con la acción de corregirlo o borrarlo) si coincide con el `origin` del propio consumidor, atajo local sin red, o si el manifiesto `plugin.json` del plugin en ese repo no existe o no declara `name: mefisto`; `OK` si lo declara, y `NO VERIFICADO` si `gh` no está instalado, no está autenticado o no hay red. Incluye además la **versión mínima exigida por el adaptador Claude** (MEF-ADR-0055): 2.1.287, la que publicó los mods que declara `hooks/hooks.json`. Reporta `OK` si la versión instalada la cumple, `FALTA` si es menor (con la acción de actualizar) y `NO VERIFICADO` si no se puede leer la versión; bajo cualquier otro runtime es informativa (`INFO`), MEF-ADR-0050/0053. Reporta también la **activación por repositorio** del runtime activo (MEF-ADR-0053 decisión 2): `OK` si los archivos de proyecto commiteados activan Mefisto, `FALTA` si no (con la provisión opt-in del paso 8), y una fila `INFO` si Mefisto todavía se carga en todos los repos desde un nivel global (`/mefisto:upgrade` ofrece retirarlo).
 2. **Directivas canónicas del consumidor** (MEF-ADR-0049/0050/0053): comprueba independientemente que `AGENTS.md` tenga las secciones obligatorias "Tokens del harness" y "Verificación de fuentes", con los 5 tokens dentro de la primera (`RootNamespace`, `SolutionFile`, `ProjectDisplayName`, `BoundedContext`, `BoundedContextDomains`), y, según el runtime, el puente `CLAUDE.md`. `AGENTS.md` es la fuente canónica para todos los runtimes; `CLAUDE.md` con una línea independiente exacta `@AGENTS.md` es un **requisito del adaptador Claude** (el diagnóstico lo reporta `FALTA` solo bajo ese runtime; MEF-ADR-0050/0053). Si conserva cualquiera de las dos secciones contractuales, reporta `FALTA` y pide limpiarlas manualmente, sin tocar el archivo. Un `CLAUDE.md` legacy legible sigue visible como fallback de migración, pero bajo el adaptador Claude nunca deja el proyecto canónicamente listo. Un archivo existente no legible reporta `NO VERIFICADO`.
 3. **Estructura de carpetas esperada** (contrato del harness, punto 3): reporta de forma **informativa** (no bloqueante) la presencia de `src/`, `tests/` e `infra/environments/`. No la marca como `FALTA` cuando falta: un greenfield legitimo aun no tiene estas carpetas antes del primer `/mefisto:scaffold` o `/mefisto:infra-base`, y tratarla como bloqueante daria un falso negativo.
 4. **Labels de GitHub** (MEF-ADR-0007): que existan `tipo:*`, `estado:borrador`, `estado:listo`, `dom:<x>` por cada `domainLabels`, mas `bug`, `bloqueado` y `warning`.
@@ -172,7 +172,7 @@ Ofrece este paso siempre (a diferencia de labels/CI, no depende de que el diagno
    - Si responde **(B) POC** (o no sabe / prefiere decidir despues): el camino vigente es (a), `mono-tenant-transitorio`. Si el token ya esta ausente o ya vale eso, no hay nada que escribir (CA-2) -- informa y termina el paso sin tocar el archivo.
    - Si responde **(A) crecer**: el camino vigente es (b), `multi-tenant-header`.
 2. **No escribas nada sin confirmar el valor exacto (mismo patron que las provisiones anteriores).** Muestra el valor que vas a escribir/actualizar y la ruta efectiva que resolvió el harness, y pide confirmacion explicita, p. ej.: "Voy a escribir `tenancy.strategy = \"multi-tenant-header\"` en el config canónico `.mefisto/harness.config.json`. ¿Confirmas? [si/no]". Si el usuario no confirma, no toques el archivo: recuerdale que puede editarlo a mano y termina el paso. El comportamiento por defecto de `/mefisto:onboard` sigue siendo solo diagnostico.
-3. **Solo si el usuario confirma**, escribe/actualiza el campo con `jq`, preservando el resto del archivo:
+3. **Solo si el usuario confirma**, escribe/actualiza el campo, preservando el resto del archivo:
 
 ```bash
 REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null) || { echo "ERROR: no estas en un repositorio git"; exit 1; }
@@ -190,16 +190,10 @@ if ! load_harness_config >/dev/null; then
 elif [ "$HARNESS_CONFIG_PATH" != "$CONFIG" ]; then
   echo "ERROR: el config efectivo todavía es legacy ($HARNESS_CONFIG_PATH)."
   echo "       Migra primero el config a $CONFIG; los escritores nuevos no modifican la ruta legacy."
-elif ! command -v jq >/dev/null 2>&1; then
-  echo "ERROR: jq no esta instalado. Requerido para escribir $CONFIG."
+elif node "${MEFISTO_PACKAGE_ROOT}/scripts/json-value.mts" set "$CONFIG" tenancy.strategy "$ESTRATEGIA"; then
+  echo "OK: tenancy.strategy = \"$ESTRATEGIA\" escrito en $CONFIG."
 else
-  TMP=$(mktemp)
-  if jq --arg s "$ESTRATEGIA" '.tenancy = ((.tenancy // {}) + {strategy: $s})' "$CONFIG" > "$TMP" && mv "$TMP" "$CONFIG"; then
-    echo "OK: tenancy.strategy = \"$ESTRATEGIA\" escrito en $CONFIG."
-  else
-    rm -f "$TMP"
-    echo "ERROR: no se pudo escribir $CONFIG (revisa que sea JSON valido)."
-  fi
+  echo "ERROR: no se pudo escribir $CONFIG (revisa que sea JSON valido)."
 fi
 ```
 

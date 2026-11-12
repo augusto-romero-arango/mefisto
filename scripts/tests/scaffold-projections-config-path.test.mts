@@ -100,7 +100,7 @@ test('ausencia aborta y explica contrato canonico y fallback', () => {
 })
 
 const DIRECT_LEGACY_READ =
-  /(^|[;&|\s])(jq|cat)\s.*\.claude\/harness\.config\.json|<\s*\S*\.claude\/harness\.config\.json/
+  /(^|[;&|\s])(jq|json-value\.mts"?|cat)\s.*\.claude\/harness\.config\.json|<\s*\S*\.claude\/harness\.config\.json/
 
 for (const [name, text, isCommand] of [
   ['scaffold-projections.md', COMMAND, true],
@@ -120,7 +120,7 @@ for (const [name, text, isCommand] of [
   if (isCommand) {
     test(`${name} lee projections.enabled desde la ruta efectiva del preludio`, () => {
       assert.ok(
-        text.includes(`jq -r '.projections.enabled' "\${MEFISTO_CONFIG_PATH}" 2>/dev/null`),
+        text.includes(`json-value.mts" get "\${MEFISTO_CONFIG_PATH}" projections.enabled 2>/dev/null`),
         `${name} no lee projections.enabled desde MEFISTO_CONFIG_PATH`,
       )
     })

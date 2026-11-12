@@ -108,7 +108,7 @@ Si el guard dispara, detente sin escribir nada.
 
 ## Guard defensivo: token `projections.enabled`
 
-Aunque `/scaffold-projections` (el skill que te invoca) ya valida este token, revalida aqui por si te invocan directo por su id (`projections-scaffolder`), sin pasar por el skill. Lee `${MEFISTO_CONFIG_PATH}` y comprueba que `projections.enabled` sea `true` (por ejemplo con `jq -r '.projections.enabled'` sobre esa ruta). Si el archivo no existe o el token no esta en `true`, detente sin generar nada. No copies, migres ni escribas el archivo de config.
+Aunque `/scaffold-projections` (el skill que te invoca) ya valida este token, revalida aqui por si te invocan directo por su id (`projections-scaffolder`), sin pasar por el skill. Lee `${MEFISTO_CONFIG_PATH}` y comprueba que `projections.enabled` sea `true` (por ejemplo con `node "${MEFISTO_PACKAGE_ROOT}/scripts/json-value.mts" get "${MEFISTO_CONFIG_PATH}" projections.enabled`). Si el archivo no existe o el token no esta en `true`, detente sin generar nada. No copies, migres ni escribas el archivo de config.
 
 > **Cada bloque `bash` corre en un shell nuevo**: las variables no se heredan entre bloques. Vuelve a derivar `REPO_ROOT` (`git rev-parse --show-toplevel`) al inicio de cada bloque que la use -- o usa rutas absolutas ya resueltas. Los bloques de abajo la escriben como `"$REPO_ROOT/..."` por legibilidad; ese es el valor que debes reponer, no una variable que sobreviva del bloque anterior.
 
@@ -165,7 +165,7 @@ Este agente corre sin reviewer y genera codigo desde plantillas del harness: es 
 4. **Remanente: draft cross-repo en Mefisto.** Si un warning no logras remediarlo, abre un draft en el repo de Mefisto (MEF-ADR-0019: la unica operacion cross-repo es crear drafts `estado:borrador`). Resuelve el slug (MEF-ADR-0053; default `augusto-romero-arango/mefisto`):
 
    ```bash
-   HARNESS_REPO_SLUG=$(jq -r '.repoSlug // empty' "${MEFISTO_CONFIG_PATH}" 2>/dev/null)
+   HARNESS_REPO_SLUG=$(node "${MEFISTO_PACKAGE_ROOT}/scripts/json-value.mts" get "${MEFISTO_CONFIG_PATH}" repoSlug --or-empty 2>/dev/null)
    [ -z "$HARNESS_REPO_SLUG" ] && HARNESS_REPO_SLUG="augusto-romero-arango/mefisto"
    echo "$HARNESS_REPO_SLUG"
    ```
@@ -180,7 +180,7 @@ Este agente corre sin reviewer y genera codigo desde plantillas del harness: es 
    - Si no existe, crealo:
 
      ```bash
-     HARNESS_VERSION=$(jq -r '.version' "${MEFISTO_PACKAGE_ROOT}/mefisto-manifest.json")
+     HARNESS_VERSION=$(node "${MEFISTO_PACKAGE_ROOT}/scripts/json-value.mts" get "${MEFISTO_PACKAGE_ROOT}/mefisto-manifest.json" version)
      gh issue create -R "<slug>" \
        --title "Remediar <codigo> en la plantilla de <agente>" \
        --label "estado:borrador,tipo:tooling,warning" \

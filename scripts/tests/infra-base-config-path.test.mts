@@ -151,7 +151,7 @@ test('los tres bloques del agente usan la ruta efectiva del adaptador y el workf
 
 test('no hay lecturas jq directas del config legacy', () => {
   assert.deepEqual(
-    matchingLines(AGENT, /(^|[;&|\s])jq\s.*\.claude\/harness\.config\.json/),
+    matchingLines(AGENT, /(^|[;&|\s])(jq|json-value\.mts"?)\s.*\.claude\/harness\.config\.json/),
     [],
     'reaparecio una lectura jq directa del config legacy',
   )
@@ -170,7 +170,7 @@ test('no hay otras lecturas directas del config legacy', () => {
 
 test('todas las lecturas jq pasan por la ruta efectiva CONFIG', () => {
   assert.deepEqual(
-    matchingLines(AGENT, /(^|[;&|\s])jq\s.*\.(mefisto|claude)\/harness\.config\.json/),
+    matchingLines(AGENT, /(^|[;&|\s])(jq|json-value\.mts"?)\s.*\.(mefisto|claude)\/harness\.config\.json/),
     [],
     'alguna lectura jq evita la ruta efectiva CONFIG',
   )
@@ -180,7 +180,7 @@ test('tokens del agente y secrets del workflow usan CONFIG y la ausencia aborta'
   allIn(
     AGENT,
     [
-      `jq -r '{projectName, infraResourceGroupPrefix, terraformStateStorage, azureLocation, azureRegionShort, resourceSequence, serviceBus, projections}' "$CONFIG"`,
+      `json-value.mts" pick "$CONFIG" projectName infraResourceGroupPrefix terraformStateStorage azureLocation azureRegionShort resourceSequence serviceBus projections`,
       `COUNT=$(jq -r '.secrets // [] | length' "$CONFIG")`,
       'No se encontro .mefisto/harness.config.json; no se pueden sembrar secretos.',
     ],

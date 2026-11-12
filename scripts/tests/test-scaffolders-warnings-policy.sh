@@ -24,7 +24,7 @@ Salida `1`
 #pragma warning disable
 <NoWarn>
 # shellcheck disable
-.repoSlug // empty
+json-value.mts" get "{{mefisto:config-path}}" repoSlug --or-empty
 augusto-romero-arango/mefisto
 gh issue list -R
 gh issue create -R

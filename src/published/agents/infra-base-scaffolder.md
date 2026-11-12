@@ -56,14 +56,14 @@ if [ ! -f "$CONFIG" ]; then
   exit 1
 fi
 
-jq -r '{projectName, infraResourceGroupPrefix, terraformStateStorage, azureLocation, azureRegionShort, resourceSequence, serviceBus, projections}' "$CONFIG" 2>/dev/null
+node "{{mefisto:package-root}}/scripts/json-value.mts" pick "$CONFIG" projectName infraResourceGroupPrefix terraformStateStorage azureLocation azureRegionShort resourceSequence serviceBus projections 2>/dev/null
 ```
 
 Deriva:
 
 - `project` -- slug del proyecto en minusculas sin espacios ni guiones bajos. Tomalo del `infraResourceGroupPrefix` (que es `rg-<proyecto>`, quitale el `rg-`) o del `projectName` slugificado. Ej: `rg-controlasistencias` -> `controlasistencias`.
 - `project_short` -- abreviatura corta (3-8 chars) del proyecto, para recursos con limite de longitud estrecho. El mas ajustado que la consume es el Key Vault (`kv-{project_short}-{env}-{region}-{seq}`, rango 3-24 chars de `Microsoft.KeyVault/vaults`, patron CAF de **MEF-ADR-0045**): ver la nota **Limites de Azure (CA-2)** del Paso 2.3, que detalla por que este es el binding constraint. Si no puedes derivarla con confianza, usa los primeros ~5 chars de `project` y deja un comentario en el `variables.tf` pidiendo al consumidor que la ajuste. Cuando `projections.enabled` (ver abajo) es `true`, este mismo valor tambien nombra el Container Registry (Paso 1.9): a diferencia de Key Vault/Postgres/Service Bus, `Microsoft.ContainerRegistry/registries` exige nombre **solo alfanumerico** (sin guiones) -- este agente ya no sanea guiones de `project_short` dentro del HCL (MEF-ADR-0045, CA-2: se retira el `replace()` que hacia esa limpieza en runtime), asi que si no puedes derivarla sin guiones, quitaselos vos mismo antes de escribir el default en `variables.tf`.
-- `projections_enabled` -- booleano derivado de `projections.enabled` (contrato del issue #369; token opt-in del worker de proyecciones, MEF-ADR-0034). Ausente, `null` o cualquier valor distinto de `true` equivale a **deshabilitado** (retrocompatible, CA-3): `jq -r '.projections.enabled // false' "$CONFIG"` devuelve `false` en esos casos sin fallar aunque `harness.config.json` no declare `projections` en absoluto. Gatea el Paso 1.9 (los 3 modulos opt-in) y el Paso 2.3b/2.4b (su wiring en el entorno).
+- `projections_enabled` -- booleano derivado de `projections.enabled` (contrato del issue #369; token opt-in del worker de proyecciones, MEF-ADR-0034). Ausente, `null` o cualquier valor distinto de `true` equivale a **deshabilitado** (retrocompatible, CA-3): `node "{{mefisto:package-root}}/scripts/json-value.mts" get "$CONFIG" projections.enabled --default false` devuelve `false` en esos casos sin fallar aunque `harness.config.json` no declare `projections` en absoluto. Gatea el Paso 1.9 (los 3 modulos opt-in) y el Paso 2.3b/2.4b (su wiring en el entorno).
 - `projections_service_name` -- **solo cuando `projections_enabled` es `true`** (issue #679): el literal `<RootNamespace>.Projections` que alimenta el filtro `cloud_RoleName` de la alerta dedicada de spike de excepciones del Paso 2.3b. A diferencia del resto de este Paso 0, no sale de `harness.config.json`: `<RootNamespace>` es el token `RootNamespace` de la seccion "Tokens del harness" del archivo efectivo `{{mefisto:instructions-path}}` -- leelo igual que lo hace `projections-scaffolder` en su propio Paso 0 (mismo origen del dato), para que el literal de la query coincida por construccion con el `service.name` que fija `ConfiguracionObservabilidadProjections` (`Assembly.GetExecutingAssembly().GetName().Name!`, MEF-ADR-0034 seccion 10) -- un worker creado con `dotnet new worker -n "<RootNamespace>.Projections"` resuelve ese nombre exactamente a `<RootNamespace>.Projections`. Si `projections_enabled` es `false`, omite esta derivacion (CA-4): el Paso 1.9/2.3b/2.4b completos se saltan y no hay query que alimentar. Si `projections_enabled` es `true` pero el archivo efectivo no declara el token `RootNamespace`, **no adivines el literal ni lo derives de `namespacePrefix`**: una query cuyo `cloud_RoleName` no corresponde a ningun `service.name` real aplica sin error y **nunca dispara** -- una alerta muda es peor que ninguna, porque ocupa el lugar de la vigilancia que nadie va a echar de menos. En ese caso omite **solo** el recurso de la alerta (el resto del Paso 2.3b se genera igual) y dilo explicitamente en el Paso 5, pidiendo al consumidor que declare `RootNamespace` en su `AGENTS.md`, seccion "Tokens del harness", y te vuelva a invocar: eres idempotente y la segunda corrida agrega unicamente la alerta que falto.
 - `location` -- region de Azure. Usa `azureLocation` del config si existe; si no, `eastus2`.
 - `azure_region_short` -- el token `azureRegionShort` (MEF-ADR-0045), componente `{region}` del patron CAF de nombramiento. **Ausente o vacio**: cadena vacia -- retrocompatible, ningun nombre que este agente genera lleva `{region}`/`{seq}` (Paso 2.2/2.3). Distinto de `location`/`azureLocation`: ese es el nombre largo de la region que usa el provider (`eastus2`); este es el string corto que el consumidor declara (`eus2`), sin tabla de mapeo entre ambos (MEF-ADR-0045 seccion 5, Alt 2).
@@ -101,7 +101,7 @@ Este agente corre sin reviewer y genera codigo desde plantillas del harness: es 
 4. **Remanente: draft cross-repo en Mefisto.** Si un warning no logras remediarlo, abre un draft en el repo de Mefisto (MEF-ADR-0019: la unica operacion cross-repo es crear drafts `estado:borrador`). Resuelve el slug (MEF-ADR-0053; default `augusto-romero-arango/mefisto`):
 
    ```bash
-   HARNESS_REPO_SLUG=$(jq -r '.repoSlug // empty' "{{mefisto:config-path}}" 2>/dev/null)
+   HARNESS_REPO_SLUG=$(node "{{mefisto:package-root}}/scripts/json-value.mts" get "{{mefisto:config-path}}" repoSlug --or-empty 2>/dev/null)
    [ -z "$HARNESS_REPO_SLUG" ] && HARNESS_REPO_SLUG="augusto-romero-arango/mefisto"
    echo "$HARNESS_REPO_SLUG"
    ```
@@ -116,7 +116,7 @@ Este agente corre sin reviewer y genera codigo desde plantillas del harness: es 
    - Si no existe, crealo:
 
      ```bash
-     HARNESS_VERSION=$(jq -r '.version' "{{mefisto:package-root}}/mefisto-manifest.json")
+     HARNESS_VERSION=$(node "{{mefisto:package-root}}/scripts/json-value.mts" get "{{mefisto:package-root}}/mefisto-manifest.json" version)
      gh issue create -R "<slug>" \
        --title "Remediar <codigo> en la plantilla de <agente>" \
        --label "estado:borrador,tipo:tooling,warning" \
@@ -983,7 +983,7 @@ if [ ! -f "$CONFIG" ]; then
   echo "ERROR: no se encontro el contrato de configuracion del consumidor. No se puede resolver projections.enabled. Ejecuta {{mefisto:command onboard}} para diagnosticarlo."
   exit 1
 fi
-PROJECTIONS_ENABLED=$(jq -r '.projections.enabled // false' "$CONFIG" 2>/dev/null)
+PROJECTIONS_ENABLED=$(node "{{mefisto:package-root}}/scripts/json-value.mts" get "$CONFIG" projections.enabled --default false 2>/dev/null)
 if [ "$PROJECTIONS_ENABLED" != "true" ]; then
   echo "projections.enabled no esta en 'true': se omiten los 3 modulos de Container App (CA-3, retrocompatible)."
 fi
@@ -1681,7 +1681,7 @@ if [ ! -f "$CONFIG" ]; then
   echo "ERROR: no se encontro el contrato de configuracion del consumidor. No se puede resolver projections.enabled. Ejecuta {{mefisto:command onboard}} para diagnosticarlo."
   exit 1
 fi
-PROJECTIONS_ENABLED=$(jq -r '.projections.enabled // false' "$CONFIG" 2>/dev/null)
+PROJECTIONS_ENABLED=$(node "{{mefisto:package-root}}/scripts/json-value.mts" get "$CONFIG" projections.enabled --default false 2>/dev/null)
 if [ "$PROJECTIONS_ENABLED" = "true" ]; then
   if grep -q 'module "container_app"' infra/environments/<env>/main.tf 2>/dev/null; then
     echo "Wiring del worker de proyecciones ya presente en main.tf (omitir)."

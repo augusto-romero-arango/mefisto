@@ -80,7 +80,7 @@ describe('[fuente] contrato neutral', () => {
     ],
     (token) => `fuente no publica token prohibido: ${token}`,
   )
-  guardPrecedesOperation(command, /gh issue view|jq -r/)
+  guardPrecedesOperation(command, /gh issue view|json-value\.mts/)
   check(
     'confirmacion precede al lanzamiento',
     () =>

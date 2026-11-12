@@ -203,7 +203,7 @@ Este agente corre sin reviewer y genera codigo desde plantillas del harness: es 
 4. **Remanente: draft cross-repo en Mefisto.** Si un warning no logras remediarlo, abre un draft en el repo de Mefisto (MEF-ADR-0019: la unica operacion cross-repo es crear drafts `estado:borrador`). Resuelve el slug (MEF-ADR-0053; default `augusto-romero-arango/mefisto`):
 
    ```bash
-   HARNESS_REPO_SLUG=$(jq -r '.repoSlug // empty' "${MEFISTO_CONFIG_PATH}" 2>/dev/null)
+   HARNESS_REPO_SLUG=$(node "${MEFISTO_PACKAGE_ROOT}/scripts/json-value.mts" get "${MEFISTO_CONFIG_PATH}" repoSlug --or-empty 2>/dev/null)
    [ -z "$HARNESS_REPO_SLUG" ] && HARNESS_REPO_SLUG="augusto-romero-arango/mefisto"
    echo "$HARNESS_REPO_SLUG"
    ```
@@ -218,7 +218,7 @@ Este agente corre sin reviewer y genera codigo desde plantillas del harness: es 
    - Si no existe, crealo:
 
      ```bash
-     HARNESS_VERSION=$(jq -r '.version' "${MEFISTO_PACKAGE_ROOT}/mefisto-manifest.json")
+     HARNESS_VERSION=$(node "${MEFISTO_PACKAGE_ROOT}/scripts/json-value.mts" get "${MEFISTO_PACKAGE_ROOT}/mefisto-manifest.json" version)
      gh issue create -R "<slug>" \
        --title "Remediar <codigo> en la plantilla de <agente>" \
        --label "estado:borrador,tipo:tooling,warning" \
