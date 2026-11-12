@@ -11,11 +11,13 @@
 #       y en su espejo .claude/scripts/_mefisto-common.sh; devuelve
 #       "caffeinate -i" cuando el binario esta en PATH y cadena VACIA cuando no
 #       (el caso Linux/CI se fuerza con PATH="", sin desinstalar nada).
-#   [B] CA-2/CA-4: en launch-pipeline.sh y mefisto-launch-pipeline.sh, el unico
-#       lanzamiento desacoplado (nohup ... bash -c) antepone $CAFF al sub-pipeline.
 #   [C] CA-3/CA-4: en herdr-pipeline.sh y mefisto-herdr-pipeline.sh el lanzamiento
-#       en background del sub-pipeline esta prefijado con $CAFF, y los cuatro
+#       en background del sub-pipeline esta prefijado con $CAFF, y los dos
 #       runners calculan CAFF una sola vez por corrida (no por lanzamiento).
+#
+# El prefijo del lanzamiento desacoplado de los lanzadores lo cubren
+# scripts/tests/launch-pipeline.test.mts y
+# .claude/scripts/tests/mefisto-launch-pipeline.test.mts.
 #
 # Uso: scripts/tests/test-caffeinate-prefix.sh
 # Exit code: 0 si todos los chequeos pasan, 1 si alguno falla.
@@ -76,40 +78,6 @@ for common in "${COMMONS[@]}"; do
     fi
 done
 
-# -------- Bloque B: lanzamiento desacoplado de los despachadores --------
-
-echo ""
-echo "[B] desacoplado: el string de bash -c que lanza el sub-pipeline lleva \$CAFF (CA-2, CA-4)"
-
-LAUNCH_RUNNERS=(
-    "scripts/launch-pipeline.sh"
-    "src/internal/scripts/mefisto-launch-pipeline.sh"
-)
-
-for runner in "${LAUNCH_RUNNERS[@]}"; do
-    path="$REPO_ROOT/$runner"
-    # El comando viaja en una linea propia del lado publicado y en la misma
-    # linea que `bash -c` del interno: se mira el bloque nohup completo.
-    lanzamiento=$(awk '/nohup env /{p=1} p{print} p && /<\/dev\/null &\)/{p=0}' "$path")
-    if [ -n "$lanzamiento" ]; then
-        pass "$runner: lanzamiento desacoplado (nohup) detectado"
-    else
-        fail "$runner: no se detecto el lanzamiento desacoplado (nohup env ... </dev/null &)"
-        continue
-    fi
-    if [ "$(grep -c 'nohup env ' "$path")" -eq 1 ]; then
-        pass "$runner: un unico punto de lanzamiento desacoplado"
-    else
-        fail "$runner: mas de un 'nohup env' -- todos deben pasar por launch_detached"
-    fi
-    if printf '%s' "$lanzamiento" | grep -qF 'bash -c' && printf '%s' "$lanzamiento" | grep -qE '"[^"]*\$CAFF [^"]*"'; then
-        pass "$runner: el sub-pipeline desacoplado arranca prefijado con \$CAFF"
-    else
-        fail "$runner: el lanzamiento desacoplado NO esta prefijado con \$CAFF:"
-        printf '%s\n' "$lanzamiento" | sed 's/^/    /'
-    fi
-done
-
 # -------- Bloque C: lanzamiento en background de los runners herdr --------
 
 echo ""
@@ -129,7 +97,7 @@ for runner in "${HERDR_RUNNERS[@]}"; do
     fi
 done
 
-for runner in "${LAUNCH_RUNNERS[@]}" "${HERDR_RUNNERS[@]}"; do
+for runner in "${HERDR_RUNNERS[@]}"; do
     path="$REPO_ROOT/$runner"
     veces=$(grep -c 'CAFF="\$(caffeinate_prefix)"' "$path")
     if [ "$veces" -eq 1 ]; then

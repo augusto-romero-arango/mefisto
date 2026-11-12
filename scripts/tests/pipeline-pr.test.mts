@@ -81,13 +81,10 @@ describe('parseIssueView', () => {
     assert.equal(parseIssueView(raw({ body: null, number: 1, state: 'OPEN', title: 't' })).body, 'None')
   })
 
-  test('el titulo es el texto crudo hasta la primera comilla: con comillas queda cortado', () => {
+  test('el titulo se lee del JSON: conserva comillas y barras invertidas', () => {
     const view = parseIssueView(raw({ body: 'b', number: 1, state: 'OPEN', title: 'Agregar "ci" nuevo' }))
-    assert.equal(view.title, 'Agregar \\')
-  })
-
-  test('el titulo conserva los escapes JSON de la respuesta', () => {
-    assert.equal(parseIssueView(raw({ body: 'b', number: 1, state: 'OPEN', title: 'ruta a\\b' })).title, 'ruta a\\\\b')
+    assert.equal(view.title, 'Agregar "ci" nuevo')
+    assert.equal(parseIssueView(raw({ body: 'b', number: 1, state: 'OPEN', title: 'ruta a\\b' })).title, 'ruta a\\b')
   })
 
   test('una respuesta que no es JSON deja el estado en UNKNOWN', () => {
@@ -96,8 +93,9 @@ describe('parseIssueView', () => {
     assert.equal(parseIssueView('{"title":"sin estado"}').state, 'UNKNOWN')
   })
 
-  test('sin campo title con la forma compacta no hay titulo', () => {
-    assert.equal(parseIssueView('{"state": "OPEN", "title": "con espacios"}').title, null)
+  test('el titulo se lee tambien de un JSON con espacios, y sin campo title no hay titulo', () => {
+    assert.equal(parseIssueView('{"state": "OPEN", "title": "con espacios"}').title, 'con espacios')
+    assert.equal(parseIssueView('{"state": "OPEN"}').title, null)
   })
 
   test('sin body legible recorta el JSON crudo', () => {

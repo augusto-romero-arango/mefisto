@@ -1009,10 +1009,17 @@ echo "----------------------------------------"
 echo "  Confirmacion de arranque del runner: $PASS pass, $FAIL fail (hasta aqui)"
 echo "----------------------------------------"
 
-# --- [34-37] Issue #2284: modo por runtime + guard de pane heredado ---
+# --- [35-37] Issue #2284: delegacion del lanzador por runtime + guard de pane heredado ---
+# El lanzador corre en Node: el fixture lleva su .mts con lo que importa, y node en el
+# PATH recortado. Su modo desacoplado lo cubre .claude/scripts/tests/mefisto-launch-pipeline.test.mts.
 WRAPPER="$FAKE_MEFISTO/src/internal/scripts/mefisto-launch-pipeline.sh"
 cp "$REPO_ROOT/src/internal/scripts/mefisto-launch-pipeline.sh" "$WRAPPER"
 chmod +x "$WRAPPER"
+cp "$REPO_ROOT/src/internal/scripts/mefisto-launch-pipeline.mts" "$FAKE_MEFISTO/src/internal/scripts/"
+cp "$REPO_ROOT"/src/internal/scripts/lib/*.mts "$FAKE_MEFISTO/src/internal/scripts/lib/"
+mkdir -p "$FAKE_MEFISTO/scripts"
+cp -R "$REPO_ROOT/scripts/lib" "$FAKE_MEFISTO/scripts/"
+ln -sf "$(command -v node)" "$FAKE_BIN/node"
 run_wrapper() {
     : > "$HERDR_STUB_LOG"; echo 0 > "$HERDR_STUB_COUNTER"
     (
@@ -1030,15 +1037,6 @@ run_wrapper() {
     LAST_STDERR=$(cat "$TMP_DIR/stderr")
 }
 no_pane_calls() { ! grep -qE "pane (split|run|close)" "$HERDR_STUB_LOG"; }
-
-echo ""
-echo "[34] CA-1 (#2284): runtime claude sin MEFISTO_UI corre desacoplado"
-for mode in "--tooling 2284" "--batch 2284 2285"; do
-    # shellcheck disable=SC2086
-    run_wrapper MEFISTO_RUNTIME=claude "$WRAPPER" $mode
-    if no_pane_calls; then pass "$mode: cero herdr pane split|run|close"; else fail "$mode abrio pane -- log: $(cat "$HERDR_STUB_LOG")"; fi
-    if grep -qF "sin pane: lo sigue el mod mefisto-divine-wager" "$TMP_DIR/stdout"; then pass "$mode: anuncia el modo desacoplado"; else fail "$mode: stdout inesperado: $(cat "$TMP_DIR/stdout") err: $LAST_STDERR"; fi
-done
 
 echo ""
 echo "[35] CA-2 (#2284): runtime fake conserva el split a la derecha de HERDR_PANE_ID"

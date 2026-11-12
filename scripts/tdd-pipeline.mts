@@ -383,7 +383,7 @@ export async function tddPipeline(deps: TddPipelineDeps): Promise<number> {
         [
           { key: 'issue', json: jsonText(run.issue.length > 0 ? run.issue : 'null') },
           // El titulo llega crudo de la respuesta de `gh`, con sus escapes JSON intactos.
-          { key: 'title', json: `"${run.issueTitle.replaceAll('"', '\\"')}"` },
+          { key: 'title', json: jsonText(run.issueTitle) },
           { key: 'pipeline', json: '"tdd"' },
           { key: 'variant', json: run.variant.length > 0 ? jsonText(run.variant) : 'null' },
           { key: 'identity', json: run.identityJson },

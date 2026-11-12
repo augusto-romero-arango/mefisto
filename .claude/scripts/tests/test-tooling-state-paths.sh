@@ -10,10 +10,10 @@
 #   [A]   Los shims son EXACTAMENTE la plantilla documentada en
 #         src/internal/scripts/README.md: exec de 3 lineas para el pipeline,
 #         source de una linea para la lib (CA-1).
-#   [I]   Los lanzadores (desacoplado, herdr) resuelven events.log y logs/ con
-#         mefisto_state_path, de modo que el traslado del pipeline no los deja
-#         vigilando archivos que ya nadie escribe (CA-3; el porte completo de
-#         ambos es #871/#872).
+#   [I]   El lanzador herdr resuelve logs/ con mefisto_state_path, de modo
+#         que el traslado del pipeline no lo deja vigilando archivos que ya
+#         nadie escribe (CA-3). El lanzador desacoplado lo cubre
+#         .claude/scripts/tests/mefisto-launch-pipeline.test.mts.
 #   [K]   MEFISTO_AGENT_TIMEOUT_SECONDS viaja hasta el eslabon (issue #946,
 #         CA-3): mefisto-herdr-pipeline.sh no filtra el entorno del pipeline
 #         de tooling mas alla de las HERDR_*, asi que la variable llega
@@ -130,7 +130,7 @@ fi
 # -------- Bloque I: los lanzadores siguen viendo la corrida --------
 
 echo ""
-echo "[I] los lanzadores resuelven el estado de la corrida con mefisto_state_path (CA-3)"
+echo "[I] el lanzador herdr resuelve el estado de la corrida con mefisto_state_path (CA-3)"
 
 # El traslado del pipeline mueve events.log y logs/ a .mefisto/pipeline/. Los
 # lanzadores que en ese momento vivian en .claude/scripts/ los componian a
@@ -141,20 +141,14 @@ echo "[I] los lanzadores resuelven el estado de la corrida con mefisto_state_pat
 # porte del lanzador se cerro en #871 y el de herdr en #872 (ambos ya
 # canonicos en src/internal/scripts/). Esto solo fija que la resolucion no
 # vuelva a quedarse atras.
-LAUNCHER="$REPO_ROOT/src/internal/scripts/mefisto-launch-pipeline.sh"
 HERDR_LAUNCHER="$REPO_ROOT/src/internal/scripts/mefisto-herdr-pipeline.sh"
 
-if grep -qF 'EVENTS_LOG="$(mefisto_state_path "events.log")"' "$LAUNCHER"; then
-    pass "I-1: el lanzador prepara el events.log que el pipeline escribe hoy"
-else
-    fail "I-1: mefisto-launch-pipeline.sh no resuelve events.log con mefisto_state_path"
-fi
 if grep -qF 'LOG_DIR_ABS="$(mefisto_state_path "logs")"' "$HERDR_LAUNCHER"; then
     pass "I-2: herdr busca los logs de la corrida donde el pipeline los deja"
 else
     fail "I-2: mefisto-herdr-pipeline.sh no resuelve logs/ con mefisto_state_path"
 fi
-for launcher in "$LAUNCHER" "$HERDR_LAUNCHER"; do
+for launcher in "$HERDR_LAUNCHER"; do
     name=$(basename "$launcher")
     # Solo lineas de CODIGO: los comentarios si pueden nombrar la ruta legacy al
     # explicar por que se dejo de usar.

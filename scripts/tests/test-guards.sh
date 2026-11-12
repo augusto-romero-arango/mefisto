@@ -8,8 +8,7 @@
 #      src/published/ (directiva {{mefisto:assert-consumer-repo}}, MEF-ADR-0049),
 #      que en su lugar verifica src/internal/scripts/generate-internal-adapters.sh.
 #   B) Los skills internos (.claude/commands/mefisto-*.md) llevan el guard inverso.
-#   C) Los pipelines publicados que siguen en bash (scripts/launch-pipeline.sh)
-#      y los scripts auxiliares publicados que siguen en bash (setup-github-labels.sh,
+#   C) Los scripts auxiliares publicados que siguen en bash (setup-github-labels.sh,
 #      seed-secret.sh, onboard-diagnose.sh, update-plugin.sh) abortan si se
 #      sourcean en un contexto donde .claude-plugin/plugin.json existe. Los portados a
 #      TypeScript (MEF-ADR-0057) quedan cubiertos por C2 y por su .test.mts.
@@ -156,35 +155,6 @@ for path in "$REPO_ROOT"/.claude/commands/mefisto-*.md; do
     fi
 done
 
-# -------- Bloque C: pipelines publicados abortan en repo de Mefisto --------
-
-echo ""
-echo "[C] Pipelines publicados: contienen guard contra repo de Mefisto"
-
-PUBLISHED_PIPELINES=(
-    launch-pipeline.sh
-)
-
-for pipe in "${PUBLISHED_PIPELINES[@]}"; do
-    path="$REPO_ROOT/scripts/$pipe"
-    if [ ! -f "$path" ]; then
-        fail "$pipe: archivo no existe"
-        continue
-    fi
-    if grep -q '\.claude-plugin/plugin\.json' "$path"; then
-        pass "$pipe: menciona .claude-plugin/plugin.json (guard)"
-    else
-        fail "$pipe: no menciona .claude-plugin/plugin.json"
-    fi
-
-    # Validar sintaxis bash
-    if bash -n "$path" 2>/dev/null; then
-        pass "$pipe: sintaxis bash valida"
-    else
-        fail "$pipe: sintaxis bash invalida"
-    fi
-done
-
 # -------- Bloque C2: scripts auxiliares publicados abortan en repo de Mefisto --------
 
 echo ""
@@ -194,6 +164,7 @@ AUX_SCRIPTS=(
     appinsights-query.sh setup-github-ci.sh setup-github-labels.sh
     bootstrap-backend.sh seed-secret.sh onboard-diagnose.sh onboard-migrate-directives.sh onboard-activate-repo.sh update-plugin.sh upgrade.sh
     purge-store.sh next-order.sh field-note.sh warnings-diff.sh tooling-pipeline.sh tdd-pipeline.sh scaffold-pipeline.sh iac-pipeline.sh
+    launch-pipeline.sh
 )
 
 for aux in "${AUX_SCRIPTS[@]}"; do
@@ -203,7 +174,7 @@ for aux in "${AUX_SCRIPTS[@]}"; do
     if [ "$rc" -eq 1 ] && echo "$output" | grep -q "plugin publicado y solo aplica al consumidor"; then
         pass "$aux: aborta con exit 1 y mensaje correcto en repo de Mefisto"
     else
-        fail "$aux: no aborta como se espera (exit=$rc)"
+        fail "$aux: no aborta como se espera (exit=$rc): $(printf '%s' "$output" | head -n 3 | tr '\n' '|')"
     fi
 done
 

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # test-stage-models.sh -- Tests del mecanismo de asignacion de modelo por stage
-# (--models, issue #708) en scripts/_pipeline-common.sh y scripts/launch-pipeline.sh.
+# (--models, issue #708) en scripts/_pipeline-common.sh y scripts/herdr-pipeline.sh.
 #
 # Cubre:
 #   parse_stage_models    - spec vacio (no --models: comportamiento actual
@@ -16,22 +16,14 @@
 #                            tdd-pipeline.sh usa en los sub-stages de patch
 #                            (issue #712).
 #   format_stage_models_for_log - formato de auditoria (CA-4), vacio sin mapa.
-#   launch-pipeline.sh      - --tooling reenvia --models intacto al sub-pipeline
-#                            (CA-3); el enrutamiento automatico de un unico
-#                            issue (sin --tooling explicito) tambien lo reenvia
-#                            desde que tdd-pipeline.sh lo implementa (issue
-#                            #712) -- los unicos overrides validos de
-#                            resolve_pipeline() son "tdd"/"tooling", asi que
-#                            ese camino siempre resuelve a un sub-script que
-#                            soporta el flag. El resto de los modos (--infra,
-#                            --scaffold, --batch, --parallel, y varios
-#                            issues sueltos) lo siguen rechazando con mensaje
-#                            explicito en vez de tragarselo en silencio.
 #   herdr-pipeline.sh       - la otra mitad de CA-3: dentro de un pane herdr,
-#                            launch-pipeline.sh delega con `exec herdr-pipeline.sh
-#                            "$@"`, asi que el flag tiene que sobrevivir tambien
+#                            launch-pipeline.sh delega en herdr-pipeline.sh con
+#                            los mismos argumentos, asi que el flag tiene que sobrevivir tambien
 #                            ahi -- mismo reenvio (con el valor intacto) y el
 #                            mismo rechazo explicito por modo sin soporte.
+#
+# El reenvio y el rechazo de --models en el modo desacoplado de launch-pipeline.mts
+# los cubre scripts/tests/launch-pipeline.test.mts.
 #
 # Uso: scripts/tests/test-stage-models.sh
 # Exit code: 0 si todos los chequeos pasan, 1 si alguno falla.
@@ -219,143 +211,19 @@ echo "----------------------------------------"
 echo "  _pipeline-common.sh: $PASS pass, $FAIL fail (hasta aqui)"
 echo "----------------------------------------"
 
-# --- launch-pipeline.sh: reenvio/rechazo de --models por modo (CA-3) ---------
-#
-# Mismo arnes que test-launch-preparse.sh: consumidor falso (git init sin
-# .claude-plugin/plugin.json) para pasar el guard defensivo y MEFISTO_UI=mod
-# para no delegar a la interfaz herdr si el test corre dentro de un pane herdr.
-export MEFISTO_UI=mod
-
 FAKE_BIN="$TMP_DIR/bin"
 mkdir -p "$FAKE_BIN"
 
 (cd "$FAKE_CONSUMER" && git init -q)
 
-# Copia del paquete con sub-pipelines stub que imprimen su argv, un argumento
-# por <>: el report log de cada corrida desacoplada deja ver que recibieron.
-LAUNCH_PKG="$TMP_DIR/pkg"
-mkdir -p "$LAUNCH_PKG/scripts" "$LAUNCH_PKG/src"
-cp "$REPO_ROOT"/scripts/*.sh "$LAUNCH_PKG/scripts/"
-ln -s "$REPO_ROOT/src/runtime" "$LAUNCH_PKG/src/runtime"
-for s in tdd tooling iac scaffold batch parallel; do
-    cat > "$LAUNCH_PKG/scripts/$s-pipeline.sh" <<STUB
-#!/usr/bin/env bash
-printf 'stub $s'; printf ' <%s>' "\$@"; echo
-STUB
-done
-chmod +x "$LAUNCH_PKG"/scripts/*.sh
-LAUNCH_SCRIPT="$LAUNCH_PKG/scripts/launch-pipeline.sh"
-
 LAST_STDOUT=""
 LAST_STDERR=""
 LAST_RC=0
 
-run_wrapper() {
-    find "$FAKE_CONSUMER" -name '*.report.log' -delete 2>/dev/null
-    local out="$TMP_DIR/stdout" err="$TMP_DIR/stderr"
-    (
-        cd "$FAKE_CONSUMER" || exit 99
-        # Hermetico: el pipeline exporta estas rutas y desviarian el estado fuera del consumidor falso.
-        unset MEFISTO_STATE_DIR MEFISTO_LEGACY_STATE_DIR MEFISTO_REPO_ROOT MEFISTO_MODELS_FILE
-        MEFISTO_RUNTIME=claude "$LAUNCH_SCRIPT" "$@"
-    ) </dev/null >"$out" 2>"$err"
-    LAST_RC=$?
-    LAST_STDOUT=$(cat "$out")
-    LAST_STDERR=$(cat "$err")
-}
-
-# launched_argv <prefijo>: argv que recibio el sub-pipeline de la corrida
-# <prefijo>-run-*.report.log, esperando a que el proceso desacoplado lo escriba.
-launched_argv() {
-    local i=0 f=""
-    while [ $i -lt 50 ]; do
-        f=$(find "$FAKE_CONSUMER" -name "$1-run-*.report.log" -size +0 2>/dev/null | head -n1)
-        [ -n "$f" ] && break
-        sleep 0.1
-        i=$((i+1))
-    done
-    [ -n "$f" ] && cat "$f"
-}
-
-echo ""
-echo "[11] --tooling reenvia --models intacto al sub-pipeline (CA-3)"
-run_wrapper --tooling 253 --models "writer=sonnet,reviewer=opus"
-if [ "$LAST_RC" -eq 0 ]; then pass "--tooling + --models corre sin abortar (rc=$LAST_RC)"; else fail "--tooling + --models no deberia abortar (rc=$LAST_RC, stderr: $LAST_STDERR)"; fi
-ARGV="$(launched_argv tooling-issue-253)"
-if printf '%s' "$ARGV" | grep -qF "stub tooling <253> <--models> <writer=sonnet,reviewer=opus>"; then
-    pass "tooling-pipeline.sh recibe el issue y --models con el valor intacto"
-else
-    fail "tooling-pipeline.sh no recibio '253 --models ...' -- argv: $ARGV"
-fi
-run_wrapper --tooling 253 --models "writer=claude-opus-5[1m]"
-ARGV="$(launched_argv tooling-issue-253)"
-if printf '%s' "$ARGV" | grep -qF "stub tooling <253> <--models> <writer=claude-opus-5[1m]>"; then
-    pass "un id de modelo con corchetes llega literal (sin expansion de glob)"
-else
-    fail "el id con corchetes no llego literal -- argv: $ARGV"
-fi
-
-echo ""
-echo "[12] --tooling combina --from-stage y --models en orden"
-run_wrapper --tooling 253 --from-stage 2 --models "reviewer=opus"
-if [ "$LAST_RC" -eq 0 ]; then pass "combinado corre sin abortar"; else fail "no deberia abortar (rc=$LAST_RC, stderr: $LAST_STDERR)"; fi
-ARGV="$(launched_argv tooling-issue-253)"
-if printf '%s' "$ARGV" | grep -qF "stub tooling <253> <--from-stage> <2> <--models> <reviewer=opus>"; then
-    pass "tooling-pipeline.sh recibe --from-stage y --models en orden"
-else
-    fail "orden incorrecto -- argv: $ARGV"
-fi
-
-echo ""
-echo "[13] --models sin valor aborta con mensaje claro"
-run_wrapper --tooling 253 --models
-if [ "$LAST_RC" -eq 1 ]; then pass "--models sin valor aborta"; else fail "deberia abortar (rc=$LAST_RC)"; fi
-if printf '%s' "$LAST_STDERR" | grep -q "Falta el valor de --models"; then pass "mensaje: falta el valor"; else fail "mensaje inesperado: $LAST_STDERR"; fi
-
-echo ""
-echo "[14] --models se rechaza (nunca se traga en silencio) en modos sin soporte todavia"
-
-run_wrapper --infra 253 --models "writer=sonnet"
-if [ "$LAST_RC" -eq 1 ]; then pass "--infra + --models aborta"; else fail "deberia abortar (rc=$LAST_RC)"; fi
-if printf '%s' "$LAST_STDERR" | grep -q "no es valido con --infra"; then pass "mensaje: no valido con --infra"; else fail "mensaje inesperado: $LAST_STDERR"; fi
-
-run_wrapper --scaffold 253 --domain miDominio --models "writer=sonnet"
-if [ "$LAST_RC" -eq 1 ]; then pass "--scaffold + --models aborta"; else fail "deberia abortar (rc=$LAST_RC)"; fi
-if printf '%s' "$LAST_STDERR" | grep -q "no es valido con --scaffold"; then pass "mensaje: no valido con --scaffold"; else fail "mensaje inesperado: $LAST_STDERR"; fi
-
-run_wrapper --batch 253 254 --models "writer=sonnet" --pipeline tooling
-if [ "$LAST_RC" -eq 1 ]; then pass "--batch + --models aborta"; else fail "deberia abortar (rc=$LAST_RC)"; fi
-if printf '%s' "$LAST_STDERR" | grep -q "no es valido con --batch"; then pass "mensaje: no valido con --batch"; else fail "mensaje inesperado: $LAST_STDERR"; fi
-
-run_wrapper --parallel 253 254 --models "writer=sonnet" --pipeline tooling
-if [ "$LAST_RC" -eq 1 ]; then pass "--parallel + --models aborta"; else fail "deberia abortar (rc=$LAST_RC)"; fi
-if printf '%s' "$LAST_STDERR" | grep -q "no es valido con --parallel"; then pass "mensaje: no valido con --parallel"; else fail "mensaje inesperado: $LAST_STDERR"; fi
-
-echo ""
-echo "[14b] issue suelto (sin --tooling), enrutado por --pipeline, reenvia --models (issue #712)"
-
-run_wrapper 253 --models "writer=sonnet" --pipeline tooling
-if [ "$LAST_RC" -eq 0 ]; then pass "issue suelto + --pipeline tooling + --models corre sin abortar"; else fail "no deberia abortar (rc=$LAST_RC, stderr: $LAST_STDERR)"; fi
-ARGV="$(launched_argv tooling-pipeline-issue-253)"
-if printf '%s' "$ARGV" | grep -qF "stub tooling <253> <--models> <writer=sonnet>"; then
-    pass "--models llega a tooling-pipeline.sh"
-else
-    fail "--models no llego a tooling-pipeline.sh -- argv: $ARGV"
-fi
-
-run_wrapper 253 --models "test-writer=sonnet,reviewer=opus" --pipeline tdd
-if [ "$LAST_RC" -eq 0 ]; then pass "issue suelto + --pipeline tdd + --models corre sin abortar"; else fail "no deberia abortar (rc=$LAST_RC, stderr: $LAST_STDERR)"; fi
-ARGV="$(launched_argv tdd-pipeline-issue-253)"
-if printf '%s' "$ARGV" | grep -qF "stub tdd <253> <--models> <test-writer=sonnet,reviewer=opus>"; then
-    pass "--models llega a tdd-pipeline.sh"
-else
-    fail "--models no llego a tdd-pipeline.sh -- argv: $ARGV"
-fi
-
 # --- herdr-pipeline.sh: la otra mitad de CA-3 --------------------------------
 #
-# Dentro de un pane herdr, launch-pipeline.sh hace `exec herdr-pipeline.sh "$@"`
-# ANTES de su propio pre-parseo: si herdr-pipeline.sh no conoce --models, el
+# Dentro de un pane herdr, launch-pipeline.sh delega en herdr-pipeline.sh con los
+# mismos argumentos ANTES de su propio pre-parseo: si herdr-pipeline.sh no conoce --models, el
 # flag cae en filtered_args y el dispatch de --tooling (que solo reenvia "$1")
 # lo descarta en silencio -- la corrida usaria los modelos default mientras el
 # reporte del experimento le atribuye el resultado al override.
