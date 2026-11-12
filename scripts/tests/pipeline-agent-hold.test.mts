@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, realpathSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { after, before, describe, test } from 'node:test'
@@ -21,6 +21,7 @@ import {
 import { clockTime } from '../lib/pipeline/agent-log.mts'
 import { NO_BASH, bashLibrary, chomp } from './pipeline-agents-parity.mts'
 
+const REPO_ROOT = join(import.meta.dirname, '..', '..')
 const NOW = new Date(2026, 5, 15, 12, 0, 0)
 const NOW_EPOCH = Math.floor(NOW.getTime() / 1000)
 const isoUtc = (epoch: number): string => new Date(epoch * 1000).toISOString().replace(/\.\d{3}Z$/, 'Z')
@@ -255,6 +256,19 @@ test('[1] agentResumePrompt nombra el stage, el agente y la ruta del resumen', (
   assert.equal(prompt.split('stage 2, agente reviewer').length, 3)
   assert.ok(prompt.endsWith('responsabilidad exclusiva del pipeline.\n'))
   assert.equal(prompt.split('\n').length, 10)
+})
+
+test('[6] ni los pipelines publicados ni los adaptadores de runtime reanudan con --fork-session', () => {
+  // Reusar el id de sesion mantiene un solo transcript por stage.
+  const dirs = [join('scripts'), join('scripts', 'lib', 'pipeline'), join('src', 'runtime', 'lib')]
+  const sources = dirs.flatMap((dir) =>
+    readdirSync(join(REPO_ROOT, dir))
+      .filter((file) => file.endsWith('.mts'))
+      .map((file) => join(dir, file)),
+  )
+  assert.ok(sources.length > 0)
+  const offenders = sources.filter((file) => readFileSync(join(REPO_ROOT, file), 'utf8').includes('fork-session'))
+  assert.deepEqual(offenders, [])
 })
 
 test('localEpochAt da el epoch de una fecha y hora locales', () => {
