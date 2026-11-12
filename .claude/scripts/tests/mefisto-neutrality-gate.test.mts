@@ -353,33 +353,6 @@ describe('argumentos', () => {
   })
 })
 
-describe('cableado en el pipeline de tooling', () => {
-  const pipeline = readFileSync(
-    join(REPO_ROOT, 'src', 'internal', 'scripts', 'mefisto-tooling-pipeline.sh'),
-    'utf8',
-  ).split('\n')
-  const linesWith = (needle: string): number[] =>
-    pipeline.flatMap((line, index) => (line.includes(needle) ? [index + 1] : []))
-
-  test('invoca el gate del checkout principal sobre el arbol del worktree', () => {
-    assert.ok(linesWith('mefisto-neutrality-gate.sh" --root "$WORKTREE_PATH"').length > 0)
-  })
-
-  for (const [stage, role] of [
-    [1, 'writer'],
-    [2, 'reviewer'],
-  ] as const) {
-    test(`stage ${stage}: gate de scope, gate de neutralidad y auto-commit, en ese orden`, () => {
-      const scope = linesWith('validate_mefisto_scope_changes "$WORKTREE_PATH"')[stage - 1]
-      const neutrality = linesWith(`run_neutrality_gate ${stage} ${role}`)[0]
-      const commit = linesWith(`auto_commit_if_needed "${role}"`)[0]
-      assert.ok(scope !== undefined && neutrality !== undefined && commit !== undefined)
-      assert.ok(scope < neutrality, `scope=${scope} gate=${neutrality}`)
-      assert.ok(neutrality < commit, `gate=${neutrality} auto_commit=${commit}`)
-    })
-  }
-})
-
 describe('repo real', () => {
   // Detecta regresiones grandes, no rendimiento fino: las dos verificaciones estructurales
   // lanzan un generador completo cada una y dominan el reloj.

@@ -59,6 +59,21 @@ describe('assertInMefisto', () => {
     assert.ok(info.root.length > 0)
   })
 
+  test('el slug sale del gh inyectado, y sin gh queda vacio', () => {
+    const repo = initRepo('gh-inyectado')
+    mkdirSync(join(repo, '.claude-plugin'))
+    writeFileSync(join(repo, '.claude-plugin', 'plugin.json'), '{}')
+    const calls: string[][] = []
+    const run = (command: string, args: string[]) => {
+      calls.push([command, ...args])
+      return { status: 0, stdout: 'acme/mefisto\n', stderr: '' }
+    }
+    assert.equal(assertInMefisto(repo, { run, hasCommand: () => true }).repoSlug, 'acme/mefisto')
+    assert.deepEqual(calls, [['gh', 'repo', 'view', '--json', 'nameWithOwner', '-q', '.nameWithOwner']])
+    assert.equal(assertInMefisto(repo, { run, hasCommand: () => false }).repoSlug, '')
+    assert.equal(calls.length, 1)
+  })
+
   test('un manifiesto ilegible cae al nombre por defecto', () => {
     const repo = initRepo('ilegible')
     mkdirSync(join(repo, '.claude-plugin'))

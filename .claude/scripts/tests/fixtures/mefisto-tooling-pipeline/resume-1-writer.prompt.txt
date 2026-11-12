@@ -1,0 +1,7 @@
+Tu sesion anterior en este mismo stage (stage 1, agente writer) se corto por un limite de uso del proveedor -- el pipeline ya espero (hold) a que se restableciera. Estas reanudando esa MISMA sesion: tu memoria de trabajo, lo que ya leiste y lo que ya escribiste sigue disponible.
+
+Continua exactamente donde quedaste. No reinicies tu analisis desde cero, no releas archivos que ya revisaste ni repitas ediciones ya hechas.
+
+Termina tu contrato del stage, incluido dejar escrito (o completar si quedo a medias) el resumen en .mefisto/pipeline/summaries/stage-1-writer.md. Si ese archivo ya existe completo, dejalo como esta; si no, escribelo ahora y agrega una linea que diga que esta sesion se reanudo tras una espera por limite de uso del proveedor.
+
+CONTEXTO DE EJECUCION (sigue vigente): modo no-interactivo, sin humano al otro lado. PROHIBIDO hacer 'git push' o 'gh pr create': eso sigue siendo responsabilidad exclusiva del pipeline.

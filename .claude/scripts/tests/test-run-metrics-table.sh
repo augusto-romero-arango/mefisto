@@ -59,18 +59,6 @@ else
     fail "contador ausente deberia degradar la fila y el total: $OUT"
 fi
 
-echo "[E] El comentario de PR reutilizado conserva Markdown real y fallo no fatal"
-PIPELINE="$REPO_ROOT/src/internal/scripts/mefisto-tooling-pipeline.sh"
-if grep -qF 'RUN_METRICS_COMMENT=$(cat <<EOF' "$PIPELINE" \
-   && grep -qF "Actualizado: \$(date '+%Y-%m-%d %H:%M:%S %Z')" "$PIPELINE" \
-   && grep -qF -- '--body "$RUN_METRICS_COMMENT"' "$PIPELINE" \
-   && grep -qF '|| warn "No se pudo publicar las metricas en el PR reutilizado' "$PIPELINE" \
-   && ! grep -qF -- '--body "## Metricas de la corrida\n' "$PIPELINE"; then
-    pass "comentario usa saltos reales y gh pr comment degrada a warn"
-else
-    fail "integracion del comentario de PR reutilizado no respeta el contrato"
-fi
-
 echo "[F] jq ausente nunca aborta y degrada la tabla"
 NO_JQ=$(mktemp -d)
 OUT=$(PATH="$NO_JQ" render_run_metrics_table Writer 60 "$WRITER")

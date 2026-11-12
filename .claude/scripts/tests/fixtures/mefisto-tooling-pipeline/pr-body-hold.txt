@@ -1,0 +1,34 @@
+## Resumen
+
+Pipeline mefisto-tooling completado:
+- Writer: implementacion de la tarea
+- Reviewer: revision de calidad
+
+## Decisiones del pipeline
+
+<details>
+<summary>Writer -- 12m 5s (incluye 10m 0s en espera/hold; reanudo la sesion truncada)</summary>
+
+## Implementado
+
+- Script `ci.sh` con $VARIABLES sin expandir.
+
+</details>
+
+<details>
+<summary>Reviewer -- 1m 1s (reanudo la sesion truncada)</summary>
+
+_(El agente no genero resumen)_
+
+</details>
+
+## Commits
+
+89abcde mefisto-tooling(#42): revision y correcciones
+0123456 mefisto-tooling(#42): implementacion
+
+## Metricas de la corrida
+
+| tabla |
+
+Refs #42

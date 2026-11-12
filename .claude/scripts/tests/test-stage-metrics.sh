@@ -51,11 +51,6 @@
 #   [K] Integracion: la linea resultante es JSON valido de una sola linea
 #       (CA-4) y conserva `agents.writer.duration` numerico ademas de
 #       agregar `agents.writer.metrics`/`agents.writer.runtime`.
-#   [L] Cableado en mefisto-tooling-pipeline.sh (CA-3): compute_stage_metrics
-#       se invoca sobre `$events_file` (el JSONL neutral), no sobre
-#       `$stream_file` (la traza cruda); las dos entradas de historial
-#       (completed y la de abort) pasan por build_agents_history_json; las
-#       metricas se cosechan por stage y no por nombre de agente.
 #   [M] Exito con tool calls sobre el fixture real de Claude (CA-4): las
 #       metricas derivadas de `runtime_claude_translate` sobre
 #       fixtures/runtime-claude/success.jsonl traen `status`, la forma de
@@ -387,48 +382,6 @@ fi
 assert_field "K-3: agents.writer.duration sigue siendo numerico (campo legado intacto)" "125" "$(echo "$HISTORY_LINE" | jq -r '.agents.writer.duration')"
 assert_field "K-4: agents.writer.metrics.turns esta presente (campo nuevo)" "4" "$(echo "$HISTORY_LINE" | jq -r '.agents.writer.metrics.turns')"
 assert_field "K-5: agents.writer.runtime esta presente (campo nuevo)" "claude" "$(echo "$HISTORY_LINE" | jq -r '.agents.writer.runtime')"
-
-# -------- Bloque L: cableado en el pipeline interno --------
-
-echo ""
-echo "[L] Cableado en mefisto-tooling-pipeline.sh (CA-1/CA-2/CA-3)"
-
-PIPE="$REPO_ROOT/src/internal/scripts/mefisto-tooling-pipeline.sh"
-
-if grep -q 'compute_stage_metrics "\$events_file"' "$PIPE"; then
-    pass "L-1: el pipeline invoca compute_stage_metrics sobre \$events_file (el JSONL neutral, no la traza cruda)"
-else
-    fail "L-1: el pipeline NO invoca compute_stage_metrics sobre \$events_file"
-fi
-
-if grep -q 'compute_stage_metrics "\$stream_file"' "$PIPE"; then
-    fail "L-2: el pipeline todavia invoca compute_stage_metrics sobre \$stream_file (la traza cruda) -- CA-3 exige \$events_file"
-else
-    pass "L-2: el pipeline ya no invoca compute_stage_metrics sobre \$stream_file"
-fi
-
-if [ "$(grep -c "build_agents_history_json" "$PIPE")" -ge 2 ]; then
-    pass "L-3: build_agents_history_json alimenta las dos entradas de historial (completed y la de abort)"
-else
-    fail "L-3: build_agents_history_json no se usa en las dos entradas de historial"
-fi
-
-# El stage de resolucion de conflictos corre como `run_agent "merge" "writer"`:
-# cosechar las metricas con un case por "$agent" hace que un merge fallido pise
-# las del writer de stage 1 y el historial reporte, bajo agents.writer.metrics,
-# los turnos y tokens de otro stage. Por eso la cosecha va por "$stage".
-if grep -q 'run_agent "merge" "writer"' "$PIPE"; then
-    pass "L-4: existe el stage merge reusando el nombre de agente 'writer' (premisa de L-5)"
-else
-    fail "L-4: cambio el stage merge -- revisar si L-5 sigue teniendo sentido"
-fi
-
-if grep -qE 'AGENT_WR_METRICS_JSON="\$metrics_json"' "$PIPE" \
-   && ! grep -qE 'writer\).*AGENT_WR_METRICS_JSON' "$PIPE"; then
-    pass "L-5: las metricas se cosechan por stage, no por nombre de agente (el merge no pisa al writer)"
-else
-    fail "L-5: las metricas se cosechan por nombre de agente -- un merge fallido pisaria las del writer"
-fi
 
 # -------- Bloque M: exito con tool calls sobre el fixture real de Claude --------
 

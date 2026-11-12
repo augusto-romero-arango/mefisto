@@ -134,6 +134,15 @@ describe('createWorktree', () => {
     assert.equal(f.screen().includes('cwd en rama'), false)
   })
 
+  test('con path crea el worktree donde se le pide', () => {
+    const f = fixture()
+    const wanted = join(f.root, '.mefisto', 'worktrees', 'rama-propia')
+    const path = createWorktree({ repoRoot: f.root, branch: 'rama-propia', currentBranch: 'main', path: wanted }, f.tools)
+    assert.equal(path, wanted)
+    assert.equal(git(wanted, 'rev-parse', '--abbrev-ref', 'HEAD'), 'rama-propia')
+    assert.equal(existsSync(pipelineWorktreePath(f.root, 'rama-propia')), false)
+  })
+
   test('un worktree de una corrida anterior se limpia y se vuelve a crear', () => {
     const f = fixture()
     const request = { repoRoot: f.root, branch: 'rama', currentBranch: 'main' }
