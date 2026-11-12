@@ -1,0 +1,56 @@
+Estas en el directorio raiz del repo de Mefisto (mefisto).
+
+Contexto de la tarea:
+
+# Issue #42: Agregar workflow "ci" con $HOME y `backticks`
+
+Cuerpo con $(subshell) y \backslash.
+Segunda linea.
+
+Cambios del writer:
+
+Commit base: 0123456789abcdef0123456789abcdef01234567
+HEAD del writer: 89abcdef0123456789abcdef0123456789abcdef
+
+Resumen (git diff --stat=120 0123456789abcdef0123456789abcdef01234567..HEAD):
+
+ scripts/ci.sh | 12 ++++++++++++
+ 1 file changed, 12 insertions(+)
+
+Rutas cambiadas (git diff --name-status 0123456789abcdef0123456789abcdef01234567..HEAD):
+
+A	scripts/ci.sh
+
+Tu tarea: revisa la calidad de los cambios producidos por el writer.
+
+ALCANCE DE ESCRITURA PERMITIDO (igual al del writer):
+commands/, agents/, scripts/, hooks/, docs/, .claude-plugin/,
+.claude/commands/, .claude/agents/, .claude/scripts/, .claude/mods/, .claude/settings.json,
+src/internal/, src/published/, src/runtime/, dist/,
+AGENTS.md, changelog.d/, README.md, CHANGELOG.md, CLAUDE.md, .gitignore, .gitattributes, LICENSE, NOTICE.
+
+CONTEXTO DE EJECUCION:
+- Modo no-interactivo (print mode). DEBES usar Write/Edit directamente.
+- Responder con texto pidiendo aprobacion causa un fallo del pipeline.
+- Tienes permisos completos (bypassPermissions activo).
+- PROHIBIDO hacer 'git push' o 'gh pr create' (ni ninguna operacion de publicacion de rama/PR): eso es responsabilidad exclusiva del pipeline, nunca tuya.
+
+ECONOMIA DE TURNOS:
+Cada turno tuyo cuesta ~13 s de reloj (el 96,6% del tiempo de una corrida es el modelo escribiendo tokens, no las herramientas ejecutandose). El presupuesto completo del stage es 1800 s. Lo caro suele ser el turno, pero los tests tambien consumen ese presupuesto. Con eso en mente:
+- Agrupa en un mismo turno las tool calls independientes entre si (varias busquedas, varias lecturas, varias escrituras a archivos distintos). No las encadenes de a una: hoy el 82% de los turnos del pipeline gasta una sola tool call, y cada una de esas cadenas paga 13 s por eslabon.
+- Al cerrar, corre UNA vez scripts/tests/test-guards.sh y los tests de scripts/tests/, src/published/scripts/tests/ y .claude/scripts/tests/ cuyo nombre o contenido mencione los archivos que tocaste (busca con grep -l). scripts/tests/<x>.sh puede ser un shim de src/published/scripts/tests/<x>.sh: corre un solo archivo por suite (el shim si existe, o el de src/published/ directo si no), sin duplicarla. No corras la suite completa dentro de este stage: el presupuesto (1800 s) no la cubre. Si alguien fuera de este stage necesita la regresion completa, el destino es .claude/scripts/mefisto-test-suite.sh, no un bucle propio.
+- Ya tienes el commit base, el HEAD del writer, el --stat y las rutas cambiadas aqui arriba: para ver el diff de una ruta puntual pidelo bajo demanda con 'git diff 0123456789abcdef0123456789abcdef01234567..HEAD -- <ruta>' (o 'git show <sha>' para inspeccionar un commit), agrupando varias rutas en el mismo turno si necesitas mas de una. No re-inspecciones el arbol con 'git status' para confirmar algo que acabas de escribir -- Write y Edit fallan con error si no aplican, asi que el exito de la herramienta ya es la confirmacion.
+- No verifiques el scope de un archivo antes de escribirlo: un hook PostToolUse te avisa EN EL INSTANTE, gratis, si un Edit/Write cae fuera de la allowlist -- no hay motivo para inspeccionar preventivamente algo que el hook ya te va a decir si sale mal. Eso no reemplaza los gates finales (validate_mefisto_scope_changes y mefisto-neutrality-gate.sh siguen corriendo al cierre del stage): el hook es aviso temprano, no el juez.
+Estas reglas no cubren todos los casos; ante cualquier otro, decide con el mismo criterio -- un turno extra cuesta ~13 s, y solo vale la pena si te ahorra un error que costaria mas.
+
+NEUTRALIDAD DE RUNTIME:
+Un gate de cierre de stage (reglas R1-R3 de src/internal/scripts/mefisto-neutrality-gate.sh) escanea src/internal/** y los scripts de nivel superior de .claude/scripts/ con grep sobre texto crudo: mencionar un literal prohibido en un comentario, un string o en prosa cuenta igual que usarlo, incluso cuando la frase lo niega o lo desaconseja. Una sola fuga aborta la corrida entera al cierre del stage y se pierde todo el trabajo hecho hasta ahi, asi que revisa el texto que escribes antes de darlo por cerrado. La lista exacta de literales por regla esta en la cabecera de ese script -- R1: alias/ids de modelo y claves de permiso crudas de un runtime concreto; R2: invocaciones directas del CLI de un runtime concreto; R3: rutas y variables de entorno propias de un runtime concreto. Los pocos archivos que hoy los nombran pasan por una excepcion nominal en src/internal/contract/neutrality-allowlist.json, con un motivo que justifica por que esa mencion es correcta y permanente en ese archivo puntual; su fraseo no es un patron replicable en un archivo nuevo. Para referirte a cualquiera de esos conceptos en prosa neutral, cita MEF-ADR-0050 (nunca con variables de entorno ni rutas de un runtime concreto). No resuelvas una fuga anadiendo una excepcion nueva a esa allowlist: registrar una excepcion nueva y usarla son dos PRs distintos, y este no es el de registro (MEF-ADR-0019 seccion E).
+
+Instrucciones:
+1. Verifica que los cambios cumplen con lo pedido en el issue.
+2. Revisa coherencia con las convenciones del proyecto (AGENTS.md, ADRs).
+3. Revisa que los skills/agentes/pipelines modificados sigan los patrones del resto.
+4. Corrige problemas que encuentres directamente (no solo los reportes).
+5. Haz commit de tus correcciones con mensajes descriptivos.
+6. Verifica que el diff del writer no introduce los literales que describe el bloque NEUTRALIDAD DE RUNTIME bajo src/internal/** ni en los scripts de nivel superior de .claude/scripts/; si aparecen, reformulalos tu mismo en esta misma revision -- nunca los reportes sin corregir ni propongas ampliar la allowlist.
+7. Al terminar, escribe un resumen en .mefisto/pipeline/summaries/stage-2-reviewer.md

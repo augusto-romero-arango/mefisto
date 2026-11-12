@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 # test-mefisto-stage-models.sh -- Tests del mecanismo de asignacion de modelo
 # por stage (--models, issue #709) en .claude/scripts/_mefisto-common.sh,
-# .claude/scripts/mefisto-tooling-pipeline.sh, .claude/scripts/mefisto-launch-pipeline.sh
-# y .claude/scripts/mefisto-herdr-pipeline.sh.
+# .claude/scripts/mefisto-launch-pipeline.sh y .claude/scripts/mefisto-herdr-pipeline.sh.
+# El cableado de --models y del effort por agente en el pipeline interno de
+# tooling lo prueba mefisto-tooling-pipeline.test.mts.
 #
 # Contraparte interna de scripts/tests/test-stage-models.sh (issue #708, lado
 # publicado): mismo contrato de UX, verificado sobre las copias internas --
@@ -16,14 +17,6 @@
 #       con caracteres especiales (sin allowlist propia), las tres formas de
 #       entrada malformada (CA-1), resolve sin match/sin mapa, y el formato
 #       de auditoria (CA-4).
-#   mefisto-tooling-pipeline.sh (bloques 11-15) -- --models se resuelve ANTES
-#       de crear el worktree (CA-1: un malformado no debe dejar un worktree a
-#       medias), el mensaje de abort, el wiring del modelo por stage
-#       (resolve_stage_model por clave exacta sigue ganando, y sin match cae a
-#       mefisto_resolve_model por perfil -- balanced para writer/merge, deep
-#       para reviewer -- ya sin los defaults fijos sonnet/opus; tambien ANTES
-#       del worktree, y run_agent solo selecciona lo ya resuelto, issue #910) y
-#       la ayuda del script.
 #   mefisto-launch-pipeline.sh (bloques 16-19) -- --tooling reenvia --models
 #       intacto al sub-pipeline desacoplado (una sola palabra, aun con
 #       caracteres de glob, CA-3), se combina con --from-stage, --models sin
@@ -33,13 +26,6 @@
 #       de un pane herdr el valor viaja crudo (sin las comillas que solo
 #       sirven al `bash -c` del modo desacoplado), sobrevive un id de modelo
 #       con caracteres de glob, y el mismo rechazo explicito en --batch.
-#   effort por agente en mefisto-tooling-pipeline.sh (bloques 25-28, issue
-#       #2499) -- resolve_pipeline_stage_effort corre ANTES del worktree y
-#       run_agent pasa --effort por rol solo si no es vacio; la funcion real
-#       contra el adaptador fake: nivel de fabrica de la fuente neutral
-#       (writer standard, reviewer thorough), override por agente en
-#       models.json, linea EFFORTS: en events.log, y los abortos por fuente
-#       sin effort o mapping invalido.
 #
 # Uso: .claude/scripts/tests/test-mefisto-stage-models.sh
 # Exit code: 0 si todos los chequeos pasan, 1 si alguno falla.
@@ -124,200 +110,6 @@ echo ""
 echo "----------------------------------------"
 echo "  _mefisto-common.sh: $PASS pass, $FAIL fail (hasta aqui)"
 echo "----------------------------------------"
-
-# --- mefisto-tooling-pipeline.sh: wiring de --models (CA-1/CA-2) ------------
-
-PIPE_PATH="$REPO_ROOT/src/internal/scripts/mefisto-tooling-pipeline.sh"
-
-echo ""
-echo "[11] --models se resuelve ANTES de crear el worktree (CA-1: un malformado no debe dejar un worktree a medias)"
-parse_line=$(grep -n 'parse_stage_models "\$MODELS_SPEC"' "$PIPE_PATH" | head -n1 | cut -d: -f1)
-worktree_line=$(grep -n 'worktree add "\$WORKTREE_PATH"' "$PIPE_PATH" | head -n1 | cut -d: -f1)
-if [ -n "$parse_line" ] && [ -n "$worktree_line" ] && [ "$parse_line" -lt "$worktree_line" ]; then
-    pass "parse_stage_models (linea $parse_line) antecede a git worktree add (linea $worktree_line)"
-else
-    fail "orden incorrecto: parse_stage_models=$parse_line, git worktree add=$worktree_line"
-fi
-
-echo ""
-echo "[12] --models mal formado aborta con mensaje claro"
-if grep -qF -- '--models mal formado:' "$PIPE_PATH"; then
-    pass "el pipeline aborta con el mensaje '--models mal formado: ...'"
-else
-    fail "no se encontro el mensaje de abort para --models mal formado"
-fi
-if grep -qF 'MEFISTO_STAGE_MODELS_ERROR' "$PIPE_PATH"; then
-    pass "el mensaje de abort interpola MEFISTO_STAGE_MODELS_ERROR"
-else
-    fail "el pipeline no interpola MEFISTO_STAGE_MODELS_ERROR en el abort"
-fi
-
-echo ""
-echo "[13] el modelo por stage se resuelve ANTES del worktree: --models gana por clave exacta, sin defaults fijos sonnet/opus (issue #910)"
-if grep -qF 'MEFISTO_STAGE_MODEL_RESUELTO="$(resolve_stage_model "$stage_key" "")"' "$PIPE_PATH"; then
-    pass "la resolucion consulta primero el override --models (default vacio = sin match)"
-else
-    fail "no se encontro la consulta de resolve_stage_model con default vacio"
-fi
-if grep -qF 'mefisto_resolve_model "$MEFISTO_RUNTIME_RESUELTO" "$agent_id" "$profile" "" "$INTERNAL_MODELS_FILE" > "$out_file"' "$PIPE_PATH"; then
-    pass "sin override, cae a mefisto_resolve_model (runtime + id neutral + perfil + mapping interno)"
-else
-    fail "no se encontro la resolucion via mefisto_resolve_model"
-fi
-if grep -qF 'INTERNAL_MODELS_FILE="${MEFISTO_MODELS_FILE:-${MEFISTO_LAUNCH_ROOT:-$MEFISTO_REPO_ROOT}/.mefisto/models.json}"' "$PIPE_PATH"; then
-    pass "el mapping interno se pasa explicitamente al resolutor comun"
-else
-    fail "no se encontro la ruta explicita al mapping interno de modelos"
-fi
-# Redirect simple (>), nunca "$(...)": mefisto_resolve_model deja el motivo del
-# fallo en MEFISTO_MODELS_ERROR, y una sustitucion de comando lo perderia en su
-# subshell -- el abort del pipeline quedaria con "motivo desconocido" SIEMPRE.
-if grep -qF 'abort "No se pudo resolver el modelo de $agent_id (perfil $profile): ${MEFISTO_MODELS_ERROR' "$PIPE_PATH"; then
-    pass "el abort interpola MEFISTO_MODELS_ERROR (leible porque la llamada NO va en \$(...))"
-else
-    fail "el abort del modelo no interpola MEFISTO_MODELS_ERROR"
-fi
-if grep -qF 'resolve_pipeline_stage_model "writer" "mefisto-writer" "balanced"' "$PIPE_PATH" \
-    && grep -qF 'resolve_pipeline_stage_model "reviewer" "mefisto-reviewer" "deep"' "$PIPE_PATH"; then
-    pass "perfiles intactos: reviewer=deep, writer (y el stage merge)=balanced"
-else
-    fail "los perfiles por agente cambiaron o no se encontraron"
-fi
-# CA-2: igual que --models, un mapping local invalido debe abortar antes de
-# dejar un worktree a medias en disco.
-model_line=$(grep -n 'resolve_pipeline_stage_model "writer"' "$PIPE_PATH" | head -n1 | cut -d: -f1)
-if [ -n "$model_line" ] && [ -n "$worktree_line" ] && [ "$model_line" -lt "$worktree_line" ]; then
-    pass "la resolucion del modelo (linea $model_line) antecede a git worktree add (linea $worktree_line)"
-else
-    fail "orden incorrecto: resolucion de modelo=$model_line, git worktree add=$worktree_line"
-fi
-# run_agent ya no resuelve nada: solo selecciona el modelo ya resuelto por rol.
-if grep -qF 'reviewer) MEFISTO_AGENT_ID="mefisto-reviewer"; AGENT_MODEL="$MODEL_REVIEWER";' "$PIPE_PATH" \
-    && grep -qF '*)        MEFISTO_AGENT_ID="mefisto-writer";   AGENT_MODEL="$MODEL_WRITER";' "$PIPE_PATH"; then
-    pass "run_agent selecciona el modelo ya resuelto (writer/merge -> MODEL_WRITER, reviewer -> MODEL_REVIEWER)"
-else
-    fail "run_agent no selecciona el modelo ya resuelto por rol"
-fi
-if grep -qE 'AGENT_MODEL_DEFAULT="(sonnet|opus)"' "$PIPE_PATH"; then
-    fail "quedan defaults fijos sonnet/opus en el pipeline (CA-2: deben desaparecer)"
-else
-    pass "los defaults fijos sonnet/opus ya no estan en el pipeline"
-fi
-
-echo ""
-echo "[14] la ayuda del pipeline menciona --models"
-if grep -q -- "--models" <(bash "$PIPE_PATH" 2>&1 || true); then
-    pass "el uso sin argumentos menciona --models"
-else
-    fail "el mensaje de uso no menciona --models"
-fi
-
-echo ""
-echo "[15] el pipeline anuncia el modelo resuelto o heredado y, si aplica, el efectivo sin alterar el argv"
-eval "$(awk '/^log_agent_model_invocation\(\) \{/{p=1} p{print} p && /^}/{p=0}' "$PIPE_PATH")"
-eval "$(awk '/^log_effective_stage_model\(\) \{/{p=1} p{print} p && /^}/{p=0}' "$PIPE_PATH")"
-MODEL_LOG="$(mktemp)"
-log() { printf '%s\n' "$*" >> "$MODEL_LOG"; }
-: > "$MODEL_LOG"
-log_agent_model_invocation writer 'vendor/model-v2'
-log_agent_model_invocation reviewer ''
-if grep -qxF 'Invocando writer (modelo: vendor/model-v2)...' "$MODEL_LOG" \
-    && grep -qxF 'Invocando reviewer (modelo: <heredado>)...' "$MODEL_LOG"; then
-    pass "la invocacion muestra modelos concretos y <heredado>"
-else
-    fail "el anuncio no preserva el modelo concreto o el fallback <heredado>"
-fi
-: > "$MODEL_LOG"
-log_effective_stage_model 1 writer '' '{"model":"runtime/model-effective"}'
-log_effective_stage_model 2 reviewer 'modelo/declarado' '{"model":"no-debe-aparecer"}'
-log_effective_stage_model merge writer '' 'null'
-if [ "$(wc -l < "$MODEL_LOG" | tr -d ' ')" = 1 ] \
-    && grep -qxF 'MODELS: stage 1/writer -> runtime/model-effective (efectivo)' "$MODEL_LOG"; then
-    pass "solo un modelo heredado con metrica no nula anuncia el efectivo"
-else
-    fail "el anuncio efectivo no respeta herencia/modelo nulo"
-fi
-rm -f "$MODEL_LOG"
-announce_line=$(grep -nF 'log_agent_model_invocation "$agent" "$AGENT_MODEL"' "$PIPE_PATH" | head -n1 | cut -d: -f1)
-argv_line=$(grep -nF '"$RUN_AGENT_BIN" "${RUN_AGENT_ARGS[@]}"' "$PIPE_PATH" | head -n1 | cut -d: -f1)
-if [ -n "$announce_line" ] && [ -n "$argv_line" ] && [ "$announce_line" -lt "$argv_line" ]; then
-    pass "el anuncio ocurre antes del runner"
-else
-    fail "orden incorrecto: anuncio=$announce_line runner=$argv_line"
-fi
-if grep -qF '[ -n "$AGENT_MODEL" ] && RUN_AGENT_ARGS+=(--model "$AGENT_MODEL")' "$PIPE_PATH"; then
-    pass "el argv condicional del runner permanece intacto"
-else
-    fail "el anuncio altero el argv condicional del runner"
-fi
-
-# --- Effort por agente (issue #2499) ------------------------------------
-echo ""
-echo "[25] el effort se resuelve ANTES del worktree y run_agent lo pasa por rol solo si no es vacio"
-effort_line=$(grep -n '^resolve_pipeline_stage_effort "writer"' "$PIPE_PATH" | head -n1 | cut -d: -f1)
-if [ -n "$effort_line" ] && [ "$effort_line" -lt "$worktree_line" ]; then pass "resolucion del effort (linea $effort_line) antes del worktree (linea $worktree_line)"; else fail "orden incorrecto: effort=$effort_line worktree=$worktree_line"; fi
-if grep -qF '[ -n "$AGENT_EFFORT" ] && RUN_AGENT_ARGS+=(--effort "$AGENT_EFFORT")' "$PIPE_PATH" \
-    && grep -qF 'AGENT_EFFORT="$EFFORT_REVIEWER"' "$PIPE_PATH" && grep -qF 'AGENT_EFFORT="$EFFORT_WRITER"' "$PIPE_PATH"; then
-    pass "run_agent selecciona el effort por rol y lo pasa condicionalmente"
-else
-    fail "run_agent no cablea --effort por rol"
-fi
-
-# Ejecuta la funcion real contra el adaptador fake. Args: models.json, dir de agentes.
-E_TMP="$(mktemp -d)"
-E_RES=""
-run_effort_case() {
-    local mapping="$1" agents_dir="${2:-$REPO_ROOT/src/internal/agents}"
-    local fakescripts="$E_TMP/src/internal/scripts"
-    rm -rf "$E_TMP/src"; mkdir -p "$fakescripts"
-    ln -s "$agents_dir" "$E_TMP/src/internal/agents"
-    : > "$E_TMP/events.log"
-    E_RES="$(
-        SCRIPT_DIR="$fakescripts"
-        EVENTS_LOG_ABS="$E_TMP/events.log"
-        MEFISTO_RUNTIME_RESUELTO=fake
-        INTERNAL_MODELS_FILE="$mapping"
-        abort() { echo "ABORT: $*"; exit 1; }
-        source "$REPO_ROOT/src/runtime/lib/mefisto-models.sh"
-        source "$REPO_ROOT/src/internal/scripts/lib/frontmatter.sh"
-        eval "$(awk '/^resolve_pipeline_stage_effort\(\) \{/{p=1} p{print} p && /^}/{p=0}' "$PIPE_PATH")"
-        resolve_pipeline_stage_effort writer mefisto-writer || exit 1
-        w="$MEFISTO_STAGE_EFFORT_RESUELTO"
-        resolve_pipeline_stage_effort reviewer mefisto-reviewer || exit 1
-        echo "W=$w R=$MEFISTO_STAGE_EFFORT_RESUELTO"
-    )"
-}
-cat > "$E_TMP/models.json" <<'JSON'
-{"fake":{"efforts":{"levels":{"light":"fake-light","standard":"fake-standard","thorough":"fake-thorough"}}}}
-JSON
-cat > "$E_TMP/models-light.json" <<'JSON'
-{"fake":{"efforts":{"levels":{"light":"fake-light","standard":"fake-standard","thorough":"fake-thorough"},"agents":{"mefisto-writer":"light"}}}}
-JSON
-echo '{"fake":{"efforts":{"agents":{"mefisto-writer":"extremo"}}}}' > "$E_TMP/models-bad.json"
-
-echo ""
-echo "[26] sin mapping de agente: writer recibe el nativo de standard y reviewer el de thorough; events.log registra EFFORTS"
-run_effort_case "$E_TMP/models.json"
-if [ "$E_RES" = "W=fake-standard R=fake-thorough" ]; then pass "writer=standard, reviewer=thorough"; else fail "esperaba W=fake-standard R=fake-thorough (obtenido '$E_RES')"; fi
-if grep -qF 'EFFORTS: writer -> fake-standard (nivel standard)' "$E_TMP/events.log" \
-    && grep -qF 'EFFORTS: reviewer -> fake-thorough (nivel thorough)' "$E_TMP/events.log"; then pass "linea EFFORTS por stage"; else fail "events.log sin lineas EFFORTS: $(cat "$E_TMP/events.log")"; fi
-
-echo ""
-echo "[27] efforts.agents.mefisto-writer=light: el writer cambia, el reviewer no"
-run_effort_case "$E_TMP/models-light.json"
-if [ "$E_RES" = "W=fake-light R=fake-thorough" ]; then pass "writer=light, reviewer intacto"; else fail "obtenido '$E_RES'"; fi
-
-echo ""
-echo "[28] fuente sin effort y mapping invalido abortan citando agente y MEFISTO_EFFORTS_ERROR (antes del worktree)"
-mkdir -p "$E_TMP/agents-noeffort"
-for a in mefisto-writer mefisto-reviewer; do
-    grep -v '"effort"' "$REPO_ROOT/src/internal/agents/$a.md" > "$E_TMP/agents-noeffort/$a.md"
-done
-run_effort_case "$E_TMP/models.json" "$E_TMP/agents-noeffort"
-if printf '%s' "$E_RES" | grep -q 'ABORT:.*mefisto-writer.*MEFISTO_EFFORTS_ERROR'; then pass "fuente sin effort aborta citando el agente"; else fail "obtenido '$E_RES'"; fi
-run_effort_case "$E_TMP/models-bad.json"
-if printf '%s' "$E_RES" | grep -q 'ABORT:.*mefisto-writer.*MEFISTO_EFFORTS_ERROR='; then pass "mapping invalido aborta citando agente y MEFISTO_EFFORTS_ERROR"; else fail "obtenido '$E_RES'"; fi
-rm -rf "$E_TMP"
 
 # --- mefisto-launch-pipeline.sh / mefisto-herdr-pipeline.sh: reenvio/rechazo --
 #

@@ -10,11 +10,10 @@
 # Arreglo: _tail_log_for_abort() emite por stdout las ultimas N lineas del log
 # (sin ANSI) bajo un encabezado explicito; abort() lo captura en una variable
 # antes de escribir nada y lo reemite en SU stream, antes de llamar a
-# update_status. Esta funcion vive duplicada en los pipelines bash "ricos"; el
-# de tooling publicado, ya en TypeScript, usa scripts/lib/pipeline/pipeline-log.mts
-# (mismo patron que _strip_ansi/log/success/warn/header, que ya estan
-# duplicadas per-pipeline y no centralizadas en _mefisto-common.sh /
-# _pipeline-common.sh).
+# update_status. Esta funcion vive en los pipelines bash "ricos"; los de tooling,
+# ya en TypeScript, usan scripts/lib/pipeline/pipeline-log.mts (mismo patron
+# que _strip_ansi/log/success/warn/header, duplicadas per-pipeline y no
+# centralizadas en _pipeline-common.sh).
 #
 # Casos cubiertos (CA-1/CA-3/CA-6):
 #   - log con contenido    -> devuelve las ultimas N lineas sin ANSI, con encabezado
@@ -23,7 +22,6 @@
 #   - log con menos de N   -> devuelve todas las lineas disponibles, no falla
 #   - ANSI                  -> los codigos de color no aparecen en la salida
 #   - stdout                -> emite por stdout, no por stderr (el stream lo elige abort)
-#   - paridad de copias    -> el cuerpo de la funcion es identico en los pipelines bash
 #   - captura antes del tee -> el tail no incluye la propia linea de ERROR de abort
 #   - stream por pipeline  -> el tail sale por el mismo stream que el resto de abort
 #
@@ -40,7 +38,6 @@ FAIL=0
 pass() { echo "  PASS: $1"; PASS=$((PASS+1)); }
 fail() { echo "  FAIL: $1"; FAIL=$((FAIL+1)); }
 
-INTERNAL_PIPELINE="$REPO_ROOT/src/internal/scripts/mefisto-tooling-pipeline.sh"
 PUBLISHED_TDD="$REPO_ROOT/scripts/tdd-pipeline.sh"
 
 # extract_fn <function_name> <file>
@@ -77,7 +74,7 @@ load_tail_fn() {
 }
 
 echo "[pre] _tail_log_for_abort se puede cargar y ejecutar desde cada pipeline"
-for f in "$INTERNAL_PIPELINE" "$PUBLISHED_TDD"; do
+for f in "$PUBLISHED_TDD"; do
     if load_tail_fn "$f" && declare -F _tail_log_for_abort >/dev/null; then
         pass "$(basename "$f"): _tail_log_for_abort definida y cargable"
     else
@@ -85,9 +82,7 @@ for f in "$INTERNAL_PIPELINE" "$PUBLISHED_TDD"; do
     fi
 done
 
-# A partir de aqui trabajamos con la copia cargada del pipeline interno (las dos
-# son funcionalmente identicas -- lo verifica el bloque de paridad mas abajo).
-load_tail_fn "$INTERNAL_PIPELINE"
+load_tail_fn "$PUBLISHED_TDD"
 
 echo ""
 echo "[A] Log con contenido -> ultimas N lineas sin ANSI, con encabezado (CA-1)"
@@ -169,21 +164,6 @@ else
 fi
 
 echo ""
-echo "[E] Paridad: el cuerpo de _tail_log_for_abort es identico en los pipelines bash"
-
-BODY_INTERNAL=$(extract_fn "_tail_log_for_abort" "$INTERNAL_PIPELINE")
-BODY_TDD=$(extract_fn "_tail_log_for_abort" "$PUBLISHED_TDD")
-
-if [ -z "$BODY_INTERNAL" ] || [ -z "$BODY_TDD" ]; then
-    fail "paridad: no se pudo extraer el cuerpo de _tail_log_for_abort de alguna copia"
-elif [ "$BODY_INTERNAL" = "$BODY_TDD" ]; then
-    pass "paridad: identico en mefisto-tooling-pipeline.sh y tdd-pipeline.sh"
-else
-    fail "paridad: las copias DERIVARON entre si"
-    diff <(echo "$BODY_INTERNAL") <(echo "$BODY_TDD") || true
-fi
-
-echo ""
 echo "[F] Orden dentro de abort(): captura del tail < tee del ERROR < update_status (CA-4)"
 
 # El tail tiene que leerse antes de las DOS escrituras que abort hace:
@@ -191,7 +171,7 @@ echo "[F] Orden dentro de abort(): captura del tail < tee del ERROR < update_sta
 #     dos ultimas lineas del tail serian un eco del mensaje ya impreso, ruido que
 #     ademas se come dos lineas del contexto real;
 #   - `update_status`, que reescribe el status file (nota tecnica del issue).
-for f in "$INTERNAL_PIPELINE" "$PUBLISHED_TDD"; do
+for f in "$PUBLISHED_TDD"; do
     ABORT_BODY=$(extract_fn "abort" "$f")
     TAIL_LINE=$(echo "$ABORT_BODY" | grep -n "_tail_log_for_abort " | head -1 | cut -d: -f1)
     TEE_LINE=$(echo "$ABORT_BODY" | grep -n "tee -a " | head -1 | cut -d: -f1)
@@ -213,7 +193,7 @@ echo "[G] El tail sale por el mismo stream que el resto de los mensajes de abort
 # por stdout y abort decide -- pero la reemision del tail tiene que coincidir con
 # el stream de sus mensajes hermanos, o el humano que redirige un solo stream se
 # queda con el diagnostico partido en dos.
-for f in "$INTERNAL_PIPELINE" "$PUBLISHED_TDD"; do
+for f in "$PUBLISHED_TDD"; do
     ABORT_BODY=$(extract_fn "abort" "$f")
     # Stream de referencia: la linea "Revisa el log:" que ya existia.
     REF_LINE=$(echo "$ABORT_BODY" | grep "Revisa el log:" | head -1)
