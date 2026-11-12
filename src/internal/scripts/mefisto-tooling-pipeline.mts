@@ -202,22 +202,24 @@ export async function mefistoToolingPipeline(deps: MefistoToolingDeps): Promise<
     return 1
   }
   const githooks = ensureGithooksInstalled(repo.root)
+  // git entrega la raiz con `/` tambien en Windows: las rutas que se arman sobre ella se normalizan.
+  const root = resolve(repo.root)
   if (githooks !== null) err(`${githooks}\n`)
 
-  const stateDir = nonEmpty(env.MEFISTO_STATE_DIR) ?? join(repo.root, '.mefisto', 'pipeline')
-  const legacyStateDir = nonEmpty(env.MEFISTO_LEGACY_STATE_DIR) ?? join(repo.root, '.claude', 'pipeline')
+  const stateDir = nonEmpty(env.MEFISTO_STATE_DIR) ?? join(root, '.mefisto', 'pipeline')
+  const legacyStateDir = nonEmpty(env.MEFISTO_LEGACY_STATE_DIR) ?? join(root, '.claude', 'pipeline')
   // Lo que el bash exportaba al runner, al agente y a los CLIs.
   const childEnv: NodeJS.ProcessEnv = {
     ...env,
     MEFISTO_STATE_DIR: stateDir,
     MEFISTO_LEGACY_STATE_DIR: legacyStateDir,
     MEFISTO_LEGACY_STATE_REL: join('.claude', 'pipeline'),
-    MEFISTO_REPO_ROOT: repo.root,
+    MEFISTO_REPO_ROOT: root,
     MEFISTO_PROJECT_NAME: repo.projectName,
     ...(deps.hasCommand('gh') ? { MEFISTO_REPO_SLUG: repo.repoSlug } : {}),
     MEFISTO_RUNTIME_LIB_DIR: runtimeLibDir(env),
   }
-  const modelsFile = nonEmpty(env.MEFISTO_MODELS_FILE) ?? join(nonEmpty(env.MEFISTO_LAUNCH_ROOT) ?? repo.root, '.mefisto', 'models.json')
+  const modelsFile = nonEmpty(env.MEFISTO_MODELS_FILE) ?? join(nonEmpty(env.MEFISTO_LAUNCH_ROOT) ?? root, '.mefisto', 'models.json')
 
   const logDir = join(stateDir, 'logs')
   const timestamp = runStamp(now())
@@ -459,7 +461,7 @@ export async function mefistoToolingPipeline(deps: MefistoToolingDeps): Promise<
 
     // --- Worktree ---
     log.header('Preparando worktree')
-    const repoRoot = nonEmpty(env.MEFISTO_LAUNCH_ROOT) ?? repo.root
+    const repoRoot = resolve(nonEmpty(env.MEFISTO_LAUNCH_ROOT) ?? root)
     const currentBranch = git(['-C', repoRoot, 'rev-parse', '--abbrev-ref', 'HEAD'])
     let branch = `worktree-mefisto-issue-${issue}-${issueSlug(issueTitle)}`
     // Sufijo de la variante: varias corridas del mismo issue conviven sin chocar.

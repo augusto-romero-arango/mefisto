@@ -65,21 +65,16 @@ export const AUTO_COMMIT_PATHS: readonly string[] = [
 ]
 
 /**
- * Texto del error que guardan el status y el historial: comillas escapadas y saltos vueltos
- * espacios, con el espacio final del salto que cerraba el mensaje.
+ * Texto del error que guardan el status y el historial: los saltos vueltos espacios, con el
+ * espacio final del salto que cerraba el mensaje.
  */
 export function abortErrorText(message: string): string {
-  return `${message.replaceAll('"', '\\"').replaceAll('\n', ' ')} `
+  return `${message.replaceAll('\n', ' ')} `
 }
 
-/** Titulo entre comillas JSON con solo sus comillas escapadas, como lo escribia el bash. */
-export function quotedTitle(title: string): string {
-  return `"${title.replaceAll('"', '\\"')}"`
-}
-
-/** Literal JSON de un valor opcional: la cadena entre comillas, o `null` si esta vacia. */
+/** Literal JSON de un valor opcional: la cadena codificada, o `null` si esta vacia. */
 export function optionalJson(value: string): string {
-  return value.length > 0 ? `"${value}"` : 'null'
+  return value.length > 0 ? jsonText(value) : 'null'
 }
 
 export interface AgentTrack {
@@ -104,7 +99,7 @@ export interface StatusInput {
   writer: AgentTrack
   reviewer: AgentTrack
   pr: string
-  /** Error ya escapado por `abortErrorText`, o vacio. */
+  /** Error ya pasado por `abortErrorText`, o vacio. */
   error: string
 }
 
@@ -112,8 +107,8 @@ export interface StatusInput {
 export function renderToolingStatus(input: StatusInput): string {
   const duration = (track: AgentTrack): string => (track.duration.length > 0 ? track.duration : 'null')
   return `{
-  "issue": "${input.issue.length > 0 ? input.issue : 'null'}",
-  "title": ${quotedTitle(input.title)},
+  "issue": ${jsonText(input.issue.length > 0 ? input.issue : 'null')},
+  "title": ${jsonText(input.title)},
   "pipeline": "mefisto-tooling",
   "variant": ${optionalJson(input.variant)},
   "runtime": ${optionalJson(input.runtime)},
@@ -124,8 +119,8 @@ export function renderToolingStatus(input: StatusInput): string {
   "worktree": ${jsonText(input.worktree)},
   "log": ${jsonText(input.log)},
   "agents": {
-    "writer":   {"duration": ${duration(input.writer)}, "result": "${input.writer.result}"},
-    "reviewer": {"duration": ${duration(input.reviewer)}, "result": "${input.reviewer.result}"}
+    "writer":   {"duration": ${duration(input.writer)}, "result": ${jsonText(input.writer.result)}},
+    "reviewer": {"duration": ${duration(input.reviewer)}, "result": ${jsonText(input.reviewer.result)}}
   },
   "pr": ${optionalJson(input.pr)},
   "last_error": ${optionalJson(input.error)}
@@ -147,7 +142,7 @@ export interface HistoryInput {
 }
 
 function historyHead(input: HistoryInput): string {
-  return `{"issue":"${input.issue}","title":${quotedTitle(input.title)},"pipeline":"mefisto-tooling","variant":${optionalJson(input.variant)},"runtime":${optionalJson(input.runtime)},"harness_version":${optionalJson(input.harnessVersion)},"harness_sha":${optionalJson(input.harnessSha)},"started":"${input.started}","finished":"${input.finished}"`
+  return `{"issue":${jsonText(input.issue)},"title":${jsonText(input.title)},"pipeline":"mefisto-tooling","variant":${optionalJson(input.variant)},"runtime":${optionalJson(input.runtime)},"harness_version":${optionalJson(input.harnessVersion)},"harness_sha":${optionalJson(input.harnessSha)},"started":${jsonText(input.started)},"finished":${jsonText(input.finished)}`
 }
 
 function agentsJson(input: HistoryInput): string {
@@ -161,7 +156,7 @@ export function completedHistoryLine(input: HistoryInput & { pr: string }): stri
 
 /** Entrada de historial de una corrida abortada en `stage`, con su salto final. */
 export function failedHistoryLine(input: HistoryInput & { stage: string; error: string }): string {
-  return `${historyHead(input)},"state":"failed","stage":"${input.stage}","agents":${agentsJson(input)},"error":"${input.error}"}\n`
+  return `${historyHead(input)},"state":"failed","stage":${jsonText(input.stage)},"agents":${agentsJson(input)},"error":${jsonText(input.error)}}\n`
 }
 
 export interface ToolingIssue {

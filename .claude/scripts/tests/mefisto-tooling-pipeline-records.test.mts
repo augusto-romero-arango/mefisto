@@ -86,8 +86,47 @@ describe('entradas de pipeline-history.jsonl', () => {
 })
 
 describe('texto del error', () => {
-  test('escapa comillas y vuelve espacios los saltos, con el espacio final', () => {
-    assert.equal(abortErrorText('dijo "no"\nadios'), 'dijo \\"no\\" adios ')
+  test('vuelve espacios los saltos, con el espacio final, y deja las comillas para la codificacion JSON', () => {
+    assert.equal(abortErrorText('dijo "no"\nadios'), 'dijo "no" adios ')
+  })
+})
+
+describe('textos con barras, comillas y saltos (rutas de Windows)', () => {
+  const RAW = 'C:\\Users\\ana\\log "x".log\nsegunda linea\ttab'
+  const ERROR = abortErrorText(`fallo en ${RAW}`)
+
+  test('status: titulo y last_error quedan como JSON valido y se leen tal cual', () => {
+    const status = JSON.parse(
+      renderToolingStatus({
+        issue: '42',
+        title: RAW,
+        variant: '',
+        runtime: 'guion',
+        started: 't',
+        stage: '1-writer',
+        state: 'failed',
+        updated: 'u',
+        worktree: 'C:\\wt',
+        log: 'C:\\logs\\p.log',
+        writer: { duration: '3', result: 'failed', metrics: '' },
+        reviewer: { duration: '', result: 'pending', metrics: '' },
+        pr: '',
+        error: ERROR,
+      }),
+    ) as Record<string, unknown>
+    assert.equal(status.title, RAW)
+    assert.equal(status.last_error, `fallo en ${RAW.replace('\n', ' ')} `)
+    assert.equal(status.worktree, 'C:\\wt')
+  })
+
+  test('historial: titulo y error quedan como JSON valido en una sola linea', () => {
+    const failed = failedHistoryLine({ ...HISTORY, title: RAW, stage: '1-writer', error: ERROR })
+    const completed = completedHistoryLine({ ...HISTORY, title: RAW, pr: 'https://example.test/pr/1' })
+    for (const line of [failed, completed]) {
+      assert.equal(line.split('\n').length, 2)
+      assert.equal((JSON.parse(line) as Record<string, unknown>).title, RAW)
+    }
+    assert.equal((JSON.parse(failed) as Record<string, unknown>).error, `fallo en ${RAW.replace('\n', ' ')} `)
   })
 })
 

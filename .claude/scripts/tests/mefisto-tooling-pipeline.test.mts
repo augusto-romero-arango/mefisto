@@ -91,11 +91,13 @@ describe('guardas previas', () => {
     const repo = newRepo(join(work, `consumidor-${++counter}`), { 'README.md': 'x\n' })
     const run = await runMefistoTooling({ root: repo.main, bare: repo.bare, guionFile: '', stateDir: '' }, ['42'])
     assert.equal(run.code, 1)
+    // Como el bash: la raiz tal como la entrega git (con `/` tambien en Windows) y la ruta relativa detras.
+    const top = git(repo.main, 'rev-parse', '--show-toplevel')
     assert.equal(
       run.err,
       [
         'ERROR: este pipeline solo se ejecuta dentro del repo de Mefisto',
-        `  No se encontro ${repo.main}/.claude-plugin/plugin.json`,
+        `  No se encontro ${top}/.claude-plugin/plugin.json`,
         '  Si querias trabajar sobre tu proyecto consumidor, usa los skills',
         '  publicados (/tooling, /implement, etc.) desde la raiz de ese repo.',
         '',
@@ -387,6 +389,22 @@ describe('fallo terminal del writer con el runner real', () => {
   test('el JSONL del writer termina en run.failed', () => {
     const [events = ''] = logs(repo, /stage-1-writer-.*\.events\.jsonl$/)
     assert.equal(lastLine(events).type, 'run.failed')
+  })
+})
+
+describe('textos con barras y comillas en el status y el historial', () => {
+  test('un titulo con barras y comillas deja status e historial como JSON valido', async () => {
+    const repo = mefisto()
+    const title = 'Usar "C:\\ruta\\nueva" en el log'
+    const gh = fakeGh({ issue: { number: 42, title, body: 'b', state: 'OPEN' } })
+    const run = await runDouble(repo, ['42'], [{ status: 'failed' }], { gh })
+    assert.equal(run.code, 1)
+    const [status = ''] = filesMatching(repo.stateDir, /^pipeline-status-mefisto-tooling-42\.json$/)
+    assert.equal(readJson(status).title, title)
+    assert.match(String(readJson(status).last_error), /^writer fallo \(CLI_ERROR \(exit 3\)\)\. Log completo: /)
+    const [entry = {}] = history(repo)
+    assert.equal(entry.title, title)
+    assert.equal(entry.error, readJson(status).last_error)
   })
 })
 
