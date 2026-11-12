@@ -123,7 +123,7 @@ describe('runner neutral', () => {
       'You are running in non-interactive print mode. There is no human to approve anything. Use editing tools directly; never ask for permission. Do not push or create pull requests.\n',
     )
     assert.equal(readFileSync(join(h.dir, 'pr-sync-merge-pr7-ts-attempt-1.log'), 'utf8'), 'salida del intento 1\n')
-    assert.match(h.out(), /^\[\d\d:\d\d:\d\d\] Invocando implementer \(modelo: <heredado>\)\.\.\.\n\[\d\d:\d\d:\d\d\] implementer completado en 0s\n$/)
+    assert.match(h.out(), /^\[\d\d:\d\d:\d\d\] Invocando implementer \(modelo: <heredado>\)\.\.\.\n\[\d\d:\d\d:\d\d\] implementer completado en \d+s\n$/)
   })
 
   test('modelo y effort resueltos viajan como --model y --effort', async () => {

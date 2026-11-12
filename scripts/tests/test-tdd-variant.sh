@@ -1,16 +1,13 @@
 #!/usr/bin/env bash
 # test-tdd-variant.sh -- Tests del modo --variant (corridas paralelas del
 # mismo issue, issue #713, segunda pieza tras #710/tooling-pipeline.sh) en
-# scripts/launch-pipeline.sh y scripts/herdr-pipeline.sh. El modo variante del propio
-# pipeline lo cubre scripts/tests/tdd-pipeline.test.mts.
+# scripts/herdr-pipeline.sh. El modo variante del propio pipeline lo cubre
+# scripts/tests/tdd-pipeline.test.mts, y el modo desacoplado de launch-pipeline.mts,
+# scripts/tests/launch-pipeline.test.mts.
 #
 # validate_variant_label ya la cubre scripts/tests/test-tooling-variant.sh
 # (vive en _pipeline-common.sh, sin cambios en este issue): este archivo no la
 # repite. Cubre en su lugar:
-#   launch-pipeline.sh - el enrutamiento automatico de un unico issue (sin
-#                       --tooling explicito) acepta --variant y lo reenvia
-#                       intacto al sub-pipeline. Se fuerza el pipeline con
-#                       --pipeline tdd para no depender de un stub de `gh`.
 #   herdr-pipeline.sh - misma superficie: el pane run lleva --variant y el
 #                       titulo del pane queda sufijado.
 #
@@ -30,15 +27,6 @@ FAIL=0
 pass() { echo "  PASS: $1"; PASS=$((PASS+1)); }
 fail() { echo "  FAIL: $1"; FAIL=$((FAIL+1)); }
 
-# --- launch-pipeline.sh: el enrutamiento automatico acepta --variant ---
-#
-# Mismo arnes que test-tooling-variant.sh: consumidor falso (git init sin
-# .claude-plugin/plugin.json) para pasar el guard defensivo y MEFISTO_UI=mod
-# para no delegar a la interfaz herdr si el test corre dentro de un pane
-# herdr. Se fuerza --pipeline tdd para que resolve_pipeline no necesite un
-# stub de `gh`.
-export MEFISTO_UI=mod
-
 FAKE_CONSUMER="$(mktemp -d)"
 TMP_DIR="$(mktemp -d)"
 FAKE_BIN="$TMP_DIR/bin"
@@ -47,78 +35,9 @@ trap 'rm -rf "$FAKE_CONSUMER" "$TMP_DIR"' EXIT
 
 (cd "$FAKE_CONSUMER" && git init -q)
 
-# Copia del paquete con sub-pipelines stub que imprimen su argv, un argumento
-# por <>: el report log de cada corrida desacoplada deja ver que recibieron.
-LAUNCH_PKG="$TMP_DIR/pkg"
-mkdir -p "$LAUNCH_PKG/scripts" "$LAUNCH_PKG/src"
-cp "$REPO_ROOT"/scripts/*.sh "$LAUNCH_PKG/scripts/"
-ln -s "$REPO_ROOT/src/runtime" "$LAUNCH_PKG/src/runtime"
-for s in tdd tooling iac scaffold batch parallel; do
-    cat > "$LAUNCH_PKG/scripts/$s-pipeline.sh" <<STUB
-#!/usr/bin/env bash
-printf 'stub $s'; printf ' <%s>' "\$@"; echo
-STUB
-done
-chmod +x "$LAUNCH_PKG"/scripts/*.sh
-LAUNCH_SCRIPT="$LAUNCH_PKG/scripts/launch-pipeline.sh"
-
 LAST_STDOUT=""
 LAST_STDERR=""
 LAST_RC=0
-
-run_wrapper() {
-    find "$FAKE_CONSUMER" -name '*.report.log' -delete 2>/dev/null
-    local out="$TMP_DIR/stdout" err="$TMP_DIR/stderr"
-    (
-        cd "$FAKE_CONSUMER" || exit 99
-        # Hermetico: el pipeline exporta estas rutas y desviarian el estado fuera del consumidor falso.
-        unset MEFISTO_STATE_DIR MEFISTO_LEGACY_STATE_DIR MEFISTO_REPO_ROOT MEFISTO_MODELS_FILE
-        MEFISTO_RUNTIME=claude "$LAUNCH_SCRIPT" "$@"
-    ) </dev/null >"$out" 2>"$err"
-    LAST_RC=$?
-    LAST_STDOUT=$(cat "$out")
-    LAST_STDERR=$(cat "$err")
-}
-
-# launched_argv <prefijo>: argv que recibio el sub-pipeline de la corrida
-# <prefijo>-run-*.report.log, esperando a que el proceso desacoplado lo escriba.
-launched_argv() {
-    local i=0 f=""
-    while [ $i -lt 50 ]; do
-        f=$(find "$FAKE_CONSUMER" -name "$1-run-*.report.log" -size +0 2>/dev/null | head -n1)
-        [ -n "$f" ] && break
-        sleep 0.1
-        i=$((i+1))
-    done
-    [ -n "$f" ] && cat "$f"
-}
-
-echo ""
-echo "[5] enrutamiento automatico (sin --tooling): --variant no aborta cuando resuelve a tdd-pipeline.sh"
-run_wrapper 253 --variant experimento-a --pipeline tdd
-if [ "$LAST_RC" -eq 0 ]; then pass "issue suelto + --pipeline tdd + --variant corre sin abortar (rc=$LAST_RC)"; else fail "no deberia abortar (rc=$LAST_RC, stderr: $LAST_STDERR)"; fi
-ARGV="$(launched_argv tdd-pipeline-issue-253)"
-if printf '%s' "$ARGV" | grep -qF "stub tdd <253> <--variant> <experimento-a>"; then
-    pass "tdd-pipeline.sh recibe el issue y --variant con el valor intacto"
-else
-    fail "tdd-pipeline.sh no recibio '253 --variant ...' -- argv: $ARGV"
-fi
-
-echo ""
-echo "[6] enrutamiento automatico: --variant se combina con --from-stage y --models en orden"
-run_wrapper 253 --from-stage 2 --models "test-writer=opus" --variant b --pipeline tdd
-if [ "$LAST_RC" -eq 0 ]; then pass "combinado corre sin abortar"; else fail "no deberia abortar (rc=$LAST_RC, stderr: $LAST_STDERR)"; fi
-ARGV="$(launched_argv tdd-pipeline-issue-253)"
-if printf '%s' "$ARGV" | grep -qF "stub tdd <253> <--from-stage> <2> <--models> <test-writer=opus> <--variant> <b>"; then
-    pass "tdd-pipeline.sh recibe los tres flags en orden"
-else
-    fail "orden incorrecto -- argv: $ARGV"
-fi
-
-echo ""
-echo "----------------------------------------"
-echo "  launch-pipeline.sh: $PASS pass, $FAIL fail (hasta aqui)"
-echo "----------------------------------------"
 
 # --- herdr-pipeline.sh: misma superficie, dentro de un pane herdr -----------
 
