@@ -49,8 +49,6 @@
 #       sin importar cuan sucio este el worktree.
 #   [E] CA-5: para fallos recuperables, has_work exige ademas el resumen de
 #       stage no vacio -- fixtures de worktree sucio con y sin resumen.
-#   [F] Paridad: run_agent en el pipeline real invoca las funciones nuevas y
-#       ya no contiene el patron viejo (kill encadenado con `&&`).
 #   [H] CA-4 (issue #2472): MEFISTO_WATCHDOG_TERMINATE_FILE -> SIGTERM al grupo,
 #       SIGKILL a los 10 s si sigue vivo; sin el archivo nada cambia.
 #
@@ -354,54 +352,6 @@ else
     pass "E-4: worktree limpio -- no hay has_work, no se recupera"
 fi
 
-# -------- Bloque F: paridad con el pipeline real --------
-
-echo ""
-echo "[F] Paridad: run_agent del pipeline real usa las funciones nuevas"
-
-PIPE="$REPO_ROOT/src/internal/scripts/mefisto-tooling-pipeline.sh"
-
-if grep -q "run_agent_with_watchdog" "$PIPE"; then
-    pass "F-1: mefisto-tooling-pipeline.sh invoca run_agent_with_watchdog"
-else
-    fail "F-1: mefisto-tooling-pipeline.sh NO invoca run_agent_with_watchdog"
-fi
-
-if grep -q "agent_work_is_trustworthy" "$PIPE"; then
-    pass "F-2: mefisto-tooling-pipeline.sh invoca agent_work_is_trustworthy"
-else
-    fail "F-2: mefisto-tooling-pipeline.sh NO invoca agent_work_is_trustworthy"
-fi
-
-# El pipeline tiene que DERIVAR el flag con la funcion testeada arriba, no con
-# una copia inline del grep: una copia se desincroniza en silencio y el bloque
-# D dejaria de cubrir lo que el pipeline realmente ejecuta.
-if grep -q "agent_failure_is_unrecoverable" "$PIPE"; then
-    pass "F-3: mefisto-tooling-pipeline.sh deriva el flag con agent_failure_is_unrecoverable"
-else
-    fail "F-3: mefisto-tooling-pipeline.sh NO invoca agent_failure_is_unrecoverable"
-fi
-
-# El patron viejo era exactamente esta cadena de `&&`: kill ... && echo ... El
-# arreglo la elimina; si reaparece, el evento TIMEOUT volveria a colgar del
-# exito del kill (la grieta original).
-if grep -qE 'kill -9 -\$[A-Za-z_]+ 2>/dev/null && echo' "$PIPE"; then
-    fail "F-4: reaparecio el patron viejo (kill encadenado con && antes del echo)"
-else
-    pass "F-4: no quedo el patron viejo de kill encadenado con && antes del echo"
-fi
-
-# El patron del corte de stream tiene que vivir en UN solo lugar
-# (agent_events_error_kind, issue #906). Si reaparece como grep inline en el
-# pipeline, etiqueta (STREAM_CUT) y decision (abortar) pueden desincronizarse
-# en silencio. Se busca la llamada a grep, no la frase suelta: el pipeline la
-# menciona legitimamente en un comentario.
-if grep -q 'grep -qE "Connection closed mid-response' "$PIPE"; then
-    fail "F-5: quedo una copia inline del grep de corte de stream en el pipeline"
-else
-    pass "F-5: el criterio de corte de stream no quedo duplicado inline en el pipeline"
-fi
-
 # -------- Bloque G: issue #446, una senal DESPUES del exito no es un timeout --------
 
 echo ""
@@ -498,22 +448,6 @@ else
     fail "G-9: agent_failure_is_unrecoverable no deberia fallar con events_file vacio"
 fi
 
-# Paridad con el pipeline: tiene que pasar el JSONL neutral, no el log
-# derivado ni la traza cruda de Claude. RUN_EXIT (issue #910) es el exit code
-# del runner neutral (mefisto-run-agent.sh) -- reemplaza a CLAUDE_EXIT, que
-# era el exit code de `claude -p` invocado directo.
-if grep -q 'agent_failure_is_unrecoverable "\$TIMED_OUT" "\$RUN_EXIT" "\$events_file"' "$PIPE"; then
-    pass "G-10: el pipeline pasa el JSONL neutral (events_file) a agent_failure_is_unrecoverable"
-else
-    fail "G-10: el pipeline NO pasa events_file a agent_failure_is_unrecoverable"
-fi
-
-if grep -q 'failure_type="TIMEOUT (${elapsed}s)"' "$PIPE"; then
-    fail "G-11: quedo la etiqueta TIMEOUT sin exit code (no se puede diagnosticar post-mortem)"
-else
-    pass "G-11: la etiqueta TIMEOUT ya no se emite sin el exit code"
-fi
-
 # La clasificacion de fallos se extrajo de run_agent a classify_agent_failure
 # en _mefisto-common.sh (issue #534): al pasar a gobernar tambien si un stage
 # se REINTENTA, inline no habia forma de ejercerla sin invocar el CLI real. La
@@ -522,14 +456,6 @@ if grep -q 'SIGNAL_POST_SUCCESS' "$REPO_ROOT/src/internal/scripts/lib/_mefisto-c
     pass "G-12: la clasificacion distingue una senal posterior al exito de un TIMEOUT"
 else
     fail "G-12: la clasificacion no distingue SIGNAL_POST_SUCCESS"
-fi
-
-# Y el pipeline tiene que seguir delegando en ella: si run_agent se quedara
-# con una copia inline propia, G-12 pasaria mientras el pipeline usa otra.
-if grep -q 'failure_type=$(classify_agent_failure' "$PIPE"; then
-    pass "G-13: el pipeline delega la clasificacion en classify_agent_failure"
-else
-    fail "G-13: el pipeline NO usa classify_agent_failure"
 fi
 
 echo ""

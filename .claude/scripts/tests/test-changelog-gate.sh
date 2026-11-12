@@ -16,12 +16,10 @@
 #         - diff NOTABLE sin fragmento  -> el gate ABORTA
 #         - diff EXENTO sin fragmento   -> el gate PASA
 #         - diff NOTABLE con fragmento  -> el gate PASA
-#   [D] Paridad: el pipeline real invoca las mismas funciones que este test, y
-#       ya no referencia el gate obsoleto sobre CHANGELOG.md directo.
+#   [D] _mefisto-common.sh ya no define el gate obsoleto sobre CHANGELOG.md directo.
 #
-# gate_would_abort replica EXACTAMENTE la decision del pipeline
-# (.claude/scripts/mefisto-tooling-pipeline.sh, bloque "Verificando fragmento
-# de CHANGELOG (changelog.d/)").
+# gate_would_abort replica la decision del pipeline interno de tooling, cuyo
+# cableado prueba mefisto-tooling-pipeline.test.mts.
 #
 # La consolidacion de fragmentos (fase prepare de /mefisto-release) se cubre
 # aparte en test-changelog-consolidation.sh.
@@ -194,52 +192,15 @@ else
     pass "C-3: el gate PASA ante cambio exento sin fragmento"
 fi
 
-# -------- Bloque D: paridad con el pipeline real --------
+# -------- Bloque D: el gate obsoleto ya no existe --------
 
 echo ""
-echo "[D] Paridad: el pipeline real invoca las mismas funciones que este test"
-
-PIPE="$REPO_ROOT/src/internal/scripts/mefisto-tooling-pipeline.sh"
-
-if grep -q 'if changelog_fragment_added "\$WORKTREE_PATH" "\$SNAPSHOT_COMMIT"; then' "$PIPE"; then
-    pass "D-1: mefisto-tooling-pipeline.sh invoca changelog_fragment_added en el gate"
-else
-    fail "D-1: el pipeline real NO invoca changelog_fragment_added (gate_would_abort divergiria)"
-fi
-
-if grep -q 'elif ! changes_require_changelog "\$WORKTREE_PATH" "\$SNAPSHOT_COMMIT"; then' "$PIPE"; then
-    pass "D-2: mefisto-tooling-pipeline.sh invoca changes_require_changelog en el gate"
-else
-    fail "D-2: el pipeline real NO invoca changes_require_changelog (gate_would_abort divergiria)"
-fi
-
-if grep -q 'check_unreleased_touched\|detect_misplaced_changelog_entry' "$PIPE"; then
-    fail "D-3: el pipeline real todavia referencia el gate obsoleto sobre CHANGELOG.md directo"
-else
-    pass "D-3: el pipeline real ya NO referencia el gate obsoleto (solo-fragmentos)"
-fi
+echo "[D] _mefisto-common.sh no conserva el gate obsoleto"
 
 if declare -F check_unreleased_touched >/dev/null || declare -F detect_misplaced_changelog_entry >/dev/null; then
     fail "D-4: _mefisto-common.sh todavia define una funcion del gate obsoleto"
 else
     pass "D-4: _mefisto-common.sh ya no define funciones del gate obsoleto"
-fi
-
-# D-5: el fragmento tiene que llegar al PR, no solo satisfacer el gate.
-# changelog_fragment_added acepta un fragmento que solo existe en el working
-# tree, asi que si changelog.d/ falta en la lista de paths del auto-commit el
-# gate pasaria y el fragmento nunca entraria a un commit: anotacion perdida en
-# silencio y /mefisto-release sin nada que consolidar. Las dos listas de paths
-# del pipeline (auto_commit_if_needed y la deteccion de cambios del writer)
-# deben incluir changelog.d/.
-# Las listas de pathspec de git son las que enumeran 'commands/ agents/ scripts/'
-# separadas por espacios (no la prosa del prompt, que las separa por comas).
-PATH_LISTS_TOTAL=$(grep -c 'commands/ agents/ scripts/ hooks/' "$PIPE" || true)
-PATH_LISTS_OK=$(grep -c 'commands/ agents/ scripts/ hooks/.*changelog\.d/ ' "$PIPE" || true)
-if [ "$PATH_LISTS_TOTAL" -gt 0 ] && [ "$PATH_LISTS_OK" -eq "$PATH_LISTS_TOTAL" ]; then
-    pass "D-5: las $PATH_LISTS_TOTAL listas de paths del pipeline incluyen changelog.d/ (el fragmento se commitea)"
-else
-    fail "D-5: solo $PATH_LISTS_OK de $PATH_LISTS_TOTAL listas de paths incluyen changelog.d/ (el fragmento podria no llegar al PR)"
 fi
 
 # -------- Resumen --------

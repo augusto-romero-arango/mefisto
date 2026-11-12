@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 # test-mefisto-tooling-variant.sh -- Tests del modo --variant (corridas
 # paralelas del mismo issue, issue #711) en .claude/scripts/_mefisto-common.sh,
-# .claude/scripts/mefisto-tooling-pipeline.sh, .claude/scripts/mefisto-launch-pipeline.sh
-# y .claude/scripts/mefisto-herdr-pipeline.sh.
+# .claude/scripts/mefisto-launch-pipeline.sh y .claude/scripts/mefisto-herdr-pipeline.sh.
+# El modo variante del pipeline interno de tooling lo prueba
+# mefisto-tooling-pipeline.test.mts.
 #
 # Contraparte interna de scripts/tests/test-tooling-variant.sh (issue #710,
 # lado publicado): mismo contrato de UX, verificado sobre las copias internas
@@ -21,14 +22,6 @@
 #   mefisto-herdr-pipeline.sh (bloques 11-14) -- misma superficie: --tooling
 #       reenvia --variant al pane run (solo y combinado con --models), sin
 #       valor aborta, y --batch lo rechaza.
-#   mefisto-tooling-pipeline.sh (bloques 15-17) -- chequeos estaticos sobre el
-#       fuente (mismo criterio que los gates de test-guards.sh): el sufijo
-#       -<label> llega a rama/worktree/status/logs (CA-2), en modo variante no
-#       hay push/PR/comentario al issue (CA-3), y el label viaja en el status
-#       y en el historial (CA-4).
-#   mefisto-tooling-pipeline.sh (bloque 18) -- corrida real: un label invalido
-#       aborta con el motivo visible en stderr aun sin .mefisto/pipeline/logs
-#       preexistente, y sin dejar worktree (CA-1).
 #
 # Uso: .claude/scripts/tests/test-mefisto-tooling-variant.sh
 # Exit code: 0 si todos los chequeos pasan, 1 si alguno falla.
@@ -395,120 +388,10 @@ echo "----------------------------------------"
 echo "  mefisto-herdr-pipeline.sh: $PASS pass, $FAIL fail (hasta aqui)"
 echo "----------------------------------------"
 
-# --- mefisto-tooling-pipeline.sh: wiring del modo variante (CA-2/CA-3/CA-4) -
-#
-# Chequeos estaticos sobre el fuente, al estilo de los gates de
-# test-guards.sh: correr el pipeline completo pediria stubs de claude/gh/git
-# y un worktree real, y lo que aqui importa no es la corrida sino DONDE quedan
-# cableados el sufijo y las supresiones -- justamente lo que una
-# refactorizacion futura puede mover de lugar sin que ningun test se queje.
-PIPE="$REPO_ROOT/src/internal/scripts/mefisto-tooling-pipeline.sh"
-
-echo ""
-echo "[15] mefisto-tooling-pipeline.sh: el sufijo -<label> llega a rama, worktree, status y logs (CA-2)"
-if grep -qF 'BRANCH_NAME="${BRANCH_NAME}-${VARIANT_LABEL}"' "$PIPE"; then
-    pass "la rama -- y con ella el path del worktree, derivado de BRANCH_NAME -- lleva el sufijo"
-else
-    fail "la rama no lleva el sufijo: dos variantes del mismo issue colisionarian"
-fi
-if grep -qF 'pipeline-status-mefisto-tooling-${ISSUE_NUM}-${VARIANT_LABEL}.json' "$PIPE"; then
-    pass "el archivo de status lleva el sufijo"
-else
-    fail "el status no lleva el sufijo: una variante pisaria el status de la otra"
-fi
-if grep -qF 'mefisto-tooling-pipeline-${TIMESTAMP}-${VARIANT_LABEL}.log' "$PIPE"; then
-    pass "el log del pipeline lleva el sufijo (dos variantes del mismo segundo comparten TIMESTAMP)"
-else
-    fail "el log del pipeline NO lleva el sufijo: dos variantes lanzadas en el mismo segundo escribirian al mismo archivo"
-fi
-if grep -qF 'issue-${ISSUE_NUM}"' "$PIPE"; then
-    fail "quedan nombres de log de stage derivados de ISSUE_NUM directo (colisionan entre variantes)"
-else
-    pass "ningun nombre de log de stage deriva de ISSUE_NUM directo"
-fi
-LOG_TAG_HITS=$(grep -cF 'ISSUE_LOG_TAG' "$PIPE")
-if [ "$LOG_TAG_HITS" -ge 5 ]; then
-    pass "ISSUE_LOG_TAG cablea los nombres de log/metrics de stage ($LOG_TAG_HITS usos)"
-else
-    fail "solo $LOG_TAG_HITS usos de ISSUE_LOG_TAG: falta cablear algun nombre de log"
-fi
-
-echo ""
-echo "[16] mefisto-tooling-pipeline.sh: en modo variante no hay push, ni PR, ni comentario al issue (CA-3)"
-if grep -qF 'if [ -n "$VARIANT_LABEL" ]; then' "$PIPE"; then pass "existe el gate por VARIANT_LABEL"; else fail "no hay gate por VARIANT_LABEL"; fi
-# Los tres efectos externos deben estar ANIDADOS (con sangria) bajo el gate: en
-# el nivel superior (columna 0) correrian tambien en modo variante.
-if grep -qE '^git -C "\$WORKTREE_PATH" push' "$PIPE"; then
-    fail "el push de la rama esta en el nivel superior: correria tambien en modo variante"
-else
-    pass "el push no esta en el nivel superior"
-fi
-if grep -qE '^gh issue comment' "$PIPE"; then
-    fail "el comentario al issue esta en el nivel superior: correria tambien en modo variante"
-else
-    pass "el comentario al issue no esta en el nivel superior"
-fi
-if grep -qE '^ +git -C "\$WORKTREE_PATH" push -u origin' "$PIPE" \
-    && grep -qE '^ +PR_URL=\$\(gh pr create' "$PIPE" \
-    && grep -qE '^ +gh issue comment' "$PIPE"; then
-    pass "push, gh pr create y gh issue comment quedan anidados bajo el gate"
-else
-    fail "no se encontraron los tres efectos externos anidados bajo el gate (push / gh pr create / gh issue comment)"
-fi
-
-echo ""
-echo "[17] mefisto-tooling-pipeline.sh: el label viaja en el status y en el historial (CA-4)"
-if grep -qF '"variant": ${VARIANT_LABEL_JSON:-null},' "$PIPE"; then
-    pass "el JSON de status declara el campo variant"
-else
-    fail "el JSON de status no declara el campo variant"
-fi
-HISTORY_VARIANT_HITS=$(grep -cF '\"variant\":${VARIANT_LABEL_JSON:-null}' "$PIPE")
-if [ "$HISTORY_VARIANT_HITS" -ge 2 ]; then
-    pass "las dos lineas de pipeline-history.jsonl (completed y failed) llevan variant ($HISTORY_VARIANT_HITS)"
-else
-    fail "solo $HISTORY_VARIANT_HITS linea(s) de historial llevan variant: se esperan 2 (completed y failed)"
-fi
-
-echo ""
-echo "[18] mefisto-tooling-pipeline.sh: un --variant invalido aborta con el motivo VISIBLE, aunque .mefisto/pipeline/logs no exista (CA-1)"
-# El caso real: primera corrida sobre un clon fresco. La validacion de
-# --variant ocurre ANTES de 'mkdir -p "$LOG_DIR"', asi que abort() escribe a un
-# log cuyo directorio todavia no existe. Si el tee de abort() no tolera ese
-# fallo, errexit mata el proceso en esa linea -- abort() es el comando final de
-# un '||' y por tanto NO hereda la exencion de errexit -- y el humano solo ve
-# "tee: ... No such file or directory": el motivo real nunca llega a stderr.
-cp "$REPO_ROOT/.claude/scripts/mefisto-tooling-pipeline.sh" "$FAKE_MEFISTO/.claude/scripts/mefisto-tooling-pipeline.sh"
-cp "$REPO_ROOT/src/internal/scripts/mefisto-tooling-pipeline.sh" "$FAKE_MEFISTO/src/internal/scripts/mefisto-tooling-pipeline.sh"
-rm -rf "$FAKE_MEFISTO/.mefisto"
-ABORT_OUT="$TMP_DIR/abort-stdout"; ABORT_ERR="$TMP_DIR/abort-stderr"
-(
-    cd "$FAKE_MEFISTO" || exit 99
-    PATH="$FAKE_BIN:$PATH" ./.claude/scripts/mefisto-tooling-pipeline.sh 711 --variant "MALO_X"
-) </dev/null >"$ABORT_OUT" 2>"$ABORT_ERR"
-ABORT_RC=$?
-if [ "$ABORT_RC" -ne 0 ]; then pass "el pipeline aborta (rc=$ABORT_RC)"; else fail "un label invalido deberia abortar"; fi
-if grep -q -- "--variant mal formado" "$ABORT_ERR"; then
-    pass "el motivo del aborto llega a stderr sin log dir preexistente"
-else
-    fail "el motivo del aborto NO llega a stderr: $(cat "$ABORT_ERR")"
-fi
-if grep -q "solo minusculas, digitos y guiones" "$ABORT_ERR"; then
-    pass "el mensaje explica el formato esperado del label"
-else
-    fail "el mensaje no explica el formato esperado: $(cat "$ABORT_ERR")"
-fi
-if compgen -G "$FAKE_MEFISTO/../worktree-mefisto-issue-711-*" >/dev/null 2>&1; then
-    fail "se creo un worktree pese al label invalido"
-else
-    pass "no se creo ningun worktree (aborta antes)"
-fi
-
 echo ""
 echo "[19] mefisto-launch-pipeline.sh: --tooling propaga MEFISTO_RUNTIME al sub-pipeline cuando el launcher lo hereda (issue #871, CA-2)"
 # Sin la variable en el sub-pipeline, este autodetectaria el runtime y una
-# corrida lanzada con otro runtime caeria en Claude Code sin avisar. El
-# bloque [18] dejo el pipeline real en el fixture: se reinstala el stub.
+# corrida lanzada con otro runtime caeria en Claude Code sin avisar.
 install_subpipeline_stubs
 MEFISTO_RUNTIME=fake run_wrapper --tooling 711
 if [ "$LAST_RC" -eq 0 ]; then pass "corre sin abortar con MEFISTO_RUNTIME heredado (rc=$LAST_RC)"; else fail "no deberia abortar (rc=$LAST_RC, stderr: $LAST_STDERR)"; fi

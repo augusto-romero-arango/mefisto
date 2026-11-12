@@ -231,6 +231,21 @@ describe('createAbort', () => {
     assert.ok(stripAnsi(stderr.text).startsWith('\nERR ERROR: issue incompleto\n'))
   })
 
+  test('sin linea en blanco ni sugerencia de inspeccion en pantalla, el log conserva el error igual', () => {
+    const file = logFile()
+    const stderr = screen()
+    const worktree = join(work, 'wt-compacto')
+    mkdirSync(worktree)
+    const log = createPipelineLog({ logFile: () => file, out: () => {} })
+    const abort = createAbort({ log, worktree: () => worktree, stream: stderr.out, leadingBlankLine: false, inspectHint: false })
+    assert.throws(() => abort('fallo'), PipelineAbort)
+    assert.equal(
+      stripAnsi(stderr.text),
+      `x ERROR: fallo\nRevisa el log: ${file}\nEl worktree queda en: ${worktree}\n`,
+    )
+    assert.equal(stripAnsi(readFileSync(file, 'utf8')), '\nx ERROR: fallo\n')
+  })
+
   test('el texto del error es un parametro y sin detalles no se nombra el log, su cola ni el worktree', () => {
     const file = logFile()
     writeFileSync(file, 'contexto\n')
@@ -264,6 +279,30 @@ describe('createAbort', () => {
     assert.throws(() => abort('m'), PipelineAbort)
     assert.ok(sink.text.startsWith('<m>\n'))
     assert.match(stripAnsi(sink.text), /Revisa el log: /)
+  })
+
+  test('las opciones de los dos pipelines se combinan: render gana a leadingBlankLine, y sin detalles no hay worktree', () => {
+    const file = logFile()
+    const stderr = screen()
+    const worktree = join(work, 'wt-combinado')
+    mkdirSync(worktree)
+    const log = createPipelineLog({ logFile: () => file, out: () => {} })
+    const rendered = createAbort({
+      log,
+      worktree: () => worktree,
+      stream: stderr.out,
+      leadingBlankLine: false,
+      inspectHint: false,
+      render: (message) => ({ stream: `<${message}>\n`, file: `[${message}]\n` }),
+    })
+    assert.throws(() => rendered('a'), PipelineAbort)
+    assert.equal(stripAnsi(stderr.text), `<a>\nRevisa el log: ${file}\nEl worktree queda en: ${worktree}\n`)
+    assert.equal(readFileSync(file, 'utf8'), '[a]\n')
+
+    const quiet = screen()
+    const compact = createAbort({ log, worktree: () => worktree, stream: quiet.out, leadingBlankLine: false, details: false })
+    assert.throws(() => compact('b'), PipelineAbort)
+    assert.equal(stripAnsi(quiet.text), 'x ERROR: b\n')
   })
 })
 

@@ -1,0 +1,7 @@
+Hay conflictos de merge con main en los siguientes archivos:
+scripts/a.sh
+docs/b.md
+
+Resuelve los conflictos manteniendo tanto la funcionalidad nueva como la existente.
+Despues de resolver cada archivo, haz git add. Cuando todos esten resueltos, haz git commit.
+PROHIBIDO hacer 'git push' o 'gh pr create': eso es responsabilidad exclusiva del pipeline, nunca tuya.

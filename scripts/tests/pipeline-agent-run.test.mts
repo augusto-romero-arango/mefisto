@@ -192,6 +192,16 @@ describe('runnerProcess', () => {
     assert.equal(await launch(['colgar'], join(work, 'runner-senal.log')), 143)
   })
 
+  test('con appendOutput agrega la salida al archivo en vez de reemplazarlo', async () => {
+    const output = join(work, 'runner-anexo.log')
+    writeFileSync(output, 'intento anterior\n')
+    const launch = runnerProcess({ runner, env: { ...process.env, MARCA: 'y' }, appendOutput: true })
+    assert.equal(await launch(['0'], output), 0)
+    const content = readFileSync(output, 'utf8')
+    assert.ok(content.startsWith('intento anterior\n'))
+    assert.ok(content.includes('argv=0\n') && content.includes('env=y\n'))
+  })
+
   test('un runner que no arranca devuelve 127', async () => {
     const launch = runnerProcess({ runner: { command: join(work, 'no-existe-binario'), args: [] }, env: process.env })
     assert.equal(await launch([], join(work, 'runner-ausente.log')), 127)
