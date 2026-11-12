@@ -107,6 +107,8 @@ export interface WorktreeRequest {
   /** Rama del directorio desde el que se lanzo el pipeline; solo informa. */
   currentBranch: string
   texts?: Partial<WorktreeTexts>
+  /** Donde crear el worktree; por defecto, `pipelineWorktreePath`. */
+  path?: string
 }
 
 /**
@@ -119,7 +121,7 @@ export function createWorktree(request: WorktreeRequest, tools: WorktreeTools): 
   const { log, run, runLogged } = tools
   const options = { cwd: tools.cwd, ...(tools.env === undefined ? {} : { env: tools.env }) }
   const logged = (args: string[]): number | null => runLogged('git', args, log.logFile(), options)
-  const path = pipelineWorktreePath(request.repoRoot, request.branch)
+  const path = request.path ?? pipelineWorktreePath(request.repoRoot, request.branch)
 
   if (request.currentBranch !== 'main' && request.currentBranch !== 'master') {
     log.warn(texts.offMainBranch(request.currentBranch))

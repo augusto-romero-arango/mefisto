@@ -5,6 +5,7 @@
 import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 
+import type { Run } from '../../../../scripts/lib/azure-cli.mts'
 import { CliError, capture, commandExists, gitOutput, repoRoot } from '../../../../scripts/lib/cli.mts'
 
 export interface MefistoRepo {
@@ -14,8 +15,14 @@ export interface MefistoRepo {
   repoSlug: string
 }
 
+/** Como se consulta `gh`; por defecto, el real. */
+export interface MefistoRepoTools {
+  run?: Run
+  hasCommand?: (command: string) => boolean
+}
+
 /** Lanza `CliError` si `cwd` no esta dentro del repo de Mefisto. */
-export function assertInMefisto(cwd: string = process.cwd()): MefistoRepo {
+export function assertInMefisto(cwd: string = process.cwd(), tools: MefistoRepoTools = {}): MefistoRepo {
   const root = repoRoot(cwd)
   if (root === null) throw new CliError('ERROR: no estas en un repositorio git')
   const manifest = join(root, '.claude-plugin', 'plugin.json')
@@ -29,7 +36,7 @@ export function assertInMefisto(cwd: string = process.cwd()): MefistoRepo {
       ].join('\n'),
     )
   }
-  return { root, projectName: projectNameOf(manifest), repoSlug: repoSlugOf(root) }
+  return { root, projectName: projectNameOf(manifest), repoSlug: repoSlugOf(root, tools) }
 }
 
 function projectNameOf(manifest: string): string {
@@ -45,9 +52,9 @@ function projectNameOf(manifest: string): string {
   return 'mefisto'
 }
 
-function repoSlugOf(root: string): string {
-  if (!commandExists('gh')) return ''
-  const result = capture('gh', ['repo', 'view', '--json', 'nameWithOwner', '-q', '.nameWithOwner'], {
+function repoSlugOf(root: string, tools: MefistoRepoTools): string {
+  if (!(tools.hasCommand ?? ((command: string): boolean => commandExists(command)))('gh')) return ''
+  const result = (tools.run ?? capture)('gh', ['repo', 'view', '--json', 'nameWithOwner', '-q', '.nameWithOwner'], {
     cwd: root,
   })
   return result.status === 0 ? result.stdout.trim() : ''

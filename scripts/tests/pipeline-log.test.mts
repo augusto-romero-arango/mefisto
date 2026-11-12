@@ -230,6 +230,21 @@ describe('createAbort', () => {
     assert.equal(sink.text, '')
     assert.ok(stripAnsi(stderr.text).startsWith('\nERR ERROR: issue incompleto\n'))
   })
+
+  test('sin linea en blanco ni sugerencia de inspeccion en pantalla, el log conserva el error igual', () => {
+    const file = logFile()
+    const stderr = screen()
+    const worktree = join(work, 'wt-compacto')
+    mkdirSync(worktree)
+    const log = createPipelineLog({ logFile: () => file, out: () => {} })
+    const abort = createAbort({ log, worktree: () => worktree, stream: stderr.out, leadingBlankLine: false, inspectHint: false })
+    assert.throws(() => abort('fallo'), PipelineAbort)
+    assert.equal(
+      stripAnsi(stderr.text),
+      `x ERROR: fallo\nRevisa el log: ${file}\nEl worktree queda en: ${worktree}\n`,
+    )
+    assert.equal(stripAnsi(readFileSync(file, 'utf8')), '\nx ERROR: fallo\n')
+  })
 })
 
 describe('runLogged y loggedThrough', () => {

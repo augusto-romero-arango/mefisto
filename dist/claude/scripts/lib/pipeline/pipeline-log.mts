@@ -131,6 +131,10 @@ export interface AbortOptions {
   record?: (message: string, state: string) => void
   /** Destino de lo que no va al log; por defecto, la pantalla del log. */
   stream?: (text: string) => void
+  /** `false` imprime el error sin la linea en blanco que lo precede en el log. */
+  leadingBlankLine?: boolean
+  /** `false` omite la linea `Para inspeccionar: cd <worktree>`. */
+  inspectHint?: boolean
 }
 
 /** `state` es el estado final que registra el pipeline (`failed` si no se indica). */
@@ -148,14 +152,14 @@ export function createAbort(options: AbortOptions): Abort {
     // La cola se lee antes de anotar el error: despues solo repetiria el mensaje recien impreso.
     const tail = (options.tailLines ?? 0) > 0 ? tailLogForAbort(log.logFile(), options.tailLines ?? 0) : ''
     const error = `\n${COLOR.red}${COLOR.bold}${log.glyphs.error} ERROR: ${message}${COLOR.reset}\n`
-    stream(error)
+    stream(options.leadingBlankLine === false ? error.slice(1) : error)
     log.append(error)
     stream(`${COLOR.yellow}Revisa el log: ${log.logFile()}${COLOR.reset}\n`)
     if (tail.length > 0) stream(`${tail}\n`)
     const worktree = options.worktree()
     if (worktree.length > 0 && isDirectory(worktree)) {
       stream(`${COLOR.yellow}El worktree queda en: ${worktree}${COLOR.reset}\n`)
-      stream(`${COLOR.yellow}Para inspeccionar: cd ${worktree}${COLOR.reset}\n`)
+      if (options.inspectHint !== false) stream(`${COLOR.yellow}Para inspeccionar: cd ${worktree}${COLOR.reset}\n`)
     }
     options.record?.(message, state)
     throw new PipelineAbort(message)
