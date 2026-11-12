@@ -75,6 +75,7 @@ export const TOOLING_CLOSURE_ASSETS: readonly string[] = [
   'scripts/launch-pipeline.mts|0644',
   'scripts/lib/launcher.mts|0644',
   'scripts/herdr-workspace.sh|0755',
+  'scripts/herdr-workspace.mts|0644',
   'scripts/herdr-pipeline.sh|0755',
   'scripts/herdr-pipeline.mts|0644',
   'scripts/lib/herdr.mts|0644',
