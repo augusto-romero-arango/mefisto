@@ -11,11 +11,12 @@
 #       y en su espejo .claude/scripts/_mefisto-common.sh; devuelve
 #       "caffeinate -i" cuando el binario esta en PATH y cadena VACIA cuando no
 #       (el caso Linux/CI se fuerza con PATH="", sin desinstalar nada).
-#   [C] CA-3/CA-4: en herdr-pipeline.sh y mefisto-herdr-pipeline.sh el lanzamiento
-#       en background del sub-pipeline esta prefijado con $CAFF, y los dos
-#       runners calculan CAFF una sola vez por corrida (no por lanzamiento).
+#   [C] CA-3/CA-4: en mefisto-herdr-pipeline.sh el lanzamiento en background del
+#       sub-pipeline esta prefijado con $CAFF, calculado una sola vez por corrida
+#       (no por lanzamiento).
 #
-# El prefijo del lanzamiento desacoplado de los lanzadores lo cubren
+# El prefijo del runner de herdr-pipeline.mts lo cubre scripts/tests/herdr.test.mts;
+# el del lanzamiento desacoplado de los lanzadores lo cubren
 # scripts/tests/launch-pipeline.test.mts y
 # .claude/scripts/tests/mefisto-launch-pipeline.test.mts.
 #
@@ -84,7 +85,6 @@ echo ""
 echo "[C] herdr: el lanzamiento en background lleva \$CAFF; CAFF se calcula una vez (CA-3, CA-4)"
 
 HERDR_RUNNERS=(
-    "scripts/herdr-pipeline.sh"
     "src/internal/scripts/mefisto-herdr-pipeline.sh"
 )
 

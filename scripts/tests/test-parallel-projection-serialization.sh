@@ -33,13 +33,6 @@ fail() { echo "  FAIL: $1"; FAIL=$((FAIL+1)); }
 
 source "$REPO_ROOT/scripts/_pipeline-common.sh"
 
-echo "[pre] herdr-pipeline.sh no conserva rutas legacy de escritura"
-if grep -q '\.claude/pipeline/logs' "$REPO_ROOT/scripts/herdr-pipeline.sh"; then
-    fail "herdr-pipeline.sh conserva una ruta legacy de escritura"
-else
-    pass "herdr-pipeline.sh no conserva rutas legacy de escritura"
-fi
-
 echo "[S-1] _is_tipo_projection_from_labels: label exacto vs. prefijo"
 
 if _is_tipo_projection_from_labels "estado:listo

@@ -565,6 +565,23 @@ describe('runner del pane', () => {
     await until(() => runner.children.every((child) => child.exitCode !== null || child.signalCode !== null), 'la muerte de los hijos')
   })
 
+  test('antepone el prefijo de caffeinate al pipeline, no al visor', async () => {
+    const launched: string[][] = []
+    const runner = startRunner(['--title', 'cafe', '--', ...childScript('process.exit(0)')], PUBLISHED, {
+      caffeinate: ['caffeinate', '-i'],
+      launch: (command, args, options) => {
+        launched.push([command, ...args])
+        const [real = '', ...rest] = command === 'caffeinate' ? args.slice(1) : [command, ...args]
+        const child = spawn(real, rest, { cwd: options.cwd, env: options.env, stdio: 'ignore' })
+        spawned.push(child)
+        return child
+      },
+    })
+    assert.equal(await runner.run, 0)
+    assert.deepEqual(launched[0]?.slice(0, 3), ['caffeinate', '-i', process.execPath])
+    assert.equal(launched[1]?.[0], process.execPath)
+  })
+
   test('un comando que no existe termina con 127 y lo anota en el reporte', async () => {
     const runner = startRunner(['--title', 'roto', '--', join(work, 'no-existe-este-binario')], PUBLISHED)
     assert.equal(await runner.run, 127)
