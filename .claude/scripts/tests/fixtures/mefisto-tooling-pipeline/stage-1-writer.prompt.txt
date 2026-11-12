@@ -1,0 +1,61 @@
+Estas en el directorio raiz del repo de Mefisto (mefisto), un Claude Code Plugin para proyectos .NET serverless en Azure.
+
+Contexto de la tarea de tooling a implementar:
+
+# Issue #42: Agregar workflow "ci" con $HOME y `backticks`
+
+Cuerpo con $(subshell) y \backslash.
+Segunda linea.
+
+Tu tarea: implementa lo descrito en el issue. Esto es una tarea de TOOLING sobre el propio plugin Mefisto: skills (en commands/), agentes (en agents/), pipelines bash (en scripts/), hooks (en hooks/), ADRs (en docs/adr/), metadata del plugin (.claude-plugin/), o equivalentes internos en .claude/{commands,agents,scripts}/.
+
+ALCANCE DE ESCRITURA PERMITIDO:
+- commands/        (skills publicados)
+- agents/          (agentes publicados)
+- scripts/         (pipelines bash publicados)
+- hooks/           (hooks publicados)
+- docs/            (ADRs, testing, field-notes, cheatsheets)
+- .claude-plugin/  (plugin.json, marketplace.json)
+- .claude/commands/, .claude/agents/, .claude/scripts/  (skills/agentes/pipelines INTERNOS de Mefisto)
+- .claude/mods/  (mods de Claude Code del propio Mefisto, MEF-ADR-0055)
+- .claude/settings.json  (hooks del pipeline interno; entrada EXACTA, no toda .claude/)
+- src/internal/  (layout interno de runtime/proveedor neutral, MEF-ADR-0049; src/ fuera de internal/ sigue fuera de scope)
+- src/published/, src/runtime/, dist/  (layout publicado multi-runtime de MEF-ADR-0053; registrado antes de poblarlo)
+- AGENTS.md  (doctrina canonica neutral; entrada EXACTA de la raiz, MEF-ADR-0049)
+- changelog.d/  (fragmentos de CHANGELOG e indice de ADRs, ver instruccion 5 abajo)
+- README.md, CHANGELOG.md, CLAUDE.md, .gitignore, .gitattributes, LICENSE, NOTICE  (gobierno del repo)
+
+Si el issue requiere escribir en una ruta o tipo de artefacto que NO esta en el listado anterior, verifica antes la allowlist autoritativa: la funcion is_path_in_mefisto_scope de src/internal/scripts/lib/_mefisto-common.sh, tal como esta en main (.claude/scripts/_mefisto-common.sh es solo el shim que la sourcea). Es la que el gate del pipeline evalua, y el listado de arriba puede quedarse corto frente a ella. Si la ruta tampoco esta ahi, NO intentes crear archivos en ella aunque el issue lo describa: primero hace falta un PR que la registre en los gates de scope/changelog (ver MEF-ADR-0019, seccion E -- registrar una ruta y usarla son dos PRs distintos, el de registro va primero y no crea archivos bajo la ruta que registra). Reporta ese bloqueo en tu resumen de stage 1 para que el PR de registro se abra antes de continuar con este issue.
+
+NO MODIFIQUES NADA FUERA DE ESE SCOPE. Mefisto no tiene tests/ ni infra/; src/ fuera de internal/, published/ y runtime/ sigue fuera de scope.
+
+CONTEXTO DE EJECUCION:
+- Modo no-interactivo (print mode). No hay un humano al otro lado.
+- Nadie puede aprobar, confirmar ni responder preguntas.
+- DEBES usar las herramientas Write y Edit directamente.
+- Responder con texto pidiendo aprobacion causa un fallo del pipeline.
+- Tienes permisos completos (bypassPermissions activo).
+- PROHIBIDO hacer 'git push' o 'gh pr create' (ni ninguna operacion de publicacion de rama/PR): eso es responsabilidad exclusiva del pipeline, nunca tuya.
+
+ECONOMIA DE TURNOS:
+Cada turno tuyo cuesta ~13 s de reloj (el 96,6% del tiempo de una corrida es el modelo escribiendo tokens, no las herramientas ejecutandose). El presupuesto completo del stage es 1800 s. Lo caro suele ser el turno, pero los tests tambien consumen ese presupuesto. Con eso en mente:
+- Agrupa en un mismo turno las tool calls independientes entre si (varias busquedas, varias lecturas, varias escrituras a archivos distintos). No las encadenes de a una: hoy el 82% de los turnos del pipeline gasta una sola tool call, y cada una de esas cadenas paga 13 s por eslabon.
+- Al cerrar, corre UNA vez scripts/tests/test-guards.sh y los tests de scripts/tests/, src/published/scripts/tests/ y .claude/scripts/tests/ cuyo nombre o contenido mencione los archivos que tocaste (busca con grep -l). scripts/tests/<x>.sh puede ser un shim de src/published/scripts/tests/<x>.sh: corre un solo archivo por suite (el shim si existe, o el de src/published/ directo si no), sin duplicarla. No corras la suite completa dentro de este stage: el presupuesto (1800 s) no la cubre. Si alguien fuera de este stage necesita la regresion completa, el destino es .claude/scripts/mefisto-test-suite.sh, no un bucle propio.
+- No re-inspecciones el arbol con 'git status' ni 'git diff' para confirmar algo que acabas de escribir: Write y Edit fallan con error si no aplican, asi que el exito de la herramienta ya es la confirmacion.
+- No verifiques el scope de un archivo antes de escribirlo (ni con 'git status' ni releyendo is_path_in_mefisto_scope): un hook PostToolUse te avisa EN EL INSTANTE, gratis, si un Edit/Write cae fuera de la allowlist -- no hay motivo para inspeccionar preventivamente algo que el hook ya te va a decir si sale mal. Eso no reemplaza los gates finales (validate_mefisto_scope_changes y mefisto-neutrality-gate.sh siguen corriendo al cierre del stage): el hook es aviso temprano, no el juez.
+Estas reglas no cubren todos los casos; ante cualquier otro, decide con el mismo criterio -- un turno extra cuesta ~13 s, y solo vale la pena si te ahorra un error que costaria mas.
+
+NEUTRALIDAD DE RUNTIME:
+Un gate de cierre de stage (reglas R1-R3 de src/internal/scripts/mefisto-neutrality-gate.sh) escanea src/internal/** y los scripts de nivel superior de .claude/scripts/ con grep sobre texto crudo: mencionar un literal prohibido en un comentario, un string o en prosa cuenta igual que usarlo, incluso cuando la frase lo niega o lo desaconseja. Una sola fuga aborta la corrida entera al cierre del stage y se pierde todo el trabajo hecho hasta ahi, asi que revisa el texto que escribes antes de darlo por cerrado. La lista exacta de literales por regla esta en la cabecera de ese script -- R1: alias/ids de modelo y claves de permiso crudas de un runtime concreto; R2: invocaciones directas del CLI de un runtime concreto; R3: rutas y variables de entorno propias de un runtime concreto. Los pocos archivos que hoy los nombran pasan por una excepcion nominal en src/internal/contract/neutrality-allowlist.json, con un motivo que justifica por que esa mencion es correcta y permanente en ese archivo puntual; su fraseo no es un patron replicable en un archivo nuevo. Para referirte a cualquiera de esos conceptos en prosa neutral, cita MEF-ADR-0050 (nunca con variables de entorno ni rutas de un runtime concreto). No resuelvas una fuga anadiendo una excepcion nueva a esa allowlist: registrar una excepcion nueva y usarla son dos PRs distintos, y este no es el de registro (MEF-ADR-0019 seccion E).
+
+Instrucciones:
+1. Lee los archivos existentes relevantes antes de escribir nuevos.
+2. Reutiliza patrones y convenciones del repo (mira archivos similares).
+3. Haz commits frecuentes con mensajes descriptivos en espanol.
+4. Si modificaste un skill o agente publicado, considera si necesitas tambien la version interna (con prefijo mefisto-).
+5. Anota el cambio como FRAGMENTO en changelog.d/ (issue #380): NUNCA edites CHANGELOG.md ni la tabla "Indice tematico" de CLAUDE.md directamente -- son archivos-indice compartidos que /mefisto-release consolida en su propia rama de release, no cada PR (editarlos por-issue es exactamente la contencion que este mecanismo elimina). En su lugar:
+   - Crea 'changelog.d/42.<categoria>.md' con una o mas lineas '- texto de la entrada' en estilo Keep a Changelog, donde <categoria> es 'added' (funcionalidad nueva), 'changed' (cambio de comportamiento), 'fixed' (bug) o 'removed' (eliminacion).
+   - Si el issue anade o enmienda un ADR (docs/adr/), crea ademas 'changelog.d/42.adr-index.md' con la fila '| <Tema del ADR> | MEF-ADR-XXXX |' lista para insertarse en la tabla de indice de CLAUDE.md.
+   - Ve changelog.d/README.md para el formato completo y ejemplos.
+   Excepcion: si el cambio toca exclusivamente bitacora (docs/bitacora/**) u otros archivos de gobierno no notables (README.md, CLAUDE.md, .gitignore), omite el fragmento. Un gate del pipeline aborta el PR si un cambio notable llega sin fragmento en changelog.d/.
+6. Al terminar, escribe un resumen de lo que hiciste en .mefisto/pipeline/summaries/stage-1-writer.md

@@ -78,6 +78,8 @@ export interface RunnerProcessOptions {
   cwd?: string
   /** Recibe el proceso mientras corre y `null` al terminar, para poder matarlo ante una senal. */
   onChild?: (child: ChildProcess | null) => void
+  /** `true` agrega la salida al archivo en vez de reemplazarlo. */
+  appendOutput?: boolean
 }
 
 /**
@@ -89,7 +91,7 @@ export function runnerProcess(options: RunnerProcessOptions): LaunchRunner {
     new Promise<number>((resolve) => {
       let output: number
       try {
-        output = openSync(outputFile, 'w')
+        output = openSync(outputFile, options.appendOutput === true ? 'a' : 'w')
       } catch {
         resolve(1)
         return

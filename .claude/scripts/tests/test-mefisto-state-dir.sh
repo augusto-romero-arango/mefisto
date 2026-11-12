@@ -62,7 +62,7 @@ fi
 
 # Se juzga sobre CODIGO, no sobre comentarios: el propio archivo documenta en
 # prosa que evita 'declare -A', y un grep crudo leeria esa explicacion como la
-# infraccion que describe (mismo criterio que test-scope-hook.sh bloque E).
+# infraccion que describe.
 if grep -v '^[[:space:]]*#' "$LIB" | grep -q "declare -A"; then
     fail "usa 'declare -A' (arrays asociativos): rompe en bash 3.2"
 else
