@@ -1,8 +1,7 @@
 #!/usr/bin/env bash
 # test-mefisto-stage-models.sh -- Tests del mecanismo de asignacion de modelo
 # por stage (--models, issue #709) en .claude/scripts/_mefisto-common.sh,
-# .claude/scripts/mefisto-tooling-pipeline.sh, .claude/scripts/mefisto-launch-pipeline.sh
-# y .claude/scripts/mefisto-herdr-pipeline.sh.
+# .claude/scripts/mefisto-tooling-pipeline.sh y .claude/scripts/mefisto-herdr-pipeline.sh.
 #
 # Contraparte interna de scripts/tests/test-stage-models.sh (issue #708, lado
 # publicado): mismo contrato de UX, verificado sobre las copias internas --
@@ -24,11 +23,6 @@
 #       para reviewer -- ya sin los defaults fijos sonnet/opus; tambien ANTES
 #       del worktree, y run_agent solo selecciona lo ya resuelto, issue #910) y
 #       la ayuda del script.
-#   mefisto-launch-pipeline.sh (bloques 16-19) -- --tooling reenvia --models
-#       intacto al sub-pipeline desacoplado (una sola palabra, aun con
-#       caracteres de glob, CA-3), se combina con --from-stage, --models sin
-#       valor aborta, y --batch lo rechaza explicito (ambiguo sobre varios
-#       issues).
 #   mefisto-herdr-pipeline.sh (bloques 20-24) -- la otra mitad de CA-3: dentro
 #       de un pane herdr el valor viaja crudo (sin las comillas que solo
 #       sirven al `bash -c` del modo desacoplado), sobrevive un id de modelo
@@ -319,7 +313,7 @@ run_effort_case "$E_TMP/models-bad.json"
 if printf '%s' "$E_RES" | grep -q 'ABORT:.*mefisto-writer.*MEFISTO_EFFORTS_ERROR='; then pass "mapping invalido aborta citando agente y MEFISTO_EFFORTS_ERROR"; else fail "obtenido '$E_RES'"; fi
 rm -rf "$E_TMP"
 
-# --- mefisto-launch-pipeline.sh / mefisto-herdr-pipeline.sh: reenvio/rechazo --
+# --- mefisto-herdr-pipeline.sh: reenvio/rechazo ------------------------------
 #
 # Mismo arnes que test-harness-version.sh: fixture con .claude-plugin/plugin.json
 # (assert_in_mefisto lo exige) y copias de los scripts reales bajo
@@ -342,29 +336,9 @@ cp "$REPO_ROOT/src/internal/scripts/lib/_mefisto-common.sh" "$FAKE_MEFISTO/src/i
 cp "$REPO_ROOT/.claude/scripts/_mefisto-common.sh" "$FAKE_MEFISTO/.claude/scripts/_mefisto-common.sh"
 cp "$REPO_ROOT/src/internal/scripts/lib/mefisto-state.sh" "$FAKE_MEFISTO/src/internal/scripts/lib/mefisto-state.sh"
 cp -R "$REPO_ROOT/src/runtime" "$FAKE_MEFISTO/src/runtime"
-cp "$REPO_ROOT/.claude/scripts/mefisto-launch-pipeline.sh" "$FAKE_MEFISTO/.claude/scripts/mefisto-launch-pipeline.sh"
-cp "$REPO_ROOT/src/internal/scripts/mefisto-launch-pipeline.sh" "$FAKE_MEFISTO/src/internal/scripts/mefisto-launch-pipeline.sh"
 cp "$REPO_ROOT/.claude/scripts/mefisto-herdr-pipeline.sh" "$FAKE_MEFISTO/.claude/scripts/mefisto-herdr-pipeline.sh"
 cp "$REPO_ROOT/src/internal/scripts/mefisto-herdr-pipeline.sh" "$FAKE_MEFISTO/src/internal/scripts/mefisto-herdr-pipeline.sh"
-# Sub-pipelines stub: el modo desacoplado los ejecuta de verdad, asi que
-# registran su argv (una palabra por corchete) y el runtime que heredan.
-export SUBPIPE_STUB_LOG="$TMP_DIR/sub-pipeline.log"
-install_subpipeline_stubs() {
-    local sub
-    for sub in mefisto-tooling-pipeline.sh mefisto-batch-pipeline.sh; do
-        cat > "$FAKE_MEFISTO/src/internal/scripts/$sub" <<'STUB'
-#!/usr/bin/env bash
-{
-    echo "script: $(basename "$0")"
-    printf 'argv:'; printf ' [%s]' "$@"; printf '\n'
-    echo "runtime: ${MEFISTO_RUNTIME:-}"
-} > "$SUBPIPE_STUB_LOG"
-STUB
-        chmod +x "$FAKE_MEFISTO/src/internal/scripts/$sub"
-    done
-}
-install_subpipeline_stubs
-# Los lanzadores resuelven el runtime desde el nucleo comun del fixture.
+# El lanzador herdr resuelve el runtime desde el nucleo comun del fixture.
 (cd "$FAKE_MEFISTO" && git init -q && git -c user.email="test@example.com" -c user.name="Test" commit --allow-empty -q -m "commit inicial")
 
 cat > "$FAKE_BIN/gh" <<'STUB'
@@ -373,70 +347,9 @@ exit 1
 STUB
 chmod +x "$FAKE_BIN/gh"
 
-LAUNCH_SCRIPT="$FAKE_MEFISTO/.claude/scripts/mefisto-launch-pipeline.sh"
-export MEFISTO_UI=mod
-
-wait_for_subpipeline() {
-    for _ in $(seq 1 50); do
-        [ -s "$SUBPIPE_STUB_LOG" ] && return 0
-        sleep 0.1
-    done
-    return 1
-}
-
 LAST_STDOUT=""
 LAST_STDERR=""
 LAST_RC=0
-
-run_wrapper() {
-    rm -f "$SUBPIPE_STUB_LOG"
-    local out="$TMP_DIR/stdout" err="$TMP_DIR/stderr"
-    (
-        cd "$FAKE_MEFISTO" || exit 99
-        PATH="$FAKE_BIN:$PATH" "$LAUNCH_SCRIPT" "$@"
-    ) </dev/null >"$out" 2>"$err"
-    LAST_RC=$?
-    LAST_STDOUT=$(cat "$out")
-    LAST_STDERR=$(cat "$err")
-}
-
-echo ""
-echo "[16] mefisto-launch-pipeline.sh: --tooling reenvia --models intacto al sub-pipeline (una sola palabra)"
-run_wrapper --tooling 709 --models "writer=sonnet,reviewer=opus"
-if [ "$LAST_RC" -eq 0 ]; then pass "--tooling + --models corre sin abortar (rc=$LAST_RC)"; else fail "--tooling + --models no deberia abortar (rc=$LAST_RC, stderr: $LAST_STDERR)"; fi
-if wait_for_subpipeline && grep -qxF "script: mefisto-tooling-pipeline.sh" "$SUBPIPE_STUB_LOG" && grep -qxF "argv: [709] [--models] [writer=sonnet,reviewer=opus]" "$SUBPIPE_STUB_LOG"; then
-    pass "el sub-pipeline recibe el issue y --models intacto"
-else
-    fail "el sub-pipeline no recibio '709 --models ...' -- log: $(cat "$SUBPIPE_STUB_LOG" 2>/dev/null)"
-fi
-run_wrapper --tooling 709 --models "writer=modelo-x[1m]"
-if wait_for_subpipeline && grep -qxF "argv: [709] [--models] [writer=modelo-x[1m]]" "$SUBPIPE_STUB_LOG"; then
-    pass "un id de modelo con corchetes llega sin expansion de glob"
-else
-    fail "el id con corchetes no llego intacto -- log: $(cat "$SUBPIPE_STUB_LOG" 2>/dev/null)"
-fi
-
-echo ""
-echo "[17] mefisto-launch-pipeline.sh: --tooling combina --from-stage y --models en orden"
-run_wrapper --tooling 709 --from-stage 2 --models "reviewer=opus"
-if [ "$LAST_RC" -eq 0 ]; then pass "combinado corre sin abortar"; else fail "no deberia abortar (rc=$LAST_RC, stderr: $LAST_STDERR)"; fi
-if wait_for_subpipeline && grep -qxF "argv: [709] [--from-stage] [2] [--models] [reviewer=opus]" "$SUBPIPE_STUB_LOG"; then
-    pass "el sub-pipeline recibe --from-stage y --models en orden"
-else
-    fail "orden incorrecto -- log: $(cat "$SUBPIPE_STUB_LOG" 2>/dev/null)"
-fi
-
-echo ""
-echo "[18] mefisto-launch-pipeline.sh: --models sin valor aborta con mensaje claro"
-run_wrapper --tooling 709 --models
-if [ "$LAST_RC" -eq 1 ]; then pass "--models sin valor aborta"; else fail "deberia abortar (rc=$LAST_RC)"; fi
-if printf '%s' "$LAST_STDERR" | grep -q "Falta el valor de --models"; then pass "mensaje: falta el valor"; else fail "mensaje inesperado: $LAST_STDERR"; fi
-
-echo ""
-echo "[19] mefisto-launch-pipeline.sh: --batch + --models aborta (ambiguo sobre varios issues, nunca en silencio)"
-run_wrapper --batch 709 710 --models "writer=sonnet"
-if [ "$LAST_RC" -eq 1 ]; then pass "--batch + --models aborta"; else fail "deberia abortar (rc=$LAST_RC)"; fi
-if printf '%s' "$LAST_STDERR" | grep -q "no es valido con --batch"; then pass "mensaje: no valido con --batch"; else fail "mensaje inesperado: $LAST_STDERR"; fi
 
 # --- mefisto-herdr-pipeline.sh: la otra mitad de CA-3 -----------------------
 
