@@ -118,11 +118,11 @@ describe('cierre no controlado', () => {
 
   test('un fallo previo al primer status no deja evidencia incompleta y limpia los temporales', async () => {
     const c = newCase()
-    // Una respuesta de gh sin el campo title con la forma que el pipeline reconoce.
+    // Una respuesta de gh sin el campo title.
     const tools = fakeTools()
     const real = runWith(tools)
     const run: Run = (command, args, options) =>
-      command === 'gh' && args[1] === 'view' ? { status: 0, stdout: '{"body": "b", "state": "OPEN", "title": "con espacios"}\n', stderr: '' } : real(command, args, options)
+      command === 'gh' && args[1] === 'view' ? { status: 0, stdout: '{"body": "b", "state": "OPEN"}\n', stderr: '' } : real(command, args, options)
     const result = await runCase(c, [], { tools, deps: { run, runLogged: loggedThrough(run) } })
     assert.equal(result.code, 1)
     assert.equal(existsSync(c.statusFile), false)
@@ -147,13 +147,24 @@ describe('aborto', () => {
     assert.deepEqual(readdirSync(c.tempRoot), [])
   })
 
-  test('el error con comillas queda legible en el status y, como en el bash, escapado de mas en el historial', async () => {
+  test('el error con comillas queda legible en el status y en el historial', async () => {
     const c = newCase()
     const tools = fakeTools({ issue: { number: 42, title: 'Agregar CI', body: '', state: 'CLOSED "por duplicado"' } })
     const result = await runCase(c, [], { tools })
     assert.equal(result.code, 1)
-    assert.equal(readJson(c.statusFile).last_error, 'El issue #42 esta CLOSED "por duplicado" -- solo se procesan issues abiertos. ')
-    assert.equal(history(c.repo)[0]?.error, 'El issue #42 esta CLOSED \\"por duplicado\\" -- solo se procesan issues abiertos. ')
+    const expected = 'El issue #42 esta CLOSED "por duplicado" -- solo se procesan issues abiertos. '
+    assert.equal(readJson(c.statusFile).last_error, expected)
+    assert.equal(history(c.repo)[0]?.error, expected)
+  })
+
+  test('un titulo con barras invertidas, comillas y salto de linea deja el status en JSON valido', async () => {
+    const c = newCase()
+    const title = 'Usar "C:\\ruta\\nueva"\ty mas'
+    const tools = fakeTools({ issue: { number: 42, title, body: '', state: 'OPEN' } })
+    const result = await runCase(c, [{ status: 'failed', kind: 'api_error' }], { tools })
+    assert.equal(result.code, 1)
+    assert.equal(readJson(c.statusFile).title, title)
+    assert.equal(history(c.repo)[0]?.title, title)
   })
 
   test('un mensaje de varias lineas se guarda en una sola', async () => {
