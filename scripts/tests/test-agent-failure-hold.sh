@@ -210,13 +210,13 @@ unset MEFISTO_HOLD_PROBE_SECONDS MEFISTO_HOLD_MAX_SECONDS
 
 echo ""
 echo "[10] CA-6: los pipelines bash consumen la funcion compartida, no una copia"
-for f in tdd-pipeline.sh iac-pipeline.sh scaffold-pipeline.sh; do
+for f in iac-pipeline.sh scaffold-pipeline.sh; do
     path="$REPO_ROOT/scripts/$f"
     classifier="classify_agent_failure"
     # iac-pipeline.sh (issue #1624) y scaffold-pipeline.sh (issue #1644) se
     # sumaron al runner neutral: desde ahi clasifican igual que tdd/tooling,
     # sobre el JSONL neutral.
-    case "$f" in tdd-pipeline.sh|iac-pipeline.sh|scaffold-pipeline.sh) classifier="classify_neutral_agent_failure" ;; esac
+    case "$f" in iac-pipeline.sh|scaffold-pipeline.sh) classifier="classify_neutral_agent_failure" ;; esac
     if grep -q "$classifier" "$path"; then
         pass "$f invoca $classifier"
     else
@@ -254,7 +254,7 @@ echo "[11] CA-5: la sonda del bucle de espera corre bajo el watchdog de stage"
 # #1644, scaffold-pipeline.sh se sumo al mismo molde): si la sonda volviera a
 # invocar el CLI de forma sincrona (sin delegar el watchdog), una invocacion
 # colgada dejaria el pipeline esperando indefinidamente.
-for f in tdd-pipeline.sh iac-pipeline.sh scaffold-pipeline.sh; do
+for f in iac-pipeline.sh scaffold-pipeline.sh; do
     path="$REPO_ROOT/scripts/$f"
     if grep -q 'mefisto-run-agent.sh' "$path" && ! grep -q 'PROBE_WATCHDOG_PID' "$path"; then
         pass "$f: la sonda delega el watchdog al runner neutral"

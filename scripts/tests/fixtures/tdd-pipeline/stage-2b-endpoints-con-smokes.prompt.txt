@@ -1,0 +1,31 @@
+Estás en el directorio raíz del proyecto Control de Asistencias.
+
+Contexto de la historia de usuario:
+
+# Issue #42: Registrar "turno" con $HOME y `backticks`
+
+Cuerpo con $(subshell) y \backslash.
+Segunda línea con acento.
+
+El projection-implementer creó/modificó los siguientes endpoints:
+src/Empresa.Proyecto.Mcp.Asistente/Turnos/CrearTurnoTool.cs
+
+Smokes existentes que invocan los endpoints modificados (en cualquier proyecto SmokeTests, tambien de otros dominios o de la suite MCP):
+- tests/Empresa.Proyecto.Turnos.SmokeTests/T/TSmokeTests.cs (ruta: turnos/{id})
+
+Revisa cada uno de esos archivos, incluidos los Arrange que invocan el endpoint, y alinealo al contrato nuevo (payload, status de exito, forma de la respuesta). La lista no distingue metodo HTTP: es para revisar, no un gate.
+
+Tu tarea: escribe smoke tests para los endpoints nuevos o modificados.
+IMPORTANTE: Solo escribe y compila. NO ejecutes los tests (el entorno dev puede no tener este código desplegado aún).
+Usa 'dotnet build' para verificar compilación, pero NO uses 'dotnet test'.
+
+Sigue todas las instrucciones de tu rol de smoke-test-writer.
+
+ECONOMIA DE TURNOS:
+Cada turno tuyo cuesta ~5-6 s de reloj (turno sonnet) -- el trabajo que ese turno manda a hacer es barato en comparacion: en el diagnostico Fase 0, dotnet (build/test) ocupo solo ~11% del wall total de una corrida, frente a ~86% de tiempo de API (turnos). Lo caro es el turno, no la herramienta. Con eso en mente:
+- Agrupa en un mismo turno las tool calls independientes entre si (varias busquedas, varias lecturas, varias escrituras a archivos distintos). No las encadenes de a una.
+- Corre 'dotnet build' del proyecto de smoke tests UNA vez, cuando creas que terminaste de escribirlos -- no lo repitas despues de cada test que agregues. Apenas termines este stage, el pipeline vuelve a compilar ese mismo proyecto para confirmarlo: tu build es para saber que tu trabajo compila, no la ultima palabra antes de cerrar.
+- No re-inspecciones el arbol con 'git status' ni 'git diff' para confirmar algo que acabas de escribir: Write y Edit fallan con error si no aplican, asi que el exito de la herramienta ya es la confirmacion.
+Estas reglas no cubren todos los casos; ante cualquier otro, decide con el mismo criterio -- un turno extra cuesta ~5-6 s, y solo vale la pena si te ahorra un error que costaria mas.
+
+PROHIBIDO hacer 'git push' o 'gh pr create' (ni ninguna operacion de publicacion de rama/PR): eso es responsabilidad exclusiva del pipeline, nunca tuya.

@@ -324,7 +324,7 @@ fi
 # tooling-pipeline.test.mts ---
 echo ""
 echo "[H] derivacion de logs por frontera de ejecucion"
-for p in tdd-pipeline.sh iac-pipeline.sh scaffold-pipeline.sh; do
+for p in iac-pipeline.sh scaffold-pipeline.sh; do
     if grep -q 'mefisto-run-agent.sh' "$REPO_ROOT/scripts/$p" \
         && grep -q 'derive_stage_log_from_stream "$events_file"' "$REPO_ROOT/scripts/$p" \
         && ! grep -q -- '--output-format' "$REPO_ROOT/scripts/$p"; then

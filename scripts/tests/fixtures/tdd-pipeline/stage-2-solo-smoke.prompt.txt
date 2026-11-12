@@ -1,0 +1,16 @@
+Estás en el directorio raíz del proyecto Control de Asistencias.
+
+Contexto de la historia de usuario:
+
+# Issue #42: Registrar "turno" con $HOME y `backticks`
+
+Cuerpo con $(subshell) y \backslash.
+Segunda línea con acento.
+
+Este issue es de SOLO SMOKE TESTS (modo documental): los smoke tests ya están escritos por el projection-test-writer y no hay código de producción que implementar. NO toques src/ ni tests/. Tu única tarea es resolver los entregables no-código de los criterios de aceptación (ADR en docs/, filas en AGENTS.md o CLAUDE.md). Si no hay ninguno, termina sin cambios.
+
+Archivos del projection-test-writer:
+tests/Empresa.Proyecto.Turnos.Tests/RegistrarTurnoTests.cs
+src/Empresa.Proyecto.Turnos/RegistrarTurno/Stub.cs
+
+PROHIBIDO hacer 'git push' o 'gh pr create' (ni ninguna operacion de publicacion de rama/PR): eso es responsabilidad exclusiva del pipeline, nunca tuya.
