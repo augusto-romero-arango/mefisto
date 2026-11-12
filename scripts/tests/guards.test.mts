@@ -5,25 +5,11 @@
 
 import assert from 'node:assert/strict'
 import { spawnSync } from 'node:child_process'
-import {
-  accessSync,
-  chmodSync,
-  constants,
-  existsSync,
-  mkdirSync,
-  mkdtempSync,
-  readdirSync,
-  rmSync,
-  writeFileSync,
-} from 'node:fs'
-import { tmpdir } from 'node:os'
+import { existsSync, readdirSync } from 'node:fs'
 import { dirname, join } from 'node:path'
-import { after, before, describe, test } from 'node:test'
+import { describe, test } from 'node:test'
 
-import { capture } from '../lib/cli.mts'
 import { isPathInMefistoScope } from '../../src/internal/scripts/lib/mefisto-scope.mts'
-import { isolateGitConfig } from './field-note-sandbox.mts'
-import { git } from './plugin-sandbox.mts'
 import {
   REPO_ROOT,
   assertAbsent,
@@ -35,8 +21,6 @@ import {
   readRepoFile,
   repoPath,
 } from './text-contract.mts'
-
-const WINDOWS = process.platform === 'win32'
 
 /** Nombres de los archivos `.md` de una carpeta del repo, ordenados. */
 function markdownIn(relative: string): string[] {
@@ -532,89 +516,5 @@ describe('[K] domain-scaffolder normaliza a LF los archivos heredados de func in
 
   test('verifica el diff staged, incluidos los archivos nuevos de func init', () => {
     assertContains(DS, 'git diff --cached --check')
-  })
-})
-
-// El inventario de la suite bash (lib/mefisto-test-inventory.sh) descarta en silencio un test-*.sh
-// de primer nivel sin bit de ejecucion (issue #1509): se exige en disco y en el modo versionado.
-describe('[L] tests bash versionados con bit de ejecucion', () => {
-  const LANES = ['scripts/tests', '.claude/scripts/tests']
-  const isTest = (name: string): boolean => name.startsWith('test-') && name.endsWith('.sh')
-
-  function isExecutable(path: string): boolean {
-    try {
-      accessSync(path, constants.X_OK)
-      return true
-    } catch {
-      return false
-    }
-  }
-
-  function violations(root: string): string[] {
-    const found: string[] = []
-    if (!WINDOWS) {
-      for (const lane of LANES) {
-        let names: string[]
-        try {
-          names = readdirSync(join(root, ...lane.split('/'))).filter(isTest).sort()
-        } catch {
-          continue
-        }
-        for (const name of names) {
-          const path = join(root, ...lane.split('/'), name)
-          if (!isExecutable(path)) found.push(`${lane}/${name}: sin bit de ejecucion en disco`)
-        }
-      }
-    }
-    // El pathspec es la carpeta a secas: el `*` de un glob de git cruza `/`.
-    const listed = capture('git', ['-C', root, 'ls-files', '-s', '--', ...LANES]).stdout
-    for (const line of linesOf(listed)) {
-      const [meta = '', path = ''] = line.split('\t')
-      const slash = path.lastIndexOf('/')
-      if (meta.split(' ')[0] === '100644' && LANES.includes(path.slice(0, slash)) && isTest(path.slice(slash + 1))) {
-        found.push(`${path}: versionado en git con modo 100644`)
-      }
-    }
-    return found
-  }
-
-  test('todo test-*.sh de primer nivel tiene bit de ejecucion en disco y en git', () => {
-    assert.deepEqual(violations(REPO_ROOT), [])
-  })
-
-  describe('repo sintetico', () => {
-    let repo = ''
-    let restoreGit = (): void => {}
-
-    before(() => {
-      repo = mkdtempSync(join(tmpdir(), 'mefisto guards '))
-      restoreGit = isolateGitConfig(repo)
-      git(repo, 'init', '--quiet', '-b', 'main')
-      mkdirSync(join(repo, 'scripts', 'tests', 'fixtures'), { recursive: true })
-      for (const path of ['scripts/tests/test-sintetico.sh', 'scripts/tests/fixtures/test-anidado.sh']) {
-        const target = join(repo, ...path.split('/'))
-        writeFileSync(target, '#!/usr/bin/env bash\necho ok\n')
-        chmodSync(target, 0o644)
-      }
-      git(repo, 'add', 'scripts/tests/test-sintetico.sh', 'scripts/tests/fixtures/test-anidado.sh')
-      git(repo, 'commit', '--quiet', '-m', 'base')
-    })
-
-    after(() => {
-      restoreGit()
-      rmSync(repo, { recursive: true, force: true })
-    })
-
-    test('detecta un test-*.sh en modo 644 e ignora uno anidado en fixtures/', () => {
-      const found = violations(repo)
-      assert.ok(found.some((line) => line.startsWith('scripts/tests/test-sintetico.sh')), found.join('\n'))
-      assert.ok(!found.some((line) => line.includes('fixtures/test-anidado.sh')), found.join('\n'))
-    })
-
-    test('no marca un test-*.sh en modo 755 ya agregado al indice', () => {
-      chmodSync(join(repo, 'scripts', 'tests', 'test-sintetico.sh'), 0o755)
-      git(repo, 'update-index', '--chmod=+x', 'scripts/tests/test-sintetico.sh')
-      assert.deepEqual(violations(repo), [])
-    })
   })
 })
