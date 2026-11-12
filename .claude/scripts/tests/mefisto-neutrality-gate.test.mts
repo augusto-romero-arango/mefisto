@@ -18,11 +18,6 @@ const GENERIC_SHIM = `#!/usr/bin/env bash
 # Shim de compatibilidad (MEF-ADR-0049): la implementacion canonica vive en src/internal/scripts/. No editar.
 exec "$(cd "$(dirname "$0")/../.." && pwd)/src/internal/scripts/$(basename "$0")" "$@"
 `
-const COMMON_SHIM = `#!/usr/bin/env bash
-# Shim de compatibilidad (MEF-ADR-0049): la implementacion canonica vive en src/internal/scripts/lib/_mefisto-common.sh. No editar.
-# \`source\` (no \`exec\`): esta lib se sourcea desde otros scripts, nunca se ejecuta sola.
-source "$(cd "$(dirname "\${BASH_SOURCE[0]}")/../.." && pwd)/src/internal/scripts/lib/_mefisto-common.sh"
-`
 
 // Generadores simulados: el gate lanza el `.mts` del arbol que escanea.
 const INTERNAL_GENERATOR = 'src/internal/scripts/generate-internal-adapters.mts'
@@ -90,7 +85,6 @@ describe('arbol sin fugas', () => {
           '#!/usr/bin/env bash\n# lee .claude-plugin/plugin.json (manifiesto fisico del plugin, no un id de modelo)\necho ok\n',
         'AGENTS.md': 'doctrina neutral de ejemplo, sin fugas.\n',
         '.claude/scripts/fx-shim.sh': GENERIC_SHIM,
-        '.claude/scripts/_mefisto-common.sh': COMMON_SHIM,
         '.claude/scripts/fx-not-migrated.sh': '#!/usr/bin/env bash\necho "no soy un shim, pero estoy en not_migrated"\n',
         [INTERNAL_GENERATOR]: CLEAN_GENERATOR,
       },
@@ -201,11 +195,8 @@ describe('R4: conformidad de los shims de .claude/scripts', () => {
   test('los shims reales del repo cumplen la plantilla', () => {
     const scripts = join(REPO_ROOT, '.claude', 'scripts')
     const shims = readdirSync(scripts).filter((name) => name.endsWith('.sh'))
-    assert.ok(shims.includes('_mefisto-common.sh') && shims.length > 1)
-    for (const name of shims) {
-      const expected = name === '_mefisto-common.sh' ? COMMON_SHIM : GENERIC_SHIM
-      assert.equal(readFileSync(join(scripts, name), 'utf8'), expected, name)
-    }
+    assert.ok(shims.length > 0)
+    for (const name of shims) assert.equal(readFileSync(join(scripts, name), 'utf8'), GENERIC_SHIM, name)
   })
 })
 
