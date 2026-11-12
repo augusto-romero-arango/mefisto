@@ -65,8 +65,8 @@ repo (`--json` para la salida estructurada). `dist/` queda fuera porque lo regen
 
 | Id | Qué mide | Línea base (v0.56.0) | Actual | Meta |
 |---|---|---|---|---|
-| M1a | Archivos `.sh` | 408 | 213 | 0 |
-| M1b | Líneas en `.sh` | 104686 | 54091 | 0 |
+| M1a | Archivos `.sh` | 408 | 168 | 0 |
+| M1b | Líneas en `.sh` | 104686 | 29077 | 0 |
 | M2 | Archivos `.jq` | 21 | 3 | 0 |
 | M3 | Archivos que mencionan tmux | 96 | 6, todos excepción | 0 fuera de las excepciones |
 | M4 | Archivos que mencionan OpenCode | 283 | 11, todos excepción | 0 fuera de las excepciones |
@@ -93,8 +93,8 @@ Estados: `pendiente`, `en curso`, `hecho`.
 | 3 | Base TypeScript | hecho | #2556 |
 | 4 | Hooks | hecho | #2557, #2558 |
 | 5 | Scripts sueltos | hecho | #2559 a #2586 |
-| 6 | Librerías y pipelines | en curso | #2587, #2588, #2590, #2593, #2594, #2597, #2599 |
-| 7 | Despachador, herdr y cierre | en curso | #2595, #2596, #2598 |
+| 6 | Librerías y pipelines | en curso | #2587 a #2609 |
+| 7 | Despachador, herdr y cierre | en curso | #2595, #2596, #2598, #2607, #2610, #2611 |
 
 ### Paso 1: ADR de portabilidad
 
@@ -215,13 +215,13 @@ Hecho cuando: en esas rutas solo quedan pipelines, sus librerías y shims.
 |---|---|---|---|
 | 6a | `src/runtime/` (2500) y `scripts/_pipeline-common.sh` (3150) | en curso | #2587, #2588, #2590, #2593 |
 | 6b | `scripts/tooling-pipeline.sh` (1065) | hecho | #2599 |
-| 6c | `scripts/tdd-pipeline.sh` (2651) | pendiente | |
-| 6d | `scripts/iac-pipeline.sh` (812) | pendiente | |
-| 6e | `scripts/scaffold-pipeline.sh` (599) | pendiente | |
-| 6f | `scripts/batch-pipeline.sh` (660) y `scripts/parallel-pipeline.sh` (862) | pendiente | |
+| 6c | `scripts/tdd-pipeline.sh` (2651) | hecho | #2603 |
+| 6d | `scripts/iac-pipeline.sh` (812) | hecho | #2604 |
+| 6e | `scripts/scaffold-pipeline.sh` (599) | hecho | #2604 |
+| 6f | `scripts/batch-pipeline.sh` (660) y `scripts/parallel-pipeline.sh` (862) | hecho | #2605 |
 | 6g | `src/internal/scripts/lib/_mefisto-common.sh` (1914) | en curso | #2594, #2597 |
-| 6h | `src/internal/scripts/mefisto-tooling-pipeline.sh` (1645) | pendiente | |
-| 6i | `src/internal/scripts/mefisto-batch-pipeline.sh` (958) | pendiente | |
+| 6h | `src/internal/scripts/mefisto-tooling-pipeline.sh` (1645) | hecho | #2606 |
+| 6i | `src/internal/scripts/mefisto-batch-pipeline.sh` (958) | hecho | #2609 |
 
 `.claude/scripts/tests/fixtures/pty-run.py` es un helper en Python que entró al retirar tmux: da
 una terminal real a tres tests de señales. Sale con el port de los scripts que esos tests prueban
@@ -287,9 +287,72 @@ Ya hecho de este paso:
   y acepta raíces de Windows (`C:\...`) (#2598). Sin esto, en Windows abortaba todo comando o
   agente que nombra la raíz del paquete.
 
-Falta: los lanzadores, herdr, los dos bloques del markdown que cargan `_pipeline-common.sh` con
-`source` (`load_harness_config` en `onboard` y en `install-apim`), la comprobación de Git Bash en
-`/onboard`, `README.md`, los tests residuales y el borrado de shims y del runner de la suite bash.
+- Los dos lanzadores corren en TypeScript y lanzan el modo desacoplado sin shell (#2607).
+- `/onboard` y `/install-apim` ya no cargan `_pipeline-common.sh`; `/onboard` comprueba Git Bash
+  en Windows; `README.md` pide Node 22.18+ y, en Windows, Git for Windows, sin `jq` (#2610).
+- Herdr corre en TypeScript (#2611). La ocupación de un pane la marca Mefisto con el PID del runner
+  (`herdr-panes/<pane>.json`); en Windows, un pane sin marca cuenta como ocupado. La línea tecleada
+  es `node "<scripts>/herdr-pipeline.mts" "--_pane-runner" "--dispatch" "<archivo>"`, válida en
+  bash, zsh, PowerShell y `cmd.exe`.
+
+## Lo que falta (plan al 2026-11-12)
+
+Ya no queda ningún script del harness en bash: lo que falta es borrar y cerrar. En orden:
+
+1. **Herdr (#2611)**: mergear cuando pasen sus 6 checks.
+2. **Borrar las librerías bash y sus gemelas**, una vez que ningún script bash las cargue
+   (`git grep -n '_pipeline-common.sh\|_mefisto-common.sh\|runtime-claude.sh\|mefisto-runtime.sh'`):
+   `scripts/_pipeline-common.sh`, `src/internal/scripts/lib/_mefisto-common.sh`,
+   `src/runtime/lib/{mefisto-runtime,mefisto-models,mefisto-process,runtime-claude,runtime-fake}.sh`
+   con `runtime-claude.jq` y `src/runtime/contract/models.validate.jq`,
+   `src/internal/scripts/lib/{mefisto-state,mefisto-deps,frontmatter}.sh` y
+   `src/internal/scripts/lib/jsonschema-lite.jq`, junto con los tests de paridad que las ejecutan
+   (`scripts/tests/pipeline-*.test.mts`, `.claude/scripts/tests/mefisto-*-parity*` y similares: se
+   quita el bloque de paridad, no el test). Quitar los comentarios `# Gemela en TypeScript` y las
+   anotaciones de gemela en los `.mts`. `scripts/onboard-diagnose.sh` pasa a shim normal.
+3. **Runner de la suite bash**: `src/internal/scripts/mefisto-test-suite.sh`,
+   `lib/mefisto-test-inventory.sh`, `lib/mefisto-test-executor.sh` y
+   `.claude/scripts/tests/fixtures/pty-run.py` (M6). Decidir qué hacen sin ellos la nightly
+   (`.github/workflows/ci.yml`) y `/mefisto-release`: lo natural es que corran `node --test`.
+4. **Tests bash restantes** (83 archivos, unas 15 300 líneas): los que prueban las librerías que
+   se borran se van con ellas; el resto pasa a `node --test`. Los que ejecutan un bloque de bash del
+   markdown lo extraen y lo corren con `bash` desde un `.test.mts` (helper
+   `scripts/tests/markdown-bash.mts`); en los runners de Windows hay Git Bash.
+5. **Shims**: 68 `.sh` de tres líneas. Para borrarlos, comandos, agentes, mods, lanzadores y
+   documentación deben invocar `node <script>.mts`. `.claude/scripts/*.sh` es una superficie que
+   valida el gate de neutralidad y cuya plantilla documenta el generador interno: retirarla exige
+   ajustar el gate y enmendar MEF-ADR-0049, decisión 2.
+6. **Correcciones**: dos tests que dependen del reloj con la máquina cargada (techo de espera en
+   `mefisto-tooling-pipeline-agent.test.mts` y en `pr-sync-run-agent.test.mts`); el bloque C2 de
+   `scripts/tests/test-guards.sh` es intermitente en CI y desde #2607 imprime la salida del script
+   al fallar; M4 marca `scripts/tests/pipeline-harness-identity.test.mts` (menciona OpenCode fuera
+   de las excepciones); MEF-ADR-0055 todavía menciona `nohup`.
+7. **Cerrar este archivo**: medir de nuevo, pasar los pasos 6 y 7 a `hecho` y dejar solo la
+   verificación en Windows.
+
+Fuera del port quedan los borradores de defectos heredados del bash: #2571, #2572, #2576, #2579,
+#2581, #2589, #2591 y #2600.
+
+## Cómo se trabaja cada lote
+
+- Un worktree por lote (`src/internal/scripts/mefisto-worktree.sh new <slug>`), con un agente
+  que entrega commits locales sin push. Las convenciones de port están en
+  `docs/desarrollo-del-plugin.md` ("Convenciones al portar un script"). Para portar un pipeline:
+  reutilizar `scripts/lib/pipeline/pipeline-{exit,log,status,agent-run,worktree,pr}.mts` y el
+  modelo `scripts/tooling-pipeline.mts`; las diferencias entre pipelines entran como parámetros.
+- Integrar: `git merge origin/main`; un conflicto en `dist/claude/.mefisto-generated-assets.json`
+  se resuelve regenerando con `src/published/scripts/generate-published-adapters.sh`. Si dos
+  lotes tocaron los mismos tests bash compartidos, el merge lo resuelve el agente del lote, que
+  sabe qué casos sacó.
+- Verificar: `npx tsc -p src/internal/tsconfig.json`, `node --test` con los tres globs, los dos
+  generadores con `--check` y `mefisto-neutrality-gate.sh`. Correr los tests con un PATH sin
+  `claude` (los runners de CI no lo tienen) y sin aserciones que dependan del reloj. La paridad
+  con `jq` no puede depender de su versión.
+- Entregar: PR con fragmento en `changelog.d/<pr>.<categoría>.md` (y `.adr-index.md` con `dist/`
+  regenerado si toca `docs/adr/`), esperar los 6 checks de `typescript.yml`, mergear con squash y
+  borrar la rama remota con `git push origin --delete <rama>`. Un PR en conflicto no dispara CI.
+- Un defecto heredado del bash se porta tal cual y va a un borrador, salvo que en Windows rompa
+  algo (JSON inválido, rutas): entonces se corrige en el mismo lote.
 
 Hecho cuando: M1a = 0, M1b = 0 y el workflow de los tres sistemas pasa.
 
