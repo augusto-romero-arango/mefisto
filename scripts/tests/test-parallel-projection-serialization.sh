@@ -2,11 +2,12 @@
 # test-parallel-projection-serialization.sh -- Tests de los helpers de
 # serializacion de tipo:projection (scripts/_pipeline-common.sh, issue #372).
 #
-# parallel-pipeline.sh serializa entre si cualquier par de issues tipo:projection
+# parallel-pipeline serializa entre si cualquier par de issues tipo:projection
 # de un mismo lote (comparten los archivos del worker de proyecciones del BC,
 # MEF-ADR-0034), sin necesitar deteccion de BC (un repo = un BC, MEF-ADR-0023).
-# Estos tests cubren los helpers PUROS que implementan esa regla, sin lanzar
-# background jobs reales ni depender de gh/red:
+# Estos tests cubren los helpers PUROS de la libreria bash que implementan esa
+# regla, sin lanzar background jobs reales ni depender de gh/red; el scheduler
+# se prueba en scripts/tests/parallel-pipeline.test.mts:
 #
 #   S-1: _is_tipo_projection_from_labels reconoce el label EXACTO tipo:projection
 #        y no un prefijo como tipo:projection-experimental.
@@ -32,52 +33,11 @@ fail() { echo "  FAIL: $1"; FAIL=$((FAIL+1)); }
 
 source "$REPO_ROOT/scripts/_pipeline-common.sh"
 
-echo "[pre] Estado dual: status canonico primero y fallback legacy"
-PARALLEL_SCRIPT="$REPO_ROOT/scripts/parallel-pipeline.sh"
-READ_STATUS_SRC=$(awk '/^read_status_field\(\) \{/{p=1} p{print} p && /^}/{exit}' "$PARALLEL_SCRIPT")
-if [ -n "$READ_STATUS_SRC" ]; then
-    pass "read_status_field() se extrajo del orquestador real"
+echo "[pre] herdr-pipeline.sh no conserva rutas legacy de escritura"
+if grep -q '\.claude/pipeline/logs' "$REPO_ROOT/scripts/herdr-pipeline.sh"; then
+    fail "herdr-pipeline.sh conserva una ruta legacy de escritura"
 else
-    fail "no se pudo extraer read_status_field()"
-fi
-if grep -q 'STATUS_FILES\[\$idx\]="\$status_file"' "$PARALLEL_SCRIPT" \
-    && grep -q 'mefisto_state_read_first "\$file"' "$PARALLEL_SCRIPT"; then
-    pass "parallel conserva nombres de status y los resuelve por ambas raices"
-else
-    fail "parallel no conserva el contrato de lectura dual de status"
-fi
-if grep -q 'MEFISTO_LEGACY_STATE_DIR/events.log' "$PARALLEL_SCRIPT" \
-    && grep -q 'hold_recently_active "\$EVENTS_LOG_LEGACY_ABS"' "$PARALLEL_SCRIPT"; then
-    pass "parallel evalua el hold del events.log legacy"
-else
-    fail "parallel no evalua el hold legacy"
-fi
-if grep -q 'PIPELINE_DIR=".claude/pipeline"' "$REPO_ROOT/scripts/batch-pipeline.sh" \
-    || grep -q 'PIPELINE_DIR=".claude/pipeline"' "$PARALLEL_SCRIPT" \
-    || grep -q '\.claude/pipeline/logs' "$REPO_ROOT/scripts/herdr-pipeline.sh"; then
-    fail "un orquestador conserva una ruta legacy de escritura"
-else
-    pass "batch, parallel y herdr no conservan rutas legacy de escritura"
-fi
-
-STATUS_TMP=$(mktemp -d)
-trap 'rm -rf "$STATUS_TMP"' EXIT
-MEFISTO_STATE_DIR="$STATUS_TMP/.mefisto/pipeline"
-MEFISTO_LEGACY_STATE_DIR="$STATUS_TMP/.claude/pipeline"
-mkdir -p "$MEFISTO_STATE_DIR" "$MEFISTO_LEGACY_STATE_DIR"
-eval "$READ_STATUS_SRC"
-printf '{"stage":"canonico"}\n' > "$MEFISTO_STATE_DIR/pipeline-status-tdd-42.json"
-if [ "$(read_status_field pipeline-status-tdd-42.json stage)" = "canonico" ]; then
-    pass "fixture status solo en .mefisto/pipeline se resuelve"
-else
-    fail "fixture status canonico no se resolvio"
-fi
-rm -f "$MEFISTO_STATE_DIR/pipeline-status-tdd-42.json"
-printf '{"stage":"legacy"}\n' > "$MEFISTO_LEGACY_STATE_DIR/pipeline-status-tdd-42.json"
-if [ "$(read_status_field pipeline-status-tdd-42.json stage)" = "legacy" ]; then
-    pass "fixture status solo en .claude/pipeline se resuelve"
-else
-    fail "fixture status legacy no se resolvio"
+    pass "herdr-pipeline.sh no conserva rutas legacy de escritura"
 fi
 
 echo "[S-1] _is_tipo_projection_from_labels: label exacto vs. prefijo"

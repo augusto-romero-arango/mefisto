@@ -239,6 +239,7 @@ describe('corrida del lote', () => {
     assert.match(output, /✓ batch-pipeline completado\. Log: /)
     assert.match(batchLog(repo), /PR creado: https:\/\/github\.com\/acme\/consumidor\/pull\/1011/, 'el log del lote acumula el de cada eslabon')
     assert.ok(existsSync(join(repo.stateDir, 'logs')), 'los logs viven bajo el estado canonico')
+    assert.equal(existsSync(repo.legacyStateDir), false, 'nada se escribe en la raiz legacy')
   })
 
   test('--pipeline fuerza el pipeline sin leer los labels', async () => {

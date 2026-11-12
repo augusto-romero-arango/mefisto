@@ -99,6 +99,7 @@ export const TOOLING_CLOSURE_ASSETS: readonly string[] = [
   'scripts/batch-pipeline.mts|0644',
   'scripts/lib/pipeline/orchestrator.mts|0644',
   'scripts/parallel-pipeline.sh|0755',
+  'scripts/parallel-pipeline.mts|0644',
   'scripts/iac-pipeline.sh|0755',
   'scripts/scaffold-pipeline.sh|0755',
   'scripts/field-note.sh|0755',

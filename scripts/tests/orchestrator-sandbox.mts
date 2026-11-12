@@ -1,5 +1,5 @@
-// Consumidor de usar y tirar para correr `batch-pipeline.mts` de extremo a extremo: repo con remoto
-// bare, `gh` simulado y pipelines hijos falsos que son procesos reales
+// Consumidor de usar y tirar para correr `batch-pipeline.mts` y `parallel-pipeline.mts` de extremo a
+// extremo: repo con remoto bare, `gh` simulado y pipelines hijos falsos que son procesos reales
 // (`fixtures/orchestrators/pipeline-hijo.mts`). Nada toca GitHub ni este repo.
 
 import { copyFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
@@ -11,6 +11,8 @@ import type { Run } from '../lib/azure-cli.mts'
 import { capture } from '../lib/cli.mts'
 import type { CommandResult } from '../lib/cli.mts'
 import { loggedThrough } from '../lib/pipeline/pipeline-log.mts'
+import { parallelPipeline } from '../parallel-pipeline.mts'
+import type { ParallelPipelineDeps } from '../parallel-pipeline.mts'
 import { newRepo } from './field-note-sandbox.mts'
 
 const CHILD = join(import.meta.dirname, 'fixtures', 'orchestrators', 'pipeline-hijo.mts')
@@ -184,6 +186,51 @@ export async function runBatch(
     ...options.deps,
   })
   result.calls = readCalls(repo)
+  return result
+}
+
+/** Reloj que avanza con cada espera; la espera real es corta para que los hijos progresen. */
+export function steppingClock(): { now: () => Date; sleep: (seconds: number) => Promise<void>; slept: number[] } {
+  let skewMs = 0
+  const slept: number[] = []
+  return {
+    now: () => new Date(Date.now() + skewMs),
+    sleep: (seconds) => {
+      slept.push(seconds)
+      skewMs += seconds * 1000
+      return new Promise((resolve) => setTimeout(resolve, 15))
+    },
+    slept,
+  }
+}
+
+export async function runParallel(
+  repo: Orchestrated,
+  argv: string[],
+  options: OrchestratorOptions & { deps?: Partial<ParallelPipelineDeps>; stepSeconds?: number } = {},
+): Promise<OrchestratorRun> {
+  const { fake, result } = prepare(repo, options)
+  const clock = steppingClock()
+  result.code = await parallelPipeline({
+    argv,
+    cwd: repo.root,
+    env: orchestratorEnv(repo, options.env),
+    scriptPath: 'scripts/parallel-pipeline.sh',
+    out: (text) => {
+      result.out += text
+    },
+    err: (text) => {
+      result.err += text
+    },
+    run: runWith(fake),
+    hasCommand: options.hasCommand ?? (() => true),
+    now: clock.now,
+    sleep: clock.sleep,
+    scriptsDir: repo.scriptsDir,
+    ...options.deps,
+  })
+  result.calls = readCalls(repo)
+  result.slept = clock.slept
   return result
 }
 
