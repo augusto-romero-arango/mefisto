@@ -144,6 +144,18 @@ describe('runWithWatchdog', () => {
     assert.doesNotMatch(run.events, /TIMEOUT/)
   })
 
+  test('un proceso que ignora SIGTERM recibe SIGKILL pasada la gracia', { skip: POSIX_ONLY, timeout: 60_000 }, async () => {
+    // La solicitud llega solo cuando el proceso ya instalo su manejador.
+    const ready = join(work, 'ignora-sigterm.listo')
+    const run = await watched(
+      `process.on("SIGTERM", () => {}); require("node:fs").writeFileSync(${JSON.stringify(ready)}, ""); setTimeout(() => {}, 600000)`,
+      { timeoutSeconds: 60, terminateRequested: () => existsSync(ready) },
+    )
+    assert.equal(run.exitCode, 137)
+    assert.equal(run.timedOut, false)
+    assert.match(run.events, /TERMINATE: writer -- SIGTERM al grupo por solicitud/)
+  })
+
   test('el timeout alcanza tambien a los nietos del proceso', { skip: POSIX_ONLY }, async () => {
     const pidFile = join(work, 'nieto.pid')
     const script = `

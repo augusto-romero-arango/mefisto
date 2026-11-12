@@ -101,6 +101,10 @@ describe('arbol sin fugas', () => {
     assert.equal(cli.status, 0)
     assert.equal(cli.stdout + cli.stderr, '')
   })
+
+  test('el repo real, con su allowlist, no tiene violaciones', () => {
+    assert.deepEqual(runGate([]).violations, [])
+  })
 })
 
 describe('reglas de texto', () => {
