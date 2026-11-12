@@ -11,7 +11,7 @@
 //   1. Desacoplado: MEFISTO_UI=mod, o MEFISTO_UI sin definir con MEFISTO_RUNTIME=claude. Lo
 //      sigue la cinta de la sesion que lo lanzo (mod mefisto-divine-wager, MEF-ADR-0055).
 //   2. Herdr: MEFISTO_UI=herdr, o la sesion corre dentro de un pane herdr. Delega en
-//      mefisto-herdr-pipeline.sh, que aborta si no hay contexto herdr.
+//      mefisto-herdr-pipeline.mts, que aborta si no hay contexto herdr.
 //   3. En cualquier otro caso, desacoplado sin cinta: el report log y el visor en otra terminal.
 //
 // --from-stage, --models y --variant (en cualquier posicion) solo valen con --tooling y se
@@ -195,7 +195,7 @@ export async function mefistoLaunchPipeline(ctx: MefistoLaunchContext): Promise<
 
     const followedByMod = usesDetachedUi(env)
     if (!followedByMod && (uiMode(env) === 'herdr' || insideHerdr(env, ctx.hasCommand))) {
-      return ctx.delegate(join(ctx.scriptsDir, 'mefisto-herdr-pipeline.sh'), argv, { cwd: ctx.cwd, env })
+      return ctx.delegate(join(ctx.scriptsDir, 'mefisto-herdr-pipeline.mts'), argv, { cwd: ctx.cwd, env })
     }
 
     const logsDir = launcherStatePath('logs', projectRoot, env)

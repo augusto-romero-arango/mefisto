@@ -311,8 +311,13 @@ export interface ClosureScan {
 
 /** Compara lo que referencia un pipeline bash del repo con la clausura declarada. */
 export function scanPipelineClosure(relative: string, declared: readonly string[] = TOOLING_CLOSURE_ASSETS): ClosureScan {
+  return scanClosureText(repoText(relative), declared)
+}
+
+/** Como `scanPipelineClosure`, sobre el texto del pipeline. */
+export function scanClosureText(pipeline: string, declared: readonly string[] = TOOLING_CLOSURE_ASSETS): ClosureScan {
   const known = new Set(closureAssets(declared).map((asset) => asset.source))
-  const references = pipelineReferences(repoText(relative))
+  const references = pipelineReferences(pipeline)
   const missing = references.filter((reference) => !known.has(reference))
   if (missing.length > 0) return { references: references.length, problem: missing.join('\n') }
   if (references.length < 4) {
