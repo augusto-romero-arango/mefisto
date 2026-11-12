@@ -1,6 +1,15 @@
-# Verificacion de los scripts TypeScript de Mefisto (MEF-ADR-0057 decision 8). No se distribuye al consumidor (MEF-ADR-0019).
-# Excepcion acotada a la politica de ci.yml (#1743, #1766: ningun PR corre tests): se dispara en los PRs que tocan
-# TypeScript porque la maquina de desarrollo es macOS y Linux y Windows no se pueden verificar en local.
+# Verificacion de Mefisto: tsc y la suite completa de node --test (MEF-ADR-0057 decision 8). No se distribuye al
+# consumidor (MEF-ADR-0019).
+# Politica de tests (issues #1743, #1766): la suite corre de noche y a mano con 'workflow_dispatch'; ningun PR corre
+# tests, salvo esta excepcion acotada: los PRs que tocan TypeScript, porque la maquina de desarrollo es macOS y Linux y
+# Windows no se pueden verificar en local.
+# Nightly a las 3 AM hora local (UTC-5), es decir 08:00 UTC, porque GitHub programa 'schedule' en UTC. Doc oficial
+# (events-that-trigger-workflows, evento 'schedule'):
+#   https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows#schedule
+#   (a) la ejecucion programada puede retrasarse en periodos de alta carga (p. ej. al inicio de cada hora);
+#   (b) en un repositorio publico, los workflows programados se deshabilitan automaticamente tras
+#       60 dias sin actividad en el repositorio; hay que reactivarlos a mano en la pestana Actions.
+# El fallo de la nightly se avisa con un issue 'nightly-rojo' (job 'notify', issue #1773).
 # Sin secretos ni CLIs de agente. NO es obligatorio: el ruleset 'main' no lo exige.
 # Runners pinneados, nunca '-latest'. Node 22.18.0 es el piso soportado; 24 es la linea LTS vigente.
 # tsc y los tipos de Node se instalan aqui: son herramientas de verificacion, nunca dependencia de ejecucion.
@@ -15,7 +24,7 @@ on:
       - '.gitattributes'
       - '.github/workflows/typescript.yml'
   schedule:
-    - cron: '30 8 * * *'
+    - cron: '0 8 * * *'
   workflow_dispatch:
 
 permissions:
@@ -26,6 +35,11 @@ jobs:
     name: ${{ matrix.os }} / node ${{ matrix.node }}
     runs-on: ${{ matrix.os }}
     timeout-minutes: 30
+    env:
+      # Umbrales holgados: los runners son mas lentos que local (nightly 2026-10-05, run 37344502403: fixture de
+      # 160 assets 38 s, default 20 s; gate de neutralidad 85 s, default 60 s). Local conserva los defaults.
+      MEFISTO_ASSETS_PERF_LIMIT: '90'
+      MEFISTO_NEUTRALITY_PERF_LIMIT: '180'
     strategy:
       fail-fast: false
       matrix:
@@ -49,5 +63,79 @@ jobs:
       - name: Chequeo de tipos
         run: npx tsc -p src/internal/tsconfig.json
 
+      # El segundo reporter deja el results.tsv que lee mefisto-nightly-report.mts.
       - name: Tests
-        run: node --test ".claude/scripts/**/*.test.mts" "scripts/**/*.test.mts" "src/**/*.test.mts"
+        run: >-
+          node --test
+          --test-reporter=spec --test-reporter-destination=stdout
+          --test-reporter=./src/internal/scripts/lib/mefisto-nightly-reporter.mts
+          --test-reporter-destination=${{ runner.temp }}/results.tsv
+          ".claude/scripts/**/*.test.mts" "scripts/**/*.test.mts" "src/**/*.test.mts"
+
+      - name: Subir resultados
+        if: ${{ always() && github.event_name != 'pull_request' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: tests-${{ matrix.os }}-node-${{ matrix.node }}
+          path: ${{ runner.temp }}/results.tsv
+          if-no-files-found: warn
+
+  # Solo 'schedule' notifica (#1773): un workflow_dispatch manual es exploratorio y no abre ni cierra el issue.
+  # Permisos por job: solo este job tiene 'issues: write'; 'verify' conserva 'contents: read'.
+  #   https://docs.github.com/en/actions/writing-workflows/choosing-what-your-workflow-does/controlling-permissions-for-github_token
+  # Notificacion de fallos de workflows programados (va al usuario que creo/edito por ultima vez el cron):
+  #   https://docs.github.com/en/actions/monitoring-and-troubleshooting-workflows/notifications-for-workflow-runs
+  notify:
+    name: notify
+    needs: verify
+    if: ${{ always() && github.event_name == 'schedule' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      issues: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      TESTS_RESULT: ${{ needs.verify.result }}
+      RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22.18.0'
+
+      # Un directorio por job de la matriz: <path>/tests-<os>-node-<version>/results.tsv.
+      - name: Descargar resultados
+        if: ${{ needs.verify.result != 'success' }}
+        continue-on-error: true
+        uses: actions/download-artifact@v4
+        with:
+          pattern: tests-*
+          path: ${{ runner.temp }}/test-results
+
+      - name: Abrir, comentar o cerrar el issue de la nightly
+        run: |
+          set -euo pipefail
+          open_number="$(gh issue list --label nightly-rojo --state open --json number --jq '.[0].number // empty')"
+          case "$TESTS_RESULT" in
+            failure|cancelled|timed_out)
+              body_file="$RUNNER_TEMP/nightly-body.md"
+              node src/internal/scripts/mefisto-nightly-report.mts "$RUNNER_TEMP/test-results" "$RUN_URL" "$GITHUB_SHA" > "$body_file"
+              if [ -n "$open_number" ]; then
+                gh issue comment "$open_number" --body-file "$body_file"
+              else
+                gh label create nightly-rojo --color B60205 --description "La nightly de CI esta roja" 2>/dev/null || true
+                gh issue create --title "Corregir la nightly roja" \
+                  --label nightly-rojo --label bug --label tipo:tooling \
+                  --body-file "$body_file"
+              fi
+              ;;
+            success)
+              if [ -n "$open_number" ]; then
+                gh issue close "$open_number" --reason completed \
+                  --comment "La nightly volvio a verde: $RUN_URL"
+              fi
+              ;;
+          esac

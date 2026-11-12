@@ -1,12 +1,12 @@
 // Cuerpo markdown del issue de la nightly: enlace al run, SHA evaluado, conteo PASS/FAIL
-// total y por carril, y rutas con FAIL.
+// total y por job, y archivos de test con FAIL.
 //
 // Uso: node src/internal/scripts/mefisto-nightly-report.mts <log-dir> <run-url> <sha>
 //
-// Lee los results.tsv que deja `mefisto-test-suite.sh --log-dir`, uno por carril
-// (<log-dir>/<carril>/results.tsv; columnas orden, ruta, estado, ...). Las entradas CANCELLED
-// no cuentan como PASS ni FAIL. Sale 0 tambien cuando no hay ningun results.tsv. No invoca
-// gh: publica el workflow.
+// Lee los results.tsv que deja lib/mefisto-nightly-reporter.mts, uno por job de la matriz
+// (<log-dir>/<job>/results.tsv; columnas orden, ruta, estado). Las entradas CANCELLED no cuentan
+// como PASS ni FAIL. Sale 0 tambien cuando no hay ningun results.tsv. No invoca gh: publica el
+// workflow.
 
 import { readFileSync, readdirSync, statSync } from 'node:fs'
 import { basename, dirname, join, sep } from 'node:path'
@@ -83,23 +83,23 @@ export function buildReport(logDir: string, runUrl: string, sha: string): string
   const files = findResultFiles(logDir)
   if (files.length === 0) {
     lines.push(
-      'La suite no produjo resultados (timeout o fallo del runner): no se encontro ningun `results.tsv` en el artefacto `test-suite-logs`.',
+      'La suite no produjo resultados (timeout o fallo del runner): no se encontro ningun `results.tsv` en los artefactos `tests-*`.',
       'Revisa el log del run para ver en que paso fallo.',
     )
     return `${lines.join('\n')}\n`
   }
 
   const total = { pass: 0, fail: 0, cancelled: 0 }
-  const laneRows: string[] = []
+  const jobRows: string[] = []
   const failRows: string[] = []
   for (const file of files) {
-    const lane = basename(dirname(file))
+    const job = basename(dirname(file))
     const results = parseResults(readText(file))
     total.pass += results.pass
     total.fail += results.fail
     total.cancelled += results.cancelled
-    laneRows.push(`| ${lane} | ${results.pass} | ${results.fail} |`)
-    for (const path of results.failedPaths) failRows.push(`- \`${path}\` (carril \`${lane}\`)`)
+    jobRows.push(`| ${job} | ${results.pass} | ${results.fail} |`)
+    for (const path of results.failedPaths) failRows.push(`- \`${path}\` (job \`${job}\`)`)
   }
 
   lines.push('### Conteo', '', `Total: PASS=${total.pass} FAIL=${total.fail}`)
@@ -109,9 +109,9 @@ export function buildReport(logDir: string, runUrl: string, sha: string): string
       `CANCELLED=${total.cancelled}: entradas interrumpidas o que no llegaron a correr (timeout o cancelacion del job).`,
     )
   }
-  lines.push('', '| Carril | PASS | FAIL |', '|---|---|---|', ...laneRows, '', '### Rutas con FAIL', '')
+  lines.push('', '| Job | PASS | FAIL |', '|---|---|---|', ...jobRows, '', '### Rutas con FAIL', '')
   if (failRows.length > 0) lines.push(...failRows)
-  else lines.push('(ninguna: todos los tests registrados pasaron; el rojo viene de otro paso del job)')
+  else lines.push('(ninguna: todos los archivos de test pasaron; el rojo viene de otro paso del job)')
   return `${lines.join('\n')}\n`
 }
 

@@ -86,7 +86,7 @@ Las enmiendas a MEF-ADR-0049, MEF-ADR-0050, MEF-ADR-0053 y MEF-ADR-0055 van en l
 - Tests con el runner nativo de Node (`node --test`), sin framework externo. Se le pasan los globs de los `*.test.mts`, porque su descubrimiento por defecto recogeria tambien los tests de los mods, que corren con otro runner.
 - El workflow `typescript.yml` corre `tsc` y `node --test` en macOS, Linux y Windows, sobre Node 22.18 y sobre la linea LTS vigente. Se dispara en los PRs que tocan TypeScript, en la nightly y a mano.
 - Ese workflow es una excepcion acotada a la politica de que ningun PR corre tests (issue #1766), con la misma forma que `plugin-validate.yml`: sin secretos, sin CLIs de agente y sin ser check obligatorio del ruleset. La razon: la maquina de desarrollo es macOS, asi que Linux y Windows no se pueden verificar en local.
-- La suite bash sigue en la nightly mientras exista.
+- Ese mismo workflow es la nightly: no hay otra suite. Si sale roja, abre o comenta el issue `nightly-rojo`.
 
 ### 9. Prerrequisitos y declaracion de soporte
 
@@ -179,3 +179,4 @@ Traen mejores utilidades de shell, pero estan menos instalados que Node. Es cono
 - 2026-11-10: enmienda de las decisiones 7 y 9. Sale la evaluacion de un segundo runtime: el objetivo es que Mefisto funcione completo en macOS y Windows solo con Claude Code; Linux se verifica en CI sin ser criterio de cierre.
 - 2026-11-10: enmienda de las decisiones 1, 2, 3, 4, 6 y 8 al montar la base TypeScript. La extension pasa de `.ts` a `.mts`, porque un `.ts` depende del `package.json` de las carpetas superiores; se fija `src/internal/tsconfig.json` y el workflow `typescript.yml`.
 - 2026-11-11: enmienda de la decision 9. Git for Windows pasa a ser prerrequisito en Windows: los bloques de bash del markdown de comandos, agentes y skills se quedan en bash y corren en Git Bash, y solo se reemplaza lo que Git Bash no trae (`jq`, `python3`). Se descarto reescribir cada bloque como invocacion de `node` para no exigir Git for Windows: tocaba casi todos los comandos y agentes.
+- 2026-11-12: enmienda de la decision 8. Se retira la suite bash con su runner (`mefisto-test-suite.sh`) y `ci.yml`: la nightly pasa a `typescript.yml`, que ya corria `tsc` y `node --test` de noche, junto con el aviso por issue `nightly-rojo`.
