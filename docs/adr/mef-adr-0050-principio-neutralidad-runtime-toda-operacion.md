@@ -14,7 +14,7 @@ MEF-ADR-0049 fijo la *arquitectura* neutral del lado interno -- fuente `src/inte
 2. **El frontmatter de `SKILL.md` no tiene regla de portabilidad.** Un campo propio de un runtime degrada sin senal en cualquier otro que no lo implemente, y MEF-ADR-0049 (decision 2, tercer punto) remite a este ADR para fijar el frontmatter portable.
 3. **El conjunto de runtimes se trato como una enumeracion cerrada.** El mantenedor quiere abrirlo: manana puede aparecer otro runtime del mercado, y agregarlo debe ser *solo* escribir un adaptador, nunca tocar la fuente neutral.
 
-Ademas, `mefisto-writer` y `mefisto-reviewer` (los dos agentes del pipeline interno de tooling que producen y revisan cambios sobre el propio repo) tienen **cero** menciones de neutralidad en su fuente: hoy el gate de neutralidad (issue #923, `mefisto-neutrality-gate.sh`) los frena post-hoc si violan alguna regla, pero ninguno de los dos conoce la regla de antemano. `AGENTS.md` -- el archivo de directivas canonicas del repo (MEF-ADR-0049 decision 3) -- es el vehiculo natural para que la conozcan sin tocar sus fuentes.
+Ademas, `mefisto-writer` y `mefisto-reviewer` (los dos agentes del pipeline interno de tooling que producen y revisan cambios sobre el propio repo) tienen **cero** menciones de neutralidad en su fuente: hoy el gate de neutralidad (issue #923, `mefisto-neutrality-gate.mts`) los frena post-hoc si violan alguna regla, pero ninguno de los dos conoce la regla de antemano. `AGENTS.md` -- el archivo de directivas canonicas del repo (MEF-ADR-0049 decision 3) -- es el vehiculo natural para que la conozcan sin tocar sus fuentes.
 
 Estas decisiones se tomaron en la sesion de planeacion del 2026-09-06 y este ADR las fija formalmente.
 
@@ -25,19 +25,19 @@ Este ADR fija un **principio** valido para toda operacion de Mefisto, en ambos l
 ### Que queda fuera de este ADR
 
 - **La distribucion del lado publicado** (MEF-ADR-0053): este ADR fija la regla de no-regresion que rige ese lado, no su implementacion.
-- **La mecanica concreta de generacion, validacion y adaptadores** (`src/internal/scripts/generate-internal-adapters.sh`, `validate-internal-artifacts.sh`, `mefisto-neutrality-gate.sh`): ya vive en MEF-ADR-0049 y en el contrato (`src/internal/contract/README.md`). Este ADR los referencia, no los reabre.
+- **La mecanica concreta de generacion, validacion y adaptadores** (`src/internal/scripts/generate-internal-adapters.mts`, `validate-internal-artifacts.mts`, `mefisto-neutrality-gate.mts`): ya vive en MEF-ADR-0049 y en el contrato (`src/internal/contract/README.md`). Este ADR los referencia, no los reabre.
 
 ## Decision
 
 ### 1. Toda operacion nace neutral; el conjunto de runtimes es abierto (CA-1)
 
-Toda operacion de Mefisto -- skill (`commands/`, `.claude/commands/`), agente (`agents/`, `.claude/agents/`), pipeline bash (`scripts/`, `.claude/scripts/`), hook (`hooks/`, `.claude/settings.json`) y Agent Skill (`skills/`, `.claude/skills/`) -- en ambos lados de MEF-ADR-0019, es neutral a runtime. Ninguna pieza nueva de doctrina, comportamiento o automatizacion asume que Claude Code (ni ningun otro runtime concreto) es el unico interprete posible.
+Toda operacion de Mefisto -- skill (`commands/`, `.claude/commands/`), agente (`agents/`, `.claude/agents/`), pipeline (`scripts/`, `src/internal/scripts/`), hook (`hooks/`, `.claude/settings.json`) y Agent Skill (`skills/`, `.claude/skills/`) -- en ambos lados de MEF-ADR-0019, es neutral a runtime. Ninguna pieza nueva de doctrina, comportamiento o automatizacion asume que Claude Code (ni ningun otro runtime concreto) es el unico interprete posible.
 
 El conjunto de runtimes soportados es **abierto**, no una enumeracion cerrada: "runtime soportado" significa unicamente **"tiene adaptador en el repo"** -- hoy solo Claude Code (`.claude/`, MEF-ADR-0057). Agregar otro runtime del mercado manana es, por definicion de este principio, escribir el adaptador que describe la decision 2 -- nunca tocar la fuente neutral de un artefacto ya existente.
 
 **Regla de no-regresion en el lado publicado**, que hoy se distribuye como un unico Claude Code Plugin: ningun artefacto publicado nuevo agrega acoplamiento adicional a un runtime concreto. Dos ejemplos concretos:
 
-- Un `scripts/*.sh` publicado nuevo no invoca el CLI de un runtime (p. ej. `claude`) si puede evitarlo -- el mismo criterio que la regla R2 de `mefisto-neutrality-gate.sh` ya aplica a todo su universo de archivos (`src/internal/`, `.claude/`, `AGENTS.md`), aunque ese universo no incluya `scripts/` -- el arbol publicado entero esta declarado fuera de alcance en `scope_excluded` de `neutrality-allowlist.json`.
+- Un script publicado nuevo (`scripts/*.mts`) no invoca el CLI de un runtime (p. ej. `claude`) si puede evitarlo -- el mismo criterio que la regla R2 de `mefisto-neutrality-gate.mts` ya aplica a todo su universo de archivos (`src/internal/`, `.claude/`, `AGENTS.md`), aunque ese universo no incluya `scripts/` -- el arbol publicado entero esta declarado fuera de alcance en `scope_excluded` de `neutrality-allowlist.json`.
 - Un `skills/*/SKILL.md` publicado nuevo usa unicamente el frontmatter portable que fija la decision 3 (`name`, `description`, `license`, `compatibility`, `metadata`) -- nunca `allowed-tools` ni otra extension propia de Claude Code -- aunque hoy solo Claude Code cargue Skills publicados via marketplace.
 
 ### 2. Punto de extension de un runtime nuevo: checklist verificable, sin tocar la fuente neutral (CA-2)
@@ -53,7 +53,7 @@ Agregar el runtime `<id>` (hoy `claude`; manana cualquier otro) es, exhaustivame
 | 5 | Entrada en `is_path_in_mefisto_scope` (`src/internal/scripts/lib/mefisto-scope.mts`) | entradas `.claude/*` |
 | 6 | Entrada en el blocklist publicado `is_path_in_consumer_blocklist` (`scripts/lib/pipeline/consumer-scope.mts`), si el adaptador introduce una ruta publicada que sus patrones no cubren | `src/published/*`, `src/runtime/*`, `dist/*` |
 | 7 | Entrada(s) en `src/internal/contract/neutrality-allowlist.json` si el adaptador nuevo necesita nombrar su propio runtime en texto (mismo patron que la excepcion ya declarada para `adapter-claude.mts`) | seccion `exceptions` del archivo |
-| 8 | Soporte del kind `<id>` en el propio Herdr, si un pipeline orquesta ese runtime en un pane: en el repo de Mefisto, `runtimes_for_repo` (`scripts/herdr-workspace.sh`) monta una fila por cada id de `MEFISTO_RUNTIMES` y lo pasa tal cual como `--kind`, asi que ahi no hay nada que editar -- solo verificar que Herdr reconozca ese kind; en un consumidor esa funcion monta solo la fila `claude`, y ofrecer ahi el runtime nuevo es editarla | `--kind claude` |
+| 8 | Soporte del kind `<id>` en el propio Herdr, si un pipeline orquesta ese runtime en un pane: en el repo de Mefisto, `runtimes_for_repo` (`scripts/herdr-workspace.mts`) monta una fila por cada id de `MEFISTO_RUNTIMES` y lo pasa tal cual como `--kind`, asi que ahi no hay nada que editar -- solo verificar que Herdr reconozca ese kind; en un consumidor esa funcion monta solo la fila `claude`, y ofrecer ahi el runtime nuevo es editarla | `--kind claude` |
 | 9 | Tests: contrato del adaptador, discovery abierto y resolucion de modelos sin proveedor real | `src/runtime/tests/*.test.mts` |
 
 ### 3. Frontmatter portable de todo `SKILL.md` (CA-3)
@@ -83,9 +83,9 @@ Esto preserva la distincion ya vigente entre `mefisto:` (publicado, namespace de
 
 Un artefacto de Mefisto es "agnostico a runtime" cuando pasa, sin excepcion declarada, los gates que **ya existen** (MEF-ADR-0018: extender un mecanismo nuevo cuando uno existente basta es la extraccion prematura que esa heuristica desaconseja):
 
-- **R1-R4, `adapters-check` y `published-adapters-check` de `src/internal/scripts/mefisto-neutrality-gate.sh`** (issue #911, `published-adapters-check` anadida por el issue #1496): ausencia de alias de modelo/tools/permisos crudos en la fuente neutral (R1), de invocaciones directas de CLI de runtime (R2), de rutas/variables propias de un runtime (R3), de shims de `.claude/scripts/*.sh` divergentes de su plantilla (R4), paridad entre la fuente interna y los adaptadores generados (`adapters-check`) y paridad entre la fuente publicada (`src/published/`, `src/runtime/`) y su distribucion generada (`dist/`, `published-adapters-check`).
+- **R1-R3, `adapters-check` y `published-adapters-check` de `src/internal/scripts/mefisto-neutrality-gate.mts`** (issue #911, `published-adapters-check` anadida por el issue #1496): ausencia de alias de modelo/tools/permisos crudos en la fuente neutral (R1), de invocaciones directas de CLI de runtime (R2), de rutas/variables propias de un runtime (R3), paridad entre la fuente interna y los adaptadores generados (`adapters-check`) y paridad entre la fuente publicada (`src/published/`, `src/runtime/`) y su distribucion generada (`dist/`, `published-adapters-check`).
 - **Bloque `[F]` de `scripts/tests/guards.test.mts`**: integridad de todo `SKILL.md` -- `name` coincide con el directorio (F1), `description` no vacia (F2), recursos de Nivel 3 referenciados existen (F3), y toda referencia `skills:` de un agente resuelve a un Skill real (F4).
-- **`src/internal/scripts/validate-internal-artifacts.sh`**: conformidad de todo `src/internal/{agents,commands}/*.md` contra `internal-artifact.schema.json` -- incluida la neutralidad del body (ninguna linea nombra un runtime concreto, hoy `claude`, fuera de las dos excepciones literales documentadas en `src/internal/contract/README.md`).
+- **`src/internal/scripts/validate-internal-artifacts.mts`**: conformidad de todo `src/internal/{agents,commands}/*.md` contra `internal-artifact.schema.json` -- incluida la neutralidad del body (ninguna linea nombra un runtime concreto, hoy `claude`, fuera de las dos excepciones literales documentadas en `src/internal/contract/README.md`).
 
 **Regla nueva que este ADR manda crear, todavia pendiente**: una **F5** en el bloque `[F]` de `guards.test.mts` que verifique el frontmatter portable de todo `SKILL.md` (decision 3) -- que ningun campo fuera de `name`/`description`/`license`/`compatibility`/`metadata` este presente, `allowed-tools` en particular. Hoy ningun `SKILL.md` del repo la viola (verificado, ver decision 3), pero el gate que lo garantice de forma continua no existe todavia: lo entrega el issue #937, que este ADR bloquea.
 
@@ -132,7 +132,7 @@ No prohibirlo, dejandolo como extension opcional de Claude Code que un autor de 
 ### Negativas
 
 - **F5 queda fijada pero no implementada**: este ADR manda crear la regla (decision 5) sin entregarla -- issue #937 la implementa. Hasta entonces, un `SKILL.md` con `allowed-tools` seguiria pasando el bloque `[F]` de `guards.test.mts` sin que ningun gate automatizado lo detecte (aunque hoy ninguno lo tiene).
-- **La regla de no-regresion del lado publicado (decision 1) no tiene gate automatizado propio**: a diferencia del lado interno (`mefisto-neutrality-gate.sh`), nada escanea hoy `scripts/`, `commands/`, `skills/` publicados en busca de acoplamiento nuevo a un runtime -- la regla se aplica por revision humana/de agente hasta que un gate equivalente exista del lado publicado (fuera del alcance de este ADR).
+- **La regla de no-regresion del lado publicado (decision 1) no tiene gate automatizado propio**: a diferencia del lado interno (`mefisto-neutrality-gate.mts`), nada escanea hoy `scripts/`, `commands/`, `skills/` publicados en busca de acoplamiento nuevo a un runtime -- la regla se aplica por revision humana/de agente hasta que un gate equivalente exista del lado publicado (fuera del alcance de este ADR).
 - **Separador distinto segun el tipo de artefacto en runtimes sin plugin** (`:` para comandos, `-` para Skills, decision 4) es una asimetria que un contribuyente nuevo debe aprender -- aceptada porque la spec de Skills la fuerza (`name` no admite `:`), no por preferencia estetica.
 
 ## Referencias
@@ -156,3 +156,4 @@ No prohibirlo, dejandolo como extension opcional de Claude Code que un autor de 
 - 2026-11-11: enmienda por MEF-ADR-0057 al portar el runner: los pasos 1, 2, 3 y 5 del checklist de la seccion 2 nombran el adaptador `runtime-<id>.mts` y `mefisto-runtime.mts`. El paso 2 pasa a ser la gemela bash del adaptador, que dura mientras queden pipelines en bash. El paso 5 reconoce la tabla `PROBES`, que el descubrimiento sincrono de `/upgrade` y `/onboard` necesita ampliar.
 - 2026-11-12: los guards de `scripts/tests/test-guards.sh` pasan a `scripts/tests/guards.test.mts` (port a TypeScript, MEF-ADR-0057); el cuerpo cita el archivo nuevo. Sin cambio de doctrina.
 - 2026-11-12: se borran las librerias bash del runtime y de los pipelines (MEF-ADR-0057): sale del checklist de la seccion 2 el paso de la gemela bash del adaptador (`runtime-<id>.sh` con su `.jq`), asi que los pasos 3 a 10 pasan a ser 2 a 9; las entradas de las allowlists de scope citan `mefisto-scope.mts` y `consumer-scope.mts`, y el paso de tests cita `src/runtime/tests/*.test.mts`, sin los shims de `.claude/scripts/tests/` que ya no existen.
+- 2026-11-12: se retiran los shims `.sh` (MEF-ADR-0057): el cuerpo cita los scripts `.mts`, y el gate de neutralidad pasa de R1-R4 a R1-R3 porque R4 verificaba los shims de `.claude/scripts/*.sh` (MEF-ADR-0049 decision 2).

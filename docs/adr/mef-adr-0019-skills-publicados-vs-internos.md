@@ -36,8 +36,8 @@ Los skills publicados:
 
 - Solo operan sobre archivos del consumidor (workflows en `.github/`, fixtures de `tests/`, `.claude/harness.config.json`, `.claude/settings.json`, `pipeline-state/`, scripts ad-hoc del consumidor).
 - Tienen un **guard defensivo** al inicio que aborta si detectan `.claude-plugin/plugin.json` en el cwd (i.e., si por error alguien los invoca dentro del repo de Mefisto).
-- El pipeline `scripts/tooling-pipeline.sh` aplica un **gate de scope** (`validate_consumer_scope_changes`) que rechaza el PR si el agente toca `commands/`, `skills/`, `agents/`, `hooks/`, `.claude-plugin/` o `docs/adr/` (rutas reservadas al plugin). El blocklist enumera rutas explicitamente (`is_path_in_consumer_blocklist`), asi que **cada tipo de artefacto nuevo del plugin hay que registrarlo a mano** -- omitirlo abre un hueco silencioso en esta frontera. En que PR va ese registro: seccion E.
-- Los pipelines de orquestacion (`parallel-pipeline.sh`, `batch-pipeline.sh`, `pr-sync.sh`) abortan si se invocan dentro del repo de Mefisto.
+- El pipeline `scripts/tooling-pipeline.mts` aplica un **gate de scope** (`validate_consumer_scope_changes`) que rechaza el PR si el agente toca `commands/`, `skills/`, `agents/`, `hooks/`, `.claude-plugin/` o `docs/adr/` (rutas reservadas al plugin). El blocklist enumera rutas explicitamente (`is_path_in_consumer_blocklist`), asi que **cada tipo de artefacto nuevo del plugin hay que registrarlo a mano** -- omitirlo abre un hueco silencioso en esta frontera. En que PR va ese registro: seccion E.
+- Los pipelines de orquestacion (`parallel-pipeline.mts`, `batch-pipeline.mts`, `pr-sync.mts`) abortan si se invocan dentro del repo de Mefisto.
 
 ### B. Lado interno (NO distribuido)
 
@@ -46,7 +46,7 @@ Vive en `.claude/` del repo del propio plugin:
 - `.claude/commands/` -- skills internos con prefijo `mefisto-` (`/mefisto-tooling`, `/mefisto-plan`, `/mefisto-bug`, `/mefisto-fix-review`, `/mefisto-merge`).
 - `.claude/skills/` -- Agent Skills internos (MEF-ADR-0033).
 - `.claude/agents/` -- agentes internos (`mefisto-investigator`, `mefisto-planner`).
-- `.claude/scripts/` -- pipelines internos (`mefisto-tooling-pipeline.sh`, `mefisto-launch-pipeline.sh`).
+- `src/internal/scripts/` -- pipelines internos (`mefisto-tooling-pipeline.mts`, `mefisto-launch-pipeline.mts`), que se invocan con `node` desde ahi (MEF-ADR-0049 decision 2); `.claude/scripts/` guarda el hook de scope del adaptador y los tests internos.
 
 Los skills internos:
 
@@ -63,7 +63,7 @@ La unica operacion permitida desde el consumidor hacia el repo de Mefisto es **c
 
 ### D. Grupos de trabajo homogeneos
 
-Los pipelines de orquestacion (`/parallel`, `/sequential`, `scripts/batch-pipeline.sh`) consultan cada issue con `gh issue view N` sin `-R`. Issues de otros repos retornan `UNKNOWN` y se descartan automaticamente. No se admiten flags `-R` ni grupos mixtos.
+Los pipelines de orquestacion (`/parallel`, `/sequential`, `scripts/batch-pipeline.mts`) consultan cada issue con `gh issue view N` sin `-R`. Issues de otros repos retornan `UNKNOWN` y se descartan automaticamente. No se admiten flags `-R` ni grupos mixtos.
 
 ### E. Secuencia de registro de rutas nuevas en los gates
 
@@ -124,7 +124,7 @@ Pros: separacion fisica dura. Contras: dos artefactos a publicar y mantener, dep
 
 ### Negativas
 
-- **Duplicacion inicial**: los pipelines y agentes empezaran muy parecidos (mefisto-tooling-pipeline.sh es ~85% identico a tooling-pipeline.sh). Aceptado deliberadamente; refactorizar a un common compartido solo cuando la duplicacion duela en la practica (regla de tres -- MEF-ADR-0018).
+- **Duplicacion inicial**: los pipelines y agentes empezaran muy parecidos (mefisto-tooling-pipeline.mts es ~85% identico a tooling-pipeline.mts). Aceptado deliberadamente; refactorizar a un common compartido solo cuando la duplicacion duela en la practica (regla de tres -- MEF-ADR-0018).
 - **Guard defensivo en cada skill**: cada `.md` lleva un bloque de pre-condicion. Un developer puede olvidarlo al anadir un skill nuevo. Mitigacion: test de guards (`scripts/tests/`) que itera sobre todos los skills publicados y verifica que abortan al invocarse en Mefisto.
 - **Fork del repo de Mefisto**: el slug hardcodeado en el routing del publicado queda incorrecto para forks. Mitigado con el campo opcional `repoSlug` en `.claude/harness.config.json` (default: `augusto-romero-arango/mefisto`).
 - **Documentacion adicional**: este ADR + secciones nuevas en CLAUDE.md y README.md son necesarias para que un nuevo developer entienda los dos sets.
@@ -145,3 +145,4 @@ Pros: separacion fisica dura. Contras: dos artefactos a publicar y mantener, dep
 - 2026-10-12: enmienda por issue #2349. El repo se renombra en GitHub a `augusto-romero-arango/mefisto` y el default de `repoSlug` (secciones C y Consecuencias) pasa a ese slug. El nombre previo (`eda-evsourcing-azure-harness`) sigue resolviendo por la redireccion de GitHub; el marketplace (`augusto-romero-arango-harness`) y el id del plugin no cambian.
 - 2026-11-10: seccion B: el lanzador interno pasa a llamarse `mefisto-launch-pipeline.sh` (antes `mefisto-tmux-pipeline.sh`). Sale tmux, que no existe en Windows nativo (MEF-ADR-0057 decision 5).
 - 2026-11-12: las librerias bash `_pipeline-common.sh` y `_mefisto-common.sh` se borran (port a TypeScript, MEF-ADR-0057): la seccion B deja de listar `_mefisto-common.sh` y la seccion E cita los modulos que hoy cargan cada gate (`mefisto-scope.mts`, `mefisto-scope-gate.mts` y `consumer-scope.mts`). Sin cambio de doctrina.
+- 2026-11-12: se retiran los shims `.sh` (MEF-ADR-0057): el cuerpo cita los scripts `.mts`, y los pipelines internos figuran en `src/internal/scripts/`, desde donde se invocan con `node` (MEF-ADR-0049 decision 2).
