@@ -44,7 +44,7 @@ describe('runtimeCliAvailable', () => {
     mkdirSync(bin)
     writeFileSync(join(bin, 'claude'), '#!/bin/sh\n')
     chmodSync(join(bin, 'claude'), 0o755)
-    assert.equal(await runtimeCliAvailable('claude', { env: { PATH: bin }, libDir: RUNTIME_LIB_DIR }), process.platform !== 'win32')
+    assert.equal(await runtimeCliAvailable('claude', { env: { PATH: bin }, libDir: RUNTIME_LIB_DIR }), true)
     assert.equal(await runtimeCliAvailable('claude', { env: { PATH: join(work, 'vacio') }, libDir: RUNTIME_LIB_DIR }), false)
   })
 
