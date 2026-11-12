@@ -46,7 +46,7 @@ cualquier tool o permiso no derivado queda denegado:
 
 El mapping solo concede permisos sobre el consumidor. `edit` queda sujeto al
 scope/gate del pipeline consumidor correspondiente: no sourcea ni replica como
-autoridad `is_path_in_mefisto_scope`.
+autoridad `isPathInMefistoScope`.
 
 `mcp` no es una tool ni un permiso de runtime: es una lista de ids lógicos
 kebab-case. `mcp-servers.json` es la autoridad neutral de esos ids y de su
@@ -176,7 +176,7 @@ Cada invocación traducida de `{{mefisto:run <script> <args>}}` fija además,
 como asignación en línea inmediatamente antes del script, `MEFISTO_RUNTIME=<id
 del adaptador>` (`claude` en el adaptador de Claude Code). El adaptador impone
 su propio runtime sobre cualquier valor que ya traiga el entorno: es la misma
-garantía de `mefisto_resolve_runtime` (MEF-ADR-0050) que evita que un pipeline
+garantía de `resolveRuntime` (`src/runtime/lib/mefisto-runtime.mts`, MEF-ADR-0050) que evita que un pipeline
 lanzado desde un runtime corra sus scripts bajo el identificador de otro cuando
 la máquina tiene más de uno instalado y el entorno no fija la variable.
 
