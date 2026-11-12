@@ -72,6 +72,8 @@ export const TOOLING_CLOSURE_ASSETS: readonly string[] = [
   'scripts/lib/pipeline/agent-failures.mts|0644',
   'scripts/lib/pipeline/agent-hold.mts|0644',
   'scripts/launch-pipeline.sh|0755',
+  'scripts/launch-pipeline.mts|0644',
+  'scripts/lib/launcher.mts|0644',
   'scripts/herdr-workspace.sh|0755',
   'scripts/herdr-pipeline.sh|0755',
   'scripts/stream-watch.sh|0755',

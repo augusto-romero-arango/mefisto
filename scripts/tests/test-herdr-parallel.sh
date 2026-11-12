@@ -6,7 +6,7 @@
 #   - Funciones puras (estilo test-herdr-workspace.sh): se extrae SOLO el
 #     cuerpo de stack_split_ratio (awk sobre "nombre() {" .. "}" en columna 0)
 #     y se evalua en este proceso, sin sourcing el archivo completo.
-#   - Subproceso real con stubs (estilo test-launch-preparse.sh): un "consumidor"
+#   - Subproceso real con stubs: un "consumidor"
 #     falso (mktemp -d + git init, sin .claude-plugin/plugin.json) y stubs de
 #     `herdr` y `gh` en PATH que registran cada invocacion y devuelven
 #     respuestas deterministas -- nunca tocan un servidor herdr ni la red.
@@ -24,11 +24,11 @@
 #       valido, aborta.
 #   [E] --from-stage con --parallel aborta (ambiguo sobre un lote).
 #       Multiples issues sin modo enrutan a --parallel.
-#   [F] (CA-5) should_delegate_to_herdr de launch-pipeline.sh delega dentro
-#       de herdr con un runtime sin cinta propia, y no delega con el runtime
-#       claude, con MEFISTO_UI=mod ni fuera de herdr.
 #   [G] (issue #1627 CA-4) cmd_infra despacha con MEFISTO_RUNTIME=$HERDR_RUNTIME
 #       via dispatch_to_pane, igual que --tooling -- ya lo hacia, se fija con test.
+#
+# La decision de delegar en herdr de launch-pipeline.mts la cubre
+# scripts/tests/launch-pipeline.test.mts.
 #
 # Uso: scripts/tests/test-herdr-parallel.sh
 # Exit code: 0 si todos los chequeos pasan, 1 si alguno falla.
@@ -40,7 +40,6 @@ export HERDR_STUB_OWNER_PID=$$
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 HERDR_SCRIPT="$REPO_ROOT/scripts/herdr-pipeline.sh"
-LAUNCH_SCRIPT="$REPO_ROOT/scripts/launch-pipeline.sh"
 
 PASS=0
 FAIL=0
@@ -315,52 +314,6 @@ STUB_CALLS=$(cat "$HERDR_STUB_LOG")
 assert_eq "multiples issues sin modo: exit 0" "0" "$RC"
 assert_contains "aviso del fallback" "$OUT" "Usando --parallel"
 assert_eq "2 pane run despachados" "2" "$(grep -c "^herdr pane run" <<< "$STUB_CALLS")"
-
-# --- [F] Autodeteccion en launch-pipeline.sh ---
-echo "[F] should_delegate_to_herdr: delega dentro de herdr salvo en modo desacoplado"
-
-body="$(extract_fn inside_herdr "$LAUNCH_SCRIPT")
-$(extract_fn uses_detached_ui "$LAUNCH_SCRIPT")
-$(extract_fn should_delegate_to_herdr "$LAUNCH_SCRIPT")"
-abort() { echo "$1" >&2; exit 1; }
-eval "$body"
-if declare -F should_delegate_to_herdr >/dev/null && declare -F inside_herdr >/dev/null \
-    && declare -F uses_detached_ui >/dev/null; then
-    pass "should_delegate_to_herdr extraida y cargable"
-else
-    fail "should_delegate_to_herdr: no se pudo extraer el cuerpo"
-fi
-
-if declare -F should_delegate_to_herdr >/dev/null; then
-    # Contexto herdr simulado en ESTE proceso (el stub en PATH cubre `command -v herdr`).
-    if ( unset MEFISTO_UI
-         export MEFISTO_RUNTIME=fake HERDR_ENV=1 HERDR_PANE_ID="w1:p0" PATH="$FAKE_BIN:$PATH"
-         should_delegate_to_herdr ); then
-        pass "dentro de un pane herdr delega a herdr"
-    else
-        fail "dentro de un pane herdr deberia delegar a herdr"
-    fi
-    if ( unset MEFISTO_UI
-         export MEFISTO_RUNTIME=claude HERDR_ENV=1 HERDR_PANE_ID="w1:p0" PATH="$FAKE_BIN:$PATH"
-         should_delegate_to_herdr ); then
-        fail "con el runtime claude no deberia delegar (corre desacoplado)"
-    else
-        pass "con el runtime claude no delega"
-    fi
-    if ( export MEFISTO_UI=mod MEFISTO_RUNTIME=fake HERDR_ENV=1 HERDR_PANE_ID="w1:p0" PATH="$FAKE_BIN:$PATH"
-         should_delegate_to_herdr ); then
-        fail "MEFISTO_UI=mod no deberia delegar"
-    else
-        pass "MEFISTO_UI=mod no delega"
-    fi
-    if ( unset HERDR_ENV MEFISTO_UI 2>/dev/null
-         export MEFISTO_RUNTIME=fake
-         should_delegate_to_herdr ); then
-        fail "fuera de herdr no deberia delegar"
-    else
-        pass "fuera de herdr no delega"
-    fi
-fi
 
 # --- [G] cmd_infra: MEFISTO_RUNTIME=$HERDR_RUNTIME propagado (issue #1627 CA-4) ---
 echo "[G] --infra despacha con MEFISTO_RUNTIME=\$HERDR_RUNTIME, igual que --tooling"

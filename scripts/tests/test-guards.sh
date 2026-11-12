@@ -9,7 +9,7 @@
 #      que en su lugar verifica src/internal/scripts/generate-internal-adapters.sh.
 #   B) Los skills internos (.claude/commands/mefisto-*.md) llevan el guard inverso.
 #   C) Los pipelines publicados que siguen en bash (scripts/parallel-pipeline.sh,
-#      scripts/batch-pipeline.sh, scripts/launch-pipeline.sh)
+#      scripts/batch-pipeline.sh)
 #      y los scripts auxiliares publicados que siguen en bash (setup-github-labels.sh,
 #      seed-secret.sh, onboard-diagnose.sh, update-plugin.sh) abortan si se
 #      sourcean en un contexto donde .claude-plugin/plugin.json existe. Los portados a
@@ -163,7 +163,7 @@ echo ""
 echo "[C] Pipelines publicados: contienen guard contra repo de Mefisto"
 
 PUBLISHED_PIPELINES=(
-    parallel-pipeline.sh batch-pipeline.sh launch-pipeline.sh
+    parallel-pipeline.sh batch-pipeline.sh
 )
 
 for pipe in "${PUBLISHED_PIPELINES[@]}"; do
@@ -195,6 +195,7 @@ AUX_SCRIPTS=(
     appinsights-query.sh setup-github-ci.sh setup-github-labels.sh
     bootstrap-backend.sh seed-secret.sh onboard-diagnose.sh onboard-migrate-directives.sh onboard-activate-repo.sh update-plugin.sh upgrade.sh
     purge-store.sh next-order.sh field-note.sh warnings-diff.sh tooling-pipeline.sh tdd-pipeline.sh scaffold-pipeline.sh iac-pipeline.sh
+    launch-pipeline.sh
 )
 
 for aux in "${AUX_SCRIPTS[@]}"; do
