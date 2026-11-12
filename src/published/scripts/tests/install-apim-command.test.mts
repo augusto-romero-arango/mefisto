@@ -1,6 +1,6 @@
 // Contrato del comando install-apim neutral y su proyeccion publicada. Los bloques bash del
 // comando (flip de tenancy del paso 9.2, deteccion de servidores MCP del paso 2b) se ejecutan en
-// test-install-apim-command.sh.
+// install-apim-command-blocks.test.mts.
 
 import assert from 'node:assert/strict'
 import { describe, test } from 'node:test'
@@ -44,8 +44,8 @@ describe('[fuente] contrato neutral', () => {
   contains(body, 'authorization_server_url', 'el mensaje conserva authorization_server_url')
   contains(
     body,
-    '"{{mefisto:package-root}}/scripts/_pipeline-common.sh"',
-    'source de _pipeline-common.sh desde el paquete activo',
+    '"{{mefisto:package-root}}/scripts/harness-config-path.mts"',
+    'harness-config-path.mts desde el paquete activo',
   )
   contains(body, '{{mefisto:instructions-path}}', 'RootNamespace se lee de instructions-path')
   for (const cmd of ['install-workos', 'scaffold', 'scaffold-mcp', 'infra-base', 'onboard']) {
@@ -76,7 +76,7 @@ describe('[fuente] contrato neutral', () => {
       '¿Continuar? (s/n)',
       'git switch -c "install-apim/',
       '{{mefisto:launch-agent',
-      'source "$COMMON"',
+      'node "$CONFIG_SCRIPT" valid',
       'git commit -m "tenancy(a->b)',
       'gh pr create',
     ],
@@ -92,11 +92,15 @@ describe('[salidas] adaptador y mirror', () => {
     'agente `mefisto:apim-gateway-scaffolder`',
     'Claude delega en mefisto:apim-gateway-scaffolder',
   )
-  contains(claude, 'source "$COMMON"', 'Claude sourcea _pipeline-common.sh')
   contains(
     claude,
-    'COMMON="${MEFISTO_PACKAGE_ROOT}/scripts/_pipeline-common.sh"',
-    'Claude sourcea desde MEFISTO_PACKAGE_ROOT',
+    'HARNESS_CONFIG_PATH=$(node "$CONFIG_SCRIPT" valid "$REPO_ROOT")',
+    'Claude valida el config con harness-config-path.mts',
+  )
+  contains(
+    claude,
+    'CONFIG_SCRIPT="${MEFISTO_PACKAGE_ROOT}/scripts/harness-config-path.mts"',
+    'Claude resuelve harness-config-path.mts desde MEFISTO_PACKAGE_ROOT',
   )
   absentAll(
     claude,
