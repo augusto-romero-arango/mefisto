@@ -26,7 +26,7 @@ Los agentes de código improvisan arquitectura: cada sesión reinventa convencio
 
 - **Skills** (slash commands) para onboarding, scaffolding de dominios, ciclo TDD, infraestructura, auth, merge y bitácora.
 - **Agentes** especializados: planner, escritores de tests, implementadores, revisores y scaffolders.
-- **Pipelines bash** sobre `git worktree`, con ejecución paralela y secuencial.
+- **Pipelines en TypeScript (Node)** sobre `git worktree`, con ejecución paralela y secuencial.
 - **ADRs** del marco (prefijo `MEF-ADR-`) como fuente de verdad arquitectónica.
 - **Servidor MCP** bundleado de Microsoft Learn para verificar documentación oficial.
 

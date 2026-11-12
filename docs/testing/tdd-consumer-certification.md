@@ -1,7 +1,7 @@
 # Protocolo de certificacion TDD (`/mefisto:implement`)
 
 Este protocolo define la certificacion reproducible del pipeline
-`/mefisto:implement` (`scripts/tdd-pipeline.sh`) sobre el runtime `claude`,
+`/mefisto:implement` (`scripts/tdd-pipeline.mts`) sobre el runtime `claude`,
 lanzado desde una instalacion publicada real en un consumidor. Cubre la
 superficie propia de TDD: dos rutas de agentes (write-side y
 `tipo:projection`), fase roja/verde, Stage 2b condicional, coverage gate
@@ -47,7 +47,7 @@ La superficie de discovery que este protocolo ejercita es: el comando
 `projections` que los agentes de la ruta read-side precargan via `skills:`
 -- su `SKILL.md` y los recursos de Nivel 3 `modelos-marten.md`,
 `read-apis.md`, `naming.md` y `config-test.md` (MEF-ADR-0033) -- y
-`scripts/tdd-pipeline.sh` como entrypoint.
+`scripts/tdd-pipeline.mts` como entrypoint.
 
 ## Fixtures write-side/read-side (CA-2)
 
@@ -85,7 +85,7 @@ Antes de redactar los dos fixtures se registra `<dominio-certificable>`:
 un dominio ya scaffoldeado del baseline con Function App existente y su
 proyecto `tests/<namespacePrefix>.<dominio-certificable>.SmokeTests` ya creado.
 `<namespacePrefix>` es el valor de la clave homonima de
-`.mefisto/harness.config.json` del consumidor -- el mismo que `tdd-pipeline.sh`
+`.mefisto/harness.config.json` del consumidor -- el mismo que `tdd-pipeline.mts`
 lee como `HARNESS_NAMESPACE_PREFIX` para resolver el proyecto SmokeTests del
 dominio en Stage 2b, de modo que el placeholder de este protocolo y la deteccion
 real del pipeline no pueden divergir.
@@ -254,7 +254,7 @@ los templates de "Crear issues" en `agents/planner.md`>
 ## Rutas de agentes forzadas y alcance del pipeline (CA-3)
 
 Los dos fixtures fuerzan por diseno la ruta de agentes de su fila: el
-`tipo:` del issue determina en `tdd-pipeline.sh` si `STAGE1_AGENT`/`STAGE2_AGENT`
+`tipo:` del issue determina en `tdd-pipeline.mts` si `STAGE1_AGENT`/`STAGE2_AGENT`
 resuelven a `test-writer`/`implementer` (write-side) o a
 `projection-test-writer`/`projection-implementer` (read-side, issue #371).
 `smoke-test-writer` y `reviewer` son comunes a ambas rutas.
@@ -281,12 +281,12 @@ En las dos corridas:
   corridas: la eleccion de `<dominio-certificable>` (Function App existente +
   proyecto SmokeTests existente) y el CA-3 de cada template (diff que toca
   `Function/` o la Function GET) son las dos precondiciones que
-  `tdd-pipeline.sh` evalua para no saltarlo (`AGENT_ST_RES=skipped` seria una
+  `tdd-pipeline.mts` evalua para no saltarlo (`AGENT_ST_RES=skipped` seria una
   divergencia, no un resultado aceptable de este protocolo).
 - **Stage 3 (reviewer, fase refactor)** debe dejar todos los tests pasando y
   no introducir cambios funcionales fuera del alcance declarado.
 - **Stage 4 (coverage gate) debe emitir un resultado** -- uno de los tres que
-  `tdd-pipeline.sh` sabe producir en `AGENT_CG_RES`: `passed` (cobertura sobre
+  `tdd-pipeline.mts` sabe producir en `AGENT_CG_RES`: `passed` (cobertura sobre
   el umbral), `gaps` (umbral no alcanzado; el gate advierte y continua, no
   aborta) o `skipped` con motivo explicito (sin `dotnet-coverage`, sin archivos
   de logica que evaluar, o medicion no concluyente). Nunca ausencia de
@@ -301,7 +301,7 @@ En las dos corridas:
 ## Lanzamiento real desde Herdr (CA-4)
 
 Las dos corridas se lanzan desde el pane `ejecucion [claude]` del workspace que
-monta `herdr-workspace.sh <ruta-del-consumidor>`
+monta `herdr-workspace.mts <ruta-del-consumidor>`
 ([`herdr-workspace.md`](./herdr-workspace.md)), cuyos panes heredan
 `MEFISTO_RUNTIME` y `--kind`. Se invoca directamente, sin pipeline anidado:
 
@@ -342,7 +342,7 @@ correlacionado por issue/stage/session. Contiene:
 | Checks | conclusiones de los checks requeridos del PR, o `NO_APLICAN` con el motivo (cuando ningun workflow cubre las rutas tocadas) |
 | Summaries | los summaries de cada agente copiados al cuerpo del PR |
 | Streams y logs | streams neutrales redactados por stage, `events.log` y `pipeline-history.jsonl` correlacionados por issue/stage/session |
-| Metricas | las de `compute_stage_metrics` por stage, ya cosechadas por `tdd-pipeline.sh` |
+| Metricas | las de `compute_stage_metrics` por stage, ya cosechadas por `tdd-pipeline.mts` |
 | Veredicto | pasa/falla/bloqueado de esa corrida individual |
 
 La evidencia versionada conserva unicamente indices, URLs y veredictos;
@@ -432,7 +432,7 @@ a "Manifiesto de evidencia sanitizado (CA-5)".
 | Release e identidad | `v0.38.2` (publicada 2026-09-21T11:15:57Z), version `0.38.2`, commit fuente `6c2319c5a91aef844d5f71468ecb43d6f72a1cfe`; `pipeline-history.jsonl` registra identity `0.38.2/6c2319c5`. Instalacion previa (rollback): `0.38.1` / `a48e6870`. |
 | Baseline | `<sha-baseline-inicial>` = `<sha-baseline-final>` = `9f49d6a59fa96f7e5a49b0139fa27ae9c2353d35`; `main` limpio, 0/0 frente a `origin/main`, un solo worktree antes y despues de la corrida. |
 | Fixture | [#34](https://github.com/augusto-romero-arango/mefisto-consumer-certification/issues/34), `tipo:feature`, `dom:certificacion`, `estado:listo`, creado por el planner publicado 0.38.2 (sha256/12 `00cc3913a679`, 26170 bytes). |
-| Discovery | Tras `/reload-plugins` (cache 0.38.2): `/mefisto:implement`, `test-writer`, `implementer`, `smoke-test-writer`, `reviewer` y `scripts/tdd-pipeline.sh` presentes antes de lanzar. |
+| Discovery | Tras `/reload-plugins` (cache 0.38.2): `/mefisto:implement`, `test-writer`, `implementer`, `smoke-test-writer`, `reviewer` y `scripts/tdd-pipeline.mts` presentes antes de lanzar. |
 | PR | [#38](https://github.com/augusto-romero-arango/mefisto-consumer-certification/pull/38) (`Closes #34`, +51/-5, 4 archivos): validator, test del validator y dos SmokeTests, dentro del alcance del fixture; summaries de cada stage en el cuerpo y comentario de cierre. |
 | Stages | Stage 0 no ejecutado; Stage 1 rojo funcional (46 tests / 1 fallido, "Fase roja confirmada (exit 2)"); Stage 2 verde tocando solo `RegistrarSolicitudCertificacionValidator.cs` (46/46 + 16/16); Stage 2b ejecutado (smoke `400` nuevo + migracion de fixtures); Stage 3 `success`; Stage 4 `passed`, gaps=0. Un unico terminal por stage. |
 | Checks | `NO_APLICAN` en #38: el unico workflow del consumidor sobre `pull_request` es `infra-cd.yml`, filtrado a `infra/**`, y el fixture no toca `infra/`; `deploy-certificacion.yml`/`deploy-projections.yml` solo corren sobre `push` a `main` y `smoke-tests.yml` es programado/manual. `statusCheckRollup` vacio. |
@@ -601,7 +601,7 @@ o vacia, ordena al implementer detenerse y reportar el gap en
 `blockage-report.md` en vez de continuar; `agents/planner.md` (paso 7 de "Crear
 issues") exige igualmente que el planner la enumere en cualquier issue que
 redacte. El defecto era del template (hallazgo no bloqueante capturado en
-#1560), no de `tdd-pipeline.sh` ni de los agentes que lo ejecutan.
+#1560), no de `tdd-pipeline.mts` ni de los agentes que lo ejecutan.
 
 El intento 1 (run-id `20260921-062538-v0.38.2`) corrio sobre ese template
 literal y el implementer continuo sin la seccion, apartandose de su doctrina.
@@ -646,7 +646,7 @@ release `v0.38.2`. No certifica `--scaffold-domain`, `--from-stage`,
   las corridas reales de #1435/#1436.
 - `docs/testing/infra-consumer-certification.md`: catalogo de centinelas que
   este protocolo reutiliza.
-- `docs/testing/herdr-workspace.md`: fila y labels de `herdr-workspace.sh`
+- `docs/testing/herdr-workspace.md`: fila y labels de `herdr-workspace.mts`
   desde los que se lanzan las corridas.
 - MEF-ADR-0011: Definition of Ready por tipo de issue; fija las secciones
   criticas de los dos templates de fixture.

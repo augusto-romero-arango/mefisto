@@ -1,3 +1,3 @@
 # LF en todos los sistemas (MEF-ADR-0057): sin esto, git en Windows entrega los archivos con CRLF,
-# un .sh con CRLF no arranca y los scripts que leen texto encuentran un \r al final de cada linea.
+# el hook pre-push con CRLF no arranca y los scripts que leen texto encuentran un \r al final de cada linea.
 * text=auto eol=lf

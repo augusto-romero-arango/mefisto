@@ -17,9 +17,9 @@ El modelo completo (con un tercer matiz de cadencia dentro del rol admin/infra) 
 |---|---|---|---|
 | 1 | Instalar el plugin por usuario y habilitarlo en el repo | Dev | `claude plugin install mefisto@... --scope user` + `claude plugin disable ... --scope user`, y `.claude/settings.json` commiteado con `enabledPlugins` — Mefisto solo se carga en los repos que lo habilitan. |
 | 2 | Crear `.claude/harness.config.json` + tokens en `CLAUDE.md` | Dev | Declara proyecto, dominios, Bounded Context; sin esto ningún skill sabe dónde está parado. |
-| 3 | Provisionar labels de GitHub | Dev | `setup-github-labels.sh` (o `/onboard` con confirmación) — solo necesita `gh auth login`, nada de Azure. |
-| 4 | Crear el backend del tfstate | **Admin/infra** | `bootstrap-backend.sh` — Resource Group, Storage Account y container donde vive el estado de Terraform. Privilegiado, una sola vez. |
-| 5 | Configurar CI hacia Azure por OIDC | **Admin/infra** | `setup-github-ci.sh` — crea el Service Principal sin secret y le da los roles justos para que CI pueda aplicar infraestructura. Copia los tres secrets `AZURE_*` a GitHub. |
+| 3 | Provisionar labels de GitHub | Dev | `setup-github-labels.mts` (o `/onboard` con confirmación) — solo necesita `gh auth login`, nada de Azure. |
+| 4 | Crear el backend del tfstate | **Admin/infra** | `bootstrap-backend.mts` — Resource Group, Storage Account y container donde vive el estado de Terraform. Privilegiado, una sola vez. |
+| 5 | Configurar CI hacia Azure por OIDC | **Admin/infra** | `setup-github-ci.mts` — crea el Service Principal sin secret y le da los roles justos para que CI pueda aplicar infraestructura. Copia los tres secrets `AZURE_*` a GitHub. |
 | 6 | Crear los 2 secrets/variables manuales de GitHub | **Admin/infra** | `ALERT_EMAIL` (variable) y `TF_VAR_POSTGRESQL_ADMIN_PASSWORD` (secret) — el password que elijas aquí es el mismo que sembrarás en `marten-connection` en el paso 9. |
 | 7 | Generar la infraestructura base | Dev | `/infra-base` — escribe los 8 módulos Terraform y el esqueleto del entorno. Solo archivos locales, cero permisos de Azure. |
 | 8 | Correr el primer `/infra` | Dev | Escribe y revisa el HCL de tu primer issue `tipo:infra` de forma estática y abre un PR. El `plan` real corre en el PR y el `apply` al mergear a `main` — ambos en CI, nunca en tu máquina. |

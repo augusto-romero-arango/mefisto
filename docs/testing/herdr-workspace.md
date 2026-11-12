@@ -1,6 +1,6 @@
 # Workspace Herdr de consumidores
 
-`scripts/herdr-workspace.sh` monta en un consumidor una sola fila, la de
+`scripts/herdr-workspace.mts` monta en un consumidor una sola fila, la de
 `claude`: el planner a la izquierda y ejecucion a la derecha. Sus labels
 estables son `planner [claude]` y `ejecucion [claude]`; ambos panes heredan
 `MEFISTO_RUNTIME=claude` y arrancan con `--kind claude`. El planner abre

@@ -1,10 +1,10 @@
 # Protocolo de certificacion IaC (`/mefisto:infra`)
 
 Este protocolo define, sin ejecutarla, la certificacion reproducible del
-pipeline `/mefisto:infra` (`scripts/iac-pipeline.sh`, lanzado por
-`scripts/launch-pipeline.sh --infra`) sobre el runtime `claude` y sobre los dos
+pipeline `/mefisto:infra` (`scripts/iac-pipeline.mts`, lanzado por
+`node scripts/launch-pipeline.mts --infra`) sobre el runtime `claude` y sobre los dos
 contextos de lanzamiento que el propio script distingue: en un pane de un
-workspace Herdr (`herdr-workspace.sh`) y desacoplado, sin pane. Molde: "Resultado write-side (#1435)" y
+workspace Herdr (`herdr-workspace.mts`) y desacoplado, sin pane. Molde: "Resultado write-side (#1435)" y
 [`tdd-consumer-certification.md`](./tdd-consumer-certification.md). Este
 documento fija su instalacion e identidad como prerrequisito y agrega la
 superficie propia de `/mefisto:infra` -- dos agentes (`infra-writer`,
@@ -79,7 +79,7 @@ un valor de variable con default explicito -- para que `terraform fmt`,
 `terraform init -backend=false` y `terraform validate` tengan una unica forma
 correcta de pasar, sin ambiguedad de diseño que dependa del modelo. El fixture
 **no** crea un modulo nuevo ni toca `infra/environments/<env>/backend.tf`: eso
-mantiene fuera de alcance el bootstrap del backend (`bootstrap-backend.sh`),
+mantiene fuera de alcance el bootstrap del backend (`bootstrap-backend.mts`),
 que este protocolo no certifica.
 
 ### Template de fixture (Herdr/desacoplado)
@@ -131,13 +131,13 @@ sin credenciales de Azure.
 
 | Corrida | Contexto de lanzamiento | Invocacion |
 |---|---|---|
-| A | Herdr | `/mefisto:infra <issue-A>` desde el pane `ejecucion [claude]` de un workspace Herdr (`herdr-workspace.sh`), con `MEFISTO_UI=herdr` en el entorno |
-| B | Desacoplado | `/mefisto:infra <issue-B>` (o `scripts/launch-pipeline.sh --infra <issue-B>` directo) sin `MEFISTO_UI`; la sigue la consola `fausto-blood-pact` o, sin ella, `scripts/stream-watch.sh --issues <issue-B>` en otra terminal |
+| A | Herdr | `/mefisto:infra <issue-A>` desde el pane `ejecucion [claude]` de un workspace Herdr (`herdr-workspace.mts`), con `MEFISTO_UI=herdr` en el entorno |
+| B | Desacoplado | `/mefisto:infra <issue-B>` (o `node scripts/launch-pipeline.mts --infra <issue-B>` directo) sin `MEFISTO_UI`; la sigue la consola `fausto-blood-pact` o, sin ella, `node scripts/stream-watch.mts --issues <issue-B>` en otra terminal |
 
 Las dos corridas parten del mismo `<sha-baseline-inicial>` del consumidor y
 son independientes entre si: ninguna depende de que el PR fixture de la otra
 se fusione (los dos PRs se cierran sin merge, seccion "Fail-closed y limpieza"
-mas abajo). Con `MEFISTO_UI=herdr`, `scripts/launch-pipeline.sh` delega en la
+mas abajo). Con `MEFISTO_UI=herdr`, `scripts/launch-pipeline.mts` delega en la
 interfaz Herdr para A; sin `MEFISTO_UI`, para B, corre el pipeline desacoplado
 (MEF-ADR-0055) e imprime la ruta del log y la linea del visor, tal como
 documenta `commands/infra.md`.
@@ -146,12 +146,12 @@ documenta `commands/infra.md`.
 
 En las dos corridas, `/mefisto:infra` debe:
 
-1. **Lanzar `iac-pipeline.sh` en el runtime correcto**: antes de la cabecera
+1. **Lanzar `iac-pipeline.mts` en el runtime correcto**: antes de la cabecera
    `=== IAC STAGE <n>: <agente> ===`, `events.log` contiene una linea
    `MODELS:` por agente (`infra-writer` e `infra-reviewer`) con
    `runtime=<runtime-resuelto>`, `perfil=` (`balanced` para `infra-writer`,
    `deep` para `infra-reviewer`) y `resuelto=` con el modelo efectivo,
-   conforme la escribe `resolve_infra_model` en `scripts/iac-pipeline.sh`. El
+   conforme la escribe `resolve_infra_model` en `scripts/iac-pipeline.mts`. El
    `runtime=` debe ser `claude`. Ninguna de las dos
    corridas fija `--models` ni un modelo explicito: la seleccion automatica
    por perfil neutral es parte de lo que se certifica.
@@ -159,7 +159,7 @@ En las dos corridas, `/mefisto:infra` debe:
    summaries**: `pipeline-status-infra-<N>.json` registra
    `agents.infra-writer.result` y `agents.infra-reviewer.result` en `passed`,
    y el PR final incluye el summary de cada stage en `<details>` (mismo patron
-   que `iac-pipeline.sh` lineas 694-722).
+   que `iac-pipeline.mts`).
 3. **Abrir un PR real limitado a `infra/`, sin `Closes #N`**: el pipeline
    IaC nunca agrega `Closes` al body del PR (MEF-ADR-0021, MEF-ADR-0022): el
    cierre del issue lo hace el workflow `infra-cd.yml` tras un `apply` exitoso
@@ -178,7 +178,7 @@ En las dos corridas, `/mefisto:infra` debe:
 
 Cada una de las dos corridas debe dejar, bajo `.mefisto/pipeline/` del
 consumidor (nunca bajo `.claude/pipeline/`, que queda solo como fallback de
-lectura de `work-status-collect.sh` desde #1626):
+lectura de `work-status-collect.mts` desde #1626):
 
 - `logs/iac-stage-<N>-<agente>-<ts>-issue-<issue>.log` por stage (Stage 1
   `infra-writer`, Stage 2 `infra-reviewer`).
@@ -201,13 +201,13 @@ evidencia aparezca bajo `.claude/pipeline/` en vez de `.mefisto/pipeline/` es
 una divergencia de MEF-ADR-0053 seccion 4, no solo del protocolo, y produce
 `NO PASA` para esa corrida.
 
-## Visibilidad en la salida de `work-status-collect.sh --json` (CA-4 de #1629)
+## Visibilidad en la salida de `work-status-collect.mts --json` (CA-4 de #1629)
 
 - **En curso**: mientras cualquiera de las dos corridas esta `running`,
-  `scripts/work-status-collect.sh --json`
+  `node scripts/work-status-collect.mts --json`
   devuelve una fila con `pipeline=infra`, el `issue`, el `runtime` y el
   `stage` vigente (`1-infra-writer` o `2-infra-reviewer`), con el
-  `progress_pct` que asigna `scripts/work-status-collect.sh` (30 para
+  `progress_pct` que asigna `scripts/work-status-collect.mts` (30 para
   `infra-writer`, 80 para `infra-reviewer`) y `activity.kind = stage`.
 - **Terminada**: al completar, la fila pasa a reflejar el PR (`pr` no vacio) y
   dejar de aparecer como `running`, conforme al historial en
@@ -263,7 +263,7 @@ La limpieza es idempotente, igual que en `tdd-consumer-certification.md`.
 
 - **`PASA`**: las dos corridas cumplen integramente "Resultados esperados
   de cada corrida", "Evidencia correlacionada" y "Visibilidad en la salida
-  de `work-status-collect.sh --json`" (incluido el hold inducido en al menos una corrida), con
+  de `work-status-collect.mts --json`" (incluido el hold inducido en al menos una corrida), con
   centinelas en cero y limpieza completa.
 - **`NO PASA`**: cualquier gap -- stage sin summary, PR con `Closes`,
   evidencia bajo `.claude/pipeline/`, hold no visible, centinela positivo sin
@@ -387,7 +387,7 @@ resolucion de raiz, sin logs, estado ni historial.
 
 - **Hold inducido (B)**: `MEFISTO_RUN_AGENT_BIN` apunto a un wrapper local
   que emite un terminal neutral `run.failed` con `error.kind = rate_limit` en
-  el primer intento y delega en `src/runtime/mefisto-run-agent.sh` de la
+  el primer intento y delega en `src/runtime/mefisto-run-agent.mts` de la
   release en los siguientes, con `MEFISTO_HOLD_PROBE_SECONDS=90`.
   `events.log` registro `FALLO infra-writer: RATE_LIMIT` y la espera. El
   status paso a `state: hold` con `hold.cause = RATE_LIMIT` y `next_probe`.
@@ -397,7 +397,7 @@ resolucion de raiz, sin logs, estado ni historial.
 - **Terminada**: las filas pasan al historial como `completed`, pero con
   `detail = env:dev` y sin PR, a diferencia de las filas TDD, que muestran
   `PR #N`. `pipeline-history.jsonl` si guarda `pr`; el colector
-  (`work-status-collect.sh`) prioriza `environment` sobre `pr` al calcular
+  (`work-status-collect.mts`) prioriza `environment` sobre `pr` al calcular
   `detail` y no expone `pr` en la fila. Las filas infra ademas salen con
   `log: null`, asi que el drill-down no puede abrir la corrida. **Este es el
   gap de `NO PASA`** (#1730).
@@ -441,7 +441,7 @@ resolucion de raiz, sin logs, estado ni historial.
   manifiesto de evidencia y la seccion "Bloqueo estructural de la
   ejecucion automatizada (#1464)" que esta certificacion replica para
   `/mefisto:infra`.
-- `docs/testing/herdr-workspace.md`: fila y labels de `herdr-workspace.sh`
+- `docs/testing/herdr-workspace.md`: fila y labels de `herdr-workspace.mts`
   que la corrida A reutiliza.
 - MEF-ADR-0011: Definition of Ready; columna `infra` de la tabla DoR.
 - MEF-ADR-0019: separacion publicado/interno; issues y PRs fixture se

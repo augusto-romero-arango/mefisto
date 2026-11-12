@@ -38,8 +38,8 @@ redacta un ADR nuevo anota su entrada de CHANGELOG **y** su fila de indice).
 
 ## Quien los consume
 
-`/mefisto-release` (fase *prepare*, `src/internal/scripts/mefisto-release.sh`;
-`.claude/scripts/mefisto-release.sh` es el shim que reenvia ahi, issue #864)
+`/mefisto-release` (fase *prepare*, `src/internal/scripts/mefisto-release.mts`,
+issue #864)
 consolida todos los fragmentos presentes: vuelca los de CHANGELOG en el bloque
 `[Unreleased]` de `CHANGELOG.md` agrupados por categoria, vuelca los de indice
 de ADRs al final de la tabla de `CLAUDE.md`, y borra los fragmentos consumidos.
