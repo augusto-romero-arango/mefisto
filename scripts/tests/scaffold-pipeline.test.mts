@@ -191,7 +191,11 @@ describe('como proceso', () => {
 
   test('scaffold-pipeline.sh es el shim que lo lanza con sus argumentos', { skip: process.platform === 'win32' }, () => {
     const repo = consumer()
-    const result = capture('bash', [join(REPO_ROOT, 'scripts', 'scaffold-pipeline.sh'), '--domain', 'Mal_Nombre!'], { cwd: repo.root })
+    // Sin runtime fijado, el resultado dependeria de si `claude` esta en el PATH de la maquina.
+    const result = capture('bash', [join(REPO_ROOT, 'scripts', 'scaffold-pipeline.sh'), '--domain', 'Mal_Nombre!'], {
+      cwd: repo.root,
+      env: { ...process.env, MEFISTO_RUNTIME: 'fake', MEFISTO_FAKE_AVAILABLE: '1' },
+    })
     assert.equal(result.status, 1)
     assert.equal(stripAnsi(result.stderr), '\nx El nombre del dominio no se pudo normalizar a kebab-case. Recibido: mal-nombre!\n')
   })
