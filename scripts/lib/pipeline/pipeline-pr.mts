@@ -53,10 +53,10 @@ export function parseIssueView(raw: string): IssueView {
   const issue =
     typeof parsed === 'object' && parsed !== null && !Array.isArray(parsed) ? (parsed as Record<string, unknown>) : null
   const state = issue !== null && Object.hasOwn(issue, 'state') ? issue.state : undefined
-  const titles = [...raw.matchAll(/"title":"[^"\n]*"/g)].map((match) => match[0].slice('"title":"'.length, -1))
+  const title = issue !== null && typeof issue.title === 'string' ? issue.title : null
   return {
     state: state === undefined ? 'UNKNOWN' : typeof state === 'string' ? state : pythonRepr(state),
-    title: titles.length > 0 ? titles.join('\n') : null,
+    title,
     body: issue !== null && Object.hasOwn(issue, 'body') ? chomp(pythonRepr(issue.body)) : rawBody(raw),
   }
 }

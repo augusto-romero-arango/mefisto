@@ -373,7 +373,7 @@ export async function iacPipeline(deps: IacPipelineDeps): Promise<number> {
   const eventLine = (text: string): void => appendEventsLine(run.eventsLog, `[${clockTime(now())}] ${text}`)
   const track = (agent: AgentId): AgentTrack => (agent === 'infra-writer' ? run.writer : run.reviewer)
   // El titulo llega crudo de la respuesta de `gh`, con sus escapes JSON intactos.
-  const titleJson = (): string => `"${run.issueTitle.replaceAll('"', '\\"')}"`
+  const titleJson = (): string => jsonText(run.issueTitle)
   const runtimeJson = (): string => (run.runtime.length > 0 ? jsonText(run.runtime) : 'null')
 
   const agentStatus = (agent: AgentTrack): string => `{"duration": ${agent.duration ?? 'null'}, "result": "${agent.result}"}`

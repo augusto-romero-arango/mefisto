@@ -174,7 +174,7 @@ for aux in "${AUX_SCRIPTS[@]}"; do
     if [ "$rc" -eq 1 ] && echo "$output" | grep -q "plugin publicado y solo aplica al consumidor"; then
         pass "$aux: aborta con exit 1 y mensaje correcto en repo de Mefisto"
     else
-        fail "$aux: no aborta como se espera (exit=$rc)"
+        fail "$aux: no aborta como se espera (exit=$rc): $(printf '%s' "$output" | head -n 3 | tr '\n' '|')"
     fi
 done
 
