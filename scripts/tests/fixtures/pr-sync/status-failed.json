@@ -1,0 +1,20 @@
+{
+  "issue": "43",
+  "pr": "43",
+  "title": "Título con \"comillas\" y \\\\ barra",
+  "pipeline": "pr-sync",
+  "variant": null,
+  "runtime": null,
+  "started": "2030-01-02T03:04:05",
+  "stage": "sync",
+  "state": "failed",
+  "updated": "2030-01-02T03:04:05",
+  "log": "/ruta/al/log \"citado\".log",
+  "last_error": "No se pudo hacer fetch de origin/main",
+  "hold": {
+    "cause": null,
+    "next_probe": null,
+    "ceiling_seconds": null,
+    "accumulated_seconds": 0
+  }
+}

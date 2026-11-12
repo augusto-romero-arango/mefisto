@@ -215,7 +215,7 @@ una divergencia de MEF-ADR-0053 seccion 4, no solo del protocolo, y produce
 - **Hold inducido**: se induce un hold sobre **al menos una** de las dos
   corridas fijando `MEFISTO_HOLD_PROBE_SECONDS` a un valor corto y usando un
   runner de agente con `rate_limit` simulado (mismo mecanismo que
-  `.claude/scripts/tests/test-agent-hold.sh`/`scripts/tests/test-pr-sync-hold.sh`
+  `.claude/scripts/tests/test-agent-hold.sh`/`scripts/tests/pr-sync-run-agent.test.mts`
   stubean para el resto de pipelines), o aprovechando un limite real de uso
   del proveedor si ocurre durante la ventana de la corrida. Mientras el hold
   esta activo, la fila del colector debe traer `state: hold` /
