@@ -352,7 +352,6 @@ interface RunState {
   pr: string
   /** Error del aborto con sus saltos vueltos espacios, o el diagnostico de un cierre no controlado. */
   error: string
-  errorFromAbort: boolean
   aborting: boolean
   currentStage: string
   hold: HoldState
@@ -458,7 +457,6 @@ export async function toolingPipeline(deps: ToolingPipelineDeps): Promise<number
     tests: '',
     pr: '',
     error: '',
-    errorFromAbort: false,
     aborting: false,
     currentStage: 'setup',
     hold: noHold(),
@@ -479,7 +477,7 @@ export async function toolingPipeline(deps: ToolingPipelineDeps): Promise<number
         [
           { key: 'issue', json: jsonText(run.issue.length > 0 ? run.issue : 'null') },
           // El titulo llega crudo de la respuesta de `gh`, con sus escapes JSON intactos.
-          { key: 'title', json: `"${run.issueTitle.replaceAll('"', '\\"')}"` },
+          { key: 'title', json: jsonText(run.issueTitle) },
           { key: 'pipeline', json: '"tooling"' },
           { key: 'variant', json: run.variant.length > 0 ? jsonText(run.variant) : 'null' },
           { key: 'identity', json: run.identityJson },
@@ -522,8 +520,7 @@ export async function toolingPipeline(deps: ToolingPipelineDeps): Promise<number
         finished: localIsoSeconds(now()),
         state: 'failed',
         stage: run.currentStage,
-        // El bash guardaba el error del aborto ya escapado para el status y lo volvia a codificar aqui.
-        error: run.errorFromAbort ? run.error.replaceAll('"', '\\"') : run.error,
+        error: run.error,
         agents: { writer: { metrics: parseJq(run.writer.metrics) }, reviewer: { metrics: parseJq(run.reviewer.metrics) } },
         log: run.logFileAbs.length > 0 ? run.logFileAbs : null,
       }
@@ -541,7 +538,6 @@ export async function toolingPipeline(deps: ToolingPipelineDeps): Promise<number
     onStart: (message) => {
       run.aborting = true
       run.error = `${message.replaceAll('\n', ' ')} `
-      run.errorFromAbort = true
     },
     record: () => {
       if (!run.pipelineDirReady) return
@@ -559,7 +555,6 @@ export async function toolingPipeline(deps: ToolingPipelineDeps): Promise<number
     if (exitCode !== 0 && run.statusFilename.length > 0 && run.pipelineDirReady && isFile(statusFile) && statusIsActive(statusFile)) {
       if (!run.aborting) {
         run.error = `Terminacion no controlada (exit code: ${exitCode})`
-        run.errorFromAbort = false
       }
       try {
         updateStatus(run.currentStage, 'failed')
