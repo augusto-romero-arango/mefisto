@@ -47,7 +47,7 @@ tail -20 .mefisto/pipeline/pipeline-history.jsonl 2>/dev/null || echo "Sin histo
 ls -lt .mefisto/pipeline/logs/ 2>/dev/null | head -10
 
 # Pipelines corriendo
-pgrep -fl "[m]efisto-(tooling|batch)-pipeline\.sh" || echo "No hay pipelines corriendo"
+pgrep -fl "[m]efisto-(tooling|batch)-pipeline\.(sh|mts)" || echo "No hay pipelines corriendo"
 
 # Estado git
 git status

@@ -44,7 +44,7 @@ Razona sobre su salida (`DATA`): filas por `runtime`, `origin` (canonico o legac
 
 ```bash
 # Pipelines en curso
-pgrep -fl "[s]cripts/[a-z]+-pipeline\.sh" || echo "No hay pipelines corriendo"
+pgrep -fl "[s]cripts/[a-z]+-pipeline\.(sh|mts)" || echo "No hay pipelines corriendo"
 
 # Estado git
 git status

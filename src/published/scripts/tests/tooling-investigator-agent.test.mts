@@ -44,6 +44,8 @@ describe('[a] metadata y perfil', () => {
   contains(body, 'docs/bitacora/field-notes/', 'conserva la restriccion de escritura')
   contains(body, '.mefisto/', 'cubre .mefisto/')
   contains(body, 'repoSlug', 'conserva el routing via repoSlug')
+  contains(body, 'pgrep -fl "[s]cripts/[a-z]+-pipeline\\.(sh|mts)"', 'detecta pipelines vivos como .sh y como .mts')
+  contains(claudeBody, 'pgrep -fl "[s]cripts/[a-z]+-pipeline\\.(sh|mts)"', 'claude conserva la deteccion .sh|.mts')
   check(`existe ${AGENT.claudePath}`, () => isRegularFile(repoPath(AGENT.claudePath)), `falta ${AGENT.claudePath}`)
 })
 
