@@ -2,7 +2,7 @@
 description: "Calcula el orden topologico de lanzamiento de los issues estado:listo del consumidor y deja lista la linea de sequential."
 model: "haiku"
 ---
-<!-- GENERADO por src/published/scripts/generate-published-adapters.sh desde src/published/commands/next-order.md. No editar a mano. -->
+<!-- GENERADO por src/published/scripts/generate-published-adapters.mts desde src/published/commands/next-order.md. No editar a mano. -->
 ```bash
 mefisto_claude_root=''
 mefisto_claude_root_from_candidate() {
@@ -54,7 +54,7 @@ Ejecuta este bloque en cada llamada Bash de este comando, sin guardarlo en un ar
 
 Calcula el orden topologico de lanzamiento de los issues `estado:listo` abiertos del repo consumidor, a partir de sus dependencias declaradas, y deja lista la linea de lanzamiento de `/mefisto:sequential`. Comunicate en **espanol**.
 
-Antes de continuar, aborta si existe `src/internal/scripts/generate-internal-adapters.sh`: ese directorio es el repositorio de Mefisto, no un consumidor.
+Antes de continuar, aborta si existe `src/internal/scripts/generate-internal-adapters.mts`: ese directorio es el repositorio de Mefisto, no un consumidor.
 
 ## Entrada
 
@@ -65,10 +65,10 @@ Este comando no acepta argumentos: siempre analiza TODO el universo `estado:list
 ### Ejecutar el calculo
 
 ```bash
-MEFISTO_RUNTIME=claude "${MEFISTO_PACKAGE_ROOT}/scripts/next-order.sh" --launch-command "/mefisto:sequential" --parallel-command "/mefisto:parallel"
+MEFISTO_RUNTIME=claude node "${MEFISTO_PACKAGE_ROOT}/scripts/next-order.mts" --launch-command "/mefisto:sequential" --parallel-command "/mefisto:parallel"
 ```
 
-Doctrina completa del algoritmo (extraccion de dependencias, clasificacion bloqueo externo/ciclo/bloqueo indirecto/lanzable, Kahn con seleccion golosa): cabecera de `scripts/next-order.sh`. No la dupliques aqui.
+Doctrina completa del algoritmo (extraccion de dependencias, clasificacion bloqueo externo/ciclo/bloqueo indirecto/lanzable, Kahn con seleccion golosa): cabecera de `scripts/next-order.mts`. No la dupliques aqui.
 
 Reproduce la salida **tal cual**, sin reordenarla, resumirla ni completarla con informacion propia: el reporte de ciclos/bloqueos (si los hay) al tope, la lista numerada de issues lanzables, la linea de infra (`/mefisto:infra #N`, una invocacion por issue, solo si hay `tipo:infra` lanzables: se ofrece desarrollarlos antes, sin exigirlo), la linea `/mefisto:sequential ...` lista para copiar y, si el script la emite, la linea `/mefisto:parallel ...` del lote parallel.
 

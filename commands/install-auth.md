@@ -3,7 +3,7 @@ description: "Orquesta el camino completo de auth: install-workos, gate humano d
 argument-hint: "--identity-domain <Dominio> --domain <Dominio> [--domain <Dominio2> ...] [--env <env>] [--cors-origin <origin> ...]"
 model: "sonnet"
 ---
-<!-- GENERADO por src/published/scripts/generate-published-adapters.sh desde src/published/commands/install-auth.md. No editar a mano. -->
+<!-- GENERADO por src/published/scripts/generate-published-adapters.mts desde src/published/commands/install-auth.md. No editar a mano. -->
 ```bash
 mefisto_claude_root=''
 mefisto_claude_root_from_candidate() {
@@ -55,7 +55,7 @@ Ejecuta este bloque en cada llamada Bash de este comando, sin guardarlo en un ar
 
 Orquesta el **camino completo de auth** (MEF-ADR-0032, MEF-ADR-0028 seccion 4): encadena `/mefisto:install-workos` (issue #339) -> **gate humano** -> `/mefisto:install-apim` (issue #340) en el orden correcto, para que el usuario no tenga que conocer ese orden ni como se combinan los dos skills de capa. Es un runner guiado por etapas, **stateless**: no reimplementa la logica de ninguno de los dos skills, los invoca leyendo integramente su `Proceso` y delegando en su propia idempotencia -- si una etapa ya estaba hecha, el propio sub-skill invocado lo reporta y este orquestador continua. Comunicate en **espanol**.
 
-Antes de continuar, aborta si existe `src/internal/scripts/generate-internal-adapters.sh`: ese directorio es el repositorio de Mefisto, no un consumidor.
+Antes de continuar, aborta si existe `src/internal/scripts/generate-internal-adapters.mts`: ese directorio es el repositorio de Mefisto, no un consumidor.
 
 ## Entrada
 

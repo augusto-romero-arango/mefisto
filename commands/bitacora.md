@@ -3,7 +3,7 @@ description: "Invoca al historiador para poner al dia la bitacora y encadena mer
 argument-hint: "[YYYY-MM-DD]"
 model: "haiku"
 ---
-<!-- GENERADO por src/published/scripts/generate-published-adapters.sh desde src/published/commands/bitacora.md. No editar a mano. -->
+<!-- GENERADO por src/published/scripts/generate-published-adapters.mts desde src/published/commands/bitacora.md. No editar a mano. -->
 ```bash
 mefisto_claude_root=''
 mefisto_claude_root_from_candidate() {
@@ -55,7 +55,7 @@ Ejecuta este bloque en cada llamada Bash de este comando, sin guardarlo en un ar
 
 Orquesta el ciclo completo de la bitacora: invoca al agente `historiador` (multi-dia, issue #527) para procesar de forma autonoma las field notes pendientes y, si termina con un PR creado, encadena `/mefisto:merge` automaticamente sobre ese PR -- sin pedir confirmacion adicional, porque el usuario ya autorizo el ciclo completo (recopilacion, escritura, cierre atomico y merge) al invocar este skill. Un subagente no puede invocar slash commands, asi que este encadenamiento vive en el hilo principal (mismo patron que `/mefisto:install-auth` encadenando `/mefisto:install-workos` -> `/mefisto:install-apim`). Comunicate en **espanol**.
 
-Antes de continuar, aborta si existe `src/internal/scripts/generate-internal-adapters.sh`: ese directorio es el repositorio de Mefisto, no un consumidor.
+Antes de continuar, aborta si existe `src/internal/scripts/generate-internal-adapters.mts`: ese directorio es el repositorio de Mefisto, no un consumidor.
 
 ## Entrada
 
@@ -96,19 +96,19 @@ El contrato del historiador (CA-6 de #527) es reportar explicitamente el PR en s
 
 Con el numero de PR verificado, lee `"${MEFISTO_PACKAGE_ROOT}/commands/merge.md"` (el documento del comando `/mefisto:merge` de la distribucion activa) sin transcribirlo aca, y ejecuta integramente su `Proceso` para ese PR.
 
-Ejecuta su `Proceso` completo (validar el PR, mostrar resumen, invocar `pr-sync.sh --merge`, reportar) tal cual, con el numero de PR del paso 2 como su `$ARGUMENTS` -- su `## Entrada` queda cubierta por ese numero, y su guard de consumidor por el de este skill. No pidas ninguna confirmacion adicional antes de mergear -- el usuario ya autorizo el ciclo completo al escribir `/mefisto:bitacora` explicitamente.
+Ejecuta su `Proceso` completo (validar el PR, mostrar resumen, invocar `pr-sync.mts --merge`, reportar) tal cual, con el numero de PR del paso 2 como su `$ARGUMENTS` -- su `## Entrada` queda cubierta por ese numero, y su guard de consumidor por el de este skill. No pidas ninguna confirmacion adicional antes de mergear -- el usuario ya autorizo el ciclo completo al escribir `/mefisto:bitacora` explicitamente.
 
 ### 4. Reportar
 
 Consolida en un solo resumen:
 - Lo que reporto el historiador (dias procesados, field notes integradas, o el motivo de no haber creado PR).
 - El PR verificado en el paso 2, o el motivo por el que no se mergeo nada (sin PR, o verificacion fallida).
-- El resultado de `/mefisto:merge` (PR mergeado, o el error tal cual lo imprimio `pr-sync.sh`).
+- El resultado de `/mefisto:merge` (PR mergeado, o el error tal cual lo imprimio `pr-sync.mts`).
 
 ## Reglas
 
 - **Nunca reimplementes la logica del historiador ni de `/mefisto:merge`.** Este skill delega leyendo integramente el `Proceso` de `/mefisto:merge`; el historiador corre de punta a punta de forma autonoma.
 - **Nunca invoques `/mefisto:merge` sin un numero de PR leido del mensaje final del historiador y verificado con `gh pr view`** (abierto y tocando `docs/bitacora/`). Si no hay PR, o la verificacion falla, reportalo y detente (CA-4).
 - **Nunca pidas una confirmacion adicional antes de mergear** un PR ya verificado. El usuario autorizo el ciclo completo al invocar el skill.
-- **Nunca hagas merges manuales** (`gh pr merge`, `git merge` + push). Todo pasa por `/mefisto:merge` -> `pr-sync.sh`.
-- **No diagnostiques errores de `pr-sync.sh`.** Propalos tal cual, igual que hace `/mefisto:merge`.
+- **Nunca hagas merges manuales** (`gh pr merge`, `git merge` + push). Todo pasa por `/mefisto:merge` -> `pr-sync.mts`.
+- **No diagnostiques errores de `pr-sync.mts`.** Propalos tal cual, igual que hace `/mefisto:merge`.

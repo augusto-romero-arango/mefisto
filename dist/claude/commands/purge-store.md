@@ -1,9 +1,9 @@
 ---
-description: "Diagnostica con evidencia si un dominio en dev tiene datos de era vieja, confirma con el humano, purga el store via purge-store.sh y valida relanzando los smoke tests fallidos."
+description: "Diagnostica con evidencia si un dominio en dev tiene datos de era vieja, confirma con el humano, purga el store via purge-store.mts y valida relanzando los smoke tests fallidos."
 argument-hint: "<dominio> [--env <env>]"
 model: "sonnet"
 ---
-<!-- GENERADO por src/published/scripts/generate-published-adapters.sh desde src/published/commands/purge-store.md. No editar a mano. -->
+<!-- GENERADO por src/published/scripts/generate-published-adapters.mts desde src/published/commands/purge-store.md. No editar a mano. -->
 ```bash
 mefisto_claude_root=''
 mefisto_claude_root_from_candidate() {
@@ -68,9 +68,9 @@ fi
 export MEFISTO_CONFIG_PATH
 ```
 
-Diagnostica con evidencia si un dominio tiene datos de era vieja tras un movimiento/renombrado de eventos persistidos (MEF-ADR-0036), confirma con el humano mostrando exactamente que se pierde, y valida el resultado tras purgar. Los pasos destructivos los ejecuta siempre `purge-store.sh` (issue #725) -- este comando nunca corre `psql`/`DROP`/firewall por su cuenta. Comunicate en **espanol**.
+Diagnostica con evidencia si un dominio tiene datos de era vieja tras un movimiento/renombrado de eventos persistidos (MEF-ADR-0036), confirma con el humano mostrando exactamente que se pierde, y valida el resultado tras purgar. Los pasos destructivos los ejecuta siempre `purge-store.mts` (issue #725) -- este comando nunca corre `psql`/`DROP`/firewall por su cuenta. Comunicate en **espanol**.
 
-Antes de continuar, aborta si existe `src/internal/scripts/generate-internal-adapters.sh`: ese directorio es el repositorio de Mefisto, no un consumidor.
+Antes de continuar, aborta si existe `src/internal/scripts/generate-internal-adapters.mts`: ese directorio es el repositorio de Mefisto, no un consumidor.
 
 ## Entrada
 
@@ -80,8 +80,8 @@ Antes de continuar, aborta si existe `src/internal/scripts/generate-internal-ada
 <dominio> [--env dev]
 ```
 
-- **`<dominio>`**: dominio a diagnosticar y, si corresponde, purgar. Acepta kebab o PascalCase (`calculo-horas` o `CalculoHoras`); la forma canonica es siempre la declarada en `domainLabels`, resuelta en el paso 1 (y revalidada por `purge-store.sh`, que es el juez ultimo).
-- **`--env <env>`** (opcional): ambiente objetivo, default `dev`. `purge-store.sh` aborta con una guarda anti-prod codificada si `--env` no es `dev`; este comando **nunca** intenta rodear esa guarda ni ofrece purgar otro ambiente.
+- **`<dominio>`**: dominio a diagnosticar y, si corresponde, purgar. Acepta kebab o PascalCase (`calculo-horas` o `CalculoHoras`); la forma canonica es siempre la declarada en `domainLabels`, resuelta en el paso 1 (y revalidada por `purge-store.mts`, que es el juez ultimo).
+- **`--env <env>`** (opcional): ambiente objetivo, default `dev`. `purge-store.mts` aborta con una guarda anti-prod codificada si `--env` no es `dev`; este comando **nunca** intenta rodear esa guarda ni ofrece purgar otro ambiente.
 
 Si falta `<dominio>`, responde con el uso exacto de arriba y detente sin ejecutar nada.
 
@@ -89,7 +89,7 @@ Si falta `<dominio>`, responde con el uso exacto de arriba y detente sin ejecuta
 
 ### 1. Parsear `$ARGUMENTS` y resolver el dominio canonico
 
-Extrae `DOMINIO` y `ENV` (default `dev`). Resuelve **ya aqui** la forma canonica contra `domainLabels` de `${MEFISTO_CONFIG_PATH}`. Es lectura pura, cero efectos: los pasos 3/4 buscan evidencia por nombre de dominio, y un dominio mal tecleado o no declarado produciria un "no hay evidencia" enganoso (que este comando trata como "no purgar") en vez del error real. Mismo criterio de comparacion que `purge-store.sh` (formas "aplanadas": minusculas sin guiones), y la forma que se usa de aqui en adelante es la declarada, nunca la que tecleo el operador:
+Extrae `DOMINIO` y `ENV` (default `dev`). Resuelve **ya aqui** la forma canonica contra `domainLabels` de `${MEFISTO_CONFIG_PATH}`. Es lectura pura, cero efectos: los pasos 3/4 buscan evidencia por nombre de dominio, y un dominio mal tecleado o no declarado produciria un "no hay evidencia" enganoso (que este comando trata como "no purgar") en vez del error real. Mismo criterio de comparacion que `purge-store.mts` (formas "aplanadas": minusculas sin guiones), y la forma que se usa de aqui en adelante es la declarada, nunca la que tecleo el operador:
 
 ```bash
 CONFIG="${MEFISTO_CONFIG_PATH}"
@@ -111,19 +111,19 @@ Si imprime `ERROR`, muestra el mensaje y detente sin ejecutar nada mas: no hay d
 ### 2. Validar la sesion de Azure
 
 ```bash
-MEFISTO_RUNTIME=claude "${MEFISTO_PACKAGE_ROOT}/scripts/azure-account-info.sh" 2>&1
+MEFISTO_RUNTIME=claude node "${MEFISTO_PACKAGE_ROOT}/scripts/azure-account-info.mts" 2>&1
 ```
 
 Si sale con codigo distinto de `0`, muestra tal cual el mensaje que emitio el script (indica iniciar sesion en Azure) y detente: no hay diagnostico sin acceso a la evidencia.
 
 ### 3. Diagnostico -- evidencia en App Insights (CA-1)
 
-La configuracion de telemetria vive en `.mefisto/appinsights.env`; si falta, `appinsights-query.sh` lo reporta con su propio mensaje: muestralo tal cual y detente -- no hay diagnostico sin acceso a la evidencia.
+La configuracion de telemetria vive en `.mefisto/appinsights.env`; si falta, `appinsights-query.mts` lo reporta con su propio mensaje: muestralo tal cual y detente -- no hay diagnostico sin acceso a la evidencia.
 
 Busca el sintoma de identidad rota descrito en MEF-ADR-0036 (columna `mt_dotnet_type` desactualizada, error `42804` de Postgres al leer `mt_version`, o una excepcion de tipo no resuelto) en la ultima semana:
 
 ```bash
-MEFISTO_RUNTIME=claude "${MEFISTO_PACKAGE_ROOT}/scripts/appinsights-query.sh" custom "exceptions | where timestamp > ago(168h) | where outerMessage has '42804' or outerMessage has 'mt_version' or outerMessage has 'UnknownEventTypeException' | project timestamp, cloud_RoleName, type, outerMessage, operation_Name | order by timestamp desc | take 20"
+MEFISTO_RUNTIME=claude node "${MEFISTO_PACKAGE_ROOT}/scripts/appinsights-query.mts" custom "exceptions | where timestamp > ago(168h) | where outerMessage has '42804' or outerMessage has 'mt_version' or outerMessage has 'UnknownEventTypeException' | project timestamp, cloud_RoleName, type, outerMessage, operation_Name | order by timestamp desc | take 20"
 ```
 
 **El recurso de App Insights es uno por Bounded Context, no por dominio**, y el schema que la purga destruye es de un solo dominio: una fila de otro dominio **no** es evidencia para purgar este. Por eso la query proyecta `cloud_RoleName` -- para el write-side es el nombre de la Function App (`func-{dominio}-...`, MEF-ADR-0045) y para el read-side es el `service.name` del worker, compartido por todo el BC (`<RootNamespace>.Projections`, MEF-ADR-0034 seccion 10). Atribuye cada fila antes de contarla como evidencia:
@@ -178,7 +178,7 @@ Si hay evidencia (de cualquiera de los dos pasos), continua.
 Ejecuta el `--dry-run` de la mitad determinista -- revalida el dominio contra `domainLabels`, calcula el schema y reporta streams/tablas de read model/checkpoints sin tocar nada:
 
 ```bash
-MEFISTO_RUNTIME=claude "${MEFISTO_PACKAGE_ROOT}/scripts/purge-store.sh" --domain "$DOMINIO_KEBAB" --env "$ENV" --dry-run
+MEFISTO_RUNTIME=claude node "${MEFISTO_PACKAGE_ROOT}/scripts/purge-store.mts" --domain "$DOMINIO_KEBAB" --env "$ENV" --dry-run
 ```
 
 Si el script termina con error (dominio no declarado, recurso de Azure ausente, ambiguedad de Function App), muestra el mensaje tal cual y **detente sin continuar**.
@@ -229,7 +229,7 @@ Si la respuesta no es un "s"/"si" inequivoco, detente sin escribir ni ejecutar n
 El unico paso destructivo, y **solo** via el script:
 
 ```bash
-MEFISTO_RUNTIME=claude "${MEFISTO_PACKAGE_ROOT}/scripts/purge-store.sh" --domain "$DOMINIO_KEBAB" --env "$ENV"
+MEFISTO_RUNTIME=claude node "${MEFISTO_PACKAGE_ROOT}/scripts/purge-store.mts" --domain "$DOMINIO_KEBAB" --env "$ENV"
 ```
 
 Muestra la salida completa. Si el script falla a mitad de camino, reporta el error tal cual -- **nunca** intentes completar manualmente lo que quedo a medias (ni `psql`, ni reinicios sueltos): la idempotencia de un reintento la garantiza el propio script.
@@ -271,8 +271,8 @@ Cierra siempre con un veredicto explicito, nunca ambiguo:
 - **Sin evidencia positiva, no hay purga.** Si App Insights y el ultimo smoke run del dominio no muestran ninguno de los sintomas de identidad rota, detente en el paso 5 y dilo explicitamente -- nunca ofrezcas la purga "por si acaso" (CA-1).
 - **La evidencia debe ser de ESTE dominio.** El recurso de App Insights es uno por BC y el schema que se destruye es de un dominio: una excepcion de otro dominio (o del worker sin referencia a este) no habilita nada. Atribuye por `cloud_RoleName` antes de contar una fila como evidencia (CA-1/CA-2).
 - **"Dominio no declarado" no es "sin evidencia".** El paso 1 aborta con el error real cuando `<dominio>` no esta en `domainLabels`; nunca lo reportes como diagnostico negativo, porque los dos desenlaces se leen igual y solo uno significa que el store esta sano.
-- **Todo paso destructivo pasa por `purge-store.sh`, sin excepcion.** Nunca ejecutes `psql`, `DROP`, reglas de firewall, ni reinicios de Function App/Container App directamente -- ese script es la unica superficie que este comando invoca para destruir algo (CA-4).
-- **Nunca relajes la guarda anti-prod.** Si `--env` es distinto de `dev`, deja que `purge-store.sh` aborte con su mensaje; no intentes rodear esa guarda ni ofrecer purgar otro ambiente.
+- **Todo paso destructivo pasa por `purge-store.mts`, sin excepcion.** Nunca ejecutes `psql`, `DROP`, reglas de firewall, ni reinicios de Function App/Container App directamente -- ese script es la unica superficie que este comando invoca para destruir algo (CA-4).
+- **Nunca relajes la guarda anti-prod.** Si `--env` es distinto de `dev`, deja que `purge-store.mts` aborte con su mensaje; no intentes rodear esa guarda ni ofrecer purgar otro ambiente.
 - **Confirmacion explicita obligatoria antes del paso 9.** Si el humano no responde "s"/"si" de forma inequivoca en el paso 8, detente sin ejecutar la purga real.
 - **La purga es irreversible** -- comunicalo sin eufemismos antes de pedir confirmacion, mostrando siempre el `--dry-run` real, nunca un resumen aproximado.
 - **El veredicto final del paso 10 es siempre explicito, y sobre el intento nuevo.** Nunca termines la corrida sin decir si los smoke tests quedaron verdes o por que no; y nunca lo dictes sobre la `conclusion` que el run traia antes del `rerun` (el `attempt` es lo que distingue un resultado post-purga de uno pre-purga).

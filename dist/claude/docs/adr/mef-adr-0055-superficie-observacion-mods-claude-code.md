@@ -6,7 +6,7 @@
 
 ## Contexto
 
-En herdr, la fila de trabajo tiene hoy tres panes: planner, ejecucion (la sesion donde se teclea `/mefisto-tooling`) y logs. `mefisto-herdr-pipeline.sh` crea el pane de logs (`dispatch_to_pane` + `cmd_pane_runner`) con el `tail -f` del report y `mefisto-stream-watch.sh`. Es un pane externo: no ofrece acciones (mergear el PR, cerrar) y obliga a cambiar de pane para ver el avance.
+En herdr, la fila de trabajo tiene hoy tres panes: planner, ejecucion (la sesion donde se teclea `/mefisto-tooling`) y logs. `mefisto-herdr-pipeline.mts` crea el pane de logs (`dispatch_to_pane` + `cmd_pane_runner`) con el `tail -f` del report y `mefisto-stream-watch.mts`. Es un pane externo: no ofrece acciones (mergear el PR, cerrar) y obliga a cambiar de pane para ver el avance.
 
 Claude Code publico los **mods** en v2.1.287 (2026-10-01): plugins de *function hooks* cuyo `hooks/hooks.json` declara un modulo ES que exporta `register(on)`. El modulo dibuja un Pane o una banda sobre el prompt (`AbovePrompt`) con Box/Text/Button, lee archivos (`$.fs`), sigue streams (`$.process.spawn`), ejecuta comandos (`$.process.run`) y lanza slash commands (`$.command.run`). Fuentes: [overview](https://code.claude.com/docs/en/plugins/mods/overview), [reference](https://code.claude.com/docs/en/plugins/mods/reference) y los tipos que el engine instala junto a cada mod. La API esta marcada *early access*.
 
@@ -85,13 +85,13 @@ El mod es una superficie de **observacion**, no una operacion. MEF-ADR-0050 exig
 
 ### 6. Modo de lanzamiento sin pane: `MEFISTO_UI=mod`
 
-Con `MEFISTO_UI=mod`, `mefisto-launch-pipeline.sh --tooling` no abre pane herdr. Corre el pipeline desacoplado (`nohup`) y escribe su salida en `logs/mefisto-tooling-run-<ts>-issue-<n>.report.log`. El modo se evalua antes de la autodeteccion herdr. Fuera de herdr y sin `MEFISTO_UI` el wrapper tambien corre desacoplado, e imprime la ruta del reporte y la linea que abre el visor (`mefisto-stream-watch.sh --issues <n>`). `MEFISTO_UI` solo admite `mod` y `herdr` (MEF-ADR-0057 decision 5).
+Con `MEFISTO_UI=mod`, `mefisto-launch-pipeline.mts --tooling` no abre pane herdr. Corre el pipeline desacoplado (proceso en su propia sesion que sobrevive al lanzador, `launchDetached` de `scripts/lib/launcher.mts`) y escribe su salida en `logs/mefisto-tooling-run-<ts>-issue-<n>.report.log`. El modo se evalua antes de la autodeteccion herdr. Fuera de herdr y sin `MEFISTO_UI` el wrapper tambien corre desacoplado, e imprime la ruta del reporte y la linea que abre el visor (`mefisto-stream-watch.mts --issues <n>`). `MEFISTO_UI` solo admite `mod` y `herdr` (MEF-ADR-0057 decision 5).
 
 El hijo arranca sin `HERDR_*` ni `MEFISTO_UI`, para que los gates que corren tests del repo no hereden el modo, y conserva `MEFISTO_RUNTIME`. La corrida sobrevive al cierre de la sesion de Claude Code, y otra sesion con el mod la retoma desde los archivos.
 
 En el lado interno el modo sin pane lo decide el runtime resuelto, igual que en el publicado: el adaptador Claude renderiza el lanzamiento con `MEFISTO_RUNTIME=claude`, y sin `MEFISTO_UI` el wrapper corre desacoplado (#2284). El mod solo observa el lanzamiento y no modifica el comando del skill: `/mefisto-tooling` no cambia, y un `MEFISTO_UI` explicito sigue ganando. Con el modo activo, la fila de herdr baja de tres panes a dos: planner y ejecucion.
 
-En el lado publicado el modo lo decide el runtime resuelto (#2285): con el runtime claude y sin `MEFISTO_UI`, o con `MEFISTO_UI=mod`, `launch-pipeline.sh` corre desacoplado y la consola `fausto-blood-pact` sigue la corrida. Incluye `--parallel`: delega en `parallel-pipeline.sh` (con `--pipeline` y `--max-parallel` si vienen), cuyo scheduler serializa los `tipo:projection` (MEF-ADR-0034), por lo que un lote con dos o mas ya no aborta; el report queda en `logs/parallel-run-<ts>.report.log`. Ese scheduler espera 30 s entre lanzamientos (`--stagger <s>`, `0` lo apaga). Un `MEFISTO_UI=herdr` explicito conserva los panes, y ahi el abort de proyecciones se mantiene.
+En el lado publicado el modo lo decide el runtime resuelto (#2285): con el runtime claude y sin `MEFISTO_UI`, o con `MEFISTO_UI=mod`, `launch-pipeline.mts` corre desacoplado y la consola `fausto-blood-pact` sigue la corrida. Incluye `--parallel`: delega en `parallel-pipeline.mts` (con `--pipeline` y `--max-parallel` si vienen), cuyo scheduler serializa los `tipo:projection` (MEF-ADR-0034), por lo que un lote con dos o mas ya no aborta; el report queda en `logs/parallel-run-<ts>.report.log`. Ese scheduler espera 30 s entre lanzamientos (`--stagger <s>`, `0` lo apaga). Un `MEFISTO_UI=herdr` explicito conserva los panes, y ahi el abort de proyecciones se mantiene.
 
 ### 7. Requisitos de construccion
 
@@ -107,13 +107,13 @@ La sesion del planner tiene su propio mod, que muestra que se esta haciendo y qu
 | | Interno | Publicado |
 |---|---|---|
 | Agente | `mefisto-planner` | `mefisto:planner` |
-| Cierre | `mefisto-field-note.sh` | `field-note.sh` |
-| Script de orden | `.claude/scripts/mefisto-next-order.sh` | `next-order.sh`, ubicado desde la raiz del plugin |
+| Cierre | `mefisto-field-note.mts` | `field-note.mts` |
+| Script de orden | `src/internal/scripts/mefisto-next-order.mts` | `next-order.mts`, ubicado desde la raiz del plugin |
 | Lanzar trabajo | el planner no lanza | el planner no lanza |
 
 La raiz del plugin publicado la resuelve el propio tablero; el ADR no fija el mecanismo.
 
-**Los dos tableros son independientes en codigo.** No comparten codigo y no hay obligacion de sincronizarlos: un fix o una mejora en uno no se replica en el otro. La tabla anterior recoge diferencias de mecanica, no de experiencia: la experiencia sigue la referencia de la decision 11. Ninguna cabecera de copia hermana los vincula y ningun cambio de un lado toca los archivos del otro. El interno solo sirvio de punto de partida del port. Es lo opuesto a la regla de tres de `next-order.sh` (MEF-ADR-0018), que obliga a mantener sincronizadas sus copias; esa regla no aplica entre los dos tableros.
+**Los dos tableros son independientes en codigo.** No comparten codigo y no hay obligacion de sincronizarlos: un fix o una mejora en uno no se replica en el otro. La tabla anterior recoge diferencias de mecanica, no de experiencia: la experiencia sigue la referencia de la decision 11. Ninguna cabecera de copia hermana los vincula y ningun cambio de un lado toca los archivos del otro. El interno solo sirvio de punto de partida del port. Es lo opuesto a la regla de tres de `next-order.mts` (MEF-ADR-0018), que obliga a mantener sincronizadas sus copias; esa regla no aplica entre los dos tableros.
 
 - **Activacion**: solo en una sesion interactiva cuyo proceso es el agente del planner (`claude --agent <agente>`). El mod lo
   lee de la linea de comando de su proceso padre (`ps`) y, como respaldo, de la fila `agent-setting` del
@@ -151,7 +151,7 @@ nunca colisionan aunque ambos carguen en el repo de Mefisto.
 - **La consola** dejo de ser un monitor: lista y lanza los listos, sigue `/mefisto-tooling` y `/mefisto-sequential`,
   y ofrece PRs, bitacora y release. Es el hub de operacion del plugin en la sesion de ejecucion.
 - **El tablero publicado no se registra ni se activa en el repo de Mefisto** (manifiesto `.claude-plugin/plugin.json`
-  con `name: mefisto` en la raiz): ahi su `next-order.sh` se niega a correr y el tablero es el interno.
+  con `name: mefisto` en la raiz): ahi su `next-order.mts` se niega a correr y el tablero es el interno.
 
 ### 10. Consola publicada `fausto-blood-pact`
 
@@ -210,3 +210,4 @@ Los mods de ambos lados no comparten codigo (MEF-ADR-0019), pero no deben diverg
 - 2026-10-08: generalizacion al tablero del planner publicado: aplica a ambos lados, decision 4 con dos ubicaciones, decision 8 con tabla de diferencias por lado y tableros independientes, version minima 2.1.287 del plugin publicado.
 - 2026-10-08: decision 8 (tablero del planner) y orden de refinamiento en `mefisto-next-order.sh`.
 - 2026-10-08: version inicial.
+- 2026-11-12: se retiran los shims `.sh` (MEF-ADR-0057): el cuerpo cita los scripts `.mts`, y el modo desacoplado deja de describirse con `nohup`: el lanzador en TypeScript arranca el pipeline en su propia sesion (`launchDetached`).

@@ -2,7 +2,7 @@
 description: "Dashboard de salud del entorno desplegado con semaforos: ultimo apply de infra-cd.yml y consultas de App Insights a 24 horas."
 model: "sonnet"
 ---
-<!-- GENERADO por src/published/scripts/generate-published-adapters.sh desde src/published/commands/health-check.md. No editar a mano. -->
+<!-- GENERADO por src/published/scripts/generate-published-adapters.mts desde src/published/commands/health-check.md. No editar a mano. -->
 ```bash
 mefisto_claude_root=''
 mefisto_claude_root_from_candidate() {
@@ -54,7 +54,7 @@ Ejecuta este bloque en cada llamada Bash de este comando, sin guardarlo en un ar
 
 Dashboard de salud del entorno desplegado. Ejecuta queries contra App Insights, verifica el ultimo apply de infraestructura en CI (workflow `infra-cd.yml`, MEF-ADR-0021/MEF-ADR-0022) y presenta un resumen con semaforos. Comunicate en **espanol**.
 
-Antes de continuar, aborta si existe `src/internal/scripts/generate-internal-adapters.sh`: ese directorio es el repositorio de Mefisto, no un consumidor.
+Antes de continuar, aborta si existe `src/internal/scripts/generate-internal-adapters.mts`: ese directorio es el repositorio de Mefisto, no un consumidor.
 
 ## Proceso
 
@@ -63,7 +63,7 @@ Antes de continuar, aborta si existe `src/internal/scripts/generate-internal-ada
 Verifica que hay sesion activa de Azure CLI:
 
 ```bash
-MEFISTO_RUNTIME=claude "${MEFISTO_PACKAGE_ROOT}/scripts/azure-account-info.sh" 2>&1
+MEFISTO_RUNTIME=claude node "${MEFISTO_PACKAGE_ROOT}/scripts/azure-account-info.mts" 2>&1
 ```
 
 Si sale con codigo distinto de `0`, muestra tal cual el mensaje que emitio el script (indica iniciar sesion en Azure) y termina: no ejecutes ningun paso siguiente.
@@ -89,15 +89,15 @@ Si `gh` no esta autenticado o el comando falla, reporta `NO VERIFICADO` (mismo c
 Ejecuta las 3 queries en secuencia. Captura la salida completa de cada una:
 
 ```bash
-MEFISTO_RUNTIME=claude "${MEFISTO_PACKAGE_ROOT}/scripts/appinsights-query.sh" health-summary --hours 24
+MEFISTO_RUNTIME=claude node "${MEFISTO_PACKAGE_ROOT}/scripts/appinsights-query.mts" health-summary --hours 24
 ```
 
 ```bash
-MEFISTO_RUNTIME=claude "${MEFISTO_PACKAGE_ROOT}/scripts/appinsights-query.sh" dead-letters --hours 24
+MEFISTO_RUNTIME=claude node "${MEFISTO_PACKAGE_ROOT}/scripts/appinsights-query.mts" dead-letters --hours 24
 ```
 
 ```bash
-MEFISTO_RUNTIME=claude "${MEFISTO_PACKAGE_ROOT}/scripts/appinsights-query.sh" function-errors --hours 24
+MEFISTO_RUNTIME=claude node "${MEFISTO_PACKAGE_ROOT}/scripts/appinsights-query.mts" function-errors --hours 24
 ```
 
 Si falta `.mefisto/appinsights.env`, el script lo reporta con su propio mensaje: muestralo tal cual en la linea correspondiente del dashboard. Si alguna query falla, reporta el error pero continua con las demas.
@@ -182,7 +182,7 @@ Tip: vuelve a ejecutar /mefisto:health-check periodicamente durante tu sesion de
 
 ## Reglas
 
-- **No modifiques el script** `appinsights-query.sh` -- solo ejecuta sus comandos.
+- **No modifiques el script** `appinsights-query.mts` -- solo ejecuta sus comandos.
 - **No investigues problemas.** Solo presenta el dashboard y sugiere `/mefisto:bug` si hay algo anormal.
 - **Usa `--hours 24`** en todas las queries para mantener consistencia.
 - **Si una query falla**, muestra el error en la linea correspondiente del dashboard en lugar del valor, y continua con las demas queries.

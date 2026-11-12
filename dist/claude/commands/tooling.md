@@ -3,7 +3,7 @@ description: "Lanza el pipeline de tooling del consumidor para un issue de GitHu
 argument-hint: "<issue> [--models 'agente=modelo[,agente=modelo...]'] [--variant <label>]"
 model: "haiku"
 ---
-<!-- GENERADO por src/published/scripts/generate-published-adapters.sh desde src/published/commands/tooling.md. No editar a mano. -->
+<!-- GENERADO por src/published/scripts/generate-published-adapters.mts desde src/published/commands/tooling.md. No editar a mano. -->
 ```bash
 mefisto_claude_root=''
 mefisto_claude_root_from_candidate() {
@@ -53,7 +53,7 @@ export MEFISTO_PACKAGE_ROOT
 
 Ejecuta este bloque en cada llamada Bash de este comando, sin guardarlo en un archivo ni reutilizar el de otro comando: la raiz que fija es la de la version cargada.
 
-Antes de continuar, aborta si existe `src/internal/scripts/generate-internal-adapters.sh`: ese directorio es el repositorio de Mefisto, no un consumidor.
+Antes de continuar, aborta si existe `src/internal/scripts/generate-internal-adapters.mts`: ese directorio es el repositorio de Mefisto, no un consumidor.
 
 Lanza el pipeline de tooling para un issue de GitHub. Comunicate en **espanol**.
 
@@ -92,10 +92,10 @@ Solo cuando todas las dependencias canonicas declaradas cerraron (`CLOSED`) o se
 Muestra la informacion validada del issue y ejecuta exactamente:
 
 ```bash
-MEFISTO_RUNTIME=claude "${MEFISTO_PACKAGE_ROOT}/scripts/launch-pipeline.sh" --tooling $ARGUMENTS
+MEFISTO_RUNTIME=claude node "${MEFISTO_PACKAGE_ROOT}/scripts/launch-pipeline.mts" --tooling $ARGUMENTS
 ```
 
-Seguimiento por runtime: cuando el runtime activo trae su propia cinta de seguimiento (la consola `fausto-blood-pact`) y el usuario no fijo la interfaz, el wrapper no abre pane: corre desacoplado, imprime la ruta del log y el avance lo sigue esa consola desde esta misma sesion. En el resto de los runtimes (MEF-ADR-0050): dentro de Herdr, informa que el pipeline queda corriendo en un pane de este workspace con el visor en vivo. Fuera de Herdr tambien corre desacoplado, sin consola que lo siga (la salida del wrapper dice `sin pane` sin nombrar la consola): entrega la ruta del log y la linea de `stream-watch.sh` que imprime el wrapper para abrir el visor en otra terminal.
+Seguimiento por runtime: cuando el runtime activo trae su propia cinta de seguimiento (la consola `fausto-blood-pact`) y el usuario no fijo la interfaz, el wrapper no abre pane: corre desacoplado, imprime la ruta del log y el avance lo sigue esa consola desde esta misma sesion. En el resto de los runtimes (MEF-ADR-0050): dentro de Herdr, informa que el pipeline queda corriendo en un pane de este workspace con el visor en vivo. Fuera de Herdr tambien corre desacoplado, sin consola que lo siga (la salida del wrapper dice `sin pane` sin nombrar la consola): entrega la ruta del log y la linea de `stream-watch.mts` que imprime el wrapper para abrir el visor en otra terminal.
 
 ## Reglas
 

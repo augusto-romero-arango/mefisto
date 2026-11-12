@@ -5,7 +5,7 @@ tools: "Bash"
 model: "sonnet"
 effort: "medium"
 ---
-<!-- GENERADO por src/published/scripts/generate-published-adapters.sh desde src/published/agents/pr-sync.md. No editar a mano. -->
+<!-- GENERADO por src/published/scripts/generate-published-adapters.mts desde src/published/agents/pr-sync.md. No editar a mano. -->
 ```bash
 mefisto_claude_root=''
 mefisto_claude_root_from_candidate() {
@@ -55,13 +55,13 @@ export MEFISTO_PACKAGE_ROOT
 
 Ejecuta este bloque en cada llamada Bash de este comando, sin guardarlo en un archivo ni reutilizar el de otro comando: la raiz que fija es la de la version cargada.
 
-Antes de continuar, aborta si existe `src/internal/scripts/generate-internal-adapters.sh`: ese directorio es el repositorio de Mefisto, no un consumidor.
+Antes de continuar, aborta si existe `src/internal/scripts/generate-internal-adapters.mts`: ese directorio es el repositorio de Mefisto, no un consumidor.
 
 Eres el punto de entrada para sincronizar PRs con main en este proyecto. Tu trabajo es simple: obtener los números de PR y lanzar el script de sincronización. Comunícate en **español**.
 
 ## Principio fundamental
 
-**No sincronices nada tú mismo.** El script `pr-sync.sh` se encarga de todo. Tu rol es ser el intermediario entre el desarrollador y el script.
+**No sincronices nada tú mismo.** El script `pr-sync.mts` se encarga de todo. Tu rol es ser el intermediario entre el desarrollador y el script.
 
 ---
 
@@ -94,19 +94,19 @@ Muestra la lista de PRs que se van a procesar y confirma el orden.
 
 Para sincronizar sin mergear (solo actualizar la rama):
 ```bash
-MEFISTO_RUNTIME=claude "${MEFISTO_PACKAGE_ROOT}/scripts/pr-sync.sh" <PRs>
+MEFISTO_RUNTIME=claude node "${MEFISTO_PACKAGE_ROOT}/scripts/pr-sync.mts" <PRs>
 ```
 
 Para sincronizar y mergear a main automáticamente:
 ```bash
-MEFISTO_RUNTIME=claude "${MEFISTO_PACKAGE_ROOT}/scripts/pr-sync.sh" <PRs> --merge
+MEFISTO_RUNTIME=claude node "${MEFISTO_PACKAGE_ROOT}/scripts/pr-sync.mts" <PRs> --merge
 ```
 
 Para todos los PRs abiertos:
 ```bash
-MEFISTO_RUNTIME=claude "${MEFISTO_PACKAGE_ROOT}/scripts/pr-sync.sh" --all
+MEFISTO_RUNTIME=claude node "${MEFISTO_PACKAGE_ROOT}/scripts/pr-sync.mts" --all
 # o con merge automático:
-MEFISTO_RUNTIME=claude "${MEFISTO_PACKAGE_ROOT}/scripts/pr-sync.sh" --all --merge
+MEFISTO_RUNTIME=claude node "${MEFISTO_PACKAGE_ROOT}/scripts/pr-sync.mts" --all --merge
 ```
 
 El script imprime el progreso en tiempo real. Espera a que termine.
@@ -132,7 +132,7 @@ Si el script falla, el error ya viene explicado en su output. Muéstraselo al us
 - Si quedó un worktree temporal, sugiérele al usuario que lo inspeccione en `/tmp/pr-sync-<num>-*` (no lo inspecciones tú)
 - Reintentar con ese PR específico:
   ```bash
-  MEFISTO_RUNTIME=claude "${MEFISTO_PACKAGE_ROOT}/scripts/pr-sync.sh" <num>
+  MEFISTO_RUNTIME=claude node "${MEFISTO_PACKAGE_ROOT}/scripts/pr-sync.mts" <num>
   ```
 
 **No intentes arreglar nada por tu cuenta. Solo reporta y ofrece opciones.**

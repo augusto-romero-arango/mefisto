@@ -2,7 +2,7 @@
 description: "Escribe la senal de parada suave del batch interno de Mefisto: termina el eslabon en curso (pipeline, PR, merge, sync verificado) y no arranca los siguientes."
 model: "haiku"
 ---
-<!-- GENERADO por src/internal/scripts/generate-internal-adapters.sh desde src/internal/commands/mefisto-batch-stop.md. No editar a mano. -->
+<!-- GENERADO por src/internal/scripts/generate-internal-adapters.mts desde src/internal/commands/mefisto-batch-stop.md. No editar a mano. -->
 
 Escribe la senal de parada suave del batch interno de Mefisto. Comunicate en **espanol**.
 
@@ -25,24 +25,21 @@ REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null) || {
 ### 1. Detectar si hay un batch corriendo
 
 Criterio elegido (el mas simple de los disponibles): el proceso real del motor,
-`mefisto-batch-pipeline.sh`. El log activo no sirve aqui: un archivo de log en
+`mefisto-batch-pipeline.mts`. El log activo no sirve aqui: un archivo de log en
 `.mefisto/pipeline/logs/` no distingue por si solo una corrida activa de una ya
 terminada sin volver a parsear su contenido.
 
 ```bash
-pgrep -f "[m]efisto-batch-pipeline\.(sh|mts)" >/dev/null 2>&1
+pgrep -f "[m]efisto-batch-pipeline\.mts" >/dev/null 2>&1
 ```
 
-Tres detalles del patron, los tres deliberados:
+Dos detalles del patron, los dos deliberados:
 
 - `[m]efisto` en vez de `mefisto`: el patron viaja en la linea de comandos del
   propio shell que corre este `pgrep`, y `pgrep -f` la mira igual que cualquier
   otra. Con la clase de un solo caracter, el texto literal del patron
   (`[m]efisto...`) ya no encaja con la expresion, asi que la deteccion no puede
   auto-cumplirse: sin batch corriendo, el exit es 1.
-- `\.(sh|mts)` porque el `.sh` es un shim que se reemplaza por
-  `node .../mefisto-batch-pipeline.mts` (MEF-ADR-0057): el proceso vivo lleva en
-  su linea de comandos el `.mts`, no el `.sh`.
 - El criterio es **por maquina**, no por checkout: si el batch corre en otro
   clon de Mefisto, aqui tambien da positivo y la senal se escribe en ESTE
   repo, donde nadie la va a consumir hasta la proxima corrida local (que se

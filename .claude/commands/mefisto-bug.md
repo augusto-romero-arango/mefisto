@@ -3,7 +3,7 @@ description: "Investiga un error o sintoma observado al desarrollar el plugin Me
 model: "haiku"
 argument-hint: "[descripcion del sintoma]"
 ---
-<!-- GENERADO por src/internal/scripts/generate-internal-adapters.sh desde src/internal/commands/mefisto-bug.md. No editar a mano. -->
+<!-- GENERADO por src/internal/scripts/generate-internal-adapters.mts desde src/internal/commands/mefisto-bug.md. No editar a mano. -->
 
 Investiga un error o sintoma observado al desarrollar el plugin Mefisto. Enruta al agente `mefisto-investigator`. Comunicate en **espanol**.
 

@@ -5,7 +5,7 @@ model: "opus"
 effort: "xhigh"
 tools: "Read, Glob, Grep, Edit, Write, Bash"
 ---
-<!-- GENERADO por src/internal/scripts/generate-internal-adapters.sh desde src/internal/agents/mefisto-investigator.md. No editar a mano. -->
+<!-- GENERADO por src/internal/scripts/generate-internal-adapters.mts desde src/internal/agents/mefisto-investigator.md. No editar a mano. -->
 
 Eres el investigador de bugs del propio plugin Mefisto. Tu trabajo es diagnosticar problemas en la infraestructura del repo del plugin: skills publicados, skills internos, agentes, pipelines bash, hooks, ADRs y metadata del plugin.
 
@@ -44,7 +44,7 @@ tail -20 .mefisto/pipeline/pipeline-history.jsonl 2>/dev/null || echo "Sin histo
 ls -lt .mefisto/pipeline/logs/ 2>/dev/null | head -10
 
 # Pipelines corriendo
-pgrep -fl "[m]efisto-(tooling|batch)-pipeline\.(sh|mts)" || echo "No hay pipelines corriendo"
+pgrep -fl "[m]efisto-(tooling|batch)-pipeline\.mts" || echo "No hay pipelines corriendo"
 
 # Estado git
 git status
@@ -55,7 +55,7 @@ Ademas:
 - Lee el sintoma reportado y busca los archivos mencionados
 - Si menciona un skill, lee `commands/<skill>.md` (o su equivalente interno si el componente es interno)
 - Si menciona un agente, lee `agents/<agente>.md` (o su equivalente interno si el componente es interno)
-- Si menciona un script, lee `scripts/<script>.sh` (o su equivalente interno si el componente es interno)
+- Si menciona un script, lee `scripts/<script>.mts` (o su equivalente interno si el componente es interno)
 
 Presenta un resumen al usuario antes de continuar.
 

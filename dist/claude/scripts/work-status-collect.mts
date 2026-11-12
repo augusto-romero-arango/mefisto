@@ -4,7 +4,7 @@
 // agente tooling-investigator: el script entrega datos deterministicos y quien lo consume los
 // presenta.
 //
-// Uso: scripts/work-status-collect.sh --json
+// Uso: node scripts/work-status-collect.mts --json
 //
 // --json es el unico argumento aceptado y es obligatorio; cualquier otra forma imprime el uso
 // por stderr y sale con 2. Con --json siempre imprime un unico JSON y sale con 0, tambien sin
@@ -458,11 +458,11 @@ export interface CollectDeps {
   err: (text: string) => void
 }
 
-const SHIM = fileURLToPath(import.meta.url).replace(/\.mts$/, '.sh')
+const SELF = fileURLToPath(import.meta.url)
 
 export function main(argv: string[], deps: CollectDeps): number {
   if (argv.length !== 1 || argv[0] !== '--json') {
-    deps.err(`Uso: ${SHIM} --json\n`)
+    deps.err(`Uso: node ${SELF} --json\n`)
     return 2
   }
   const defaults = stateDirs(repoRoot(deps.cwd) ?? deps.cwd)

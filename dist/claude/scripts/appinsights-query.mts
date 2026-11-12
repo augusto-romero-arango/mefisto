@@ -1,12 +1,12 @@
 // appinsights-query.mts - Consultas KQL predefinidas contra Application Insights
 //
 // Uso:
-//   ./scripts/appinsights-query.sh exceptions
-//   ./scripts/appinsights-query.sh dead-letters
-//   ./scripts/appinsights-query.sh function-errors
-//   ./scripts/appinsights-query.sh traces --filter "NullReferenceException"
-//   ./scripts/appinsights-query.sh health-summary
-//   ./scripts/appinsights-query.sh exceptions --hours 48
+//   node scripts/appinsights-query.mts exceptions
+//   node scripts/appinsights-query.mts dead-letters
+//   node scripts/appinsights-query.mts function-errors
+//   node scripts/appinsights-query.mts traces --filter "NullReferenceException"
+//   node scripts/appinsights-query.mts health-summary
+//   node scripts/appinsights-query.mts exceptions --hours 48
 //
 // Requiere: az cli con sesion activa (az login)
 // Configuracion: <raiz del consumidor>/.mefisto/appinsights.env (solo nombres de recursos, sin
@@ -251,7 +251,7 @@ function clock(time: Date): string {
 function run(argv: string[], deps: QueryDeps): number {
   const { output } = deps
   const root = consumerRoot(deps.cwd, [
-    'ERROR: scripts/appinsights-query.sh es del plugin publicado y solo aplica al consumidor.',
+    'ERROR: scripts/appinsights-query.mts es del plugin publicado y solo aplica al consumidor.',
     'Mefisto no tiene entorno desplegado ni App Insights.',
   ])
 
@@ -316,7 +316,7 @@ function run(argv: string[], deps: QueryDeps): number {
   const command = argv[0] ?? ''
   if (command.length === 0) {
     for (const line of [
-      `${COLOR.cyan}${COLOR.bold}appinsights-query.sh${COLOR.reset} - Consultas KQL contra App Insights`,
+      `${COLOR.cyan}${COLOR.bold}appinsights-query.mts${COLOR.reset} - Consultas KQL contra App Insights`,
       '',
       'Comandos KQL (App Insights):',
       '  exceptions         Top 20 excepciones agrupadas por tipo y mensaje',
@@ -706,7 +706,7 @@ function run(argv: string[], deps: QueryDeps): number {
       if (customArg.length === 0) {
         fail(
           "El comando 'custom' requiere una query KQL como argumento",
-          '  Ejemplo: ./scripts/appinsights-query.sh custom "exceptions | where type has \'NullRef\' | take 5"',
+          '  Ejemplo: node scripts/appinsights-query.mts custom "exceptions | where type has \'NullRef\' | take 5"',
         )
       }
       output.err(

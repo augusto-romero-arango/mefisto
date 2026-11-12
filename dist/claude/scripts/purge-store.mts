@@ -11,7 +11,7 @@
 // (MEF-ADR-0045) o el legacy.
 //
 // Uso:
-//   scripts/purge-store.sh --domain <dominio> [--env dev] [--dry-run]
+//   node scripts/purge-store.mts --domain <dominio> [--env dev] [--dry-run]
 //
 //   <dominio>    dominio a purgar, en kebab o PascalCase; debe estar declarado en domainLabels
 //                del contrato canonico .mefisto/harness.config.json, con fallback
@@ -162,7 +162,7 @@ export function parseConnection(secret: string): Connection {
 async function purge(argv: string[], deps: PurgeDeps): Promise<number> {
   const { output } = deps
   consumerRoot(deps.cwd, [
-    'ERROR: scripts/purge-store.sh es del plugin publicado y solo aplica al consumidor.',
+    'ERROR: scripts/purge-store.mts es del plugin publicado y solo aplica al consumidor.',
     'Mefisto no tiene harness.config.json ni un store desplegado que purgar.',
   ])
 

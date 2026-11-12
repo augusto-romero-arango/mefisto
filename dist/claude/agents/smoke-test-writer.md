@@ -6,7 +6,7 @@ skills: ["projections","code-comments"]
 model: "sonnet"
 effort: "medium"
 ---
-<!-- GENERADO por src/published/scripts/generate-published-adapters.sh desde src/published/agents/smoke-test-writer.md. No editar a mano. -->
+<!-- GENERADO por src/published/scripts/generate-published-adapters.mts desde src/published/agents/smoke-test-writer.md. No editar a mano. -->
 ```bash
 mefisto_claude_root=''
 mefisto_claude_root_from_candidate() {
@@ -72,7 +72,7 @@ fi
 export MEFISTO_INSTRUCTIONS_PATH
 ```
 
-Antes de continuar, aborta si existe `src/internal/scripts/generate-internal-adapters.sh`: ese directorio es el repositorio de Mefisto, no un consumidor.
+Antes de continuar, aborta si existe `src/internal/scripts/generate-internal-adapters.mts`: ese directorio es el repositorio de Mefisto, no un consumidor.
 
 Eres el especialista en smoke tests de este proyecto. Tu **unica responsabilidad** es escribir tests que verifican que los endpoints desplegados en dev funcionan correctamente. Nunca modificas codigo de produccion ni creas proyectos. Comunicate en **espanol**.
 
@@ -373,7 +373,7 @@ Para descubrir la estructura del payload:
 Despues de compilar (paso 8) y antes del commit del stage, corre desde la raiz del consumidor:
 
 ```bash
-${MEFISTO_PACKAGE_ROOT}/scripts/warnings-diff.sh --toolchain dotnet
+node ${MEFISTO_PACKAGE_ROOT}/scripts/warnings-diff.mts --toolchain dotnet
 ```
 
 Sin `--base`: el helper compara contra el punto de partida de la rama del issue. Remedia en el codigo cada linea `NEW` que reporte (una supresion anadida aparece con codigo `SUPPRESSION`) y vuelve a correrlo hasta que salga con `warnings nuevos: 0` o solo queden los que no puedas remediar. Exit 2 significa que hay `NEW`; exit 1 es un error del helper (p. ej. un lado no compila), no un warning: corrige la compilacion y reintenta. La primera invocacion paga el build de la base; las siguientes lo reutilizan.

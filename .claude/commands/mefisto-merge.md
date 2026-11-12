@@ -3,7 +3,7 @@ description: "Mergea uno o varios PRs del repo de Mefisto."
 model: "haiku"
 argument-hint: "<numero-de-PR> [<numero-de-PR> ...] | --all"
 ---
-<!-- GENERADO por src/internal/scripts/generate-internal-adapters.sh desde src/internal/commands/mefisto-merge.md. No editar a mano. -->
+<!-- GENERADO por src/internal/scripts/generate-internal-adapters.mts desde src/internal/commands/mefisto-merge.md. No editar a mano. -->
 
 Mergea uno o varios PRs del repo de Mefisto. Comunicate en **espanol**.
 
@@ -55,14 +55,14 @@ gh pr view <num> --json number,title,state,headRefName,mergeable,statusCheckRoll
 ```
 Se mergearan en este repo (Mefisto):
   #12 [MERGEABLE, checks SUCCESS] Anadir guard defensivo a /implement
-  #13 [MERGEABLE, checks PENDING] Refactorizar tooling-pipeline.sh
+  #13 [MERGEABLE, checks PENDING] Refactorizar tooling-pipeline.mts
 ```
 
 No pidas confirmacion adicional. El usuario ya la dio al escribir `/mefisto-merge` explicitamente.
 
 ### 3. Mergear
 
-En Mefisto no usamos `scripts/pr-sync.sh` (es del lado publicado y depende de configuracion del consumidor). Aqui mergeamos con `gh pr merge` directo, con squash (consistente con la mayoria de PRs del repo) y borrado explicito de ramas (sin la opcion de borrado de rama de `gh`: esta borra primero la rama local y, si un worktree la tiene checkouteada, corta con error dejando viva la remota).
+En Mefisto no usamos `scripts/pr-sync.mts` (es del lado publicado y depende de configuracion del consumidor). Aqui mergeamos con `gh pr merge` directo, con squash (consistente con la mayoria de PRs del repo) y borrado explicito de ramas (sin la opcion de borrado de rama de `gh`: esta borra primero la rama local y, si un worktree la tiene checkouteada, corta con error dejando viva la remota).
 
 ```bash
 for pr in <prs>; do
@@ -78,12 +78,12 @@ for pr in <prs>; do
         || echo "ADVERTENCIA: no se pudo borrar la rama remota $head de #$pr (el merge quedo MERGED)."
     if git show-ref --verify --quiet "refs/heads/$head"; then
         if git worktree list --porcelain | grep -qxF "branch refs/heads/$head"; then
-            echo "Rama local $head en uso por un worktree: se conserva; mefisto-worktree.sh clean la limpiara."
+            echo "Rama local $head en uso por un worktree: se conserva; mefisto-worktree.mts clean la limpiara."
         else
             git branch -D "$head" || echo "ADVERTENCIA: no se pudo borrar la rama local $head."
         fi
     fi
-    if ! MEFISTO_RUNTIME=claude ./.claude/scripts/mefisto-validate-batch-deps.sh --reconcile-pr "$pr"; then
+    if ! MEFISTO_RUNTIME=claude node src/internal/scripts/mefisto-validate-batch-deps.mts --reconcile-pr "$pr"; then
         echo "ADVERTENCIA: #$pr se mergeo, pero fallo la reconciliacion post-merge de bloqueados."
         resultado="MERGED (POST-MERGE DEGRADADO)"
     fi
@@ -118,13 +118,13 @@ Imprime una tabla final:
 ```
 PR | Titulo                              | Resultado
 #12| Anadir guard defensivo a /implement | MERGED
-#13| Refactorizar tooling-pipeline.sh    | FALLO (checks PENDING)
+#13| Refactorizar tooling-pipeline.mts    | FALLO (checks PENDING)
 #14| Reconciliar bloqueos internos        | MERGED (POST-MERGE DEGRADADO)
 ```
 
 ## Reglas
 
-- **No uses `scripts/pr-sync.sh`**: ese script requiere la configuracion del harness del consumidor (`harness.config.json`, no existe en Mefisto) y esta pensado para el consumidor.
+- **No uses `scripts/pr-sync.mts`**: ese script requiere la configuracion del harness del consumidor (`harness.config.json`, no existe en Mefisto) y esta pensado para el consumidor.
 - **No auto-reintentes** un PR fallido. Si el merge falla, reporta el error y espera instruccion.
 - **Verifica que el PR esta MERGEABLE** antes de intentar; si esta `CONFLICTING`, indicalo y omite.
 - **Squash por defecto**: el historial de Mefisto se mantiene limpio con squash + borrado explicito de la rama remota (la local solo si ningun worktree la usa).

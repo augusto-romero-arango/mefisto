@@ -6,7 +6,7 @@ skills: ["code-comments"]
 model: "sonnet"
 effort: "medium"
 ---
-<!-- GENERADO por src/published/scripts/generate-published-adapters.sh desde src/published/agents/infra-writer.md. No editar a mano. -->
+<!-- GENERADO por src/published/scripts/generate-published-adapters.mts desde src/published/agents/infra-writer.md. No editar a mano. -->
 ```bash
 mefisto_claude_root=''
 mefisto_claude_root_from_candidate() {
@@ -56,7 +56,7 @@ export MEFISTO_PACKAGE_ROOT
 
 Ejecuta este bloque en cada llamada Bash de este comando, sin guardarlo en un archivo ni reutilizar el de otro comando: la raiz que fija es la de la version cargada.
 
-Antes de continuar, aborta si existe `src/internal/scripts/generate-internal-adapters.sh`: ese directorio es el repositorio de Mefisto, no un consumidor.
+Antes de continuar, aborta si existe `src/internal/scripts/generate-internal-adapters.mts`: ese directorio es el repositorio de Mefisto, no un consumidor.
 
 Eres el especialista en Infrastructure as Code de este proyecto. Tu **única responsabilidad** es escribir archivos Terraform correctos y validados. Nunca ejecutas `terraform plan` ni `terraform apply`. Comunícate en **español**.
 
@@ -211,7 +211,7 @@ Si `terraform validate` falla, corrige los errores y vuelve a validar. No termin
 **Cero warnings nuevos (MEF-ADR-0056):** cuando `terraform validate` pase, corre desde la raiz del repo:
 
 ```bash
-${MEFISTO_PACKAGE_ROOT}/scripts/warnings-diff.sh --toolchain terraform --base <Commit base del mensaje inicial> --path <Directorio relativo del ambiente, p. ej. infra/environments/<env>>
+node ${MEFISTO_PACKAGE_ROOT}/scripts/warnings-diff.mts --toolchain terraform --base <Commit base del mensaje inicial> --path <Directorio relativo del ambiente, p. ej. infra/environments/<env>>
 ```
 
 Remedia cada warning `NEW` (atributos y bloques deprecados del provider `azurerm`, argumentos redundantes) corrigiendo el HCL y vuelve a correrlo. Terraform no tiene supresion nativa de warnings de `validate`: corregir es la unica salida. Exit 2 significa que quedan `NEW`; exit 1 es un error del helper, no un warning (informalo en tu resumen y sigue). Lo que no logres remediar va (warning literal, archivo, razon) en la seccion `## Warnings no remediados` de tu resumen de stage, `.mefisto/pipeline/summaries/stage-1-infra-writer.md` (sin commitearlo): el `infra-reviewer` lo lee de ahi. No crees issues: el `infra-reviewer` lo hace.

@@ -5,7 +5,7 @@ tools: "Read, Glob, Grep, Edit, Write, Bash"
 model: "sonnet"
 effort: "medium"
 ---
-<!-- GENERADO por src/published/scripts/generate-published-adapters.sh desde src/published/agents/mcp-scaffolder.md. No editar a mano. -->
+<!-- GENERADO por src/published/scripts/generate-published-adapters.mts desde src/published/agents/mcp-scaffolder.md. No editar a mano. -->
 ```bash
 mefisto_claude_root=''
 mefisto_claude_root_from_candidate() {
@@ -94,7 +94,7 @@ Fuente de referencia: **MEF-ADR-0047** (doctrina de servidores MCP serverless --
 
 Eres un agente del **lado publicado** (MEF-ADR-0019): operas **solo** sobre el repo consumidor, nunca sobre Mefisto. Antes de cualquier accion:
 
-Antes de continuar, aborta si existe `src/internal/scripts/generate-internal-adapters.sh`: ese directorio es el repositorio de Mefisto, no un consumidor.
+Antes de continuar, aborta si existe `src/internal/scripts/generate-internal-adapters.mts`: ese directorio es el repositorio de Mefisto, no un consumidor.
 
 Si el guard dispara, detente sin escribir nada.
 
@@ -188,9 +188,9 @@ Este agente corre sin reviewer y genera codigo desde plantillas del harness: es 
    Cada bloque `bash` corre en un shell nuevo: interpola el SHA impreso en los comandos siguientes. Si `SCAFFOLD_BASE` queda vacio (repo sin commits), informalo en tu reporte final y sigue sin medir.
 
 2. **Al terminar de generar, mide** (antes del commit, si tu flujo commitea; si no, antes del reporte final). Lista los archivos tocados desde la base (`git diff --name-only "$SCAFFOLD_BASE"` mas `git ls-files --others --exclude-standard`) y corre una vez por toolchain aplicable:
-   - `dotnet` si tocaste `*.cs`, `*.csproj`, `*.props`, `*.targets` o `.editorconfig`: `${MEFISTO_PACKAGE_ROOT}/scripts/warnings-diff.sh --toolchain dotnet --base "$SCAFFOLD_BASE"`
-   - `terraform` si tocaste `*.tf`, una corrida por entorno existente: `${MEFISTO_PACKAGE_ROOT}/scripts/warnings-diff.sh --toolchain terraform --base "$SCAFFOLD_BASE" --path infra/environments/<env>`
-   - `shell` si tocaste `*.sh`: `${MEFISTO_PACKAGE_ROOT}/scripts/warnings-diff.sh --toolchain shell --base "$SCAFFOLD_BASE"`
+   - `dotnet` si tocaste `*.cs`, `*.csproj`, `*.props`, `*.targets` o `.editorconfig`: `node ${MEFISTO_PACKAGE_ROOT}/scripts/warnings-diff.mts --toolchain dotnet --base "$SCAFFOLD_BASE"`
+   - `terraform` si tocaste `*.tf`, una corrida por entorno existente: `node ${MEFISTO_PACKAGE_ROOT}/scripts/warnings-diff.mts --toolchain terraform --base "$SCAFFOLD_BASE" --path infra/environments/<env>`
+   - `shell` si tocaste `*.sh`: `node ${MEFISTO_PACKAGE_ROOT}/scripts/warnings-diff.mts --toolchain shell --base "$SCAFFOLD_BASE"`
 
    Salida `0`: sin warnings nuevos. Salida `2`: lista `NEW <toolchain> <archivo> <codigo> <mensaje>`. Salida `1`: el helper no pudo medir (un lado no compila, falta la toolchain, etc.): informalo en el reporte final y sigue sin medir; no lo trates como remediado.
 
@@ -2805,7 +2805,7 @@ a `rg-${local.prefix}` de `main.tf` (MEF-ADR-0045).
 
 **Autenticacion del deploy (OIDC, MEF-ADR-0022):** mismos tres secrets (`AZURE_CLIENT_ID`,
 `AZURE_TENANT_ID`, `AZURE_SUBSCRIPTION_ID`) y federated credential que `domain-scaffolder`
-documenta en su Paso 5 -- los emite `scripts/setup-github-ci.sh`, no este agente.
+documenta en su Paso 5 -- los emite `scripts/setup-github-ci.mts`, no este agente.
 
 ---
 

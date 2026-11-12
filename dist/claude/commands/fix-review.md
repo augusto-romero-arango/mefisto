@@ -3,7 +3,7 @@ description: "Resuelve los comentarios de revision de un PR del consumidor: tria
 argument-hint: "<numero-de-PR>"
 model: "opus"
 ---
-<!-- GENERADO por src/published/scripts/generate-published-adapters.sh desde src/published/commands/fix-review.md. No editar a mano. -->
+<!-- GENERADO por src/published/scripts/generate-published-adapters.mts desde src/published/commands/fix-review.md. No editar a mano. -->
 ```bash
 mefisto_claude_root=''
 mefisto_claude_root_from_candidate() {
@@ -72,7 +72,7 @@ Resuelve los comentarios de revision de un pull request. Comunicate en **espanol
 
 **Alcance**: este comando solo resuelve PRs del proyecto consumidor.
 
-Antes de continuar, aborta si existe `src/internal/scripts/generate-internal-adapters.sh`: ese directorio es el repositorio de Mefisto, no un consumidor.
+Antes de continuar, aborta si existe `src/internal/scripts/generate-internal-adapters.mts`: ese directorio es el repositorio de Mefisto, no un consumidor.
 
 ## Entrada
 
@@ -231,9 +231,9 @@ git ls-files --others --exclude-standard
 - `shell`: si tocaste algun `*.sh`.
 
 ```bash
-${MEFISTO_PACKAGE_ROOT}/scripts/warnings-diff.sh --toolchain dotnet --base <FIX_BASE>
-${MEFISTO_PACKAGE_ROOT}/scripts/warnings-diff.sh --toolchain terraform --path infra/environments/<env> --base <FIX_BASE>
-${MEFISTO_PACKAGE_ROOT}/scripts/warnings-diff.sh --toolchain shell --base <FIX_BASE>
+node ${MEFISTO_PACKAGE_ROOT}/scripts/warnings-diff.mts --toolchain dotnet --base <FIX_BASE>
+node ${MEFISTO_PACKAGE_ROOT}/scripts/warnings-diff.mts --toolchain terraform --path infra/environments/<env> --base <FIX_BASE>
+node ${MEFISTO_PACKAGE_ROOT}/scripts/warnings-diff.mts --toolchain shell --base <FIX_BASE>
 ```
 
 - Exit `2`: hay warnings `NEW` (una supresion anadida aparece con codigo `SUPPRESSION`). Remedia cada uno antes del commit y vuelve a correrlo.

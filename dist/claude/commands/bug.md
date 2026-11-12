@@ -3,7 +3,7 @@ description: "Investiga un sintoma: lo clasifica como bug de tooling local o de 
 argument-hint: "[--tooling|--deployed] <descripcion del sintoma>"
 model: "haiku"
 ---
-<!-- GENERADO por src/published/scripts/generate-published-adapters.sh desde src/published/commands/bug.md. No editar a mano. -->
+<!-- GENERADO por src/published/scripts/generate-published-adapters.mts desde src/published/commands/bug.md. No editar a mano. -->
 ```bash
 mefisto_claude_root=''
 mefisto_claude_root_from_candidate() {
@@ -55,7 +55,7 @@ Ejecuta este bloque en cada llamada Bash de este comando, sin guardarlo en un ar
 
 Investiga un error o sintoma reportado. Clasifica automaticamente si es un bug de tooling local o del entorno desplegado, y enruta al agente apropiado. Comunicate en **espanol**.
 
-Antes de continuar, aborta si existe `src/internal/scripts/generate-internal-adapters.sh`: ese directorio es el repositorio de Mefisto, no un consumidor.
+Antes de continuar, aborta si existe `src/internal/scripts/generate-internal-adapters.mts`: ese directorio es el repositorio de Mefisto, no un consumidor.
 
 Para bugs del propio plugin Mefisto este comando no aplica: remite al mantenedor del plugin a trabajar dentro del repo de Mefisto.
 
@@ -131,7 +131,7 @@ Valida primero los prerequisitos, en este orden, y no delegues si alguno falla.
 1. Sesion de Azure:
 
 ```bash
-MEFISTO_RUNTIME=claude "${MEFISTO_PACKAGE_ROOT}/scripts/azure-account-info.sh" 2>&1
+MEFISTO_RUNTIME=claude node "${MEFISTO_PACKAGE_ROOT}/scripts/azure-account-info.mts" 2>&1
 ```
 
 Si sale con codigo distinto de `0`, muestra tal cual el mensaje que emitio el script (indica iniciar sesion en Azure) y termina sin delegar.
@@ -142,7 +142,7 @@ Si sale con codigo distinto de `0`, muestra tal cual el mensaje que emitio el sc
 test -f .mefisto/appinsights.env && echo "OK" || echo "FAIL"
 ```
 
-Si falta, responde con el formato que espera `appinsights-query.sh` y termina sin delegar:
+Si falta, responde con el formato que espera `appinsights-query.mts` y termina sin delegar:
 
 ```
 No se encontro .mefisto/appinsights.env en la raiz del consumidor.

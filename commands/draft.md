@@ -3,7 +3,7 @@ description: "Captura una idea como issue estado:borrador con minima friccion, i
 argument-hint: "<descripcion de la idea>"
 model: "haiku"
 ---
-<!-- GENERADO por src/published/scripts/generate-published-adapters.sh desde src/published/commands/draft.md. No editar a mano. -->
+<!-- GENERADO por src/published/scripts/generate-published-adapters.mts desde src/published/commands/draft.md. No editar a mano. -->
 ```bash
 mefisto_claude_root=''
 mefisto_claude_root_from_candidate() {
@@ -68,7 +68,7 @@ fi
 export MEFISTO_CONFIG_PATH
 ```
 
-Antes de continuar, aborta si existe `src/internal/scripts/generate-internal-adapters.sh`: ese directorio es el repositorio de Mefisto, no un consumidor.
+Antes de continuar, aborta si existe `src/internal/scripts/generate-internal-adapters.mts`: ese directorio es el repositorio de Mefisto, no un consumidor.
 
 Eres un asistente de captura rapida de ideas. El usuario te da una idea en lenguaje natural y tu la conviertes en un issue `estado:borrador` en GitHub con minima friccion. Comunicate en **espanol**.
 

@@ -3,7 +3,7 @@ description: "Guia el dashboard de WorkOS AuthKit y cablea el adapter de identid
 argument-hint: "--domain <Dominio> [--env <env>]"
 model: "sonnet"
 ---
-<!-- GENERADO por src/published/scripts/generate-published-adapters.sh desde src/published/commands/install-workos.md. No editar a mano. -->
+<!-- GENERADO por src/published/scripts/generate-published-adapters.mts desde src/published/commands/install-workos.md. No editar a mano. -->
 ```bash
 mefisto_claude_root=''
 mefisto_claude_root_from_candidate() {
@@ -55,7 +55,7 @@ Ejecuta este bloque en cada llamada Bash de este comando, sin guardarlo en un ar
 
 Guia al operador por la capa de **identidad** de la autenticacion en el borde (MEF-ADR-0032): lo que **no es automatizable** (crear la cuenta/proyecto de WorkOS AuthKit y parametrizarlo en su dashboard) y cablea lo que **si** lo es (el codigo del adapter, via el agente `workos-identity-scaffolder`, y la custodia de la API key, via el comando `/mefisto:seed-secret`). Es el long-pole humano del onboarding de auth: produce el `client_id` y la API key que el futuro `/mefisto:install-apim` (issue #340) va a consumir. Comunicate en **espanol**.
 
-Antes de continuar, aborta si existe `src/internal/scripts/generate-internal-adapters.sh`: ese directorio es el repositorio de Mefisto, no un consumidor.
+Antes de continuar, aborta si existe `src/internal/scripts/generate-internal-adapters.mts`: ese directorio es el repositorio de Mefisto, no un consumidor.
 
 ## Entrada
 
@@ -77,7 +77,7 @@ Si falta `--domain`, responde con el uso exacto y detente sin ejecutar nada.
 | Secreto en Key Vault del BC | `workos-api-key` | Custodiado por `/mefisto:seed-secret` (MEF-ADR-0025). |
 | GitHub **secret** (API key de negocio) | `WORKOS_API_KEY` | CA-3: nunca viaja en claro; solo se verifica su existencia. |
 | GitHub **variable** (client_id de login) | `WORKOS_CLIENT_ID` | CA-3: no es secreto (MEF-ADR-0032 seccion 6/7) -- se puede registrar. Es el mismo nombre que va a consumir el futuro `/mefisto:install-apim` (ver `${MEFISTO_PACKAGE_ROOT}/agents/apim-gateway-scaffolder.md`, `vars.WORKOS_CLIENT_ID`). |
-| App setting que lee `Program.cs` | `WORKOS_API_KEY` | Se pasa explicito al agente de identidad (nunca su default `WorkOsApiKey`) para que coincida con el `APP_SETTING_KEY` que `seed-secret.sh` deriva del nombre del secreto de Key Vault (`tr '[:lower:]-' '[:upper:]_'` sobre `workos-api-key` -> `WORKOS_API_KEY`). Sin este alineamiento, el adapter generado leeria una variable de entorno que Terraform nunca cablea. |
+| App setting que lee `Program.cs` | `WORKOS_API_KEY` | Se pasa explicito al agente de identidad (nunca su default `WorkOsApiKey`) para que coincida con el `APP_SETTING_KEY` que `seed-secret.mts` deriva del nombre del secreto de Key Vault (`tr '[:lower:]-' '[:upper:]_'` sobre `workos-api-key` -> `WORKOS_API_KEY`). Sin este alineamiento, el adapter generado leeria una variable de entorno que Terraform nunca cablea. |
 
 ## Proceso
 
@@ -229,10 +229,10 @@ El agente es idempotente (verifica que exista antes de escribir) y esta gateado 
 Reusa el comando existente en vez de reimplementar su logica de cableado Terraform. Lee `"${MEFISTO_PACKAGE_ROOT}/commands/seed-secret.md"` (el documento del comando `/mefisto:seed-secret` de la distribucion activa) y ejecuta sus pasos de cableado (5 en adelante) sin transcribirlos aca, con estos argumentos exactos: `workos-api-key --domain <Dominio> --env <env> --from-github-secret WORKOS_API_KEY`. La rama ya la creaste en el paso 4, asi que no ejecutes el paso de rama de `/mefisto:seed-secret`.
 
 ```bash
-MEFISTO_RUNTIME=claude "${MEFISTO_PACKAGE_ROOT}/scripts/seed-secret.sh" workos-api-key --domain <Dominio> --env <env> --from-github-secret WORKOS_API_KEY
+MEFISTO_RUNTIME=claude node "${MEFISTO_PACKAGE_ROOT}/scripts/seed-secret.mts" workos-api-key --domain <Dominio> --env <env> --from-github-secret WORKOS_API_KEY
 ```
 
-Sigue exactamente el resto del Proceso de ese documento (pasos 5 en adelante; el paso 4 es la invocacion de `seed-secret.sh` que ya corriste arriba, no la repitas) sobre la salida del script: cablear el app setting en el archivo Terraform del dominio, verificar (nunca duplicar) el rol `Key Vault Secrets User`, formatear/validar con `terraform` y commitear. **No** repitas el paso de confirmacion de `/mefisto:seed-secret` (ya confirmaste todo en el paso 3) ni su "Siguiente paso" de push+PR (lo hace este comando una sola vez, en el paso 10).
+Sigue exactamente el resto del Proceso de ese documento (pasos 5 en adelante; el paso 4 es la invocacion de `seed-secret.mts` que ya corriste arriba, no la repitas) sobre la salida del script: cablear el app setting en el archivo Terraform del dominio, verificar (nunca duplicar) el rol `Key Vault Secrets User`, formatear/validar con `terraform` y commitear. **No** repitas el paso de confirmacion de `/mefisto:seed-secret` (ya confirmaste todo en el paso 3) ni su "Siguiente paso" de push+PR (lo hace este comando una sola vez, en el paso 10).
 
 ### 10. Push + PR unico (solo si no quedo nada sin commitear)
 

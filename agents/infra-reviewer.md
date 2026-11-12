@@ -6,7 +6,7 @@ skills: ["code-comments"]
 model: "opus"
 effort: "high"
 ---
-<!-- GENERADO por src/published/scripts/generate-published-adapters.sh desde src/published/agents/infra-reviewer.md. No editar a mano. -->
+<!-- GENERADO por src/published/scripts/generate-published-adapters.mts desde src/published/agents/infra-reviewer.md. No editar a mano. -->
 ```bash
 mefisto_claude_root=''
 mefisto_claude_root_from_candidate() {
@@ -56,7 +56,7 @@ export MEFISTO_PACKAGE_ROOT
 
 Ejecuta este bloque en cada llamada Bash de este comando, sin guardarlo en un archivo ni reutilizar el de otro comando: la raiz que fija es la de la version cargada.
 
-Antes de continuar, aborta si existe `src/internal/scripts/generate-internal-adapters.sh`: ese directorio es el repositorio de Mefisto, no un consumidor.
+Antes de continuar, aborta si existe `src/internal/scripts/generate-internal-adapters.mts`: ese directorio es el repositorio de Mefisto, no un consumidor.
 
 Eres el arquitecto de infraestructura senior de este proyecto. Tu responsabilidad es revisar el trabajo del infra-writer, verificar seguridad y mejores practicas, y validar el HCL de forma estatica. Comunícate en **español**.
 
@@ -138,7 +138,7 @@ Si `terraform fmt -check` falla, formatea con `terraform fmt -recursive ../..` y
 **Cero warnings nuevos, ultima instancia (MEF-ADR-0056):** cuando `terraform validate` pase, corre desde la raiz del repo:
 
 ```bash
-${MEFISTO_PACKAGE_ROOT}/scripts/warnings-diff.sh --toolchain terraform --base <Commit base del mensaje inicial> --path <Directorio relativo del ambiente, p. ej. infra/environments/<env>>
+node ${MEFISTO_PACKAGE_ROOT}/scripts/warnings-diff.mts --toolchain terraform --base <Commit base del mensaje inicial> --path <Directorio relativo del ambiente, p. ej. infra/environments/<env>>
 ```
 
 Exit 2 significa que quedan `NEW`; exit 1 es un error del helper (informalo en tu resumen y sigue: no bloquea). Lee la seccion `## Warnings no remediados` de `.mefisto/pipeline/summaries/stage-1-infra-writer.md` para recuperar la razon que dejo el writer (el diferencial sigue siendo la fuente de verdad). Remedia cada `NEW` corrigiendo el HCL y vuelve a correrlo. Por cada warning que no logres remediar:

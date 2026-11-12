@@ -3,7 +3,7 @@ description: "Registra un secreto nuevo post-greenfield y cablea su referencia K
 argument-hint: "<nombre> --domain <Dominio> (--from-output <output> | --from-github-secret <NOMBRE>) [--env <env>]"
 model: "sonnet"
 ---
-<!-- GENERADO por src/published/scripts/generate-published-adapters.sh desde src/published/commands/seed-secret.md. No editar a mano. -->
+<!-- GENERADO por src/published/scripts/generate-published-adapters.mts desde src/published/commands/seed-secret.md. No editar a mano. -->
 ```bash
 mefisto_claude_root=''
 mefisto_claude_root_from_candidate() {
@@ -55,7 +55,7 @@ Ejecuta este bloque en cada llamada Bash de este comando, sin guardarlo en un ar
 
 Registra un secreto nuevo post-greenfield en `harness.config.json > secrets[]` (registro declarativo que itera el step de siembra data-driven de `infra-cd.yml`, issue #256) y cablea su referencia `@Microsoft.KeyVault(...)` versionless + el rol `Key Vault Secrets User` en la Function App del dominio que lo consume. **No** toca el `Key Vault Secrets Officer` del SP de CI (MEF-ADR-0022, mecanismo M1): ese rol de escritura ya se auto-asigna el propio `apply`; este skill solo agrega -- o verifica que ya exista -- el rol de lectura de la app. Ningun valor de secreto viaja en claro (MEF-ADR-0025): este skill solo referencia nombres de GitHub secrets o de `terraform output`. Comunicate en **espanol**.
 
-Antes de continuar, aborta si existe `src/internal/scripts/generate-internal-adapters.sh`: ese directorio es el repositorio de Mefisto, no un consumidor.
+Antes de continuar, aborta si existe `src/internal/scripts/generate-internal-adapters.mts`: ese directorio es el repositorio de Mefisto, no un consumidor.
 
 ## Entrada
 
@@ -119,7 +119,7 @@ muestralos y extrae de la linea `Registro: <ruta>` la ruta `<REGISTRO_PATH>`. Es
 fuente de verdad de la ruta que el script escribio:
 
 ```bash
-MEFISTO_RUNTIME=claude "${MEFISTO_PACKAGE_ROOT}/scripts/seed-secret.sh" <nombre> --domain <Dominio> --env <env> <flag-de-fuente> <valor> 2>&1
+MEFISTO_RUNTIME=claude node "${MEFISTO_PACKAGE_ROOT}/scripts/seed-secret.mts" <nombre> --domain <Dominio> --env <env> <flag-de-fuente> <valor> 2>&1
 ```
 
 Donde `<flag-de-fuente> <valor>` es `--from-output <output>` o `--from-github-secret <NOMBRE>`. Si el script sale con codigo distinto de cero, muestra la salida y detente. Si la salida no trae ninguna linea `Registro: `, informa `ERROR: el script no informo la ruta de registro.` y detente.

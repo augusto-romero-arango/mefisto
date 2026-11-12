@@ -1,6 +1,6 @@
 // Apertura de un proyecto Mefisto en herdr (issue #691).
 //
-// Uso: <plugin>/scripts/herdr-workspace.sh [ruta-al-repo]
+// Uso: <plugin>/scripts/herdr-workspace.mts [ruta-al-repo]
 //
 // Crea (o enfoca, si ya existe) el workspace herdr del repo (default: el repo git del cwd) con
 // una fila por runtime: pane "planner [<kind>]" con el agente de Knowledge Crunching

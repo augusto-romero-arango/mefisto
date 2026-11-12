@@ -2,7 +2,7 @@
 description: "Lanza el agente `mefisto-planner` para planear, refinar o reorganizar issues del propio repo de Mefisto."
 model: "haiku"
 ---
-<!-- GENERADO por src/internal/scripts/generate-internal-adapters.sh desde src/internal/commands/mefisto-plan.md. No editar a mano. -->
+<!-- GENERADO por src/internal/scripts/generate-internal-adapters.mts desde src/internal/commands/mefisto-plan.md. No editar a mano. -->
 
 Lanza el agente `mefisto-planner` para planear, refinar o reorganizar issues del propio repo de Mefisto. Comunicate en **espanol**.
 

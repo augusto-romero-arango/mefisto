@@ -2,7 +2,7 @@
 name: code-comments
 description: "Mecanica de comentarios de codigo para escribirlos y revisarlos (MEF-ADR-0044) -- que se queda, que sobra, como escribirlo corto, como corregirlo al cambiar codigo, como marcar hallazgos en los dos sentidos al revisar y como limpiar en masa. Usar al escribir o revisar codigo en C#, HCL, bash o TypeScript: comentarios que narran el codigo, provenance (`// HU-XX`, citas sueltas de issue/PR/ADR), comentarios falsos tras un cambio, o un porque, una unidad o una API externa no obvia que falta documentar."
 ---
-<!-- GENERADO por src/internal/scripts/generate-internal-adapters.sh desde skills/code-comments/SKILL.md. No editar a mano. -->
+<!-- GENERADO por src/internal/scripts/generate-internal-adapters.mts desde skills/code-comments/SKILL.md. No editar a mano. -->
 
 # Comentarios de codigo: escribir y revisar
 

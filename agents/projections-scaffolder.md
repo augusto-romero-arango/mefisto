@@ -5,7 +5,7 @@ tools: "Read, Glob, Grep, Edit, Write, Bash"
 model: "sonnet"
 effort: "medium"
 ---
-<!-- GENERADO por src/published/scripts/generate-published-adapters.sh desde src/published/agents/projections-scaffolder.md. No editar a mano. -->
+<!-- GENERADO por src/published/scripts/generate-published-adapters.mts desde src/published/agents/projections-scaffolder.md. No editar a mano. -->
 ```bash
 mefisto_claude_root=''
 mefisto_claude_root_from_candidate() {
@@ -94,7 +94,7 @@ Fuente de referencia: `Cosmos.ControlPlane.Projections` (worker) y su seam `Conf
 
 Eres un agente del **lado publicado** (MEF-ADR-0019): operas **solo** sobre el repo consumidor, nunca sobre Mefisto. Antes de cualquier accion:
 
-Antes de continuar, aborta si existe `src/internal/scripts/generate-internal-adapters.sh`: ese directorio es el repositorio de Mefisto, no un consumidor.
+Antes de continuar, aborta si existe `src/internal/scripts/generate-internal-adapters.mts`: ese directorio es el repositorio de Mefisto, no un consumidor.
 
 Si el guard dispara, detente sin escribir nada.
 
@@ -146,9 +146,9 @@ Este agente corre sin reviewer y genera codigo desde plantillas del harness: es 
    Cada bloque `bash` corre en un shell nuevo: interpola el SHA impreso en los comandos siguientes. Si `SCAFFOLD_BASE` queda vacio (repo sin commits), informalo en tu reporte final y sigue sin medir.
 
 2. **Al terminar de generar, mide** (antes del commit, si tu flujo commitea; si no, antes del reporte final). Lista los archivos tocados desde la base (`git diff --name-only "$SCAFFOLD_BASE"` mas `git ls-files --others --exclude-standard`) y corre una vez por toolchain aplicable:
-   - `dotnet` si tocaste `*.cs`, `*.csproj`, `*.props`, `*.targets` o `.editorconfig`: `${MEFISTO_PACKAGE_ROOT}/scripts/warnings-diff.sh --toolchain dotnet --base "$SCAFFOLD_BASE"`
-   - `terraform` si tocaste `*.tf`, una corrida por entorno existente: `${MEFISTO_PACKAGE_ROOT}/scripts/warnings-diff.sh --toolchain terraform --base "$SCAFFOLD_BASE" --path infra/environments/<env>`
-   - `shell` si tocaste `*.sh`: `${MEFISTO_PACKAGE_ROOT}/scripts/warnings-diff.sh --toolchain shell --base "$SCAFFOLD_BASE"`
+   - `dotnet` si tocaste `*.cs`, `*.csproj`, `*.props`, `*.targets` o `.editorconfig`: `node ${MEFISTO_PACKAGE_ROOT}/scripts/warnings-diff.mts --toolchain dotnet --base "$SCAFFOLD_BASE"`
+   - `terraform` si tocaste `*.tf`, una corrida por entorno existente: `node ${MEFISTO_PACKAGE_ROOT}/scripts/warnings-diff.mts --toolchain terraform --base "$SCAFFOLD_BASE" --path infra/environments/<env>`
+   - `shell` si tocaste `*.sh`: `node ${MEFISTO_PACKAGE_ROOT}/scripts/warnings-diff.mts --toolchain shell --base "$SCAFFOLD_BASE"`
 
    Salida `0`: sin warnings nuevos. Salida `2`: lista `NEW <toolchain> <archivo> <codigo> <mensaje>`. Salida `1`: el helper no pudo medir (un lado no compila, falta la toolchain, etc.): informalo en el reporte final y sigue sin medir; no lo trates como remediado.
 
@@ -1599,7 +1599,7 @@ jobs:
 >
 > **Sin encadenar tras `Infra CD` (a diferencia de `deploy-{kebab}.yml`).** `deploy-{kebab}.yml` se encadena tras `infra-cd.yml` via `workflow_run` porque el `apply` de infra puede crear o reemplazar la Function App en cualquier push a `main`, y el codigo nunca debe desplegarse antes de que esa Function App exista. Este workflow no lo necesita: el Container App ya existe desde el primer `apply` que habilito `projections.enabled` (con la imagen placeholder), y el `lifecycle.ignore_changes` del issue #456 hace que un `apply` normal ya no toque su imagen -- no hay ninguna carrera de "el recurso todavia no existe" que un `workflow_run` deba prevenir. El caso residual -- un `apply` que **recree** el Container App (ver el corolario del mismo `ignore_changes`, `infra-base-scaffolder.md`) y lo deje otra vez con el placeholder -- no lo detecta ningun trigger automatico de este workflow: lo cubre `workflow_dispatch` manual, documentado en la cabecera. Si ese caso llegara a ser frecuente en la practica, encadenar por `workflow_run` es una mejora de un issue propio, no algo que este paso deba resolver por adelantado.
 >
-> **Por que `az acr login` funciona con solo `Contributor` de suscripcion, sin ningun rol de ACR adicional.** El modulo `container-registry` deja `admin_enabled = false` (`infra-base-scaffolder.md`, Paso 1.9.1): la autenticacion es siempre por Microsoft Entra RBAC. Verificado contra Microsoft Learn ("Azure built-in roles for Containers" -- `AcrPull`/`AcrPush`): en el modo por defecto del registry ("RBAC Registry Permissions", el que usa este modulo -- sin ABAC de repositorio), `AcrPull`/`AcrPush` estan definidos como `Actions` de ARM (`Microsoft.ContainerRegistry/registries/{pull,push}/...`), **no** como `DataActions` -- a diferencia del patron de Storage de este mismo marco (`storage_uses_managed_identity`, MEF-ADR-0025), donde `Contributor` si necesita un rol de datos aparte. El SP de CI ya tiene `Contributor` a nivel de suscripcion (`scripts/setup-github-ci.sh`, citado en MEF-ADR-0022/MEF-ADR-0034), y `Contributor` no excluye esas dos acciones en su `NotActions` -- por eso `az acr login`/`docker push` funcionan sin otorgarle ningun rol de ACR adicional a ese SP. No confundir con el rol `AcrPull` que si se le otorga, aparte, a la identidad `UserAssigned` del propio Container App (`infra-base-scaffolder.md`, Paso 2.3b): ese es para que el **Container App** pueda pullear su imagen, un principal distinto del SP de CI que la publica.
+> **Por que `az acr login` funciona con solo `Contributor` de suscripcion, sin ningun rol de ACR adicional.** El modulo `container-registry` deja `admin_enabled = false` (`infra-base-scaffolder.md`, Paso 1.9.1): la autenticacion es siempre por Microsoft Entra RBAC. Verificado contra Microsoft Learn ("Azure built-in roles for Containers" -- `AcrPull`/`AcrPush`): en el modo por defecto del registry ("RBAC Registry Permissions", el que usa este modulo -- sin ABAC de repositorio), `AcrPull`/`AcrPush` estan definidos como `Actions` de ARM (`Microsoft.ContainerRegistry/registries/{pull,push}/...`), **no** como `DataActions` -- a diferencia del patron de Storage de este mismo marco (`storage_uses_managed_identity`, MEF-ADR-0025), donde `Contributor` si necesita un rol de datos aparte. El SP de CI ya tiene `Contributor` a nivel de suscripcion (`scripts/setup-github-ci.mts`, citado en MEF-ADR-0022/MEF-ADR-0034), y `Contributor` no excluye esas dos acciones en su `NotActions` -- por eso `az acr login`/`docker push` funcionan sin otorgarle ningun rol de ACR adicional a ese SP. No confundir con el rol `AcrPull` que si se le otorga, aparte, a la identidad `UserAssigned` del propio Container App (`infra-base-scaffolder.md`, Paso 2.3b): ese es para que el **Container App** pueda pullear su imagen, un principal distinto del SP de CI que la publica.
 >
 > **Para quien mantenga este agente -- el filtro de `paths` cubre las dependencias de build, no solo el codigo (mismo principio que `deploy-{kebab}.yml`, issue #454).** Transcribe las rutas y sus comentarios tal cual, incluida la del propio workflow (un filtro de `paths` que no se incluye a si mismo no reacciona ni al commit que lo crea).
 >
@@ -1699,7 +1699,7 @@ Tres detalles del comando que no debes simplificar al transcribirlo (los mismos 
 Valida tambien el Dockerfile (opcional, no bloqueante) con el script distribuido, que solo actua si `docker` esta instalado **y su daemon responde**, escribe su log bajo el estado del pipeline del repo activo y reporta el exit code del build:
 
 ```bash
-MEFISTO_RUNTIME=claude "${MEFISTO_PACKAGE_ROOT}/scripts/validate-dockerfile.sh" src/<RootNamespace>.Projections/Dockerfile
+MEFISTO_RUNTIME=claude node "${MEFISTO_PACKAGE_ROOT}/scripts/validate-dockerfile.mts" src/<RootNamespace>.Projections/Dockerfile
 ```
 
 Si `docker` no esta disponible, informa al usuario y deja esta validacion como pendiente manual explicito (nunca la reportes como exitosa). La primera corrida descarga las imagenes `dotnet/sdk:10.0` y `dotnet/runtime:10.0` (varios cientos de MB): si tarda o falla por red, tratala igual que "no disponible" -- no bloquea el commit.

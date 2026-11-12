@@ -3,7 +3,7 @@ description: "Genera el proyecto de un servidor MCP (RootNamespace.Mcp.Proposito
 argument-hint: "<proposito>"
 model: "haiku"
 ---
-<!-- GENERADO por src/published/scripts/generate-published-adapters.sh desde src/published/commands/scaffold-mcp.md. No editar a mano. -->
+<!-- GENERADO por src/published/scripts/generate-published-adapters.mts desde src/published/commands/scaffold-mcp.md. No editar a mano. -->
 ```bash
 mefisto_claude_root=''
 mefisto_claude_root_from_candidate() {
@@ -68,7 +68,7 @@ fi
 export MEFISTO_CONFIG_PATH
 ```
 
-Antes de continuar, aborta si existe `src/internal/scripts/generate-internal-adapters.sh`: ese directorio es el repositorio de Mefisto, no un consumidor.
+Antes de continuar, aborta si existe `src/internal/scripts/generate-internal-adapters.mts`: ese directorio es el repositorio de Mefisto, no un consumidor.
 
 Lanza el agente `mcp-scaffolder`, que genera el proyecto de un servidor MCP (Model Context Protocol) `<RootNamespace>.Mcp.{Proposito}` para el Bounded Context del consumidor -- fases 1, 2, 3 e identidad/OAuth app-side (issues #768/#769/#770/#819): proyecto del servidor, el propagador de identidad tenant/usuario, los componentes OAuth app-side de defensa en profundidad (PRM, validador de token, middleware), tool de ejemplo, endpoints de gate, unit tests base, el Terraform del servidor, el workflow de deploy y la suite SmokeTests e2e con su reusable de CI (MEF-ADR-0047/MEF-ADR-0048). Comunicate en **espanol**.
 

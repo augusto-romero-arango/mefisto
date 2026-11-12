@@ -2,7 +2,7 @@
 description: "Calcula el orden topologico de lanzamiento de los issues 'estado:listo' abiertos del repo de Mefisto a partir de sus dependencias declaradas (ciclos y bloqueos al tope), y deja lista la linea de lanzamiento de /mefisto-sequential."
 model: "haiku"
 ---
-<!-- GENERADO por src/internal/scripts/generate-internal-adapters.sh desde src/internal/commands/mefisto-next-order.md. No editar a mano. -->
+<!-- GENERADO por src/internal/scripts/generate-internal-adapters.mts desde src/internal/commands/mefisto-next-order.md. No editar a mano. -->
 
 Calcula el orden topologico de lanzamiento de los issues `estado:listo` abiertos del repo de Mefisto, a partir de sus dependencias declaradas. Solo opera dentro del repo de Mefisto. Comunicate en **espanol**.
 
@@ -23,7 +23,7 @@ REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null) || {
 Este comando no acepta argumentos: siempre analiza TODO el universo `estado:listo` abierto. Si `$ARGUMENTS` trae texto, ignoralo por completo -- no se lo pases al script.
 
 ```bash
-MEFISTO_RUNTIME=claude ./.claude/scripts/mefisto-next-order.sh
+MEFISTO_RUNTIME=claude node src/internal/scripts/mefisto-next-order.mts
 ```
 
 Reproduce la salida tal cual, sin reordenarla, resumirla ni completarla con informacion propia: el reporte de ciclos/bloqueos (si los hay) y la lista numerada de issues lanzables, terminando siempre con la linea `/mefisto-sequential ...`.
