@@ -8,12 +8,14 @@
 # constancia de una espera activa en events.log, pero solo el pipeline que la
 # sufre (tdd/tooling/iac-pipeline.sh) la ve -- esta bloqueado en su propio
 # sleep. De ahi las dos necesidades que cubren las funciones bajo test:
-#   - parallel-pipeline.sh necesita saber, SIN bloquearse, si hay una espera
+#   - parallel-pipeline necesita saber, SIN bloquearse, si hay una espera
 #     activa: para no lanzar mas issues de la cola (CA-3) y para reflejarlo en
 #     su dashboard (CA-2).
-#   - batch-pipeline.sh esta bloqueado en el `tee` del eslabon mientras este
-#     espera, asi que solo puede anotar cuanto se espero AL CERRARLO -- como
-#     nota anexa al desenlace real, nunca como fallo (CA-1/CA-5).
+#   - batch-pipeline esta bloqueado en el eslabon mientras este espera, asi
+#     que solo puede anotar cuanto se espero AL CERRARLO -- como nota anexa al
+#     desenlace real, nunca como fallo (CA-1/CA-5).
+# El cableado de los dos orquestadores se prueba en
+# scripts/tests/batch-pipeline.test.mts y scripts/tests/parallel-pipeline.test.mts.
 #
 # Casos cubiertos:
 #   [1] hold_recently_active: sin events.log -> falso.
@@ -39,13 +41,6 @@
 #        "[hold][resume]", respeta <from_line> y atribuye por cabecera de
 #        sesion (una corrida concurrente de otro issue no le regala su espera
 #        al eslabon en curso).
-#   [13] CA-3: parallel-pipeline.sh consulta hold_recently_active ANTES de
-#        lanzar el siguiente pendiente de la cola (wiring).
-#   [14] CA-2: parallel-pipeline.sh dibuja la espera en su dashboard via
-#        format_hold_status, con etiqueta propia -- distinta de la que ya usa
-#        para el issue que espera TURNO de la cola.
-#   [15] CA-1/CA-5: batch-pipeline.sh anota la espera en todos los desenlaces
-#        sin tocar FAILED/HAVE_ERRORS/STOP_ON_ERROR ni el exit code.
 #
 # Uso: scripts/tests/test-hold-visibility.sh
 # Exit code: 0 si todos los chequeos pasan, 1 si alguno falla.
@@ -54,8 +49,6 @@ set -uo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
-BATCH_SCRIPT="$REPO_ROOT/scripts/batch-pipeline.sh"
-PARALLEL_SCRIPT="$REPO_ROOT/scripts/parallel-pipeline.sh"
 
 PASS=0
 FAIL=0
@@ -277,130 +270,6 @@ if [ "$TOTAL_MISSING" = "0" ]; then
     pass "sin events.log -> 0, sin abortar"
 else
     fail "sin events.log devolvio '$TOTAL_MISSING'"
-fi
-
-# -------- Bloques de wiring (structural): confirman que los orquestadores --
-# -------- CONSUMEN las funciones de arriba, no que las reimplementan -------
-
-echo ""
-echo "[13] CA-3: parallel-pipeline.sh consulta hold_recently_active antes de lanzar el siguiente pendiente"
-if grep -q 'hold_recently_active "\$EVENTS_LOG_ABS" "\$EVENTS_LOG_LINES_AT_START"' "$PARALLEL_SCRIPT"; then
-    pass "parallel-pipeline.sh invoca hold_recently_active acotado al arranque de la corrida"
-else
-    fail "parallel-pipeline.sh no invoca hold_recently_active con la marca de arranque"
-fi
-
-echo ""
-echo "[13b] Estado dual: parallel detecta un hold escrito solo en la raiz legacy"
-HOLD_ANY_SRC=$(awk '/^hold_active_in_any_events_log\(\) \{/{p=1} p{print} p && /^}/{exit}' "$PARALLEL_SCRIPT")
-if [ -n "$HOLD_ANY_SRC" ]; then
-    LEGACY_EVENTS="$TMP/legacy-events.log"
-    CANONICAL_EVENTS="$TMP/canonical-events.log"
-    : > "$CANONICAL_EVENTS"
-    cat > "$LEGACY_EVENTS" <<EOF
-=== SESSION TOOLING 20260101-000000 issue:42 from-stage:1 ===
-[$(hms_at -180)][hold] RATE_LIMIT: esperando, proxima sonda $(hms_at 120) (techo 23:59)
-EOF
-    EVENTS_LOG_ABS="$CANONICAL_EVENTS"
-    EVENTS_LOG_LINES_AT_START=0
-    EVENTS_LOG_LEGACY_ABS="$LEGACY_EVENTS"
-    EVENTS_LOG_LEGACY_LINES_AT_START=0
-    eval "$HOLD_ANY_SRC"
-    if hold_active_in_any_events_log; then
-        pass "parallel detecta el hold que existe solo en legacy"
-    else
-        fail "parallel no detecto el hold legacy"
-    fi
-else
-    fail "no se pudo extraer hold_active_in_any_events_log()"
-fi
-
-echo ""
-echo "[13c] Estado dual: batch contabiliza un hold escrito solo en la raiz legacy"
-BATCH_HOLD_SRC=$(awk '/^hold_seconds_in_all_events_logs\(\) \{/{p=1} p{print} p && /^}/{exit}' "$BATCH_SCRIPT")
-if [ -n "$BATCH_HOLD_SRC" ]; then
-    BATCH_CANONICAL_EVENTS="$TMP/batch-canonical-events.log"
-    BATCH_LEGACY_EVENTS="$TMP/batch-legacy-events.log"
-    : > "$BATCH_CANONICAL_EVENTS"
-    cat > "$BATCH_LEGACY_EVENTS" <<EOF
-=== SESSION TDD 20260101-000000 issue:42 from-stage:1 ===
-[10:00:00][hold] RATE_LIMIT: esperando, proxima sonda 10:02:00 (techo 23:59)
-EOF
-    EVENTS_LOG_ABS="$BATCH_CANONICAL_EVENTS"
-    EVENTS_LOG_LEGACY_ABS="$BATCH_LEGACY_EVENTS"
-    eval "$BATCH_HOLD_SRC"
-    BATCH_HOLD_SECONDS=$(hold_seconds_in_all_events_logs 42 0 0)
-    if [ "$BATCH_HOLD_SECONDS" = "120" ]; then
-        pass "batch contabiliza el hold que existe solo en legacy"
-    else
-        fail "batch contabilizo '$BATCH_HOLD_SECONDS' segundos para el hold legacy (esperaba 120)"
-    fi
-else
-    fail "no se pudo extraer hold_seconds_in_all_events_logs()"
-fi
-# El chequeo debe vivir DENTRO del while del scheduler, antes del bucle que
-# recorre PENDING_IDXS y lanza -- si no, gatearia el lanzamiento de nada.
-SCHED_BLOCK=$(awk '/^while \[ \$\{#PENDING_IDXS\[@\]\} -gt 0 \]; do/{p=1} p{print} p && /^done$/{exit}' "$PARALLEL_SCRIPT")
-if echo "$SCHED_BLOCK" | grep -q "hold_active_in_any_events_log" && echo "$SCHED_BLOCK" | grep -q "for idx in \"\${PENDING_IDXS\[@\]}\""; then
-    pass "el chequeo de hold vive dentro del while del scheduler, junto al lanzamiento de pendientes"
-else
-    fail "no se pudo confirmar que el chequeo de hold este dentro del while del scheduler"
-fi
-
-echo ""
-echo "[14] CA-2: parallel-pipeline.sh dibuja la espera en su dashboard, con etiqueta propia"
-if grep -q 'format_hold_status "\$EVENTS_LOG_ABS" "\$EVENTS_LOG_LINES_AT_START"' "$PARALLEL_SCRIPT"; then
-    pass "parallel-pipeline.sh invoca format_hold_status acotado al arranque de la corrida"
-else
-    fail "parallel-pipeline.sh no invoca format_hold_status con la marca de arranque"
-fi
-if grep -q 'status_label="espera/hold"' "$PARALLEL_SCRIPT"; then
-    pass "print_dashboard etiqueta el hold como 'espera/hold'"
-else
-    fail "print_dashboard no tiene la etiqueta del hold"
-fi
-# La etiqueta del hold no puede ser la misma que la del issue que espera turno
-# de la cola: son dos situaciones distintas en la misma columna.
-if [ "$(grep -c 'status_label="espera/hold"' "$PARALLEL_SCRIPT")" -eq 1 ] \
-    && grep -q '"#\$issue" "en espera" "-"' "$PARALLEL_SCRIPT"; then
-    pass "la etiqueta del hold es distinta de la del issue que espera turno ('en espera')"
-else
-    fail "no se pudo confirmar que las dos esperas tengan etiquetas distintas"
-fi
-
-echo ""
-echo "[15] CA-1/CA-5: batch-pipeline.sh anota la espera sin tocar FAILED/HAVE_ERRORS/STOP_ON_ERROR ni el exit code"
-HELD_BLOCK=$(awk '/ISSUE_HOLD_SECONDS=\$\(hold_seconds_in_all_events_logs/{p=1} p{print} p && /^    fi$/{exit}' "$BATCH_SCRIPT")
-if [ -n "$HELD_BLOCK" ]; then
-    pass "se extrajo el bloque de contabilidad de hold de batch-pipeline.sh"
-else
-    fail "no se pudo extraer el bloque de contabilidad de hold de batch-pipeline.sh"
-fi
-HELD_BLOCK_CODE=$(echo "$HELD_BLOCK" | grep -vE '^[[:space:]]*#')
-if echo "$HELD_BLOCK_CODE" | grep -qE 'FAILED|HAVE_ERRORS|STOP_ON_ERROR|\bexit\b'; then
-    fail "el bloque de contabilidad de hold no deberia referenciar FAILED/HAVE_ERRORS/STOP_ON_ERROR/exit"
-else
-    pass "el bloque de contabilidad de hold es puramente informativo (CA-1/CA-5)"
-fi
-if grep -q 'set_status "\$ISSUE_NUM" "completado (PR #\$PR_NUM mergeado)\$ISSUE_HELD_NOTE"' "$BATCH_SCRIPT"; then
-    pass "la nota de espera se anexa al estado 'completado', sin reemplazarlo (CA-2)"
-else
-    fail "no se encontro la nota de espera en el estado 'completado'"
-fi
-# Un eslabon puede esperar horas y fallar igual al agotar el techo: la nota
-# tiene que llegar tambien a los desenlaces fallidos, sin volverlos otra cosa.
-FAIL_LINES=$(grep -c 'fail_issue "\$ISSUE_NUM" .*\$ISSUE_HELD_NOTE"' "$BATCH_SCRIPT")
-FAIL_TOTAL=$(grep -c 'fail_issue "\$ISSUE_NUM"' "$BATCH_SCRIPT")
-if [ "$FAIL_LINES" -eq "$FAIL_TOTAL" ] && [ "$FAIL_TOTAL" -gt 0 ]; then
-    pass "los $FAIL_TOTAL desenlaces fallidos del eslabon llevan la nota de espera"
-else
-    fail "solo $FAIL_LINES de $FAIL_TOTAL fail_issue llevan la nota de espera"
-fi
-if grep -q 'BATCH_TOTAL_HOLD_SECONDS=$(( BATCH_TOTAL_HOLD_SECONDS + ISSUE_HOLD_SECONDS ))' "$BATCH_SCRIPT" \
-    && grep -q 'En espera (hold) durante el batch' "$BATCH_SCRIPT"; then
-    pass "el resumen final reporta el tiempo total en espera del batch"
-else
-    fail "el resumen final no reporta el tiempo total en espera del batch"
 fi
 
 echo ""

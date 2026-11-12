@@ -40,7 +40,7 @@ describe('[fuente] contrato neutral', () => {
   contains(body, '{{mefisto:command sequential}}', 'referencia neutral a sequential')
   contains(body, '{{mefisto:command parallel}}', 'referencia neutral a parallel')
   contains(body, '{{mefisto:command batch-stop}}', 'autoreferencia neutral (confirmacion ya dada)')
-  contains(body, 'pgrep -f "[s]cripts/batch-pipeline\\.sh"', 'patron de deteccion sin auto-coincidencia')
+  contains(body, 'pgrep -f "[s]cripts/batch-pipeline\\.(sh|mts)"', 'patron de deteccion sin auto-coincidencia')
   contains(body, 'pipeline-state/batch-stop', 'ruta de la senal relativa a la raiz del repo')
   contains(
     body,
@@ -70,7 +70,7 @@ describe('[salidas] adaptador y mirror', () => {
   claudeOutputExists(command)
   contains(
     claude,
-    'pgrep -f "[s]cripts/batch-pipeline\\.sh"',
+    'pgrep -f "[s]cripts/batch-pipeline\\.(sh|mts)"',
     'claude conserva el patron de deteccion (CA-5a)',
   )
   contains(claude, 'pipeline-state/batch-stop', 'claude conserva la ruta de la senal (CA-5a)')
