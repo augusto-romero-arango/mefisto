@@ -7,7 +7,7 @@ import { after, before, describe, test } from 'node:test'
 import { buildAgentsHistoryJson } from '../../../src/internal/scripts/lib/mefisto-run-history.mts'
 import type { AgentRun } from '../../../src/internal/scripts/lib/mefisto-run-history.mts'
 import { computeStageMetrics } from '../../../src/internal/scripts/lib/mefisto-stage-metrics.mts'
-import { INTERNAL_EVENTS, NO_BASH_JQ, RECORD, mefistoBash } from './mefisto-agents-parity.mts'
+import { INTERNAL_EVENTS } from './mefisto-agents-fixtures.mts'
 
 let work = ''
 let writerMetrics = ''
@@ -95,46 +95,33 @@ describe('buildAgentsHistoryJson', () => {
     assert.equal(parse(buildAgentsHistoryJson(run('1', '{"runtime":7}'), run('2', '{}'))).writer.runtime, 7)
     assert.equal(parse(buildAgentsHistoryJson(run('1', '{"runtime":7}'), run('2', '{}'))).reviewer.runtime, null)
   })
-})
 
-describe('paridad con la gemela bash', { skip: NO_BASH_JQ }, () => {
-  test('build_agents_history_json', () => {
-    const metrics = [
-      writerMetrics,
-      '',
-      'null',
-      '{}',
-      '{"runtime":"fake","turns":2}',
-      '{"runtime":null}',
-      '{"runtime":{"a":1},"tokens":{"input":5}}',
-      '{',
-      'no json',
-      '5',
-      '[1,2]',
-      '"texto"',
-      'true',
-      'false',
-      ' {"runtime":"espacios"} ',
-    ]
-    const durations = ['125', '', '0', 'null', 'abc', '-3', '"7"', 'true']
-    // Cada metrica y cada duracion, del lado del writer y del reviewer.
-    const cases: [string, string, string, string][] = [
-      ...metrics.flatMap((value): [string, string, string, string][] => [
-        ['125', value, '210', 'null'],
-        ['', '', '30', value],
-      ]),
-      ...durations.flatMap((value): [string, string, string, string][] => [
-        [value, writerMetrics, '210', ''],
-        ['5', '{"runtime":"x"}', value, 'null'],
-      ]),
-    ]
-    const script = `while [ "$#" -gt 0 ]; do build_agents_history_json "$1" "$2" "$3" "$4"; printf '\\036'; shift 4; done`
-    const fromBash = mefistoBash(script, cases.flat()).stdout.split(RECORD)
-    // La entrada completa sale de un `echo`; la plana, de un `printf` sin salto final.
-    const own = cases.map(([writerDuration, writerText, reviewerDuration, reviewerText]) =>
-      buildAgentsHistoryJson(run(writerDuration, writerText), run(reviewerDuration, reviewerText)),
+  test('metricas validas con espacios, runtime nulo o runtime objeto', () => {
+    const reviewer = '"reviewer":{"duration":210,"metrics":null,"runtime":null}}'
+    assert.equal(buildAgentsHistoryJson(run('125', '{"runtime":null}'), run('210', 'null')), `{"writer":{"duration":125,"metrics":{"runtime":null},"runtime":null},${reviewer}`)
+    assert.equal(
+      buildAgentsHistoryJson(run('125', '{"runtime":{"a":1},"tokens":{"input":5}}'), run('210', 'null')),
+      `{"writer":{"duration":125,"metrics":{"runtime":{"a":1},"tokens":{"input":5}},"runtime":{"a":1}},${reviewer}`,
     )
-    assert.deepEqual([...own, ''], fromBash.map((text) => text.replace(/\n$/, '')))
-    assert.ok(own.some((text) => text.includes('"metrics"')) && own.some((text) => !text.includes('"metrics"')))
+    assert.equal(
+      buildAgentsHistoryJson(run('125', ' {"runtime":"espacios"} '), run('210', 'null')),
+      `{"writer":{"duration":125,"metrics":{"runtime":"espacios"},"runtime":"espacios"},${reviewer}`,
+    )
+    for (const metrics of ['true', '[1,2]']) {
+      assert.equal(buildAgentsHistoryJson(run('125', metrics), run('210', 'null')), '{"writer":{"duration":125},"reviewer":{"duration":210}}', metrics)
+    }
+  })
+
+  test('una duracion que es JSON se copia tal cual en los dos stages', () => {
+    for (const duration of ['0', 'null', '-3', '"7"', 'true']) {
+      assert.equal(
+        buildAgentsHistoryJson(run(duration, '{"runtime":"x"}'), run('5', '')),
+        `{"writer":{"duration":${duration},"metrics":{"runtime":"x"},"runtime":"x"},"reviewer":{"duration":5,"metrics":null,"runtime":null}}`,
+      )
+      assert.equal(
+        buildAgentsHistoryJson(run('5', '{"runtime":"x"}'), run(duration, 'null')),
+        `{"writer":{"duration":5,"metrics":{"runtime":"x"},"runtime":"x"},"reviewer":{"duration":${duration},"metrics":null,"runtime":null}}`,
+      )
+    }
   })
 })

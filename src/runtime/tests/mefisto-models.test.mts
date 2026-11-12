@@ -4,11 +4,10 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { after, before, describe, test } from 'node:test'
 
-import { capture, commandExists } from '../../../scripts/lib/cli.mts'
 import { readModelsMapping, resolveModel, validateModelsMapping } from '../lib/mefisto-models.mts'
 import type { ModelRequest } from '../lib/mefisto-models.mts'
 import { adapterPath } from '../lib/mefisto-runtime.mts'
-import { CONTRACT_DIR, LIB_DIR } from './runner-sandbox.mts'
+import { LIB_DIR } from './runner-sandbox.mts'
 
 const ALPHA_DEFAULT = `export function defaultModel(profile) {
   if (profile === 'fast') return 'alpha default'
@@ -186,23 +185,43 @@ describe('adaptadores del repo', () => {
   })
 })
 
-describe('paridad con models.validate.jq', () => {
-  const skip = process.platform === 'win32' || !commandExists('jq') ? 'requiere jq' : false
-  const documents = [
-    '{}',
-    '[]',
-    '"x"',
-    '{"alpha":{"profiles":{"fast":"a","slow":"b","deep":""},"agents":{"w":"m","x":1},"otro":{}},"Mal":{},"beta":3}',
-    '{"claude":{"efforts":{"agents":{"a":"thorough","b":"alto","c":3},"levels":{"quick":"low","alto":"x","light":""},"otro":1}}}',
-    '{"claude":{"efforts":[],"profiles":[],"agents":"x"},"otro":{"efforts":{"agents":1,"levels":null}}}',
-    '{"claude":{"profiles":{"fast":"haiku"},"agents":{"writer":"opus"},"efforts":{"agents":{"writer":"quick"},"levels":{"quick":"low"}}}}',
+test('validateModelsMapping: los motivos, en orden', () => {
+  const cases: [string, string[]][] = [
+    ['{}', []],
+    ['[]', ['.: se esperaba un objeto']],
+    ['"x"', ['.: se esperaba un objeto']],
+    [
+      '{"alpha":{"profiles":{"fast":"a","slow":"b","deep":""},"agents":{"w":"m","x":1},"otro":{}},"Mal":{},"beta":3}',
+      [
+        'alpha.otro: campo desconocido',
+        'alpha.profiles.slow: perfil desconocido',
+        'alpha.profiles.deep: se esperaba un string no vacio',
+        'alpha.agents.x: se esperaba un string no vacio',
+        'Mal: id de runtime invalido',
+        'beta: se esperaba un objeto',
+      ],
+    ],
+    [
+      '{"claude":{"efforts":{"agents":{"a":"thorough","b":"alto","c":3},"levels":{"quick":"low","alto":"x","light":""},"otro":1}}}',
+      [
+        'claude.efforts.otro: campo desconocido',
+        'claude.efforts.agents.b: nivel desconocido',
+        'claude.efforts.agents.c: nivel desconocido',
+        'claude.efforts.levels.alto: nivel desconocido',
+        'claude.efforts.levels.light: se esperaba un string no vacio',
+      ],
+    ],
+    [
+      '{"claude":{"efforts":[],"profiles":[],"agents":"x"},"otro":{"efforts":{"agents":1,"levels":null}}}',
+      [
+        'claude.profiles: se esperaba un objeto',
+        'claude.agents: se esperaba un objeto',
+        'claude.efforts: se esperaba un objeto',
+        'otro.efforts.agents: se esperaba un objeto',
+        'otro.efforts.levels: se esperaba un objeto',
+      ],
+    ],
+    ['{"claude":{"profiles":{"fast":"haiku"},"agents":{"writer":"opus"},"efforts":{"agents":{"writer":"quick"},"levels":{"quick":"low"}}}}', []],
   ]
-  test('los mismos motivos, en el mismo orden', { skip }, () => {
-    for (const document of documents) {
-      const jq = capture('jq', ['-r', '-f', join(CONTRACT_DIR, 'models.validate.jq')], { input: document })
-      assert.equal(jq.status, 0, jq.stderr)
-      const expected = jq.stdout.split('\n').filter((line) => line.length > 0)
-      assert.deepEqual(validateModelsMapping(JSON.parse(document)), expected, document)
-    }
-  })
+  for (const [document, reasons] of cases) assert.deepEqual(validateModelsMapping(JSON.parse(document)), reasons, document)
 })

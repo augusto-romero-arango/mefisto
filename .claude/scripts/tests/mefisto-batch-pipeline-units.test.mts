@@ -153,7 +153,7 @@ describe('espera (hold) por eslabon', () => {
     assert.equal(holdSecondsInRange(join(dir, 'no-existe.log'), 0), 0)
   })
 
-  test('una cabecera de otro pipeline no cambia la atribucion, como en la gemela bash', () => {
+  test('una cabecera de otro pipeline no cambia la atribucion', () => {
     const file = join(caseDir('hold'), 'events.log')
     writeFileSync(file, [session('900'), '=== SESSION TOOLING 20260101 issue:5 ===', holdLine('12:00:00', '12:01:00'), ''].join('\n'))
     assert.equal(holdSecondsInRange(file, 0, '900'), 60)

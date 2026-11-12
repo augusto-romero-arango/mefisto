@@ -1,8 +1,7 @@
 import assert from 'node:assert/strict'
-import { execFileSync } from 'node:child_process'
-import { chmodSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
-import { delimiter, join } from 'node:path'
+import { join } from 'node:path'
 import { after, before, describe, test } from 'node:test'
 
 import { commandExists } from '../../../scripts/lib/cli.mts'
@@ -164,23 +163,19 @@ describe('discoverRuntime', () => {
     })
   })
 
-  // Paridad con la gemela en bash: los dos lados resuelven lo mismo con el mismo entorno.
-  test('coincide con mefisto_resolve_runtime', { skip: process.platform === 'win32' ? 'la gemela es bash' : false }, async () => {
-    const bin = join(work, 'bin')
-    mkdirSync(bin)
-    writeFileSync(join(bin, 'claude'), '#!/bin/sh\n')
-    chmodSync(join(bin, 'claude'), 0o755)
-    const probe = 'source "$1/mefisto-runtime.sh"; mefisto_resolve_runtime || printf "%s\\n" "error: $MEFISTO_RUNTIME_ERROR"'
-    for (const extra of [{}, { MEFISTO_FAKE_AVAILABLE: '1' }]) {
-      for (const path of [`${bin}${delimiter}/usr/bin${delimiter}/bin`, `/usr/bin${delimiter}/bin`]) {
-        const env = { PATH: path, ...extra }
-        const has = (command: string): boolean => commandExists(command, env)
-        const bash = execFileSync('bash', ['-c', probe, 'bash', LIB_DIR], { env, encoding: 'utf8' }).trimEnd()
-        const text = (found: { runtime: string } | { error: string }): string =>
-          'runtime' in found ? found.runtime : `error: ${found.error}`
-        assert.equal(text(discoverRuntime(LIB_DIR, env, has)), bash)
-        assert.equal(text(await resolveRuntime('', env, has, LIB_DIR)), bash)
-      }
+  test('con los adaptadores del repo decide por el CLI de claude y MEFISTO_FAKE_AVAILABLE', async () => {
+    const none = 'no se detecto ningun runtime disponible entre los adaptadores (claude, fake): fija MEFISTO_RUNTIME o --runtime'
+    const both = 'se detectaron varios runtimes disponibles (claude fake): fija MEFISTO_RUNTIME o --runtime para desambiguar'
+    const cases: [NodeJS.ProcessEnv, boolean, { runtime: string } | { error: string }][] = [
+      [{}, true, { runtime: 'claude' }],
+      [{}, false, { error: none }],
+      [{ MEFISTO_FAKE_AVAILABLE: '1' }, true, { error: both }],
+      [{ MEFISTO_FAKE_AVAILABLE: '1' }, false, { runtime: 'fake' }],
+    ]
+    for (const [env, withClaude, expected] of cases) {
+      const has = (command: string): boolean => withClaude && command === 'claude'
+      assert.deepEqual(discoverRuntime(LIB_DIR, env, has), expected)
+      assert.deepEqual(await resolveRuntime('', env, has, LIB_DIR), expected)
     }
   })
 

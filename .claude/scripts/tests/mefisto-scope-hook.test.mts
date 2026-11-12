@@ -12,7 +12,6 @@ import { editedPath, relativeToRoot, scopeWarning } from '../mefisto-scope-hook.
 const HERE = dirname(fileURLToPath(import.meta.url))
 const REPO_ROOT = join(HERE, '..', '..', '..')
 const HOOK = join(HERE, '..', 'mefisto-scope-hook.mts')
-const BASH_LIB = join(REPO_ROOT, 'src', 'internal', 'scripts', 'lib', '_mefisto-common.sh')
 
 const IN_SCOPE = [
   'docs/bitacora/prueba.md',
@@ -69,26 +68,11 @@ describe('allowlist', () => {
   test('acepta las rutas del plugin y rechaza las del consumidor', () => {
     for (const path of IN_SCOPE) assert.equal(isPathInMefistoScope(path), true, path)
     for (const path of OUT_OF_SCOPE) assert.equal(isPathInMefistoScope(path), false, path)
-    for (const path of ['', 'docs', 'scripts', '.claude/settings.local.json', 'src/internal']) {
+    for (const path of ['', 'docs', 'scripts', '.claude/settings.local.json', 'src/internal', 'x']) {
       assert.equal(isPathInMefistoScope(path), false, path)
     }
+    for (const path of ['docs/', 'README.md', 'NOTICE']) assert.equal(isPathInMefistoScope(path), true, path)
   })
-
-  test(
-    'coincide con is_path_in_mefisto_scope de la libreria bash',
-    { skip: process.platform === 'win32' ? 'la libreria bash no corre en Windows' : false },
-    () => {
-      const samples = [...IN_SCOPE, ...OUT_OF_SCOPE, 'docs', 'docs/', 'README.md', 'NOTICE', 'x']
-      const script =
-        'source "$0" >/dev/null 2>&1; for p in "$@"; do if is_path_in_mefisto_scope "$p"; then echo 1; else echo 0; fi; done'
-      const out = execFileSync('bash', ['-c', script, BASH_LIB, ...samples], { encoding: 'utf8' })
-      const fromBash = out.trim().split('\n')
-      assert.equal(fromBash.length, samples.length)
-      samples.forEach((path, i) => {
-        assert.equal(isPathInMefistoScope(path), fromBash[i] === '1', path)
-      })
-    },
-  )
 })
 
 describe('entrada del hook', () => {

@@ -5,7 +5,7 @@ import { dirname, join, sep } from 'node:path'
 import { after, before, describe, test } from 'node:test'
 import { fileURLToPath } from 'node:url'
 
-import { capture, commandExists } from '../../../scripts/lib/cli.mts'
+import { capture } from '../../../scripts/lib/cli.mts'
 import { extractBody, extractFrontmatter } from '../../../src/internal/scripts/lib/frontmatter.mts'
 import type { Json, JsonObject } from '../../../src/internal/scripts/lib/jq-json.mts'
 import { validateSchema } from '../../../src/internal/scripts/lib/jsonschema-lite.mts'
@@ -199,18 +199,6 @@ describe('estructura del archivo', () => {
   })
 })
 
-const SAMPLES = [
-  '',
-  '---\n',
-  'sin frontmatter\n---\n',
-  '---\n{"a":1}\n---\n',
-  '---\n{"a":1}\n---',
-  '---\n{"a":1}\n---\n\ncuerpo\n---\nmas\n\n\n',
-  '---\nsin cierre\notra\n',
-  '---\r\n{"a":1}\r\n---\r\n',
-  '---\n---\n---\ncuerpo sin salto final',
-]
-
 describe('corte del frontmatter', () => {
   test('frontmatter y body con sus codigos', () => {
     assert.deepEqual(extractFrontmatter('---\n{"a":1}\n---\n\ncuerpo\n'), { status: 0, text: '{"a":1}\n' })
@@ -221,41 +209,26 @@ describe('corte del frontmatter', () => {
     assert.deepEqual(extractFrontmatter(''), { status: 2, text: '' })
   })
 
-  test(
-    'coincide con frontmatter.sh',
-    { skip: process.platform === 'win32' ? 'la libreria bash no corre en Windows' : false },
-    () => {
-      const lib = join(SCRIPTS, 'lib', 'frontmatter.sh')
-      for (const [index, sample] of SAMPLES.entries()) {
-        const path = fixture(`corte-${index}.md`, sample)
-        for (const [fn, ours] of [
-          ['extract_frontmatter', extractFrontmatter(sample)],
-          ['extract_body', extractBody(sample)],
-        ] as const) {
-          const twin = capture('bash', ['-c', `source "$1"; ${fn} "$2"`, 'bash', lib, path])
-          assert.equal(ours.status, twin.status, `${fn} ${JSON.stringify(sample)}`)
-          assert.equal(ours.text, twin.stdout, `${fn} ${JSON.stringify(sample)}`)
-        }
-      }
-    },
-  )
+  test('cada forma del archivo: codigo y texto del frontmatter y del body', () => {
+    const cases: [string, number, string, number, string][] = [
+      ['', 2, '', 2, ''],
+      ['---\n', 2, '', 2, ''],
+      ['sin frontmatter\n---\n', 1, '', 1, ''],
+      ['---\n{"a":1}\n---\n', 0, '{"a":1}\n', 0, ''],
+      ['---\n{"a":1}\n---', 0, '{"a":1}\n', 0, ''],
+      ['---\n{"a":1}\n---\n\ncuerpo\n---\nmas\n\n\n', 0, '{"a":1}\n', 0, '\ncuerpo\n---\nmas\n\n\n'],
+      ['---\nsin cierre\notra\n', 2, 'sin cierre\notra\n', 2, ''],
+      ['---\r\n{"a":1}\r\n---\r\n', 1, '', 1, ''],
+      ['---\n---\n---\ncuerpo sin salto final', 0, '', 0, '---\ncuerpo sin salto final\n'],
+    ]
+    for (const [sample, frontmatterStatus, frontmatter, bodyStatus, body] of cases) {
+      assert.deepEqual(extractFrontmatter(sample), { status: frontmatterStatus, text: frontmatter }, JSON.stringify(sample))
+      assert.deepEqual(extractBody(sample), { status: bodyStatus, text: body }, JSON.stringify(sample))
+    }
+  })
 })
 
 describe('subconjunto de JSON Schema', () => {
-  const instances: Json[] = [
-    {},
-    [1, 2],
-    'cadena',
-    null,
-    { id: 'mefisto-x', description: 'd' },
-    { kind: 'otro', id: 'mefisto-x', description: 'd' },
-    { kind: ['agent'], id: 'mefisto-x', description: 'd' },
-    { kind: 'agent', id: 'mefisto-x', description: 'd', mode: 'all', effort: 'quick' },
-    { kind: 'agent', id: 7, description: '', mode: 'x', effort: null, capabilities: ['read', 'bash', 3] },
-    { kind: 'command', id: 'Mefisto', description: 'd', agent: 'x', arguments: '', zz: 1, aa: { b: [true] } },
-    { kind: 'command', id: 'mefisto-x', description: 'dé😀', skills: [], capabilities: {} },
-  ]
-
   test('una instancia valida no produce motivos', () => {
     assert.deepEqual(
       validateSchema(SCHEMA, { kind: 'agent', id: 'mefisto-x', description: 'd', mode: 'all', effort: 'quick' }),
@@ -267,29 +240,49 @@ describe('subconjunto de JSON Schema', () => {
     assert.deepEqual(validateSchema({ type: 'string', minLength: 2 }, '😀'), [': longitud minima 2, encontrado 1'])
   })
 
-  test(
-    'coincide con jsonschema-lite.jq',
-    {
-      skip:
-        process.platform === 'win32' || !commandExists('jq') ? 'la gemela en jq necesita jq y no corre en Windows' : false,
-    },
-    () => {
-      const program = join(SCRIPTS, 'lib', 'jsonschema-lite.jq')
-      for (const instance of instances) {
-        const twin = capture('jq', [
-          '-n',
-          '--argjson',
-          'schema',
-          JSON.stringify(SCHEMA),
-          '--argjson',
-          'instance',
-          JSON.stringify(instance),
-          '-f',
-          program,
-        ])
-        assert.equal(twin.status, 0, twin.stderr)
-        assert.deepEqual(validateSchema(SCHEMA, instance), JSON.parse(twin.stdout), JSON.stringify(instance))
-      }
-    },
-  )
+  test('cada instancia con sus motivos, en orden', () => {
+    const vocabulary = (values: string[]): string => JSON.stringify(values)
+    const capabilities = vocabulary(['read', 'edit', 'shell', 'web', 'skill', 'task', 'mcp', 'ask'])
+    const pattern = '^mefisto-[a-z0-9]+(-[a-z0-9]+)*$'
+    const cases: [Json, string[]][] = [
+      [{}, ['kind: campo requerido ausente']],
+      [[1, 2], ['(raiz): se esperaba un objeto JSON, encontrado array']],
+      ['cadena', ['(raiz): se esperaba un objeto JSON, encontrado string']],
+      [null, ['(raiz): se esperaba un objeto JSON, encontrado null']],
+      [{ id: 'mefisto-x', description: 'd' }, ['kind: campo requerido ausente']],
+      [{ kind: 'otro', id: 'mefisto-x', description: 'd' }, ['kind: valor "otro" no coincide con ningun \'kind\' declarado en oneOf']],
+      [
+        { kind: ['agent'], id: 'mefisto-x', description: 'd' },
+        ['mode: campo requerido ausente', 'effort: campo requerido ausente', 'kind: tipo esperado string, encontrado array'],
+      ],
+      [
+        { kind: 'agent', id: 7, description: '', mode: 'x', effort: null, capabilities: ['read', 'bash', 3] },
+        [
+          'id: tipo esperado string, encontrado number',
+          'description: longitud minima 1, encontrado 0',
+          `mode: valor "x" no esta en el vocabulario permitido ${vocabulary(['primary', 'subagent', 'all'])}`,
+          'effort: tipo esperado string, encontrado null',
+          `effort: valor null no esta en el vocabulario permitido ${vocabulary(['quick', 'light', 'standard', 'thorough', 'exhaustive'])}`,
+          `capabilities.1: valor "bash" no esta en el vocabulario permitido ${capabilities}`,
+          'capabilities.2: tipo esperado string, encontrado number',
+          `capabilities.2: valor 3 no esta en el vocabulario permitido ${capabilities}`,
+        ],
+      ],
+      [
+        { kind: 'command', id: 'Mefisto', description: 'd', agent: 'x', arguments: '', zz: 1, aa: { b: [true] } },
+        [
+          'zz: propiedad adicional no permitida',
+          'aa: propiedad adicional no permitida',
+          `id: 'Mefisto' no coincide con el patron ${pattern}`,
+          `agent: 'x' no coincide con el patron ${pattern}`,
+          'arguments: longitud minima 1, encontrado 0',
+        ],
+      ],
+      [
+        { kind: 'command', id: 'mefisto-x', description: 'dé😀', skills: [], capabilities: {} },
+        ['capabilities: tipo esperado array, encontrado object'],
+      ],
+    ]
+    for (const [instance, reasons] of cases) assert.deepEqual(validateSchema(SCHEMA, instance), reasons, JSON.stringify(instance))
+  })
 })

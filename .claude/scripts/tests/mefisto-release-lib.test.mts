@@ -1,24 +1,15 @@
 import assert from 'node:assert/strict'
-import { cpSync, existsSync, mkdtempSync, readFileSync, readdirSync, rmSync } from 'node:fs'
+import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
-import { dirname, join } from 'node:path'
+import { join } from 'node:path'
 import { after, before, describe, test } from 'node:test'
-import { fileURLToPath } from 'node:url'
 
-import { capture, commandExists } from '../../../scripts/lib/cli.mts'
 import { writeFiles } from '../../../scripts/tests/field-note-sandbox.mts'
 import {
   consolidateAdrIndexFragments,
   consolidateChangelogFragments,
   neutralityRemedy,
 } from '../../../src/internal/scripts/lib/mefisto-release-lib.mts'
-
-const HERE = dirname(fileURLToPath(import.meta.url))
-const BASH_LIB = join(HERE, '..', '..', '..', 'src', 'internal', 'scripts', 'lib', '_mefisto-common.sh')
-const NO_BASH_TWIN =
-  process.platform === 'win32' || !commandExists('bash') || !commandExists('python3')
-    ? 'la gemela en bash necesita bash y python3'
-    : false
 
 const CHANGELOG = `# Changelog
 
@@ -292,74 +283,67 @@ describe('neutralityRemedy', () => {
     assert.equal(lines(neutralityRemedy('a.md:1: R1\nb.md:2: R99\nc.md:3: R99')).length, 2)
   })
 
+  test('una linea sin regla reconocible tambien recibe la linea generica, una vez por texto', () => {
+    const output = 'a.md:1: R99\nb.md:2: R1\nc.md:3: R99\nsin separador\n\nd.md:4: otra regla'
+    assert.deepEqual(
+      lines(neutralityRemedy(output)).map((line) => line.slice(0, line.indexOf(':'))),
+      ['R1', 'R99', 'sin separador', 'otra regla'],
+    )
+  })
+
   test('una entrada vacia no emite nada', () => {
     assert.equal(neutralityRemedy(''), '')
   })
 })
 
-describe('paridad con las gemelas de _mefisto-common.sh', { skip: NO_BASH_TWIN }, () => {
-  function bashTwin(code: string, ...args: string[]): { status: number | null; stdout: string } {
-    return capture('bash', ['-c', `source "$1" && shift && ${code}`, 'bash', BASH_LIB, ...args])
-  }
+test('consolidacion con fragmentos de todas las categorias, bloques de codigo y fragmentos vacios', () => {
+  const root = tree({
+    'CHANGELOG.md': CHANGELOG,
+    'docs/adr/INDICE-TEMATICO.md': ADR_INDEX,
+    'changelog.d/README.md': '# doc\n',
+    'changelog.d/12.removed.md': '- se quita\n',
+    'changelog.d/3.added.md': '- **Titulo**: detalle\n  - sublinea\n\n  ```bash\n- no es entrada\n  ```\n',
+    'changelog.d/4.added.md': '\n\n- con blancos alrededor\n\n',
+    'changelog.d/5.fixed.md': '- arreglo\n',
+    'changelog.d/6.changed.md': '',
+    'changelog.d/3.adr-index.md': '| Tema A | MEF-ADR-0040 |\n\n| Tema B | MEF-ADR-0041 |\n',
+    'changelog.d/7.adr-index.md': '\n',
+  })
+  assert.equal(consolidateChangelogFragments(root), null)
+  assert.equal(consolidateAdrIndexFragments(root), null)
+  assert.deepEqual(snapshot(root), {
+    'CHANGELOG.md': `# Changelog
 
-  const trees: Record<string, Record<string, string>> = {
-    'fragmentos de todas las categorias': {
-      'CHANGELOG.md': CHANGELOG,
-      'docs/adr/INDICE-TEMATICO.md': ADR_INDEX,
-      'changelog.d/README.md': '# doc\n',
-      'changelog.d/12.removed.md': '- se quita\n',
-      'changelog.d/3.added.md': '- **Titulo**: detalle\n  - sublinea\n\n  ```bash\n- no es entrada\n  ```\n',
-      'changelog.d/4.added.md': '\n\n- con blancos alrededor\n\n',
-      'changelog.d/5.fixed.md': '- arreglo\n',
-      'changelog.d/6.changed.md': '',
-      'changelog.d/3.adr-index.md': '| Tema A | MEF-ADR-0040 |\n\n| Tema B | MEF-ADR-0041 |\n',
-      'changelog.d/7.adr-index.md': '\n',
-    },
-    'contenido previo, subseccion repetida y pie sin seccion posterior': {
-      'CHANGELOG.md':
-        '# Changelog\n\n## [Unreleased] - en curso\n\nPreambulo.\n\n### Fixed\n\n- previo\n\n### Added\n- uno\n\n### Fixed\n\n- repetido\n\n[Unreleased]: https://example.invalid/compare/v1...HEAD\n',
-      'docs/adr/INDICE-TEMATICO.md': '| Tema | ADR |\n|---|---|\n',
-      'changelog.d/9.fixed.md': '- nuevo\n',
-      'changelog.d/9.adr-index.md': '| Tema C | MEF-ADR-0042 |',
-    },
-    'nombre invalido': {
-      'CHANGELOG.md': CHANGELOG,
-      'docs/adr/INDICE-TEMATICO.md': ADR_INDEX,
-      'changelog.d/1.added.md': '- valido\n',
-      'changelog.d/x.added.md': '- invalido\n',
-    },
-    'sin [Unreleased] ni tabla': {
-      'CHANGELOG.md': '# Changelog\n\n## [0.1.0]\n',
-      'docs/adr/INDICE-TEMATICO.md': '# Indice\n',
-      'changelog.d/1.added.md': '- x\n',
-      'changelog.d/1.adr-index.md': '| Tema | MEF-ADR-0001 |\n',
-    },
-  }
+## [Unreleased]
 
-  for (const [name, files] of Object.entries(trees)) {
-    test(`consolidacion: ${name}`, () => {
-      const ours = tree(files)
-      const theirs = `${ours}-bash`
-      cpSync(ours, theirs, { recursive: true })
+### Added
 
-      const changelog = bashTwin('consolidate_changelog_fragments "$1"', theirs)
-      assert.equal(consolidateChangelogFragments(ours) === null, changelog.status === 0)
-      const adrIndex = bashTwin('consolidate_adr_index_fragments "$1"', theirs)
-      assert.equal(consolidateAdrIndexFragments(ours) === null, adrIndex.status === 0)
-      assert.deepEqual(snapshot(ours), snapshot(theirs))
-    })
-  }
+- **Titulo**: detalle
+  - sublinea
 
-  test('remedio del gate de neutralidad', () => {
-    const outputs = [
-      '',
-      'a.md:1: R1',
-      'a.md:1: R3\nb.md:2: R1\nc.sh:1: R4\nd.md: distinta: adapters-check\ne.md: falta: published-adapters-check\nf.md:9: R2',
-      'a.md:1: R99\nb.md:2: R1\nc.md:3: R99\nsin separador\n\nd.md:4: otra regla',
-    ]
-    for (const output of outputs) {
-      const twin = bashTwin('printf "%s\\n" "$1" | mefisto_neutrality_remedy', output)
-      assert.equal(neutralityRemedy(output), twin.stdout.replace(/\n+$/, ''), output)
-    }
+  \`\`\`bash
+- no es entrada
+  \`\`\`
+- con blancos alrededor
+
+### Fixed
+
+- arreglo
+
+### Removed
+
+- se quita
+
+## [0.1.0] - 2026-01-01
+
+### Added
+
+- inicial
+`,
+    'docs/adr/INDICE-TEMATICO.md': ADR_INDEX.replace(
+      '| MEF-ADR-0002 |\n',
+      '| MEF-ADR-0002 |\n| Tema A | MEF-ADR-0040 |\n| Tema B | MEF-ADR-0041 |\n',
+    ),
+    'changelog.d/README.md': '# doc\n',
   })
 })

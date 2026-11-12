@@ -18,7 +18,6 @@ const REPO_ROOT = join(HERE, '..', '..', '..')
 const INTERNAL = join(REPO_ROOT, 'src', 'internal', 'scripts')
 const SCRIPT = join(INTERNAL, 'mefisto-next-order.mts')
 const SHIM = join(INTERNAL, 'mefisto-next-order.sh')
-const DEPS_SH = join(INTERNAL, 'lib', 'mefisto-deps.sh')
 const USAGE = 'Uso: src/internal/scripts/mefisto-next-order.sh [--refinement] [--json]'
 const NO_BLOCKS = 'Sin ciclos ni bloqueos externos.'
 const NONE = '## Dependencias\n\nNinguna.'
@@ -371,30 +370,20 @@ describe('lectura de dependencias', () => {
     'Esta prosa Depende de #22 a mitad de linea',
   ].join('\n')
 
-  function fromBash(fn: string, input: string): { status: number | null; stdout: string } {
-    const result = spawnSync('bash', ['-c', 'source "$1"; "$2"', 'bash', DEPS_SH, fn], {
-      input: `${input}\n`,
-      encoding: 'utf8',
-    })
-    return { status: result.status, stdout: result.stdout }
-  }
-
   test('S: el marcador solo cuenta al inicio del item', () => {
     assert.deepEqual(forwardDependencies(body), ['10', '12', '13'])
   })
 
-  test('S: mefisto-deps.sh, la gemela en bash, lee lo mismo', { skip: process.platform === 'win32' }, () => {
-    const bodies = [
-      body,
-      '## Dependencias\n- Depende de #99\n- Depende de #100\n- Depende de #99\n## Otra\n- Depende de #5',
-      '## Dependencias\r\n\t -  DEPENDE DE   #7\r\n### Sub\r\n* bloqueado por #8\r\n',
-      '## Idea\n\n- Depende de #1',
-      '',
+  test('S: corta en el siguiente encabezado de segundo nivel, no repite y acepta CRLF', () => {
+    const cases: [string, string[], boolean][] = [
+      ['## Dependencias\n- Depende de #99\n- Depende de #100\n- Depende de #99\n## Otra\n- Depende de #5', ['100', '99'], true],
+      ['## Dependencias\r\n\t -  DEPENDE DE   #7\r\n### Sub\r\n* bloqueado por #8\r\n', ['7', '8'], true],
+      ['## Idea\n\n- Depende de #1', [], false],
+      ['', [], false],
     ]
-    for (const candidate of bodies) {
-      const dependencies = fromBash('mefisto_forward_dependencies', candidate)
-      assert.deepEqual(dependencies.stdout.split('\n').filter((line) => line.length > 0), forwardDependencies(candidate))
-      assert.equal(fromBash('mefisto_has_dependencies_section', candidate).status === 0, hasDependenciesSection(candidate))
+    for (const [candidate, dependencies, section] of cases) {
+      assert.deepEqual(forwardDependencies(candidate), dependencies, candidate)
+      assert.equal(hasDependenciesSection(candidate), section, candidate)
     }
   })
 })

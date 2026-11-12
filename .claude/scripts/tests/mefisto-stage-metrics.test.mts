@@ -8,30 +8,24 @@ import { computeStageMetrics, deriveStageLogFromStream } from '../../../src/inte
 import { translateStream } from '../../../src/runtime/lib/runtime-claude.mts'
 import {
   ERROR_AS_TEXT,
-  FIXTURE_FILES,
   INTERNAL_EVENTS,
-  NEUTRAL_EVENTS,
-  NO_BASH_JQ,
   REPO_ROOT,
   completed,
   failed,
-  mefistoBash,
   message,
   toolCompleted,
   toolStarted,
   writeFixtures,
-} from './mefisto-agents-parity.mts'
+} from './mefisto-agents-fixtures.mts'
 
 let work = ''
 let events: Record<string, string> = {}
-let published: Record<string, string> = {}
 let translated = ''
 let counter = 0
 
 before(() => {
   work = mkdtempSync(join(tmpdir(), 'mefisto stage metrics '))
   events = writeFixtures(work, INTERNAL_EVENTS, '.jsonl')
-  published = writeFixtures(work, NEUTRAL_EVENTS, '.publicado.jsonl')
   const raw = readFileSync(join(REPO_ROOT, '.claude', 'scripts', 'tests', 'fixtures', 'runtime-claude', 'success.jsonl'), 'utf8')
   translated = fileWith(translateStream(raw, 'claude', 'claude-sonnet-5', 0, '').map((event) => `${JSON.stringify(event)}\n`).join(''))
 })
@@ -282,47 +276,23 @@ describe('computeStageMetrics', () => {
   })
 })
 
-// Fuera de la paridad queda lo que hace fallar una operacion con un `//` a la vista: cada version
-// de jq decide distinto si ese error se propaga. Lo cubren los tests de arriba.
-const UNSTABLE_LOG = ['tool-con-nombre-numerico', 'error-con-kind-numerico', 'kind-objeto', 'tools-de-tipos-mezclados']
-const UNSTABLE_METRICS = ['duraciones-de-texto-en-par', 'duraciones-que-no-suman']
+describe('salida esperada sobre todos los fixtures', () => {
+  const expected = JSON.parse(readFileSync(join(import.meta.dirname, 'fixtures', 'stage-metrics', 'esperado.json'), 'utf8')) as Record<
+    'metrics' | 'log',
+    Record<string, string>
+  >
+  const contract = (name: string): string => join(REPO_ROOT, 'src', 'runtime', 'contract', 'fixtures', 'run-events', `${name}.jsonl`)
+  const pathOf = (name: string): string => (name.startsWith('contrato/') ? contract(name.slice('contrato/'.length)) : file(name))
 
-describe('paridad con la gemela bash', { skip: NO_BASH_JQ }, () => {
-  const allFiles = (unstable: readonly string[]): string[] => [
-    ...Object.entries(events).flatMap(([name, path]) => (unstable.includes(name) ? [] : [path])),
-    ...Object.values(published),
-    ...FIXTURE_FILES,
-    translated,
-    join(work, 'no-existe.jsonl'),
-    work,
-    '',
-  ]
-
-  test('compute_stage_metrics sobre todos los fixtures', () => {
-    const files = allFiles(UNSTABLE_METRICS)
-    const fromBash = mefistoBash('for f in "$@"; do compute_stage_metrics "$f"; done', files).stdout.split('\n')
-    const own = files.map(computeStageMetrics)
-    assert.deepEqual([...own, ''], fromBash)
-    assert.ok(own.filter((text) => text !== 'null').length > 40)
+  test('cada fixture tiene su salida esperada', () => {
+    for (const name of Object.keys(INTERNAL_EVENTS)) assert.ok(name in expected.metrics && name in expected.log, name)
   })
 
-  test('derive_stage_log_from_stream sobre todos los fixtures', () => {
-    const stderr = fileWith('API Error: 500 desde stderr\nsegunda linea')
-    const dir = join(work, 'paridad')
-    mkdirSync(dir)
-    const cases: [events: string, stderr: string][] = [
-      ...allFiles(UNSTABLE_LOG).map((eventsFile): [string, string] => [eventsFile, stderr]),
-      ...['mensajes-y-tools', 'sin-terminal', 'vacio', 'error-del-proveedor-con-texto'].flatMap((name) =>
-        [fileWith(''), join(work, 'no-existe.log'), '', fileWith('con salto final\n')].map((other): [string, string] => [file(name), other]),
-      ),
-    ]
-    const args = cases.flatMap(([eventsFile, stderrFile], index) => [eventsFile, stderrFile, join(dir, `bash-${index}.log`)])
-    const script = 'while [ "$#" -gt 0 ]; do derive_stage_log_from_stream "$1" "$2" "$3"; echo "rc=$?"; shift 3; done'
-    assert.equal(mefistoBash(script, args).stdout, 'rc=0\n'.repeat(cases.length))
-    cases.forEach(([eventsFile, stderrFile], index) => {
-      const own = join(dir, `ts-${index}.log`)
-      deriveStageLogFromStream(eventsFile, stderrFile, own)
-      assert.deepEqual(readFileSync(own), readFileSync(join(dir, `bash-${index}.log`)), `${eventsFile} + ${stderrFile}`)
-    })
+  test('computeStageMetrics', () => {
+    for (const [name, metricsText] of Object.entries(expected.metrics)) assert.equal(computeStageMetrics(pathOf(name)), metricsText, name)
+  })
+
+  test('deriveStageLogFromStream sin stderr', () => {
+    for (const [name, log] of Object.entries(expected.log)) assert.equal(derive(pathOf(name), ''), log, name)
   })
 })
