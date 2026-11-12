@@ -1,8 +1,8 @@
 // onboard-diagnose.mts -- diagnostico de onboarding del consumidor (issue #443).
 //
 // Reporta, sin tocar nada, el checklist de /onboard: config (con la version minima de Claude
-// Code, MEF-ADR-0055, la de Node, MEF-ADR-0057, y la activacion de Mefisto por repositorio,
-// MEF-ADR-0053), directivas canonicas en AGENTS.md y su puente CLAUDE.md, estructura de
+// Code, MEF-ADR-0055, la de Node y, en Windows, Git Bash, MEF-ADR-0057, y la activacion de
+// Mefisto por repositorio, MEF-ADR-0053), directivas canonicas en AGENTS.md y su puente CLAUDE.md, estructura de
 // carpetas, labels de GitHub, CI hacia Azure, secretos que alimentan la siembra en Key Vault,
 // el registro secrets[], la bifurcacion de dos caminos de auth (tenancy.strategy) y el worker de
 // proyecciones. Las provisiones opt-in viven en commands/onboard.md e invocan otros scripts bajo
@@ -26,6 +26,7 @@ import {
 } from './lib/consumer-directives.mts'
 import { CliError, capture, commandExists, gitOutput, isEntryPoint, repoRoot } from './lib/cli.mts'
 export { contractSectionHasToken, hasContractHeading } from './lib/consumer-directives.mts'
+import { declaredGitBash, findGitBash } from './lib/git-bash.mts'
 import { loadHarnessConfig, resolveHarnessConfigPath } from './lib/harness-config.mts'
 import {
   committedActivation,
@@ -47,6 +48,10 @@ export interface OnboardDeps extends ClaudeConfig {
   /** Corre `gh`, `az`, `claude` y `node`. */
   run: Run
   out: (line: string) => void
+  /** Por defecto, `process.platform`. */
+  platform?: NodeJS.Platform
+  /** Por defecto, el sistema de archivos real. */
+  isFile?: (path: string) => boolean
 }
 
 export const CLAUDE_MIN_VERSION = '2.1.287'
@@ -199,6 +204,22 @@ export function checkNodeVersion(versionOutput: string): Check {
         state: 'FALTA',
         detail: 'node no esta en el PATH o su salida no trae version: los hooks de Mefisto no corren',
       }
+  }
+}
+
+export const GIT_BASH_ACTION =
+  '  - Instala Git for Windows (https://git-scm.com/downloads/win): Claude Code usa Git Bash para ejecutar los comandos de Mefisto.\n'
+
+/** Git Bash en Windows: sin el, Claude Code corre los bloques de bash con PowerShell (MEF-ADR-0057 decision 9). */
+export function checkGitBash(env: NodeJS.ProcessEnv, fileExists: (path: string) => boolean): Check {
+  const found = findGitBash({ env, isFile: fileExists })
+  if (found !== null) return { state: 'OK', detail: `Git Bash disponible en ${found}` }
+  const declared = declaredGitBash(env)
+  return {
+    state: 'FALTA',
+    detail: declared !== null
+      ? `CLAUDE_CODE_GIT_BASH_PATH apunta a ${declared}, que no existe`
+      : 'Git for Windows (Git Bash) no esta instalado: Claude Code ejecutaria los comandos de Mefisto con PowerShell',
   }
 }
 
@@ -582,6 +603,14 @@ export function onboardDiagnose(deps: OnboardDeps): number {
   list.row(nodeVersion.state, nodeVersion.detail)
   if (nodeVersion.state === 'FALTA') {
     actions += `  - Instala Node ${NODE_MIN_VERSION} o superior (https://nodejs.org/en/download): los hooks de Mefisto lo requieren.\n`
+  }
+
+  if ((deps.platform ?? process.platform) === 'win32') {
+    out('')
+    out('Git Bash (Windows):')
+    const gitBash = checkGitBash(deps.env, deps.isFile ?? isFile)
+    list.row(gitBash.state, gitBash.detail)
+    if (gitBash.state === 'FALTA') actions += GIT_BASH_ACTION
   }
 
   out('')

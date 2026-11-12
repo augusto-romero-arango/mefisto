@@ -157,6 +157,7 @@ export const TOOLING_CLOSURE_ASSETS: readonly string[] = [
   'scripts/purge-store.mts|0644',
   'scripts/onboard-diagnose.sh|0755',
   'scripts/onboard-diagnose.mts|0644',
+  'scripts/lib/git-bash.mts|0644',
   'scripts/onboard-migrate-directives.sh|0755',
   'scripts/onboard-migrate-directives.mts|0644',
   'scripts/lib/consumer-directives.mts|0644',

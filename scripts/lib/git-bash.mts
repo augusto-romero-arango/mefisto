@@ -30,9 +30,14 @@ function candidates(env: NodeJS.ProcessEnv, isFile: (path: string) => boolean): 
   return found
 }
 
+/** El valor de `CLAUDE_CODE_GIT_BASH_PATH`, o `null` si no tiene. */
+export function declaredGitBash(env: NodeJS.ProcessEnv): string | null {
+  return envValue(env, 'CLAUDE_CODE_GIT_BASH_PATH') || null
+}
+
 /** Ruta de Git Bash, o `null`; si `CLAUDE_CODE_GIT_BASH_PATH` tiene valor, solo vale ese archivo. */
 export function findGitBash({ env, isFile }: GitBashProbe): string | null {
-  const declared = envValue(env, 'CLAUDE_CODE_GIT_BASH_PATH')
+  const declared = declaredGitBash(env)
   if (declared) return isFile(declared) ? declared : null
   return candidates(env, isFile).find(isFile) ?? null
 }

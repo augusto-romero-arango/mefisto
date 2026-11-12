@@ -19,7 +19,9 @@ import type { CommandResult } from '../lib/cli.mts'
 import type { Json, Run } from '../lib/plugin-scopes.mts'
 import {
   Checklist,
+  GIT_BASH_ACTION,
   checkAppinsightsEnv,
+  checkGitBash,
   checkClaudeVersion,
   checkConsumerDirectives,
   checkNodeVersion,
@@ -33,6 +35,7 @@ import {
   secretPresent,
   versionMeets,
 } from '../onboard-diagnose.mts'
+import { GIT_BASH_DEFAULT } from '../lib/git-bash.mts'
 import { isolateGitConfig } from './field-note-sandbox.mts'
 import { commitSettings, failed, git, newRepo, ok, writeJson } from './plugin-sandbox.mts'
 
@@ -296,6 +299,22 @@ describe('versiones minimas', () => {
       detail: 'node no esta en el PATH o su salida no trae version: los hooks de Mefisto no corren',
     })
   })
+
+  test('checkGitBash', () => {
+    const only = (...files: string[]) => (path: string) => files.includes(path)
+    assert.deepEqual(checkGitBash({}, only(GIT_BASH_DEFAULT)), {
+      state: 'OK',
+      detail: `Git Bash disponible en ${GIT_BASH_DEFAULT}`,
+    })
+    assert.deepEqual(checkGitBash({}, only()), {
+      state: 'FALTA',
+      detail: 'Git for Windows (Git Bash) no esta instalado: Claude Code ejecutaria los comandos de Mefisto con PowerShell',
+    })
+    assert.deepEqual(checkGitBash({ CLAUDE_CODE_GIT_BASH_PATH: 'D:\\Git\\bin\\bash.exe' }, only(GIT_BASH_DEFAULT)), {
+      state: 'FALTA',
+      detail: 'CLAUDE_CODE_GIT_BASH_PATH apunta a D:\\Git\\bin\\bash.exe, que no existe',
+    })
+  })
 })
 
 describe('resolveOnboardRuntime', () => {
@@ -434,6 +453,10 @@ interface Tools {
   available?: string[]
   claudeVersion?: string
   env?: NodeJS.ProcessEnv
+  /** Por defecto, `darwin`: el reporte no depende del sistema que corre el test. */
+  platform?: NodeJS.Platform
+  /** Archivos que existen para la deteccion de Git Bash. */
+  gitBashFiles?: string[]
 }
 
 interface Diagnosis {
@@ -541,6 +564,8 @@ describe('diagnostico integrado', () => {
       hasCommand: (command) => tools.available?.includes(command) ?? true,
       run: fakeTools(tools, apiCalls),
       out: (line) => out.push(line),
+      platform: tools.platform ?? 'darwin',
+      isFile: (path) => tools.gitBashFiles?.includes(path) ?? false,
     })
     const text = out.join('\n')
     const summary = /Resumen: (\d+) OK \| (\d+) FALTA \| (\d+) NO VERIFICADO/.exec(text)
@@ -651,6 +676,31 @@ describe('diagnostico integrado', () => {
       '  https://github.com/augusto-romero-arango/mefisto/blob/main/docs/greenfield-quickstart.md',
       '====================================================================',
     ])
+  })
+
+  test('Git Bash: la fila solo aparece en Windows', () => {
+    const base = diagnose()
+    assert.doesNotMatch(base.text, /Git Bash/)
+
+    const present = diagnose({ platform: 'win32', gitBashFiles: [GIT_BASH_DEFAULT] })
+    const at = present.lines.indexOf('Git Bash (Windows):')
+    assert.ok(at > present.lines.indexOf('Version de Node (minima 22.18.0):'), 'la seccion va tras la de Node')
+    assert.equal(present.lines[at + 1], `  [OK           ] Git Bash disponible en ${GIT_BASH_DEFAULT}`)
+    assert.deepEqual(present.counts, { ...base.counts, ok: base.counts.ok + 1 })
+    assert.ok(!present.text.includes(GIT_BASH_ACTION.trimEnd()))
+
+    const missing = diagnose({ platform: 'win32' })
+    assert.ok(
+      missing.lines.includes(
+        '  [FALTA        ] Git for Windows (Git Bash) no esta instalado: Claude Code ejecutaria los comandos de Mefisto con PowerShell',
+      ),
+    )
+    assert.deepEqual(missing.counts, { ...base.counts, falta: base.counts.falta + 1 })
+    assert.ok(
+      missing.lines.includes(
+        '  - Instala Git for Windows (https://git-scm.com/downloads/win): Claude Code usa Git Bash para ejecutar los comandos de Mefisto.',
+      ),
+    )
   })
 
   test('el config canonico prevalece y no mezcla datos del legacy', () => {
