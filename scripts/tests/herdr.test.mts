@@ -389,7 +389,12 @@ const PUBLISHED: PaneRunnerFlavor = {
   allowDelay: true,
   reportPrefix: 'herdr-run',
   followReport: false,
-  viewer: () => ['-e', "console.log('visor-arrancado'); setTimeout(() => {}, 30000)"],
+  // El visor anuncia que arranco y deja un archivo: el pipeline del test lo espera antes de
+  // terminar, asi la marca del visor nunca compite con el fin de la corrida.
+  viewer: () => [
+    '-e',
+    `const fs = require('fs'); fs.writeSync(1, 'visor-arrancado\\n'); fs.writeFileSync(${JSON.stringify(viewerReady())}, ''); setTimeout(() => {}, 30000)`,
+  ],
 }
 
 const INTERNAL: PaneRunnerFlavor = { ...PUBLISHED, allowDelay: false, reportPrefix: 'mefisto-herdr-run', followReport: true }
@@ -439,12 +444,16 @@ function startRunner(argv: string[], flavor: PaneRunnerFlavor, overrides: Partia
   return { out: () => out, err: () => err, renames, exits, signals, children, run: runPaneRunner(deps, flavor) }
 }
 
-async function until(condition: () => boolean, what: string): Promise<void> {
-  for (let i = 0; i < 1000; i++) {
-    if (condition()) return
-    await new Promise((done) => setTimeout(done, 10))
-  }
-  assert.fail(`no ocurrio: ${what}`)
+/** Espera a que `condition` se cumpla, sin plazo propio: lo acota el timeout del runner de tests. */
+async function until(condition: () => boolean): Promise<void> {
+  while (!condition()) await new Promise((done) => setTimeout(done, 10))
+}
+
+const viewerReady = (): string => join(work, 'visor-listo')
+
+/** Codigo que espera al visor y luego corre `body`. */
+function afterViewer(body: string): string {
+  return `const fs = require('fs'); const ready = setInterval(() => { if (fs.existsSync(${JSON.stringify(viewerReady())})) { clearInterval(ready); ${body} } }, 10)`
 }
 
 function childScript(body: string): string[] {
@@ -459,6 +468,7 @@ describe('runner del pane', () => {
     const occupancy = occupancyPath(state, 'w1:p7')
     const spec = dispatchSpecPath(state, token)
     const probe = join(work, 'sonda.json')
+    rmSync(viewerReady(), { force: true })
     writeDispatchSpec(spec, {
       title: 'tooling #42',
       issues: '42',
@@ -469,7 +479,9 @@ describe('runner del pane', () => {
       cwd: work,
       env: { MEFISTO_RUNTIME: 'fake' },
       command: childScript(
-        `const fs = require('fs'); fs.writeFileSync(${JSON.stringify(probe)}, JSON.stringify({ ocupacion: JSON.parse(fs.readFileSync(${JSON.stringify(occupancy)}, 'utf8')), runtime: process.env.MEFISTO_RUNTIME, herdr: Object.keys(process.env).filter((k) => k.startsWith('HERDR_')) })); console.log('reporte-del-pipeline'); process.exit(3)`,
+        afterViewer(
+          `fs.writeFileSync(${JSON.stringify(probe)}, JSON.stringify({ ocupacion: JSON.parse(fs.readFileSync(${JSON.stringify(occupancy)}, 'utf8')), runtime: process.env.MEFISTO_RUNTIME, herdr: Object.keys(process.env).filter((k) => k.startsWith('HERDR_')) })); console.log('reporte-del-pipeline'); process.exit(3)`,
+        ),
       ),
     })
     const runner = startRunner(['--dispatch', spec], PUBLISHED)
@@ -485,8 +497,8 @@ describe('runner del pane', () => {
     assert.deepEqual(runner.renames, ['tooling #42', '[fallo] tooling #42'])
     assert.ok(runner.out().includes('=== tooling #42: pipeline FALLO (exit 3) ==='))
     assert.ok(runner.out().includes('reporte-del-pipeline'))
-    assert.ok(runner.out().includes('visor-arrancado'))
-    await until(() => runner.children.every((child) => child.exitCode !== null || child.signalCode !== null), 'la muerte de los hijos')
+    await until(() => runner.out().includes('visor-arrancado'))
+    await until(() => runner.children.every((child) => child.exitCode !== null || child.signalCode !== null))
   })
 
   test('libera el pane aunque el lanzamiento lance una excepcion', async () => {
@@ -520,6 +532,7 @@ describe('runner del pane', () => {
   test('interno: sigue el reporte en vivo y al final solo nombra su ruta', async () => {
     const go = join(work, 'sigue')
     rmSync(go, { force: true })
+    rmSync(viewerReady(), { force: true })
     const runner = startRunner(
       [
         '--title',
@@ -528,12 +541,14 @@ describe('runner del pane', () => {
         '999999',
         '--',
         ...childScript(
-          `const fs = require('fs'); console.log('linea-' + 'uno'); const wait = setInterval(() => { if (fs.existsSync(${JSON.stringify(go)})) { clearInterval(wait); console.log('linea-' + 'dos'); process.exit(7) } }, 20)`,
+          afterViewer(
+            `console.log('linea-' + 'uno'); const wait = setInterval(() => { if (fs.existsSync(${JSON.stringify(go)})) { clearInterval(wait); console.log('linea-' + 'dos'); process.exit(7) } }, 20)`,
+          ),
         ),
       ],
       INTERNAL,
     )
-    await until(() => runner.out().includes('linea-uno'), 'la primera linea en vivo')
+    await until(() => runner.out().includes('linea-uno'))
     assert.ok(!runner.out().includes('linea-dos'))
     writeFileSync(go, '')
     assert.equal(await runner.run, 7)
@@ -542,7 +557,7 @@ describe('runner del pane', () => {
     assert.equal(out.split('linea-dos').length - 1, 1)
     assert.ok(out.includes('pipeline FALLO (exit 7)'))
     assert.ok(out.includes('Reporte completo: '))
-    assert.ok(out.includes('visor-arrancado'))
+    await until(() => runner.out().includes('visor-arrancado'))
   })
 
   test('interno: --delay no es un argumento valido', async () => {
@@ -555,14 +570,14 @@ describe('runner del pane', () => {
     const state = join(work, '.mefisto', 'pipeline')
     const occupancy = occupancyPath(state, 'w1:p5')
     const runner = startRunner(['--title', 'larga', '--', ...childScript('setTimeout(() => {}, 30000)')], PUBLISHED)
-    await until(() => readOccupancy(occupancy)?.pid === process.pid && runner.children.length === 2, 'el arranque del pipeline')
+    await until(() => readOccupancy(occupancy)?.pid === process.pid && runner.children.length === 2)
     runner.signals.emit('SIGINT', 'SIGINT')
     assert.equal(await runner.run, 130)
     assert.deepEqual(runner.exits, [130])
     assert.ok(runner.renames.includes('[cortado] larga'))
     assert.ok(runner.out().includes('Corrida interrumpida. Reporte parcial: '))
     assert.equal(readOccupancy(occupancy)?.pid, null)
-    await until(() => runner.children.every((child) => child.exitCode !== null || child.signalCode !== null), 'la muerte de los hijos')
+    await until(() => runner.children.every((child) => child.exitCode !== null || child.signalCode !== null))
   })
 
   test('antepone el prefijo de caffeinate al pipeline, no al visor', async () => {
