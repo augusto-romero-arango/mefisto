@@ -176,6 +176,29 @@ describe('createWorktree', () => {
     createWorktree({ repoRoot: f.root, branch: 'rama', currentBranch: 'main', texts: { created: (path) => `Listo en ${path}` } }, f.tools)
     assert.match(f.screen(), /^v Listo en /m)
   })
+
+  test('beforeCreate corre tras limpiar la corrida anterior y antes de anunciar la creacion', () => {
+    const f = fixture()
+    git(f.root, 'branch', 'rama')
+    const seen: string[] = []
+    createWorktree({ repoRoot: f.root, branch: 'rama', currentBranch: 'main', beforeCreate: () => void seen.push(f.screen()) }, f.tools)
+    assert.equal(seen.length, 1)
+    assert.match(seen[0] ?? '', /La rama rama ya existe sin worktree/)
+    assert.equal((seen[0] ?? '').includes('Creando worktree'), false)
+  })
+
+  test('si beforeCreate aborta no se crea el worktree', () => {
+    const f = fixture()
+    const request = {
+      repoRoot: f.root,
+      branch: 'rama',
+      currentBranch: 'main',
+      beforeCreate: () => f.tools.abort('effort invalido'),
+    }
+    assert.throws(() => createWorktree(request, f.tools), PipelineAbort)
+    assert.equal(existsSync(pipelineWorktreePath(f.root, 'rama')), false)
+    assert.equal(f.screen().includes('Creando worktree'), false)
+  })
 })
 
 describe('resumeWorktree y removeWorktree', () => {
@@ -272,5 +295,21 @@ describe('deteccion de trabajo y commit de seguridad', () => {
     writeFiles(f.root, { 'tests/A.cs': 'a\n' })
     const tools = { ...f.tools, runLogged: loggedThrough(() => ({ status: 1, stdout: '', stderr: 'fallo\n' })) }
     assert.deepEqual(autoCommitIfNeeded({ worktree: f.root, message: 'm', pathspec: ['tests/', 'src/'] }, tools), { addStatus: 1, commitStatus: 1 })
+  })
+
+  test('con stopOnAddFailure un git add fallido no intenta el commit', () => {
+    const f = fixture()
+    writeFiles(f.root, { 'tests/A.cs': 'a\n' })
+    const calls: string[][] = []
+    const tools = {
+      ...f.tools,
+      runLogged: loggedThrough((_command, args) => {
+        calls.push(args)
+        return { status: 1, stdout: '', stderr: 'fallo\n' }
+      }),
+    }
+    const result = autoCommitIfNeeded({ worktree: f.root, message: 'm', pathspec: ['tests/'], stopOnAddFailure: true }, tools)
+    assert.deepEqual(result, { addStatus: 1, commitStatus: null })
+    assert.deepEqual(calls.map((args) => args[2]), ['add'])
   })
 })

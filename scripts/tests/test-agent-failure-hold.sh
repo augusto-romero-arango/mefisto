@@ -33,8 +33,8 @@
 #   [9] agent_hold_wait: techo agotado -> retorna 1 SIN dormir de nuevo.
 #   [9b] agent_hold_wait: la sonda se recorta al remanente del techo -- nunca
 #        duerme mas alla de MEFISTO_HOLD_MAX_SECONDS.
-#   [10] CA-6: tdd-pipeline.sh, iac-pipeline.sh y scaffold-pipeline.sh
-#        consumen classify_agent_failure/
+#   [10] CA-6: tdd-pipeline.sh e iac-pipeline.sh (scaffold-pipeline.mts lo
+#        cubre en scaffold-pipeline-prompts.test.mts) consumen classify_agent_failure/
 #        agent_failure_is_holdable -- no queda ninguna cadena de grep "API
 #        Error: 5"/"API Error: 4" inline duplicada en esos archivos (la unica
 #        que debe quedar es la de _pipeline-common.sh).
@@ -210,13 +210,12 @@ unset MEFISTO_HOLD_PROBE_SECONDS MEFISTO_HOLD_MAX_SECONDS
 
 echo ""
 echo "[10] CA-6: los pipelines bash consumen la funcion compartida, no una copia"
-for f in tdd-pipeline.sh iac-pipeline.sh scaffold-pipeline.sh; do
+for f in tdd-pipeline.sh iac-pipeline.sh; do
     path="$REPO_ROOT/scripts/$f"
     classifier="classify_agent_failure"
-    # iac-pipeline.sh (issue #1624) y scaffold-pipeline.sh (issue #1644) se
-    # sumaron al runner neutral: desde ahi clasifican igual que tdd/tooling,
-    # sobre el JSONL neutral.
-    case "$f" in tdd-pipeline.sh|iac-pipeline.sh|scaffold-pipeline.sh) classifier="classify_neutral_agent_failure" ;; esac
+    # iac-pipeline.sh (issue #1624) se sumo al runner neutral: desde ahi
+    # clasifica igual que tdd, sobre el JSONL neutral.
+    case "$f" in tdd-pipeline.sh|iac-pipeline.sh) classifier="classify_neutral_agent_failure" ;; esac
     if grep -q "$classifier" "$path"; then
         pass "$f invoca $classifier"
     else
@@ -251,10 +250,10 @@ done
 echo ""
 echo "[11] CA-5: la sonda del bucle de espera corre bajo el watchdog de stage"
 # El watchdog de la sonda es el mismo --timeout del runner neutral (issue
-# #1644, scaffold-pipeline.sh se sumo al mismo molde): si la sonda volviera a
-# invocar el CLI de forma sincrona (sin delegar el watchdog), una invocacion
-# colgada dejaria el pipeline esperando indefinidamente.
-for f in tdd-pipeline.sh iac-pipeline.sh scaffold-pipeline.sh; do
+# #1644): si la sonda volviera a invocar el CLI de forma sincrona (sin delegar
+# el watchdog), una invocacion colgada dejaria el pipeline esperando
+# indefinidamente.
+for f in tdd-pipeline.sh iac-pipeline.sh; do
     path="$REPO_ROOT/scripts/$f"
     if grep -q 'mefisto-run-agent.sh' "$path" && ! grep -q 'PROBE_WATCHDOG_PID' "$path"; then
         pass "$f: la sonda delega el watchdog al runner neutral"

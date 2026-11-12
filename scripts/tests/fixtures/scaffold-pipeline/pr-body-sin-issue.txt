@@ -1,0 +1,15 @@
+## Resumen
+
+Scaffold del dominio **CalculoHoras** (`calculo-horas`) creado con domain-scaffolder.
+
+### Incluye
+- Function App: `src/Empresa.Proyecto.CalculoHoras/`
+- Tests: `tests/Empresa.Proyecto.CalculoHoras.Tests/`
+- Smoke Tests: `tests/Empresa.Proyecto.CalculoHoras.SmokeTests/`
+- Terraform: storage account + function app en `infra/environments/dev/dominio-calculo-horas.tf`
+- GitHub Actions: `.github/workflows/deploy-calculo-horas.yml` (+ workflows `smoke-tests-dominio.yml` y `smoke-tests.yml` la primera vez en el repo)
+- Smoke tests: registro del dominio en `.github/smoke-tests/calculo-horas.json`
+
+## Commits
+
+(sin commits)

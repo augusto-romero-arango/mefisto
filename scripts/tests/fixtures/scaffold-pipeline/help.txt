@@ -1,0 +1,18 @@
+
+\033[0;36m\033[1mscaffold-pipeline.sh\033[0m - Pipeline para crear un nuevo dominio
+
+\033[1mUso:\033[0m
+  ./scripts/scaffold-pipeline.sh 42                          Issue (extrae dominio del body)
+  ./scripts/scaffold-pipeline.sh 42 --domain calculo-horas   Issue + dominio explicito
+  ./scripts/scaffold-pipeline.sh --domain calculo-horas       Sin issue (solo scaffold + PR)
+
+\033[1mEl issue debe contener en el body:\033[0m
+  Dominio: nombre-en-kebab
+
+\033[1mEl script:\033[0m
+  1. Crea el label dom:X y lo asigna al issue
+  2. Crea un worktree aislado
+  3. Invoca el agente domain-scaffolder
+  4. Crea un PR con "Closes #N"
+  5. Limpia el worktree
+

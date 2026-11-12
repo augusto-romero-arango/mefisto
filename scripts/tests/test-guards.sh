@@ -10,7 +10,7 @@
 #   B) Los skills internos (.claude/commands/mefisto-*.md) llevan el guard inverso.
 #   C) Los pipelines publicados que siguen en bash (scripts/parallel-pipeline.sh,
 #      scripts/batch-pipeline.sh, scripts/pr-sync.sh, scripts/tdd-pipeline.sh,
-#      scripts/iac-pipeline.sh, scripts/scaffold-pipeline.sh, scripts/launch-pipeline.sh)
+#      scripts/iac-pipeline.sh, scripts/launch-pipeline.sh)
 #      y los scripts auxiliares publicados que siguen en bash (setup-github-labels.sh,
 #      seed-secret.sh, onboard-diagnose.sh, update-plugin.sh) abortan si se
 #      sourcean en un contexto donde .claude-plugin/plugin.json existe. Los portados a
@@ -165,7 +165,7 @@ echo "[C] Pipelines publicados: contienen guard contra repo de Mefisto"
 
 PUBLISHED_PIPELINES=(
     parallel-pipeline.sh batch-pipeline.sh pr-sync.sh
-    tdd-pipeline.sh iac-pipeline.sh scaffold-pipeline.sh launch-pipeline.sh
+    tdd-pipeline.sh iac-pipeline.sh launch-pipeline.sh
 )
 
 for pipe in "${PUBLISHED_PIPELINES[@]}"; do
@@ -196,7 +196,7 @@ echo "[C2] Scripts auxiliares publicados: el guard aborta cuando se ejecutan en 
 AUX_SCRIPTS=(
     appinsights-query.sh setup-github-ci.sh setup-github-labels.sh
     bootstrap-backend.sh seed-secret.sh onboard-diagnose.sh onboard-migrate-directives.sh onboard-activate-repo.sh update-plugin.sh upgrade.sh
-    purge-store.sh next-order.sh field-note.sh warnings-diff.sh tooling-pipeline.sh
+    purge-store.sh next-order.sh field-note.sh warnings-diff.sh tooling-pipeline.sh scaffold-pipeline.sh
 )
 
 for aux in "${AUX_SCRIPTS[@]}"; do
