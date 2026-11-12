@@ -130,11 +130,11 @@ for (const [name, text] of [
 
 test('los tokens se leen desde la ruta efectiva del config', () => {
   assert.ok(
-    COMMAND.includes(`jq -r '.namespacePrefix // ""' "\${MEFISTO_CONFIG_PATH}"`) &&
-      COMMAND.includes(`jq -r '.solutionFile // ""' "\${MEFISTO_CONFIG_PATH}"`) &&
-      AGENT.includes(`jq -r '.boundedContext.domains[0] // ""' "$CONFIG"`) &&
-      AGENT.includes(`jq -r '.tenancy.strategy // "mono-tenant-transitorio"' "$CONFIG"`) &&
-      AGENT.includes(`jq -r '.boundedContext.domains[]' "$CONFIG"`),
+    COMMAND.includes(`json-value.mts" get "\${MEFISTO_CONFIG_PATH}" namespacePrefix --default ''`) &&
+      COMMAND.includes(`json-value.mts" get "\${MEFISTO_CONFIG_PATH}" solutionFile --default ''`) &&
+      AGENT.includes(`json-value.mts" get "$CONFIG" 'boundedContext.domains[0]' --default ''`) &&
+      AGENT.includes(`json-value.mts" get "$CONFIG" tenancy.strategy --default mono-tenant-transitorio`) &&
+      AGENT.includes(`json-value.mts" each "$CONFIG" boundedContext.domains)`),
     'alguno de los tokens no usa la ruta efectiva',
   )
 })

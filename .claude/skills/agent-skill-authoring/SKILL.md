@@ -46,9 +46,10 @@ Code `allowed-tools` es legitimo, y del lado interno lo emite el generador desde
 
 - `name` = nombre del directorio, patron `^[a-z0-9]+(-[a-z0-9]+)*$` (la spec no admite `:`; F1 ya
   verifica esta igualdad).
-- Recursos de **Nivel 3** (scripts, plantillas que el body invoca bajo demanda): solo bash + jq +
-  gh -- el mismo toolchain que el resto del harness (MEF-ADR-0049 seccion 6), nunca Node, Python
-  ni un binario que no este ya disponible en cualquier maquina que corra los pipelines de Mefisto.
+- Recursos de **Nivel 3** (scripts, plantillas que el body invoca bajo demanda): scripts `.mts`
+  que Node ejecuta directo, sin dependencias npm, mas `gh` y lo que trae Git Bash -- el mismo
+  toolchain que el resto del harness (MEF-ADR-0057, decisiones 1 y 9), nunca `jq`, Python ni un
+  binario que no este ya disponible en cualquier maquina que corra los pipelines de Mefisto.
 - Ubicacion: la fuente canonica de los Skills internos es `src/internal/skills/<id>/SKILL.md`
   (issue #1685); `generate-internal-adapters.sh` la copia a `.claude/skills/<id>/` con el marcador
   de generado tras el frontmatter, y nunca se edita a mano. `.claude/skills/` es la ruta fisica

@@ -158,7 +158,7 @@ CURRENT=$(gh variable list --json name,value -q '.[] | select(.name=="CORS_ALLOW
 - Si no existe, registralo como JSON list de los origenes recibidos:
 
 ```bash
-CORS_JSON=$(printf '%s\n' "${CORS_ORIGINS[@]}" | jq -R . | jq -s -c .)
+CORS_JSON=$(printf '%s\n' "${CORS_ORIGINS[@]}" | node "{{mefisto:package-root}}/scripts/json-value.mts" from-lines)
 gh variable set CORS_ALLOWED_ORIGINS --body "$CORS_JSON"
 ```
 
@@ -220,7 +220,7 @@ if ! load_harness_config >/dev/null; then
   exit 1
 fi
 
-ESTRATEGIA=$(jq -r '.tenancy.strategy // "mono-tenant-transitorio"' "$HARNESS_CONFIG_PATH")
+ESTRATEGIA=$(node "{{mefisto:package-root}}/scripts/json-value.mts" get "$HARNESS_CONFIG_PATH" tenancy.strategy --default mono-tenant-transitorio)
 TENANCY_TOKEN_FLIPPED=false
 if [ "$HARNESS_CONFIG_PATH" != "$CONFIG" ]; then
   echo "ERROR: el config efectivo todavía es legacy ($HARNESS_CONFIG_PATH)."
@@ -228,20 +228,12 @@ if [ "$HARNESS_CONFIG_PATH" != "$CONFIG" ]; then
   exit 1
 elif [ "$ESTRATEGIA" = "multi-tenant-header" ]; then
   echo "OK: tenancy.strategy ya esta en etapa (b) en $HARNESS_CONFIG_PATH."
-elif ! command -v jq >/dev/null 2>&1; then
-  echo "ERROR: jq no esta instalado. Requerido para escribir $CONFIG."
-  exit 1
+elif node "{{mefisto:package-root}}/scripts/json-value.mts" set "$CONFIG" tenancy.strategy multi-tenant-header; then
+  TENANCY_TOKEN_FLIPPED=true
+  echo "OK: tenancy.strategy = \"multi-tenant-header\" escrito en $CONFIG."
 else
-  TMP=$(mktemp)
-  if jq --arg s "multi-tenant-header" '.tenancy = ((.tenancy // {}) + {strategy: $s})' "$CONFIG" > "$TMP" \
-      && jq empty "$TMP" && mv "$TMP" "$CONFIG"; then
-    TENANCY_TOKEN_FLIPPED=true
-    echo "OK: tenancy.strategy = \"multi-tenant-header\" escrito en $CONFIG."
-  else
-    rm -f "$TMP"
-    echo "ERROR: no se pudo escribir $CONFIG (revisa que sea JSON valido)."
-    exit 1
-  fi
+  echo "ERROR: no se pudo escribir $CONFIG (revisa que sea JSON valido)."
+  exit 1
 fi
 ```
 

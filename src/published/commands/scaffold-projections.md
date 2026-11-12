@@ -16,10 +16,10 @@ Genera el worker de proyecciones `<RootNamespace>.Projections` (daemon asincroni
 El worker solo se genera si el BC declaro explicitamente que adopta proyecciones. El token vive en el contrato canonico `.mefisto/harness.config.json` bajo `projections.enabled` y se lee desde `{{mefisto:config-path}}` (MEF-ADR-0053, decision 4). El mecanismo de deteccion lo fija MEF-ADR-0034 (seccion 8); su contrato formal completo lo fija el issue #369. Este comando consume el token en la forma minima que necesita (no pasa por `load_harness_config`, que requiere `boundedContext` obligatorio y otros campos que aqui no hacen falta).
 
 ```bash
-jq -r '.projections.enabled' "{{mefisto:config-path}}" 2>/dev/null
+node "{{mefisto:package-root}}/scripts/json-value.mts" get "{{mefisto:config-path}}" projections.enabled 2>/dev/null
 ```
 
-Sin `//` en el filtro `jq`: `false // "null"` devuelve `"null"` (false es falsy en jq) y confundiria `deshabilitado` con `ausente`.
+Sin `--default` ni `--or-empty`: los dos tratan `false` igual que un valor ausente y confundirian `deshabilitado` con `ausente`.
 
 - Si imprime `true`, el gate pasa: continua.
 - Si imprime `null` o nada, el token esta **ausente**.
