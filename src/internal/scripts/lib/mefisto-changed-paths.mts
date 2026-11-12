@@ -1,8 +1,5 @@
 // Rutas que un pipeline interno cambio en su worktree: la entrada comun de los gates de scope y
 // de changelog.
-//
-// Gemela de la recoleccion de rutas que repiten `validate_mefisto_scope_changes`,
-// `changes_require_changelog` y `changelog_fragment_added` de `_mefisto-common.sh`.
 
 import type { Run } from '../../../../scripts/lib/azure-cli.mts'
 import { capture } from '../../../../scripts/lib/cli.mts'

@@ -1,7 +1,4 @@
 // Consolidacion de `changelog.d/` y remedio del gate de neutralidad para la fase prepare del release.
-//
-// Gemela de `consolidate_changelog_fragments`, `consolidate_adr_index_fragments` y
-// `mefisto_neutrality_remedy` de `_mefisto-common.sh`.
 
 import { readFileSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'

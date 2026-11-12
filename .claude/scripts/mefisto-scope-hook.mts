@@ -54,7 +54,7 @@ export function relativeToRoot(root: string, filePath: string): string | null {
 
 export function outOfScopeMessage(relPath: string): string {
   return [
-    `FUERA DE SCOPE: '${relPath}' no esta en la allowlist interna de Mefisto (is_path_in_mefisto_scope: src/internal/scripts/lib/mefisto-scope.mts y su gemela en _mefisto-common.sh). El gate final del stage (validate_mefisto_scope_changes) va a rechazar este cambio.`,
+    `FUERA DE SCOPE: '${relPath}' no esta en la allowlist interna de Mefisto (isPathInMefistoScope: src/internal/scripts/lib/mefisto-scope.mts). El gate final del stage (validate_mefisto_scope_changes) va a rechazar este cambio.`,
     `Este aviso llega DESPUES de la escritura (hook PostToolUse): el archivo ya existe en el arbol, asi que revierte lo que acabas de hacer -- borralo si lo creaste, o 'git checkout -- ${relPath}' si ya existia.`,
     `Rutas permitidas: ${SCOPE_SUMMARY}`,
     'Si esta ruta deberia estar permitida, MEF-ADR-0019 seccion E exige registrarla PRIMERO en un PR aparte (is_path_in_mefisto_scope + is_path_in_consumer_blocklist) antes de poblarla: no la crees en este PR.',

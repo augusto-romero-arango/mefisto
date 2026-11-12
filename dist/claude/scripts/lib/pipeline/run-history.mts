@@ -1,10 +1,7 @@
 // Cierre de una corrida: tabla de metricas del cuerpo del PR, objeto `agents` del historial y
 // registro de la entrada en `pipeline-history.jsonl`.
 //
-// Gemela de `_render_run_metric_count`, `render_run_metrics_table`, `build_agents_history_json` y
-// `append_completed_history` de `_pipeline-common.sh`: mientras tengan llamadores en bash, un
-// cambio va en los dos lados. Las metricas de cada etapa llegan como el texto JSON de
-// `computeStageMetrics`.
+// Las metricas de cada etapa llegan como el texto JSON de `computeStageMetrics`.
 
 import { appendFileSync, closeSync, openSync, writeSync } from 'node:fs'
 

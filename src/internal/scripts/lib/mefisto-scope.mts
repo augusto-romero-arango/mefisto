@@ -1,8 +1,4 @@
 // Allowlist de rutas que el propio plugin puede tocar (MEF-ADR-0019).
-//
-// Gemela de `is_path_in_mefisto_scope` en `_mefisto-common.sh`: mientras esa libreria tenga
-// llamadores en bash, un cambio en la lista va en las dos. La paridad la verifica
-// `.claude/scripts/tests/mefisto-scope-hook.test.mts`.
 
 const SCOPE_PREFIXES = [
   'commands/',

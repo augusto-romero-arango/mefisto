@@ -1,9 +1,5 @@
 // Rama base del checkout principal al arrancar un batch interno, y la remediacion de los commits
 // locales que el hook pre-push ya rescato.
-//
-// Gemela de `remediate_main_after_rescue` y `ensure_repo_on_base_branch` de `_mefisto-common.sh`:
-// mientras tengan llamadores en bash, un cambio va en los dos lados. La paridad la verifica
-// `.claude/scripts/tests/mefisto-base-branch.test.mts`.
 
 import { readFileSync, statSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
@@ -84,7 +80,7 @@ export type BaseBranchCheck =
       ok: false
       /** Motivo, listo para abortar el batch. */
       abort: string
-      /** Lo que git escribio en stderr en los pasos que la gemela bash deja pasar a la terminal. */
+      /** Lo que git escribio en stderr en los pasos cuya salida va a la terminal. */
       gitStderr: string
     }
 

@@ -1,9 +1,5 @@
 // Lectura del terminal (`run.completed` o `run.failed`) del JSONL neutral de una corrida de
 // agente: es la unica autoridad para la politica de un pipeline.
-//
-// Gemela de `agent_events_value`, `agent_events_kind`, `agent_events_resets_at`,
-// `agent_events_session_id`, `agent_events_denials` y `agent_events_completed_successfully` de
-// `_pipeline-common.sh`: mientras tengan llamadores en bash, un cambio va en los dos lados.
 
 import { readFileSync, statSync } from 'node:fs'
 
@@ -53,7 +49,7 @@ function terminals(events: Json[]): Json[] {
   })
 }
 
-// Lo que no es objeto donde el filtro espera uno aborta el filtro de la gemela, que no imprime nada.
+// Lo que no es objeto donde se espera uno aborta la lectura, que no devuelve nada.
 function orOnFailure<T>(fallback: T, read: () => T): T {
   try {
     return read()

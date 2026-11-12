@@ -1,7 +1,4 @@
 // Prefijo que evita la suspension idle de macOS mientras corre un pipeline largo.
-//
-// Gemela de `caffeinate_prefix` de `_pipeline-common.sh`: mientras tenga llamadores en bash, un
-// cambio va en los dos lados.
 
 import { commandExists } from '../cli.mts'
 

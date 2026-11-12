@@ -1,10 +1,5 @@
 // Nombres del backend de Terraform: lo ya escrito en `backend.tf` y la composicion del Resource
 // Group y la Storage Account del tfstate (MEF-ADR-0045). Nada aqui consulta Azure.
-//
-// Gemela de `truncate_storage_base`, `gen_storage_suffix`, `read_backend_storage_account_name`,
-// `read_backend_resource_group_name`, `compose_tfstate_resource_group_name`,
-// `tfstate_storage_app_slug` y `compose_tfstate_storage_account_base` de `_pipeline-common.sh`:
-// mientras tengan llamadores en bash, un cambio va en los dos lados.
 
 import { randomBytes, randomInt } from 'node:crypto'
 import { readdirSync, readFileSync } from 'node:fs'

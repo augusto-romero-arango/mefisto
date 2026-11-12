@@ -1,7 +1,4 @@
 // Consulta de PRs que un pipeline hace antes de crear el suyo.
-//
-// Gemela de `find_open_pr_for_branch` de `_pipeline-common.sh`: mientras tenga llamadores en
-// bash, un cambio va en los dos lados.
 
 import { parseJson } from '../azure-cli.mts'
 import type { Run } from '../azure-cli.mts'

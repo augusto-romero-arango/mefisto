@@ -1,8 +1,5 @@
 // Lectura del ultimo anuncio de espera de un events.log:
 // "[HH:MM:SS][hold] <FAMILIA>: esperando, proxima sonda HH:MM:SS (techo HH:MM)".
-//
-// Gemela de `last_hold_line`, `hold_line_window` y `hold_recently_active` de
-// `_pipeline-common.sh`: mientras tengan llamadores en bash, un cambio va en los dos lados.
 
 import { readFileSync, statSync } from 'node:fs'
 

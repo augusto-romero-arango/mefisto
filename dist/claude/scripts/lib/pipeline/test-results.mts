@@ -1,7 +1,4 @@
 // Tests del consumidor: conteo del resumen de `dotnet test` y corrida de los proyectos `*.Tests`.
-//
-// Gemela de `extract_test_count`, `tests_json_value` y `run_tests_projects` de
-// `_pipeline-common.sh`: mientras tengan llamadores en bash, un cambio va en los dos lados.
 
 import { mkdtempSync, readdirSync, readFileSync, rmSync, statSync } from 'node:fs'
 import { tmpdir } from 'node:os'

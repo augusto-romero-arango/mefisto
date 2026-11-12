@@ -1,8 +1,5 @@
 // Resolucion de modelo y de effort de un agente. El llamador entrega el override y el archivo
 // de mapping: este nucleo no conoce estado, cwd, Git ni stages (MEF-ADR-0019).
-//
-// Gemela de `mefisto-models.sh` y de `contract/models.validate.jq`, que aun cargan los pipelines
-// en bash: un cambio va en los dos lados.
 
 import { readFileSync, statSync } from 'node:fs'
 

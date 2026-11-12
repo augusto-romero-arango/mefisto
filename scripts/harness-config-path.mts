@@ -1,5 +1,5 @@
-// Ruta del `harness.config.json` del consumidor para los bloques de bash de comandos y agentes,
-// sin cargar `_pipeline-common.sh` (MEF-ADR-0057, decision 9).
+// Ruta del `harness.config.json` del consumidor para los bloques de bash de comandos y agentes
+// (MEF-ADR-0057, decision 9).
 //
 // Uso: node harness-config-path.mts <read|write|valid> [raiz]
 //   read   la ruta efectiva de lectura: la canonica o, si falta, la legacy

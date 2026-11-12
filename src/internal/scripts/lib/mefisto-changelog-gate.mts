@@ -1,9 +1,5 @@
 // Gate de fragmentos de changelog: un cambio notable se anota en un archivo propio bajo
 // `changelog.d/`, nunca editando `CHANGELOG.md`.
-//
-// Gemela de `is_path_changelog_exempt`, `changes_require_changelog` y `changelog_fragment_added`
-// de `_mefisto-common.sh`: mientras tengan llamadores en bash, un cambio va en los dos lados. La
-// paridad la verifica `.claude/scripts/tests/mefisto-changelog-gate.test.mts`.
 
 import { changedPaths } from './mefisto-changed-paths.mts'
 import type { ChangedPathsOptions } from './mefisto-changed-paths.mts'

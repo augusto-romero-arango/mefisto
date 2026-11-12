@@ -1,9 +1,5 @@
 // Clasificacion del fallo de una invocacion de agente: de ella depende que un pipeline
 // reintente, espere (hold) o aborte (MEF-ADR-0051).
-//
-// Gemela de `classify_neutral_agent_failure`, `classify_agent_failure` y
-// `agent_failure_is_holdable` de `_pipeline-common.sh`: mientras tengan llamadores en bash, un
-// cambio va en los dos lados.
 
 import { statSync } from 'node:fs'
 

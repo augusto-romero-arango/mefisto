@@ -141,7 +141,7 @@ test('solo cuenta los comandos que se ejecutan, no los que se nombran', async ()
   expect(isIssueCreate(both)).toBe(true)
 })
 
-test('lee las dependencias forward de la seccion, con la regla de mefisto-deps.sh', async () => {
+test('lee las dependencias forward de la seccion, con la regla de issue-dependencies.mts', async () => {
   const body = [
     '## Contexto',
     'Depende de #1 fuera de la seccion',

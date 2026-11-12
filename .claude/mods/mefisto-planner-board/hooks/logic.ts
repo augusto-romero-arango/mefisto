@@ -259,7 +259,7 @@ export function cropGrid(grid: Grid, cols: { from: number; to: number }): Grid {
   return grid.map(row => row.slice(cols.from, cols.to + 1).padEnd(cols.to - cols.from + 1, '.'))
 }
 
-// Misma regla que src/internal/scripts/lib/mefisto-deps.sh: solo 'Depende de #N' / 'Bloqueado por #N' al inicio
+// Misma regla que scripts/lib/issue-dependencies.mts: solo 'Depende de #N' / 'Bloqueado por #N' al inicio
 // del item de '## Dependencias', y solo el primer numero de la linea.
 const DEPS_HEADER = /^##\s*dependencias/i
 const FORWARD_DEP = /^\s*(?:[-*]\s+)?(?:depende de|bloqueado por)\s+#(\d+)/i
