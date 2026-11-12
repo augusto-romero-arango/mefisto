@@ -8,7 +8,7 @@
 # efectivo: canonico, fallback legacy, coexistencia (prevalece canonico,
 # sin mezcla) y ausencia (aborta con diagnostico).
 #
-# Aqui solo se ejecutan el preambulo y los comandos jq del agente generado; lo
+# Aqui solo se ejecutan el preambulo y las lecturas del config del agente generado; lo
 # que se verifica leyendo el texto esta en domain-scaffolder-config-contract.test.mts.
 
 set -uo pipefail
@@ -16,6 +16,7 @@ export LC_ALL=C
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
 REPO_ROOT="$(cd "$HERE/../.." && pwd -P)"
+export MEFISTO_PACKAGE_ROOT="$REPO_ROOT"
 CLAUDE_AGENT="$REPO_ROOT/agents/domain-scaffolder.md"
 PASS=0; FAIL=0
 pass() { printf '  PASS: %s\n' "$1"; PASS=$((PASS + 1)); }
@@ -30,7 +31,7 @@ extract_preamble() {
          /^```$/{if (inside && buf ~ /MEFISTO_CONFIG_PATH=/) { printf "%s", buf; exit } inside=0; next}
          inside{buf = buf $0 "\n"}' "$1"
 }
-extract_jq_lines() { grep -E "jq -r '\.(serviceBus\.external|tenancy\.strategy)" "$1"; }
+extract_jq_lines() { grep -E 'json-value\.mts" (each|get) "\$\{MEFISTO_CONFIG_PATH\}" (serviceBus\.external|tenancy\.strategy) ' "$1"; }
 
 runtime=Claude; agent_file="$CLAUDE_AGENT"
 echo "[1] Los alias de serviceBus.external y tenancy.strategy proceden del config seleccionado (canonico/fallback/coexistencia/ausencia)"

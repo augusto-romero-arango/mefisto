@@ -54,7 +54,7 @@ Si el archivo efectivo no declara alguno de los cuatro, detente y pide al usuari
 ```bash
 REPO_ROOT=$(git rev-parse --show-toplevel)
 CONFIG="{{mefisto:config-path}}"
-PRIMER_DOMINIO_KEBAB=$(jq -r '.boundedContext.domains[0] // ""' "$CONFIG")
+PRIMER_DOMINIO_KEBAB=$(node "{{mefisto:package-root}}/scripts/json-value.mts" get "$CONFIG" 'boundedContext.domains[0]' --default '')
 if [ -z "$PRIMER_DOMINIO_KEBAB" ]; then
     echo "ERROR: 'boundedContext.domains' esta vacio o ausente en el config del consumidor."
     exit 1
@@ -67,13 +67,13 @@ echo "$PRIMER_DOMINIO_KEBAB" | awk -F'-' '{for(i=1;i<=NF;i++) printf "%s", toupp
 Llama al resultado `{DominioEjemplo}` (PascalCase) y a la forma cruda `{dominio-ejemplo-kebab}`. **Este es el unico dominio que la tool de ejemplo consume** -- sumar un `HttpClient` tipado por cada dominio adicional que una tool nueva necesite es trabajo de quien implemente esa tool despues, siguiendo el mismo patron que fija el Paso 1 (`ConfiguracionClientesHttp`).
 
 **Estado de auth del BC**, del mismo contrato `{{mefisto:config-path}}`
-(jq inline, mismo patron que usa `domain-scaffolder`
+(lectura inline, mismo patron que usa `domain-scaffolder`
 Paso 0 para `tenancy.strategy`):
 
 ```bash
 REPO_ROOT=$(git rev-parse --show-toplevel)
 CONFIG="{{mefisto:config-path}}"
-TENANCY_STRATEGY=$(jq -r '.tenancy.strategy // "mono-tenant-transitorio"' "$CONFIG" 2>/dev/null)
+TENANCY_STRATEGY=$(node "{{mefisto:package-root}}/scripts/json-value.mts" get "$CONFIG" tenancy.strategy --default mono-tenant-transitorio 2>/dev/null)
 echo "tenancy.strategy=$TENANCY_STRATEGY"
 ```
 
@@ -125,7 +125,7 @@ Este agente corre sin reviewer y genera codigo desde plantillas del harness: es 
 4. **Remanente: draft cross-repo en Mefisto.** Si un warning no logras remediarlo, abre un draft en el repo de Mefisto (MEF-ADR-0019: la unica operacion cross-repo es crear drafts `estado:borrador`). Resuelve el slug (MEF-ADR-0053; default `augusto-romero-arango/mefisto`):
 
    ```bash
-   HARNESS_REPO_SLUG=$(jq -r '.repoSlug // empty' "{{mefisto:config-path}}" 2>/dev/null)
+   HARNESS_REPO_SLUG=$(node "{{mefisto:package-root}}/scripts/json-value.mts" get "{{mefisto:config-path}}" repoSlug --or-empty 2>/dev/null)
    [ -z "$HARNESS_REPO_SLUG" ] && HARNESS_REPO_SLUG="augusto-romero-arango/mefisto"
    echo "$HARNESS_REPO_SLUG"
    ```
@@ -140,7 +140,7 @@ Este agente corre sin reviewer y genera codigo desde plantillas del harness: es 
    - Si no existe, crealo:
 
      ```bash
-     HARNESS_VERSION=$(jq -r '.version' "{{mefisto:package-root}}/mefisto-manifest.json")
+     HARNESS_VERSION=$(node "{{mefisto:package-root}}/scripts/json-value.mts" get "{{mefisto:package-root}}/mefisto-manifest.json" version)
      gh issue create -R "<slug>" \
        --title "Remediar <codigo> en la plantilla de <agente>" \
        --label "estado:borrador,tipo:tooling,warning" \
@@ -1467,7 +1467,7 @@ public static class Fixtures
 }
 ```
 
-**5. Fixtures JSON.** Cuatro elementos para el caso base (uno con nombre acentuado, para el test de filtro) y un catalogo grande para el truncado -- generado con `jq`, no a mano:
+**5. Fixtures JSON.** Cuatro elementos para el caso base (uno con nombre acentuado, para el test de filtro) y un catalogo grande para el truncado -- generado con un bucle, no a mano:
 
 ```bash
 REPO_ROOT=$(git rev-parse --show-toplevel)
@@ -1482,8 +1482,14 @@ cat > "$FIXTURES/catalogo.json" <<'JSON'
 ]
 JSON
 
-jq -n '[range(1;61) | {id: ("elem-" + (. | tostring)), nombre: ("Elemento de ejemplo " + (. | tostring)), detalle: null}]' \
-    > "$FIXTURES/catalogo-grande.json"
+{
+    echo '['
+    for i in $(seq 1 59); do
+        printf '  { "id": "elem-%s", "nombre": "Elemento de ejemplo %s", "detalle": null },\n' "$i" "$i"
+    done
+    echo '  { "id": "elem-60", "nombre": "Elemento de ejemplo 60", "detalle": null }'
+    echo ']'
+} > "$FIXTURES/catalogo-grande.json"
 ```
 
 **6. `Ejemplo/EjemploListarToolTests.cs`** -- nivel 1 de la piramide (MEF-ADR-0048 seccion 1): el remodelado, con handler falso y fixtures JSON.
@@ -2277,7 +2283,7 @@ razon que la Validacion 3 de `domain-scaffolder` Paso 0). Filtra por existencia:
 ```bash
 REPO_ROOT=$(git rev-parse --show-toplevel)
 CONFIG="{{mefisto:config-path}}"
-for dominio_kebab in $(jq -r '.boundedContext.domains[]' "$CONFIG"); do
+for dominio_kebab in $(node "{{mefisto:package-root}}/scripts/json-value.mts" each "$CONFIG" boundedContext.domains); do
     if [ -f "$REPO_ROOT/infra/environments/dev/dominio-${dominio_kebab}.tf" ]; then
         dominio_pascal=$(echo "$dominio_kebab" | awk -F'-' '{for(i=1;i<=NF;i++) printf "%s", toupper(substr($i,1,1)) substr($i,2); print ""}')
         dominio_snake=$(echo "$dominio_kebab" | tr '-' '_')

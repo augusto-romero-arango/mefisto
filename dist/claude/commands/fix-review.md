@@ -428,7 +428,7 @@ Reutiliza el mismo routing que el `planner` y el `tooling-investigator` publicad
 Lee `repoSlug` desde `${MEFISTO_CONFIG_PATH}` (MEF-ADR-0053 decision 4). El campo es opcional: si el config no lo declara o esta vacio, aplica el default sin abortar:
 
 ```bash
-SLUG=$(jq -r '.repoSlug // empty' "${MEFISTO_CONFIG_PATH}" 2>/dev/null); echo "${SLUG:-augusto-romero-arango/mefisto}"
+SLUG=$(node "${MEFISTO_PACKAGE_ROOT}/scripts/json-value.mts" get "${MEFISTO_CONFIG_PATH}" repoSlug --or-empty 2>/dev/null); echo "${SLUG:-augusto-romero-arango/mefisto}"
 ```
 
 Cada bloque `bash` corre en un shell nuevo: en el `gh issue create -R "<slug>"` de mas abajo, sustituye `<slug>` por el slug que imprimio este bloque.

@@ -683,7 +683,7 @@ describe('ruta del config', () => {
   test('el comando no lee el config con jq por una ruta fija', () => {
     assert.doesNotMatch(
       readFileSync(COMMAND_SOURCE, 'utf8'),
-      /jq\s.*\.(mefisto|claude)\/harness\.config\.json/,
+      /(jq|json-value\.mts"?)\s.*\.(mefisto|claude)\/harness\.config\.json/,
     )
   })
 })

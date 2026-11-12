@@ -140,7 +140,7 @@ Estos valores alimentan el `module service_plan_{snake_case}` que emitiras en el
 **Resolver alias del backbone compartido (MEF-ADR-0024, decision #4 y #7):**
 
 ```bash
-jq -r '.serviceBus.external // [] | map(select(.alcance == "compartido")) | .[].alias' "{{mefisto:config-path}}" 2>/dev/null
+node "{{mefisto:package-root}}/scripts/json-value.mts" each "{{mefisto:config-path}}" serviceBus.external --or-empty --where alcance=compartido --field alias 2>/dev/null
 ```
 
 Cada alias resultante es una clave de broker nombrado (== alias declarado en `serviceBus.external`, contrato de `harness.config.json` fijado en issue #163) y determina el app setting `SERVICE_BUS_CONNECTION_<ALIAS>` que se lee en `Program.cs` (Paso 1) y se provisiona por referencia de Key Vault en Terraform (Paso 4). Si la lista viene vacia (el BC aun no declara ningun alias `compartido`), el dominio arranca sin brokers nombrados: solo el broker default (`SERVICE_BUS_CONNECTION_INTERNO`). **No wirees ningun alias con `alcance == "externo"`**: la integracion verdaderamente externa queda diferida y default-off (MEF-ADR-0024 decision #5).
@@ -148,7 +148,7 @@ Cada alias resultante es una clave de broker nombrado (== alias declarado en `se
 **Resolver estrategia de tenancy (MEF-ADR-0028, issue #323):**
 
 ```bash
-jq -r '.tenancy.strategy // "mono-tenant-transitorio"' "{{mefisto:config-path}}" 2>/dev/null
+node "{{mefisto:package-root}}/scripts/json-value.mts" get "{{mefisto:config-path}}" tenancy.strategy --default mono-tenant-transitorio 2>/dev/null
 ```
 
 El token `tenancy.strategy` (opcional en `harness.config.json`; ausente equivale a `"mono-tenant-transitorio"`) declara en cual de las dos etapas de MEF-ADR-0028 esta el proyecto. **No lo sondees en codigo** -- no hay señal fiable (el harness no referencia ningun tipo `Cosmos.MultiTenancy.*`/autenticacion); es un token declarado por el humano, el mismo que escribe {{mefisto:command onboard}} bajo confirmacion. Dos valores:
@@ -211,7 +211,7 @@ Este agente corre sin reviewer y genera codigo desde plantillas del harness: es 
 4. **Remanente: draft cross-repo en Mefisto.** Si un warning no logras remediarlo, abre un draft en el repo de Mefisto (MEF-ADR-0019: la unica operacion cross-repo es crear drafts `estado:borrador`). Resuelve el slug (MEF-ADR-0053; default `augusto-romero-arango/mefisto`):
 
    ```bash
-   HARNESS_REPO_SLUG=$(jq -r '.repoSlug // empty' "{{mefisto:config-path}}" 2>/dev/null)
+   HARNESS_REPO_SLUG=$(node "{{mefisto:package-root}}/scripts/json-value.mts" get "{{mefisto:config-path}}" repoSlug --or-empty 2>/dev/null)
    [ -z "$HARNESS_REPO_SLUG" ] && HARNESS_REPO_SLUG="augusto-romero-arango/mefisto"
    echo "$HARNESS_REPO_SLUG"
    ```
@@ -226,7 +226,7 @@ Este agente corre sin reviewer y genera codigo desde plantillas del harness: es 
    - Si no existe, crealo:
 
      ```bash
-     HARNESS_VERSION=$(jq -r '.version' "{{mefisto:package-root}}/mefisto-manifest.json")
+     HARNESS_VERSION=$(node "{{mefisto:package-root}}/scripts/json-value.mts" get "{{mefisto:package-root}}/mefisto-manifest.json" version)
      gh issue create -R "<slug>" \
        --title "Remediar <codigo> en la plantilla de <agente>" \
        --label "estado:borrador,tipo:tooling,warning" \
@@ -4253,7 +4253,7 @@ Crea `.github/smoke-tests/{kebab}.json` con un unico objeto JSON (no un array):
 **Validacion**: verifica que el JSON resultante sea valido:
 
 ```bash
-cat .github/smoke-tests/{kebab}.json | python3 -m json.tool > /dev/null
+node "{{mefisto:package-root}}/scripts/json-value.mts" validate .github/smoke-tests/{kebab}.json
 ```
 
 ---
@@ -4275,43 +4275,7 @@ verificar_pin_otlp() {
         return 1
     fi
 
-    python3 - "$paquete" "$version_esperada" "$archivo" <<'PY'
-import sys
-import xml.etree.ElementTree as ET
-
-paquete, version_esperada, archivo = sys.argv[1:]
-
-try:
-    raiz = ET.parse(archivo).getroot()
-except ET.ParseError as error:
-    print(
-        f"ERROR: paquete {paquete}: se esperaba el pin {version_esperada} en {archivo}, "
-        f"pero el XML no es valido: {error}."
-    )
-    raise SystemExit(1)
-
-referencias = [
-    elemento
-    for elemento in raiz.iter()
-    if elemento.tag.rsplit("}", 1)[-1] == "PackageReference"
-    and elemento.get("Include") == paquete
-]
-
-if len(referencias) != 1:
-    print(
-        f"ERROR: paquete {paquete}: se esperaba exactamente una referencia con pin "
-        f"{version_esperada} en {archivo}; se encontraron {len(referencias)}."
-    )
-    raise SystemExit(1)
-
-version_real = referencias[0].get("Version")
-if version_real != version_esperada:
-    print(
-        f"ERROR: paquete {paquete}: se esperaba el pin {version_esperada} en {archivo}; "
-        f"se encontro {version_real or 'ningun valor'} como atributo Version."
-    )
-    raise SystemExit(1)
-PY
+    node "{{mefisto:package-root}}/scripts/json-value.mts" csproj-pin "$paquete" "$version_esperada" "$archivo"
 }
 
 verificar_pin_otlp \

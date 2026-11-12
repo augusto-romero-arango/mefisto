@@ -180,6 +180,15 @@ garantía de `mefisto_resolve_runtime` (MEF-ADR-0050) que evita que un pipeline
 lanzado desde un runtime corra sus scripts bajo el identificador de otro cuando
 la máquina tiene más de uno instalado y el entorno no fija la variable.
 
+Los bloques de bash del body corren en Git Bash en Windows (MEF-ADR-0057,
+decisión 9), así que no invocan `jq` ni `python3`. El JSON se lee y se escribe
+con `node "{{mefisto:package-root}}/scripts/json-value.mts" <subcomando> ...`
+(`get`, `each`, `length`, `pick`, `set`, `from-lines`, `validate` y
+`csproj-pin`; el uso de cada uno está en la cabecera del script). Quedan fuera
+el filtro `--jq` de `gh`, que ejecuta el propio `gh`, y el contenido de un
+workflow de GitHub Actions que un agente genera, que corre en el runner.
+`scripts/tests/markdown-bash-toolchain.test.mts` lo verifica.
+
 `config-path` e `instructions-path` no traducen a una ruta canónica literal:
 resuelven la ruta efectiva de lectura del contrato consumidor descrita en
 MEF-ADR-0053 sección 4 (canónica primero, fallback legacy de lectura

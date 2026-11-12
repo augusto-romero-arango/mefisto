@@ -8,7 +8,7 @@ import { matchingLines, readRepoFile } from './text-contract.mts'
 
 const SOURCE = readRepoFile('src/published/agents/domain-scaffolder.md')
 const GENERATED = readRepoFile('agents/domain-scaffolder.md')
-const LEGACY_JQ_READ = /jq\s.*\.claude\/harness\.config\.json/
+const LEGACY_JQ_READ = /(jq|json-value\.mts"?)\s.*\.claude\/harness\.config\.json/
 
 test('src/published/agents/domain-scaffolder.md no hardcodea la ruta del config en los comandos jq', () => {
   assert.deepEqual(

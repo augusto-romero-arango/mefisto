@@ -80,7 +80,7 @@ Si **todo** ya existe, reporta "ya instalado, nada que hacer" y salta directo al
 ### 0.5 - Resolver la version del SDK contra NuGet (best-effort, no bloqueante)
 
 ```bash
-dotnet package search WorkOS.net --exact-match --format json --source https://api.nuget.org/v3/index.json 2>/dev/null | jq -r '[.searchResult[].packages[].version] | .[-5:][]' || echo "sin red: no se pudo listar versiones de WorkOS.net"
+dotnet package search WorkOS.net --exact-match --format json --source https://api.nuget.org/v3/index.json 2>/dev/null | node "{{mefisto:package-root}}/scripts/json-value.mts" each - 'searchResult[0].packages' --field version --last 5 || echo "sin red: no se pudo listar versiones de WorkOS.net"
 ```
 
 La version de referencia fijada por ControlPlane y verificada en MEF-ADR-0032/este issue es **`5.5.0`** (`external_id` en organizaciones disponible desde `3.0.0`; versiones anteriores no lo exponen). Si la busqueda tiene exito y existe una version mayor, no la adoptes automaticamente por ser "mas nueva" -- fija `5.5.0` de todas formas (es la version cuya forma exacta el Paso 2 reproduce) y anota en el reporte final que hay una version mas nueva disponible, sin verificar, pendiente de que un humano decida el bump. Si la busqueda falla (sin red), usa `5.5.0` igual y marca la resolucion de version como `NO VERIFICADO contra NuGet en esta corrida`.
@@ -112,7 +112,7 @@ Este agente corre sin reviewer y genera codigo desde plantillas del harness: es 
 4. **Remanente: draft cross-repo en Mefisto.** Si un warning no logras remediarlo, abre un draft en el repo de Mefisto (MEF-ADR-0019: la unica operacion cross-repo es crear drafts `estado:borrador`). Resuelve el slug (MEF-ADR-0053; default `augusto-romero-arango/mefisto`):
 
    ```bash
-   HARNESS_REPO_SLUG=$(jq -r '.repoSlug // empty' "{{mefisto:config-path}}" 2>/dev/null)
+   HARNESS_REPO_SLUG=$(node "{{mefisto:package-root}}/scripts/json-value.mts" get "{{mefisto:config-path}}" repoSlug --or-empty 2>/dev/null)
    [ -z "$HARNESS_REPO_SLUG" ] && HARNESS_REPO_SLUG="augusto-romero-arango/mefisto"
    echo "$HARNESS_REPO_SLUG"
    ```
@@ -127,7 +127,7 @@ Este agente corre sin reviewer y genera codigo desde plantillas del harness: es 
    - Si no existe, crealo:
 
      ```bash
-     HARNESS_VERSION=$(jq -r '.version' "{{mefisto:package-root}}/mefisto-manifest.json")
+     HARNESS_VERSION=$(node "{{mefisto:package-root}}/scripts/json-value.mts" get "{{mefisto:package-root}}/mefisto-manifest.json" version)
      gh issue create -R "<slug>" \
        --title "Remediar <codigo> en la plantilla de <agente>" \
        --label "estado:borrador,tipo:tooling,warning" \

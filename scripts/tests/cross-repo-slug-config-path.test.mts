@@ -86,7 +86,7 @@ test('planner ya no reconstruye CONFIG=$REPO_ROOT/... a mano', () => {
 test('ningun artefacto reintroduce una lectura directa del config legacy fuera del fallback sancionado', () => {
   const sanctioned =
     'cat .mefisto/harness.config.json 2>/dev/null || cat .claude/harness.config.json 2>/dev/null || echo "No existe"'
-  const jqRead = /(^|[;&|(`$\s])jq\s.*\.claude\/harness\.config\.json/
+  const jqRead = /(^|[;&|(`$\s])(jq|json-value\.mts"?)\s.*\.claude\/harness\.config\.json/
   const otherRead =
     /(^|[;&|(`$\s])(cat|sed|awk|grep|python|python3)\s.*\.claude\/harness\.config\.json|<\s*\S*\.claude\/harness\.config\.json/
   const leaks: string[] = []
