@@ -338,7 +338,7 @@ limpio, por el motivo que explica "Repeticion de la celda B (#1740)".
 ### Repeticion de la celda B (#1740)
 
 La B original (#71, PR #77) corrio sobre un servidor de sesiones que ya estaba
-arrancado. El lanzador carga `mefisto-models.sh`, que exportaba
+arrancado. El lanzador cargaba `mefisto-models.sh`, que exportaba
 `MEFISTO_RUNTIME_LIB_DIR` con `:=`, asi que la corrida heredo del entorno
 global del servidor una raiz de librerias, `MEFISTO_STATE_DIR` y
 `MEFISTO_LEGACY_STATE_DIR` que no eran los de su propia instalacion. B cumplio

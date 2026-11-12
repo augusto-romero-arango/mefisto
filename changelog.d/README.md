@@ -1,7 +1,8 @@
 # changelog.d/ — fragmentos de CHANGELOG e indice de ADRs
 
 Mecanismo de anotacion por fragmentos (issue #380), reemplaza la edicion directa
-de `CHANGELOG.md` y de la tabla "Indice tematico" de `CLAUDE.md` por-PR: varios
+de `CHANGELOG.md` y de la tabla del indice tematico de ADRs
+(`docs/adr/INDICE-TEMATICO.md`) por-PR: varios
 PRs editando las mismas pocas lineas de esos dos archivos-indice era el punto de
 contencion que colisionaba cuando corrian en paralelo (`/parallel`) o cuando el
 sync con `main` se hacia una sola vez antes de crear el PR. Con un archivo propio
@@ -24,7 +25,7 @@ por issue, dos PRs nunca tocan la misma linea.
 
 - **Fragmento de indice de ADRs**: `<issue>.adr-index.md`. Solo lo crean los
   issues que anaden o enmiendan un ADR del marco (`docs/adr/`). Contenido: una o
-  mas filas de la tabla `| Tema | ADR |` del indice tematico de `CLAUDE.md`,
+  mas filas de la tabla `| Tema | ADR |` de `docs/adr/INDICE-TEMATICO.md`,
   listas para insertarse tal cual al final de esa tabla.
 
   Ejemplo, `changelog.d/380.adr-index.md`:
@@ -42,9 +43,9 @@ redacta un ADR nuevo anota su entrada de CHANGELOG **y** su fila de indice).
 issue #864)
 consolida todos los fragmentos presentes: vuelca los de CHANGELOG en el bloque
 `[Unreleased]` de `CHANGELOG.md` agrupados por categoria, vuelca los de indice
-de ADRs al final de la tabla de `CLAUDE.md`, y borra los fragmentos consumidos.
-Ningun PR de issue individual debe editar `CHANGELOG.md` ni la tabla de indice
-de `CLAUDE.md` directamente — solo `/mefisto-release` lo hace, y solo en su
+de ADRs al final de la tabla de `docs/adr/INDICE-TEMATICO.md`, y borra los
+fragmentos consumidos. Ningun PR de issue individual debe editar `CHANGELOG.md`
+ni `docs/adr/INDICE-TEMATICO.md` directamente — solo `/mefisto-release` lo hace, y solo en su
 propia rama de release.
 
 `changelog.d/README.md` (este archivo) es el unico `.md` de este directorio que

@@ -26,7 +26,7 @@ Las demás convenciones del proyecto también pueden vivir en `AGENTS.md`, pero 
 
 ### Añadir `boundedContext`
 
-El campo `boundedContext` es **obligatorio** (MEF-ADR-0023). Si actualizas desde una versión que no lo exigía, `load_harness_config` abortará con un mensaje que muestra el shape exacto a añadir. Para migrar:
+El campo `boundedContext` es **obligatorio** (MEF-ADR-0023). Si actualizas desde una versión que no lo exigía, `loadHarnessConfig` abortará con un mensaje que muestra el shape exacto a añadir. Para migrar:
 
 1. **Abre `.mefisto/harness.config.json`** de tu proyecto y añade el campo `boundedContext` antes del cierre `}`:
 

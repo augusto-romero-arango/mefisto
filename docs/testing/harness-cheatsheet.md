@@ -2,7 +2,7 @@
 
 Referencia rapida del harness de testing de command handlers. Todas las firmas y comportamientos de este documento se verificaron contra la fuente del package (ver "Fuentes"). Version verificada: `2.1.0` (issue #312, 2026-07-18).
 
-> **Regla de uso**: si dudas si el harness soporta algo, **consulta este archivo antes de rumiar**. Si el archivo no cubre la duda, ve a la fuente. Ver politica anti-rumination en `.claude/agents/test-writer.md`.
+> **Regla de uso**: si dudas si el harness soporta algo, **consulta este archivo antes de rumiar**. Si el archivo no cubre la duda, ve a la fuente. Ver politica anti-rumination en `agents/test-writer.md`.
 
 ---
 
@@ -347,4 +347,4 @@ find tests -name '*HandlerTests.cs' | head -3
 
 - Si el package `Cosmos.EventSourcing.Testing.Utilities` sube de version mayor y cambia una firma, **actualiza este archivo en el mismo commit**.
 - Si detectas un comportamiento no documentado (ej. al leer la fuente), agregalo a "Dudas frecuentes resueltas" con cita de linea.
-- No duplicar info que ya vive en `.claude/agents/test-writer.md` (proceso, convenciones de tests, escenarios obligatorios). Este archivo se limita al DSL del harness y su comportamiento.
+- No duplicar info que ya vive en `agents/test-writer.md` (proceso, convenciones de tests, escenarios obligatorios). Este archivo se limita al DSL del harness y su comportamiento.
