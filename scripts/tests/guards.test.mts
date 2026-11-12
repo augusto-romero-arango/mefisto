@@ -111,7 +111,7 @@ describe('[C2] los scripts publicados abortan cuando se ejecutan en el repo de M
   }
 })
 
-describe('[E2] is_path_in_mefisto_scope clasifica correctamente', () => {
+describe('[E2] isPathInMefistoScope clasifica correctamente', () => {
   const VALID = [
     'commands/foo.md',
     'skills/projections/SKILL.md',
