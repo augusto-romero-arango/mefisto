@@ -1,0 +1,17 @@
+Estas en el directorio raiz del proyecto Control de Asistencias.
+
+Contexto del issue de infraestructura a implementar:
+
+# Issue #42: Crear "storage" con $HOME y `backticks`
+
+Cuerpo con $(subshell) y \backslash.
+Segunda linea.
+
+Ambiente target: dev
+Directorio del ambiente: /repo/.mefisto/pipeline/worktrees/infra-issue-42-x/infra/environments/dev
+Directorio relativo del ambiente: infra/environments/dev
+Commit base: 0123456789abcdef0123456789abcdef01234567
+
+Tu tarea: escribe o modifica los archivos Terraform necesarios para implementar este issue en el ambiente 'dev'. Sigue todas las instrucciones de tu rol de infra-writer.
+
+PROHIBIDO hacer 'git push' o 'gh pr create' (ni ninguna operacion de publicacion de rama/PR): eso es responsabilidad exclusiva del pipeline, nunca tuya.
