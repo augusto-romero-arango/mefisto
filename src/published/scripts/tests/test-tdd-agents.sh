@@ -22,6 +22,10 @@ claude_package="$WORK/paquete Claude con espacios"
 mkdir -p "$claude_package/.claude-plugin" "$claude_package/docs/adr" "$claude_package/skills/projections"
 cp "$REPO_ROOT/.claude-plugin/plugin.json" "$claude_package/.claude-plugin/plugin.json"
 cp "$REPO_ROOT/mefisto-manifest.json" "$claude_package/mefisto-manifest.json"
+# El preambulo valida la raiz con el verificador que ella misma trae.
+mkdir -p "$claude_package/scripts/lib"
+cp "$REPO_ROOT/scripts/verify-package-root.mts" "$claude_package/scripts/"
+cp "$REPO_ROOT/scripts/lib/cli.mts" "$claude_package/scripts/lib/"
 for adr in mef-adr-0002-estrategia-testing-event-sourcing.md mef-adr-0016-convencion-naming-tests.md mef-adr-0035-doctrina-proyeccion-query-read-side.md mef-adr-0034-worker-proyecciones-read-models.md mef-adr-0006-convenciones-nombramiento-funciones-azure.md mef-adr-0041-forma-propia-vista-read-side.md mef-adr-0028-estrategia-tenancy.md mef-adr-0029-test-composicion-host.md; do cp "$REPO_ROOT/dist/claude/docs/adr/$adr" "$claude_package/docs/adr/"; done
 for resource in modelos-marten.md read-apis.md naming.md config-test.md; do cp "$REPO_ROOT/skills/projections/$resource" "$claude_package/skills/projections/$resource"; done
 claude_physical="$(cd "$claude_package" && pwd -P)"

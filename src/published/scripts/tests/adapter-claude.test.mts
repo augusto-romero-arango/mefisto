@@ -5,6 +5,7 @@ import assert from 'node:assert/strict'
 import { spawnSync } from 'node:child_process'
 import {
   chmodSync,
+  copyFileSync,
   existsSync,
   mkdirSync,
   mkdtempSync,
@@ -32,9 +33,8 @@ const FIXTURES = join(HERE, 'fixtures', 'claude')
 const MARKER = '<!-- GENERADO por prueba desde fixture. No editar a mano. -->'
 const GUARD = '{{mefisto:assert-consumer-repo}}'
 const WINDOWS = process.platform === 'win32'
-// Los preambulos son shell para el consumidor; el de la raiz del paquete usa ademas jq.
+// Los preambulos son shell para el consumidor.
 const NO_SHELL = WINDOWS || !commandExists('bash')
-const NO_JQ = NO_SHELL || !commandExists('jq')
 const IS_ROOT = process.getuid?.() === 0
 const COMMIT = '0123456789abcdef0123456789abcdef01234567'
 
@@ -371,7 +371,7 @@ describe('contrato efectivo', { skip: NO_SHELL }, () => {
   })
 })
 
-describe('resolucion de la raiz del paquete', { skip: NO_JQ }, () => {
+describe('resolucion de la raiz del paquete', { skip: NO_SHELL }, () => {
   let code = ''
   let consumer = ''
   let subdir = ''
@@ -391,6 +391,11 @@ describe('resolucion de la raiz del paquete', { skip: NO_JQ }, () => {
       '#!/bin/sh\nprintf invoked > "$MEFISTO_TEST_TRACE"\n',
     )
     chmodSync(probe, 0o755)
+    // El preambulo valida la raiz con el verificador que ella misma trae.
+    for (const script of ['verify-package-root.mts', join('lib', 'cli.mts')]) {
+      mkdirSync(dirname(join(root, 'scripts', script)), { recursive: true })
+      copyFileSync(join(REPO_ROOT, 'scripts', script), join(root, 'scripts', script))
+    }
     roots[key] = root
     return root
   }
@@ -494,6 +499,17 @@ describe('resolucion de la raiz del paquete', { skip: NO_JQ }, () => {
       assert.ok(result.stderr.includes('ERROR Claude:'), result.stderr)
       assert.ok(result.stderr.includes('reinstale'), result.stderr)
     }
+  })
+
+  test('una raiz de Windows cuenta como absoluta; una relativa con letra de unidad, no', () => {
+    const pattern = /case "\$mefisto_claude_candidate" in (.+?)\) ;;/.exec(code)?.[1] ?? ''
+    assert.notEqual(pattern, '')
+    const classify = (candidate: string): string =>
+      shell(`case "$CANDIDATE" in ${pattern}) printf abs ;; *) printf rel ;; esac`, work, { CANDIDATE: candidate }).stdout
+    for (const candidate of ['C:\\Users\\x\\plugin', 'c:/Users/x/plugin', '/Users/x/plugin']) {
+      assert.equal(classify(candidate), 'abs', candidate)
+    }
+    for (const candidate of ['relativa/plugin', 'C:relativa', '1:\\x', '']) assert.equal(classify(candidate), 'rel', candidate)
   })
 
   test('una sustitucion invalida no cae a los markers, aunque el canonico sea valido', () => {
