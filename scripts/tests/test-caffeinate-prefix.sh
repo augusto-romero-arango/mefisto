@@ -11,11 +11,8 @@
 #       y en su espejo .claude/scripts/_mefisto-common.sh; devuelve
 #       "caffeinate -i" cuando el binario esta en PATH y cadena VACIA cuando no
 #       (el caso Linux/CI se fuerza con PATH="", sin desinstalar nada).
-#   [C] CA-3/CA-4: en mefisto-herdr-pipeline.sh el lanzamiento en background del
-#       sub-pipeline esta prefijado con $CAFF, calculado una sola vez por corrida
-#       (no por lanzamiento).
 #
-# El prefijo del runner de herdr-pipeline.mts lo cubre scripts/tests/herdr.test.mts;
+# El prefijo del runner de los pipelines en herdr lo cubre scripts/tests/herdr.test.mts;
 # el del lanzamiento desacoplado de los lanzadores lo cubren
 # scripts/tests/launch-pipeline.test.mts y
 # .claude/scripts/tests/mefisto-launch-pipeline.test.mts.
@@ -76,34 +73,6 @@ for common in "${COMMONS[@]}"; do
         pass "$common: sin caffeinate en PATH devuelve cadena vacia (no-op)"
     else
         fail "$common: sin caffeinate en PATH devolvio '$sin_binario' (esperado vacio)"
-    fi
-done
-
-# -------- Bloque C: lanzamiento en background de los runners herdr --------
-
-echo ""
-echo "[C] herdr: el lanzamiento en background lleva \$CAFF; CAFF se calcula una vez (CA-3, CA-4)"
-
-HERDR_RUNNERS=(
-    "src/internal/scripts/mefisto-herdr-pipeline.sh"
-)
-
-for runner in "${HERDR_RUNNERS[@]}"; do
-    path="$REPO_ROOT/$runner"
-    if grep -qE '^[[:space:]]*\$CAFF env .*"\$@" >"\$report_log" 2>&1 &' "$path"; then
-        pass "$runner: el sub-pipeline en background arranca prefijado con \$CAFF"
-    else
-        fail "$runner: el lanzamiento en background NO esta prefijado con \$CAFF"
-    fi
-done
-
-for runner in "${HERDR_RUNNERS[@]}"; do
-    path="$REPO_ROOT/$runner"
-    veces=$(grep -c 'CAFF="\$(caffeinate_prefix)"' "$path")
-    if [ "$veces" -eq 1 ]; then
-        pass "$runner: CAFF se calcula una sola vez por corrida"
-    else
-        fail "$runner: CAFF se calcula $veces veces (esperado 1)"
     fi
 done
 
