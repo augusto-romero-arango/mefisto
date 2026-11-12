@@ -6,10 +6,11 @@ import assert from 'node:assert/strict'
 import { mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
-import { after, before, test } from 'node:test'
+import { after, before, describe, test } from 'node:test'
 
 import { CliError } from '../lib/cli.mts'
 import { resolveHarnessConfigPath } from '../lib/harness-config.mts'
+import { NO_BASH, runBashStreams, writeTree } from './markdown-bash.mts'
 import { assertContains, lineRanges, linesOf, matchingLines, readRepoFile } from './text-contract.mts'
 
 const AGENT = readRepoFile('agents/infra-base-scaffolder.md')
@@ -385,4 +386,49 @@ test('la alerta usa el token efectivo y conserva la omision acotada y su diagnos
     ],
     'falta el contrato que conecta RootNamespace efectivo con la alerta de proyecciones',
   )
+})
+
+// El resolver de instrucciones del prompt, ejecutado con bash: el service.name de la alerta
+// (`<RootNamespace>.Projections`) sale solo del archivo efectivo.
+describe('[ejecucion] instrucciones efectivas para RootNamespace', { skip: NO_BASH }, () => {
+  const resolver = lineRanges(AGENT, /^if \[ -f "AGENTS\.md" \]; then$/, /^export MEFISTO_INSTRUCTIONS_PATH$/)[0] ?? ''
+  const script =
+    `${resolver}\n` +
+    `root_namespace=$(awk -F '[:][[:space:]]*' '$1 == "RootNamespace" { print $2; exit }' "$MEFISTO_INSTRUCTIONS_PATH")\n` +
+    `printf "%s|%s.Projections\\n" "$MEFISTO_INSTRUCTIONS_PATH" "$root_namespace"`
+  const tokens = (rootNamespace: string): string => `## Tokens del harness\nRootNamespace: ${rootNamespace}\n`
+  const resolve = (name: string, files: Record<string, string>) =>
+    runBashStreams(script, writeTree(join(work, `instrucciones-${name}`), files))
+  const WARNING = 'AVISO: se usara AGENTS.md; se ignora el legacy CLAUDE.md.'
+
+  test('se extrae el resolver de instrucciones del agente', () => {
+    assertContains(resolver, 'export MEFISTO_INSTRUCTIONS_PATH')
+  })
+
+  test('canonico resuelve desde AGENTS.md el service.name de la alerta y conserva visible el aviso', () => {
+    const result = resolve('canonico', { 'AGENTS.md': tokens('Canonical'), 'CLAUDE.md': '@AGENTS.md\n' })
+    assert.deepEqual([result.status, result.stdout], [0, 'AGENTS.md|Canonical.Projections\n'])
+    assertContains(result.stderr, WARNING)
+  })
+
+  test('solo legacy resuelve el service.name desde CLAUDE.md como fallback de lectura', () => {
+    assert.deepEqual(resolve('legacy', { 'CLAUDE.md': tokens('Legacy') }), {
+      status: 0,
+      stdout: 'CLAUDE.md|Legacy.Projections\n',
+      stderr: '',
+    })
+  })
+
+  test('coexistencia usa el RootNamespace canonico para la alerta y avisa que ignora el legacy', () => {
+    const result = resolve('ambos', { 'AGENTS.md': tokens('Canonical'), 'CLAUDE.md': tokens('Legacy') })
+    assert.deepEqual([result.status, result.stdout], [0, 'AGENTS.md|Canonical.Projections\n'])
+    assertContains(result.stderr, WARNING)
+  })
+
+  test('ausencia de instrucciones aborta y remite a onboard', () => {
+    const result = resolve('ausente', {})
+    assert.notEqual(result.status, 0)
+    assert.equal(result.stdout, '')
+    assertContains(result.stderr, '/mefisto:onboard')
+  })
 })

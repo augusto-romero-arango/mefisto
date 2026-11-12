@@ -7,7 +7,6 @@ import { dirname, join } from 'node:path'
 import { describe, test } from 'node:test'
 import { fileURLToPath } from 'node:url'
 
-import { capture } from '../../../scripts/lib/cli.mts'
 import { runGenerator } from '../../../src/internal/scripts/generate-internal-adapters.mts'
 import { Output } from '../../../src/internal/scripts/lib/mefisto-script-io.mts'
 import { runValidator } from '../../../src/internal/scripts/validate-internal-artifacts.mts'
@@ -64,17 +63,4 @@ describe('adaptadores generados de los agentes', () => {
       assert.ok(generated.split('\n').includes(`model: "${MODEL_OF[profile]}"`))
     })
   }
-})
-
-describe('integridad de Agent Skills', () => {
-  test(
-    'scripts/tests/test-guards.sh sigue en verde',
-    { skip: process.platform === 'win32' ? 'test-guards.sh es bash' : false },
-    () => {
-      const guards = capture('bash', [join(REPO_ROOT, 'scripts', 'tests', 'test-guards.sh')])
-      const failures = guards.stdout.split('\n').filter((line) => line.includes('FAIL'))
-      assert.deepEqual(failures, [])
-      assert.equal(guards.status, 0, guards.stdout + guards.stderr)
-    },
-  )
 })

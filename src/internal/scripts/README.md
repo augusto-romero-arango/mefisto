@@ -104,7 +104,7 @@ los tres carriles; un agente fuera de stage al que se le pida deliberadamente
 la regresion completa; una CI futura, si se adopta, de forma opt-in. No es una
 operacion publicada al proyecto consumidor (MEF-ADR-0019): vive solo del lado
 interno de Mefisto. Tampoco es gate de ningun stage interno -- los prompts de
-`mefisto-tooling-pipeline.sh` siguen cerrando con `scripts/tests/test-guards.sh`
+`mefisto-tooling-pipeline.sh` siguen cerrando con `scripts/tests/guards.test.mts`
 mas los tests del diff, nunca con esta suite completa.
 
 ## Deuda conocida: `python3` en la consolidacion de `changelog.d/`

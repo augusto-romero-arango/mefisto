@@ -86,7 +86,7 @@ describe('doctrina de los prompts', () => {
     assert.ok(stage1Prompt(STAGE1).endsWith('.mefisto/pipeline/summaries/stage-1-writer.md'))
     assert.ok(stage2Prompt(STAGE2).endsWith('.mefisto/pipeline/summaries/stage-2-reviewer.md'))
   })
-  test('los dos prompts buscan tests en src/published/scripts/tests/, con un solo archivo por suite', () => {
+  test('los dos prompts cierran con los guards y buscan tests tambien en src/published/scripts/tests/', () => {
     const lines = [stage1Prompt(STAGE1), stage2Prompt(STAGE2)].map((prompt) => prompt.split('\n').filter((line) => line.includes('corre UNA vez')))
     assert.deepEqual(
       lines.map((found) => found.length),
@@ -95,7 +95,7 @@ describe('doctrina de los prompts', () => {
     const [writer = '', reviewer = ''] = lines.map((found) => found[0] ?? '')
     assert.equal(writer, reviewer)
     assert.ok(writer.includes('src/published/scripts/tests/'))
-    assert.match(writer, /shim.*sin duplicarla/)
+    assert.ok(writer.includes('node --test scripts/tests/guards.test.mts'))
   })
   test('el presupuesto del stage es el timeout recibido', () => {
     assert.ok(stage1Prompt({ ...STAGE1, timeout: '60' }).includes('El presupuesto completo del stage es 60 s.'))

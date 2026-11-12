@@ -1,13 +1,21 @@
 // Corte vertical de los agentes neutrales del pipeline TDD: contrato de la fuente, proyeccion
-// Claude, rutas de estado y conocimiento que cada agente abre desde la release activa. La
-// resolucion ejecutable del preambulo de la raiz del paquete la cubre test-tdd-agents.sh.
+// Claude, rutas de estado y conocimiento que cada agente abre desde la release activa, incluida la
+// resolucion ejecutable del preambulo de la raiz del paquete.
 
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import assert from 'node:assert/strict'
+import { copyFileSync, mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
-import { join, posix } from 'node:path'
-import { after, describe } from 'node:test'
+import { dirname, join, posix } from 'node:path'
+import { after, before, describe, test } from 'node:test'
 
-import { REPO_ROOT, linesOf, matchingLines, repoPath } from '../../../../scripts/tests/text-contract.mts'
+import { NO_BASH, runBashStreams } from '../../../../scripts/tests/markdown-bash.mts'
+import {
+  REPO_ROOT,
+  fencedBlocks,
+  linesOf,
+  matchingLines,
+  repoPath,
+} from '../../../../scripts/tests/text-contract.mts'
 import { packageRootPreamble, translateBody } from '../lib/adapter-claude.mts'
 import {
   effectiveContractPreamble,
@@ -594,4 +602,70 @@ describe('[inventarios] clausura publicada actualizada', () => {
     distributionIsCurrent,
     'generate-published-adapters --check detecto divergencias',
   )
+})
+
+// MEF-ADR-0031: el preambulo de la proyeccion Claude, ejecutado con bash sobre una raiz con
+// espacios, resuelve la raiz efectiva y desde ella se abren los ADRs y el Skill. En Windows, Git
+// Bash imprime la raiz con su propia notacion de rutas.
+const NO_POSIX_BASH = NO_BASH || (process.platform === 'win32' && 'Git Bash no imprime la ruta nativa')
+
+describe('[conocimiento] los agentes generados abren ADRs y Skill desde el package root efectivo', { skip: NO_POSIX_BASH }, () => {
+  const packageRoot = join(WORK, 'paquete Claude con espacios')
+  const COPIES: [source: string, destination: string][] = [
+    ['.claude-plugin/plugin.json', '.claude-plugin/plugin.json'],
+    ['mefisto-manifest.json', 'mefisto-manifest.json'],
+    // El preambulo valida la raiz con el verificador que ella misma trae.
+    ['scripts/verify-package-root.mts', 'scripts/verify-package-root.mts'],
+    ['scripts/lib/cli.mts', 'scripts/lib/cli.mts'],
+    ...Object.values(ADR).map((adr): [string, string] => [`dist/claude/docs/adr/${adr}`, `docs/adr/${adr}`]),
+    ...SKILL_RESOURCES.map((resource): [string, string] => [
+      `skills/projections/${resource}`,
+      `skills/projections/${resource}`,
+    ]),
+  ]
+
+  function resolvesKnowledge(id: string, adrs: string[]): void {
+    const preamble = (fencedBlocks(repoText(`dist/claude/agents/${id}.md`), 'bash')[0] ?? '').replaceAll(
+      '${CLAUDE_PLUGIN_ROOT}',
+      `${packageRoot}/`,
+    )
+    const checks = [
+      ...adrs.map((adr) => `test -f "$MEFISTO_PACKAGE_ROOT/docs/adr/${adr}" || exit 1`),
+      ...SKILL_RESOURCES.map((resource) => `test -f "$MEFISTO_PACKAGE_ROOT/skills/projections/${resource}" || exit 1`),
+      `printf '%s\\n' "$MEFISTO_PACKAGE_ROOT"`,
+    ]
+    const result = runBashStreams([preamble, ...checks].join('\n'), WORK)
+    assert.deepEqual(
+      [result.status, result.stdout],
+      [0, `${realpathSync.native(packageRoot)}\n`],
+      `${id} Claude generado no resuelve su conocimiento desde el package root efectivo: ${result.stderr}`,
+    )
+  }
+
+  before(() => {
+    for (const [source, destination] of COPIES) {
+      const target = join(packageRoot, ...destination.split('/'))
+      mkdirSync(dirname(target), { recursive: true })
+      copyFileSync(repoPath(source), target)
+    }
+  })
+
+  test('reviewer Claude generado abre ADRs y Skill desde un package root con espacios', () => {
+    resolvesKnowledge('reviewer', [ADR.testNaming])
+  })
+
+  test('projection-implementer Claude generado abre ADRs y Skill desde un package root con espacios', () => {
+    resolvesKnowledge('projection-implementer', PROJECTION_IMPLEMENTER_ADRS)
+  })
+
+  test('projection-test-writer Claude generado abre ADRs y Skill desde un package root con espacios', () => {
+    resolvesKnowledge('projection-test-writer', [
+      ADR.readSide,
+      ADR.projectionsWorker,
+      ADR.functionNaming,
+      ADR.ownView,
+      ADR.testNaming,
+      ADR.testing,
+    ])
+  })
 })

@@ -38,7 +38,7 @@ abierto: `name`, `description`, `license`, `compatibility`, `metadata` [1]. El s
 spec reconoce, **`allowed-tools`, queda prohibido**: la spec lo marca *Experimental* [1] y un
 runtime que no lo implemente lo ignora en silencio -- un Skill que dependiera de ese campo para
 restringir que tools puede invocar al dispararse degradaria ahi sin ninguna senal. La
-regla F5 del bloque `[F]` de `scripts/tests/test-guards.sh` lo verifica (MEF-ADR-0050 seccion 3,
+regla F5 del bloque `[F]` de `scripts/tests/guards.test.mts` lo verifica (MEF-ADR-0050 seccion 3,
 issue #937). La prohibicion es **del frontmatter de un `SKILL.md`**: en un *comando* de Claude
 Code `allowed-tools` es legitimo, y del lado interno lo emite el generador desde `capabilities`
 -- nunca se escribe a mano.
