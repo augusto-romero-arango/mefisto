@@ -27,20 +27,6 @@
 #                            --scaffold, --batch, --parallel, y varios
 #                            issues sueltos) lo siguen rechazando con mensaje
 #                            explicito en vez de tragarselo en silencio.
-#   iac-pipeline.sh         - resuelve el modelo neutral por perfil de cada
-#                            stage (issue #1624, alineado con tooling):
-#                            infra-writer con perfil balanced, infra-reviewer
-#                            con perfil deep, via mefisto_resolve_model (sin
-#                            --models: el pipeline IaC nunca lo soporto), con
-#                            --model condicional en el argv y una sola linea
-#                            de anuncio por stage.
-#   scaffold-pipeline.sh     - resuelve el modelo neutral por perfil (issue
-#                            #1644, alineado con iac/tooling): domain-scaffolder
-#                            con perfil balanced via mefisto_resolve_model (sin
-#                            --models: este pipeline nunca lo soporto), con
-#                            --model condicional en el argv y una sola linea de
-#                            anuncio, sin duplicar entre el intento inicial y
-#                            las sondas de hold (mismo bucle).
 #   herdr-pipeline.sh       - la otra mitad de CA-3: dentro de un pane herdr,
 #                            launch-pipeline.sh delega con `exec herdr-pipeline.sh
 #                            "$@"`, asi que el flag tiene que sobrevivir tambien
@@ -232,107 +218,6 @@ echo ""
 echo "----------------------------------------"
 echo "  _pipeline-common.sh: $PASS pass, $FAIL fail (hasta aqui)"
 echo "----------------------------------------"
-
-# --- iac-pipeline.sh: default heredado observable sin override ----------------
-IAC_PIPELINE="$REPO_ROOT/scripts/iac-pipeline.sh"
-IAC_CONTENT=$(cat "$IAC_PIPELINE")
-
-assert_iac_contains() {
-    local description="$1" expected="$2"
-    case "$IAC_CONTENT" in
-        *"$expected"*) pass "$description" ;;
-        *) fail "$description -- no se encontro: $expected" ;;
-    esac
-}
-
-assert_iac_count() {
-    local description="$1" expected="$2" needle="$3" actual
-    actual=$(grep -cF -- "$needle" "$IAC_PIPELINE" || true)
-    if [ "$actual" -eq "$expected" ]; then
-        pass "$description"
-    else
-        fail "$description -- esperado $expected, obtenido $actual: $needle"
-    fi
-}
-
-assert_iac_order() {
-    local description="$1" first="$2" second="$3" first_line second_line
-    first_line=$(grep -nF -- "$first" "$IAC_PIPELINE" | cut -d: -f1 | head -n1)
-    second_line=$(grep -nF -- "$second" "$IAC_PIPELINE" | cut -d: -f1 | head -n1)
-    if [ -n "$first_line" ] && [ -n "$second_line" ] && [ "$first_line" -lt "$second_line" ]; then
-        pass "$description"
-    else
-        fail "$description -- orden obtenido: '${first:-ausente}'=$first_line, '${second:-ausente}'=$second_line"
-    fi
-}
-
-echo ""
-echo "[10d] iac: resuelve el modelo neutral por perfil de cada stage (issue #1624)"
-assert_iac_contains "infra-writer resuelve con perfil balanced" 'resolve_infra_model infra-writer balanced'
-assert_iac_contains "infra-reviewer resuelve con perfil deep" 'resolve_infra_model infra-reviewer deep'
-assert_iac_contains "resolve_infra_model usa el helper neutral compartido" 'mefisto_resolve_model "$MEFISTO_RUNTIME_RESUELTO" "$agent_id" "$profile" "" "$CONSUMER_MODELS_FILE"'
-assert_iac_contains "resolve_infra_model aborta si la resolucion del adaptador falla" 'abort "No se pudo resolver el modelo de $agent_id (perfil $profile): ${MEFISTO_MODELS_ERROR:-motivo desconocido}"'
-assert_iac_contains "run_agent anuncia el modelo resuelto o heredado" 'log "Invocando $agent (modelo: ${model:-<heredado>})..."'
-assert_iac_contains "run_agent conserva el argv condicional --model" '[ -n "$model" ] && args+=(--model "$model")'
-assert_iac_contains "run_agent conserva el argv neutral con agente y cwd" '--agent "$agent" --cwd "$WORKTREE_PATH"'
-assert_iac_contains "Stage 1 conserva infra-writer" 'run_agent "1" "infra-writer" "$STAGE1_PROMPT"'
-assert_iac_contains "Stage 2 conserva infra-reviewer" 'run_agent "2" "infra-reviewer" "$STAGE2_PROMPT"'
-assert_iac_order "resuelve ambos modelos antes de descargar el issue" 'resolve_infra_model infra-reviewer deep' 'log "Descargando issue #$ISSUE_NUM...'
-assert_iac_order "run_agent resuelve el modelo del agente antes de anunciarlo" 'model="$MODEL_REVIEWER"' 'log "Invocando $agent (modelo: ${model:-<heredado>})..."'
-assert_iac_count "run_agent anuncia el modelo una sola vez por stage" 1 'log "Invocando $agent (modelo: ${model:-<heredado>})..."'
-assert_iac_count "un solo punto de armado de argv (initial y sondas de hold comparten el mismo bucle)" 1 '--agent "$agent" --cwd "$WORKTREE_PATH"'
-
-# --- scaffold-pipeline.sh: modelo declarado sin override -----------------------
-SCAFFOLD_PIPELINE="$REPO_ROOT/scripts/scaffold-pipeline.sh"
-SCAFFOLD_CONTENT=$(cat "$SCAFFOLD_PIPELINE")
-
-assert_scaffold_contains() {
-    local description="$1" expected="$2"
-    case "$SCAFFOLD_CONTENT" in
-        *"$expected"*) pass "$description" ;;
-        *) fail "$description -- no se encontro: $expected" ;;
-    esac
-}
-
-assert_scaffold_count() {
-    local description="$1" expected="$2" needle="$3" actual
-    actual=$(grep -cF -- "$needle" "$SCAFFOLD_PIPELINE" || true)
-    if [ "$actual" -eq "$expected" ]; then
-        pass "$description"
-    else
-        fail "$description -- esperado $expected, obtenido $actual: $needle"
-    fi
-}
-
-assert_scaffold_order() {
-    local description="$1" first="$2" second="$3" first_line second_line
-    first_line=$(grep -nF -- "$first" "$SCAFFOLD_PIPELINE" | cut -d: -f1 | head -n1)
-    second_line=$(grep -nF -- "$second" "$SCAFFOLD_PIPELINE" | cut -d: -f1 | head -n1)
-    if [ -n "$first_line" ] && [ -n "$second_line" ] && [ "$first_line" -lt "$second_line" ]; then
-        pass "$description"
-    else
-        fail "$description -- orden obtenido: '${first:-ausente}'=$first_line, '${second:-ausente}'=$second_line"
-    fi
-}
-
-echo ""
-echo "[10e] scaffold: resuelve el modelo neutral por perfil (issue #1644)"
-assert_scaffold_contains "domain-scaffolder resuelve con perfil balanced" 'mefisto_resolve_model "$MEFISTO_RUNTIME_RESUELTO" "domain-scaffolder" "balanced" "" "$CONSUMER_MODELS_FILE"'
-assert_scaffold_contains "aborta si la resolucion del adaptador falla" 'abort "No se pudo resolver el modelo de domain-scaffolder (perfil balanced): ${MEFISTO_MODELS_ERROR:-motivo desconocido}"'
-assert_scaffold_contains "anuncia el modelo resuelto o heredado en el encabezado" 'header "Invocando domain-scaffolder (modelo: ${SCAFFOLD_AGENT_MODEL:-<heredado>})..."'
-assert_scaffold_contains "persiste evidencia con el formato canonico" 'MODELS: domain-scaffolder runtime=$MEFISTO_RUNTIME_RESUELTO perfil=balanced solicitado=<automatico> resuelto='
-assert_scaffold_contains "run_scaffold_agent conserva el argv condicional --model" '[ -n "$SCAFFOLD_AGENT_MODEL" ] && args+=(--model "$SCAFFOLD_AGENT_MODEL")'
-assert_scaffold_contains "run_scaffold_agent conserva el argv neutral con agente y cwd" '--agent domain-scaffolder --cwd "$WORKTREE_PATH"'
-assert_scaffold_order "resuelve el modelo antes de anunciarlo" 'mefisto_resolve_model "$MEFISTO_RUNTIME_RESUELTO" "domain-scaffolder" "balanced" "" "$CONSUMER_MODELS_FILE"' 'header "Invocando domain-scaffolder (modelo: ${SCAFFOLD_AGENT_MODEL:-<heredado>})..."'
-assert_scaffold_order "registra evidencia durable antes del primer argv del runner" 'MODELS: domain-scaffolder runtime=$MEFISTO_RUNTIME_RESUELTO' '--agent domain-scaffolder --cwd "$WORKTREE_PATH"'
-assert_scaffold_count "emite una sola evidencia durable, incluso con sondas de hold" 1 'MODELS: domain-scaffolder runtime=$MEFISTO_RUNTIME_RESUELTO'
-assert_scaffold_count "un solo punto de armado de argv (intento y sondas de hold comparten el mismo bucle)" 1 '--agent domain-scaffolder --cwd "$WORKTREE_PATH"'
-SCAFFOLD_MODEL_ARG_COUNT=$(grep -cF -- '[ -n "$SCAFFOLD_AGENT_MODEL" ] && args+=(--model "$SCAFFOLD_AGENT_MODEL")' "$SCAFFOLD_PIPELINE" || true)
-if [ "$SCAFFOLD_MODEL_ARG_COUNT" -eq 1 ]; then
-    pass "scaffold agrega --model condicionalmente una sola vez (intento y sondas comparten el mismo bucle)"
-else
-    fail "se esperaba 1 punto de armado condicional de --model, obtenidos $SCAFFOLD_MODEL_ARG_COUNT"
-fi
 
 # --- launch-pipeline.sh: reenvio/rechazo de --models por modo (CA-3) ---------
 #

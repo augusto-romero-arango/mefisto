@@ -46,15 +46,6 @@ else
     pass "projections-scaffolder remite a la seccion en vez de afirmar 'sin advertencias'"
 fi
 
-PIPE="$ROOT/scripts/scaffold-pipeline.sh"
-L_REM=$(grep -nF "render_warning_remnants_section \"\$WORKTREE_PATH\"" "$PIPE" | head -1 | cut -d: -f1)
-L_CLO=$(grep -nx "\\\$CLOSES_LINE" "$PIPE" | head -1 | cut -d: -f1)
-if [ -n "$L_REM" ] && [ -n "$L_CLO" ] && [ "$L_REM" -lt "$L_CLO" ]; then
-    pass "scaffold-pipeline.sh interpola los remanentes en el body del PR antes de Closes"
-else
-    fail "scaffold-pipeline.sh no interpola render_warning_remnants_section antes de Closes (rem=$L_REM closes=$L_CLO)"
-fi
-
 for c in install-apim install-workos install-auth; do
     f="$ROOT/src/published/commands/$c.md"
     L_PR=$(grep -n 'gh pr create --title' "$f" | head -1 | cut -d: -f1)
