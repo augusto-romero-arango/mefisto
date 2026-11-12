@@ -5,6 +5,9 @@ model: "haiku"
 ---
 <!-- GENERADO por src/published/scripts/generate-published-adapters.mts desde src/published/commands/merge.md. No editar a mano. -->
 ```bash
+if ! node -e 'const [a, b] = process.versions.node.split(".").map(Number); process.exit(a > 22 || (a === 22 && b >= 18) ? 0 : 1)' 2>/dev/null; then
+    printf '%s\n' 'FALTA: Node >= 22.18 no esta en el PATH: los comandos y hooks de Mefisto no corren. Instala Node 22.18 o superior (https://nodejs.org/en/download).' >&2; exit 1
+fi
 mefisto_claude_root=''
 mefisto_claude_root_from_candidate() {
     local root

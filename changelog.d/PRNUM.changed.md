@@ -1,0 +1,3 @@
+- Con un Node anterior a 22.18, todo comando de Mefisto avisa "Node >= 22.18 no esta en el PATH" en vez de fallar culpando a la raíz del plugin.
+- Los avisos del hook de scope y la documentación del config nombran las funciones TypeScript (`isPathInMefistoScope`, `validateMefistoScopeChanges`, `harnessConfigEnv`); la guía del consumidor ubica los artefactos de runtime en `.mefisto/pipeline/`.
+- Se retiran el clasificador de fallos por texto y los helpers de reanudación con `claude -c` del lado publicado, sin llamadores desde que los pipelines corren sobre el runner neutral.
