@@ -101,7 +101,7 @@ Si la instrumentacion falla por cualquier razon, el pipeline emite warning y con
 ### Negativas
 
 - **Costo en tokens y tiempo**: el Stage 4 agrega ~10 minutos de medicion + hasta 30 minutos si hay remediacion. En el caso sin gaps (esperado cuando los agentes trabajan bien), solo son ~10 minutos
-- **Complejidad del pipeline**: tdd-pipeline.mts gana ~150 lineas de bash para un stage nuevo con instrumentacion, clasificacion, loop y reporte
+- **Complejidad del pipeline**: tdd-pipeline.mts gana ~150 lineas para un stage nuevo con instrumentacion, clasificacion, loop y reporte
 - **Line coverage como proxy**: sin branch coverage, un `if/else` donde solo se ejecuta una rama aparece como "cubierto" si ambas lineas del `if` se tocan. Esto es una limitacion aceptada hasta que la herramienta soporte branches
 
 ### Limitaciones conocidas
@@ -115,3 +115,4 @@ Si la instrumentacion falla por cualquier razon, el pipeline emite warning y con
 
 - 2026-08-31: enmendado (issue #788) para sumar los patrones de un servidor MCP (MEF-ADR-0047/MEF-ADR-0048) a la clasificacion: `*Tool.cs` pasa a logica (routing de parametros, filtros de relevancia, truncado con senal -- MEF-ADR-0047 decision 4 --, y MEF-ADR-0048 nivel 1 exige unit tests de esa logica); `*Api.cs` bajo `Infraestructura/` pasa a excluido (cliente HTTP tipado que devuelve el `HttpResponseMessage` crudo, MEF-ADR-0047 decision 3); y la exclusion de records DTO se relaja de "un solo tipo declarado por archivo" a "todos los tipos declarados son records puros", para no dejar "sin clasificar" un contrato upstream redeclarado con varios records (MEF-ADR-0047 decision 3).
 - 2026-11-12: se retiran los shims `.sh` (MEF-ADR-0057): el cuerpo cita los scripts `.mts` que los reemplazaban y su invocacion con `node`. Sin cambio de doctrina.
+- 2026-11-12: Consecuencias deja de describir como bash el codigo que el Stage 4 suma a `tdd-pipeline.mts` (port a TypeScript, MEF-ADR-0057). Sin cambio de doctrina.

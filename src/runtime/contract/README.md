@@ -96,8 +96,8 @@ vigente.
 
 El validador ligero no soporta uniones de tipos. Por eso los campos
 documentados como valor o `null` omiten `type` en su sub-schema. Esta es una
-limitacion conocida del toolchain Bash 3.2 + jq existente, no una autorizacion
-para que los productores emitan tipos arbitrarios.
+limitacion conocida de `jsonschema-lite.mts`, no una autorizacion para que los
+productores emitan tipos arbitrarios.
 
 ## Fixtures
 
@@ -247,7 +247,7 @@ exit 124). Un adaptador que no declara exito antes de salir (MEF-ADR-0050)
 conserva el comportamiento de siempre. Si tras el exito un comando en segundo
 plano termina dentro de la gracia, el runtime puede abrir otro turno: un corte a
 mitad de ese turno conserva el ultimo terminal de exito, y el trabajo del turno
-extra puede quedar sin commitear (lo juzga `agent_work_is_trustworthy`).
+extra puede quedar sin commitear (lo juzga `agentWorkIsTrustworthy`).
 
 ## Mapping de modelos
 
@@ -260,13 +260,12 @@ placeholders y no declara un conjunto cerrado de runtimes.
 El placeholder `<runtime-id>` debe sustituirse por un id valido antes de pasar
 la plantilla al validador.
 
-`mefisto_resolve_model <runtime> <agent-id> <profile> [explicit-model]
-[mapping-file]` conserva el resultado y el motivo de error en
-`MEFISTO_RESOLVED_MODEL` y `MEFISTO_MODELS_ERROR`. Su precedencia es override
-explicito, agente, perfil, `runtime_<id>_default_model` y herencia (cadena
-vacia). Una ruta omitida, inexistente o vacia equivale a no tener mapping; JSON
-o forma invalidos fallan como `<archivo>: <campo>: <motivo>`. El nucleo no
-deriva la ruta ni consulta estado, Git o cwd.
+`resolveModel({runtime, agentId, profile, explicitModel?, mappingFile?})`
+devuelve `{model}` o `{error}`. Su precedencia es override explicito, agente,
+perfil, `defaultModel` del adaptador y herencia (cadena vacia). Una ruta
+omitida, inexistente o vacia equivale a no tener mapping; JSON o forma
+invalidos fallan como `<archivo>: <campo>: <motivo>`. El nucleo no deriva la
+ruta ni consulta estado, Git o cwd.
 
 ### Bloque `efforts`
 
@@ -277,14 +276,12 @@ reemplaza la traduccion del adaptador para ese nivel). El vocabulario neutral es
 `quick | light | standard | thorough | exhaustive`; cualquier otro nivel o campo
 se rechaza como `<ruta>: <motivo>`.
 
-`mefisto_resolve_effort <runtime> <agent-id> <nivel-fabrica> [mapping-file]`
-fija `MEFISTO_RESOLVED_EFFORT` (y lo imprime); el error queda en
-`MEFISTO_EFFORTS_ERROR`. Precedencia del nivel: `efforts.agents[<id>]` > nivel
-de fabrica del caller (vacio o fuera del vocabulario retorna `1`). Precedencia
-del valor nativo: `efforts.levels[<nivel>]` > `runtime_<id>_default_effort
-<nivel>` (quick->low, light->medium, standard->high, thorough->xhigh,
-exhaustive->max en los adaptadores actuales) > vacio (heredar). Capturar el
-resultado con redirect a archivo, nunca con `$(...)`.
+`resolveEffort({runtime, agentId, level, mappingFile?})` devuelve `{effort}` o
+`{error}`. Precedencia del nivel: `efforts.agents[<id>]` > nivel de fabrica del
+caller (vacio o fuera del vocabulario devuelve `{error}`). Precedencia del
+valor nativo: `efforts.levels[<nivel>]` > `defaultEffort` del adaptador
+(quick->low, light->medium, standard->high, thorough->xhigh, exhaustive->max en
+el adaptador de Claude Code) > vacio (heredar).
 
 ### Effort en conversaciones
 

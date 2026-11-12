@@ -29,14 +29,14 @@ Permanece en el top-level del repo del plugin:
 - `commands/` -- skills publicados (slash commands).
 - `skills/` -- Agent Skills publicados (MEF-ADR-0033).
 - `agents/` -- agentes publicados.
-- `scripts/` -- pipelines bash publicados.
+- `scripts/` -- pipelines publicados (`.mts` que se invocan con `node`, MEF-ADR-0057).
 - `hooks/hooks.json` -- hooks publicados.
 
 Los skills publicados:
 
 - Solo operan sobre archivos del consumidor (workflows en `.github/`, fixtures de `tests/`, `.claude/harness.config.json`, `.claude/settings.json`, `pipeline-state/`, scripts ad-hoc del consumidor).
 - Tienen un **guard defensivo** al inicio que aborta si detectan `.claude-plugin/plugin.json` en el cwd (i.e., si por error alguien los invoca dentro del repo de Mefisto).
-- El pipeline `scripts/tooling-pipeline.mts` aplica un **gate de scope** (`validate_consumer_scope_changes`) que rechaza el PR si el agente toca `commands/`, `skills/`, `agents/`, `hooks/`, `.claude-plugin/` o `docs/adr/` (rutas reservadas al plugin). El blocklist enumera rutas explicitamente (`is_path_in_consumer_blocklist`), asi que **cada tipo de artefacto nuevo del plugin hay que registrarlo a mano** -- omitirlo abre un hueco silencioso en esta frontera. En que PR va ese registro: seccion E.
+- El pipeline `scripts/tooling-pipeline.mts` aplica un **gate de scope** (`validateConsumerScopeChanges`) que rechaza el PR si el agente toca `commands/`, `skills/`, `agents/`, `hooks/`, `.claude-plugin/` o `docs/adr/` (rutas reservadas al plugin). El blocklist enumera rutas explicitamente (`isPathInConsumerBlocklist`, `scripts/lib/pipeline/consumer-scope.mts`), asi que **cada tipo de artefacto nuevo del plugin hay que registrarlo a mano** -- omitirlo abre un hueco silencioso en esta frontera. En que PR va ese registro: seccion E.
 - Los pipelines de orquestacion (`parallel-pipeline.mts`, `batch-pipeline.mts`, `pr-sync.mts`) abortan si se invocan dentro del repo de Mefisto.
 
 ### B. Lado interno (NO distribuido)
@@ -50,7 +50,7 @@ Vive en `.claude/` del repo del propio plugin:
 
 Los skills internos:
 
-- Solo operan sobre archivos del propio plugin (`commands/`, `skills/`, `agents/`, `scripts/`, `hooks/`, `docs/`, `.claude-plugin/`, `.claude/{commands,skills,agents,scripts}/`, gobierno del repo). La allowlist tambien enumera rutas explicitamente (`is_path_in_mefisto_scope`), asi que un artefacto nuevo no registrado hace que el pipeline interno rechace su propio PR. En que PR va ese registro: seccion E.
+- Solo operan sobre archivos del propio plugin (`commands/`, `skills/`, `agents/`, `scripts/`, `hooks/`, `docs/`, `.claude-plugin/`, `.claude/{commands,skills,agents,scripts}/`, gobierno del repo). La allowlist tambien enumera rutas explicitamente (`isPathInMefistoScope`, `src/internal/scripts/lib/mefisto-scope.mts`), asi que un artefacto nuevo no registrado hace que el pipeline interno rechace su propio PR. En que PR va ese registro: seccion E.
 - Tienen un **guard inverso**: abortan si NO detectan `.claude-plugin/plugin.json` (i.e., si alguien los invoca fuera del repo de Mefisto).
 - Claude Code los carga automaticamente cuando se abre el repo de Mefisto, **sin necesidad de instalar el plugin sobre si mismo**. Esto se basa en que `.claude/commands/` y `.claude/agents/` son convenciones de configuracion por-repo del propio Claude Code, separadas del plugin distribuido.
 
@@ -59,7 +59,7 @@ Los skills internos:
 La unica operacion permitida desde el consumidor hacia el repo de Mefisto es **crear un draft** (`estado:borrador`). El refinamiento, desglose, oleadas, backlog, analisis y limpieza de issues del plugin se hacen exclusivamente con `/mefisto-plan` dentro del repo del plugin.
 
 - `agents/tooling-investigator.md` y `agents/planner.md` (publicados) implementan esta restriccion: si la causa raiz vive en el plugin, abren un draft con `gh -R augusto-romero-arango/mefisto ...` y detienen el flujo.
-- El slug del repo de Mefisto se lee del campo `repoSlug` en `.claude/harness.config.json` (opcional; se lee inline con `jq`, no se exporta como `HARNESS_*`); default: `augusto-romero-arango/mefisto`. Esto soporta forks.
+- El slug del repo de Mefisto se lee del campo `repoSlug` en `.claude/harness.config.json` (opcional; se lee inline con `scripts/json-value.mts`, no se exporta como `HARNESS_*`); default: `augusto-romero-arango/mefisto`. Esto soporta forks.
 
 ### D. Grupos de trabajo homogeneos
 
@@ -67,19 +67,19 @@ Los pipelines de orquestacion (`/parallel`, `/sequential`, `scripts/batch-pipeli
 
 ### E. Secuencia de registro de rutas nuevas en los gates
 
-Los dos gates de scope (`is_path_in_consumer_blocklist` en el lado publicado, `is_path_in_mefisto_scope` en el lado interno; ambos enumeran rutas explicitamente, secciones A y B arriba) comparten una mecanica que la doctrina previa no explicitaba: **cuando** hay que registrar una ruta nueva, no solo que hay que hacerlo.
+Los dos gates de scope (`isPathInConsumerBlocklist` en el lado publicado, `isPathInMefistoScope` en el lado interno; ambos enumeran rutas explicitamente, secciones A y B arriba) comparten una mecanica que la doctrina previa no explicitaba: **cuando** hay que registrar una ruta nueva, no solo que hay que hacerlo.
 
 **Regla**: registrar una ruta o tipo de artefacto nuevo en los gates y usar esa ruta son dos PRs distintos. El de registro va primero, y no crea ningun archivo bajo la ruta que registra.
 
 **Causa.** El gate se carga desde la ubicacion del propio script, no desde el worktree del PR. En el pipeline interno esa ubicacion es el checkout principal del repo, que esta en `main`: `src/internal/scripts/mefisto-tooling-pipeline.mts` importa `lib/mefisto-scope-gate.mts` relativo a su propio archivo antes de crear el worktree. El gate evaluado es entonces el que existia *antes* del PR, nunca la copia que el propio PR pueda llevar. Un PR que intenta registrar una ruta y poblarla al mismo tiempo se autobloquea: corre contra el gate viejo, que todavia no la conoce.
 
-**Esto no es un defecto a corregir, es una propiedad de seguridad deliberada.** Si el gate leyera la copia del worktree en vez de la de `main`, cualquier writer podria anadirse a si mismo una entrada como `*) return 0 ;;` en la allowlist o el blocklist dentro de su propio PR y anular el scope por completo, sin que ninguna revision previa lo detuviera. Cargar el gate desde fuera del worktree fuerza a que el registro de una ruta nueva pase por su propio PR -- con su propia revision -- antes de que exista contenido bajo esa ruta.
+**Esto no es un defecto a corregir, es una propiedad de seguridad deliberada.** Si el gate leyera la copia del worktree en vez de la de `main`, cualquier writer podria anadirse a si mismo una entrada que acepte toda ruta en la allowlist o el blocklist dentro de su propio PR y anular el scope por completo, sin que ninguna revision previa lo detuviera. Cargar el gate desde fuera del worktree fuerza a que el registro de una ruta nueva pase por su propio PR -- con su propia revision -- antes de que exista contenido bajo esa ruta.
 
 **Precedente canonico** (issue #360 -> #364, MEF-ADR-0033): el PR #376 (commit `7b2c5b1`) registro `skills/*` y `.claude/skills/*` en ambos gates sin crear ningun archivo bajo esas rutas -- el unico archivo nuevo del PR fue el propio ADR MEF-ADR-0033. El PR #385 (commit `ac52351`), que resolvio el issue #364, creo `skills/projections/SKILL.md` despues, cuando `main` ya conocia la ruta. Dos PRs, ningun bloqueo.
 
 **Contraejemplo** (issue #380): al intentar registrar `changelog.d/` y usarla en el mismo PR, `is_path_in_mefisto_scope` rechazo `changelog.d/380.added.md` porque `main` todavia no conocia la ruta. El PR #399 (commit `a9f514b`) la registro primero. El mismo issue volvio a fallar despues por el gate de CHANGELOG, que exigia una entrada en `[Unreleased]` -- justo lo que el fragmento reemplaza; el PR #401 (commit `c947844`) introdujo `changelog_fragment_added` como alternativa aceptada. Solo con ambos gates enterados en `main`, el PR #403 pudo cerrar #380.
 
-La regla aplica por igual a los dos lados, aunque el gate quede fuera del alcance del PR por caminos distintos. Del lado interno, la allowlist (`is_path_in_mefisto_scope`, `src/internal/scripts/lib/mefisto-scope.mts`) se carga desde el checkout principal del repo -- que esta en `main` -- porque el pipeline se invoca ahi y crea el worktree como directorio aparte. Del lado publicado, el pipeline corre desde el plugin instalado (`commands/tooling.md` resuelve `PLUGIN_ROOT` bajo `~/.claude/plugins/cache/`) y lee su blocklist (`is_path_in_consumer_blocklist`, `scripts/lib/pipeline/consumer-scope.mts`) de esa copia, nunca del repo del consumidor: registrar una ruta nueva ahi es un PR de este repo, y solo alcanza al consumidor con la siguiente version del plugin. En los dos casos vale la misma invariante -- **el PR bajo revision no puede alterar el gate que lo juzga** -- y de ella se deriva la regla.
+La regla aplica por igual a los dos lados, aunque el gate quede fuera del alcance del PR por caminos distintos. Del lado interno, la allowlist (`isPathInMefistoScope`, `src/internal/scripts/lib/mefisto-scope.mts`) se carga desde el checkout principal del repo -- que esta en `main` -- porque el pipeline se invoca ahi y crea el worktree como directorio aparte. Del lado publicado, el pipeline corre desde el plugin instalado (`commands/tooling.md` resuelve `PLUGIN_ROOT` bajo `~/.claude/plugins/cache/`) y lee su blocklist (`isPathInConsumerBlocklist`, `scripts/lib/pipeline/consumer-scope.mts`) de esa copia, nunca del repo del consumidor: registrar una ruta nueva ahi es un PR de este repo, y solo alcanza al consumidor con la siguiente version del plugin. En los dos casos vale la misma invariante -- **el PR bajo revision no puede alterar el gate que lo juzga** -- y de ella se deriva la regla.
 
 ## Skills sin equivalente interno
 
@@ -146,3 +146,4 @@ Pros: separacion fisica dura. Contras: dos artefactos a publicar y mantener, dep
 - 2026-11-10: seccion B: el lanzador interno pasa a llamarse `mefisto-launch-pipeline.sh` (antes `mefisto-tmux-pipeline.sh`). Sale tmux, que no existe en Windows nativo (MEF-ADR-0057 decision 5).
 - 2026-11-12: las librerias bash `_pipeline-common.sh` y `_mefisto-common.sh` se borran (port a TypeScript, MEF-ADR-0057): la seccion B deja de listar `_mefisto-common.sh` y la seccion E cita los modulos que hoy cargan cada gate (`mefisto-scope.mts`, `mefisto-scope-gate.mts` y `consumer-scope.mts`). Sin cambio de doctrina.
 - 2026-11-12: se retiran los shims `.sh` (MEF-ADR-0057): el cuerpo cita los scripts `.mts`, y los pipelines internos figuran en `src/internal/scripts/`, desde donde se invocan con `node` (MEF-ADR-0049 decision 2).
+- 2026-11-12: las secciones A, B, C y E nombran los gates de scope por sus funciones TypeScript (`validateConsumerScopeChanges`, `isPathInConsumerBlocklist`, `isPathInMefistoScope`) en lugar de los nombres de las funciones bash borradas; `scripts/` se describe como pipelines `.mts` y `repoSlug` se lee con `scripts/json-value.mts` en lugar de `jq` (port a TypeScript, MEF-ADR-0057). El contraejemplo del issue #380 conserva el nombre de entonces. Sin cambio de doctrina.

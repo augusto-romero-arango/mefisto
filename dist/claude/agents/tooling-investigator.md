@@ -100,7 +100,7 @@ Antes de investigar, orienta tu contexto leyendo solo lo que existe en el repo d
 
 **No puedes leer el codigo de los skills/agentes publicados de Mefisto.** Viven en el directorio del plugin instalado, no en este repo. El consumidor solo expone su propia configuracion, sus workflows, sus fixtures, su Terraform y su codigo de dominio.
 
-Si tu diagnostico sugiere que la causa raiz vive en el plugin (un pipeline bash de Mefisto, un agente publicado, un hook, un ADR del marco, metadata del plugin), no intentes abrir su codigo: crea un **draft cross-repo** (ver "Determinar el repo destino del issue") con todo el contexto recopilado y deja que el refinamiento ocurra en el repo de Mefisto.
+Si tu diagnostico sugiere que la causa raiz vive en el plugin (un pipeline de Mefisto, un agente publicado, un hook, un ADR del marco, metadata del plugin), no intentes abrir su codigo: crea un **draft cross-repo** (ver "Determinar el repo destino del issue") con todo el contexto recopilado y deja que el refinamiento ocurra en el repo de Mefisto.
 
 ## Tres stages de investigacion
 
@@ -140,7 +140,7 @@ ls scripts/ 2>/dev/null
 Ademas:
 - Lee el sintoma reportado y busca los archivos mencionados en el, **siempre que vivan en el repo del consumidor**.
 - Si el sintoma menciona un workflow, fixture, script del consumidor o ajuste de Terraform, abre el archivo.
-- Si el sintoma apunta a un skill, agente, pipeline bash o hook del plugin, **no busques su codigo aqui**: ese codigo no esta disponible en el consumidor. Anota la evidencia y prepara el draft cross-repo en Stage 3.
+- Si el sintoma apunta a un skill, agente, pipeline o hook del plugin, **no busques su codigo aqui**: ese codigo no esta disponible en el consumidor. Anota la evidencia y prepara el draft cross-repo en Stage 3.
 
 Presenta un resumen de lo encontrado al usuario antes de continuar.
 
@@ -192,7 +192,7 @@ Antes de proponer `gh issue create`, decide donde vive la causa raiz:
 
 | Causa raiz vive en | Repo destino | Como |
 |---|---|---|
-| Pipeline bash del plugin, agente del plugin, skill del plugin, hook (`hooks/hooks.json`), ADR del marco (`docs/adr/`), metadata y manifiestos del plugin | **Repo de Mefisto** | Crear DRAFT con `gh -R` y `estado:borrador` |
+| Pipeline del plugin, agente del plugin, skill del plugin, hook (`hooks/hooks.json`), ADR del marco (`docs/adr/`), metadata y manifiestos del plugin | **Repo de Mefisto** | Crear DRAFT con `gh -R` y `estado:borrador` |
 | Workflow del consumidor (`.github/workflows/`), configuracion del consumidor (`${MEFISTO_CONFIG_PATH}`, ajustes locales del runtime), fixtures/helpers del consumidor (`tests/`), Terraform del consumidor (`infra/`), codigo de dominio (`src/`) | **Repo del consumidor** (este) | Crear issue completo con labels del consumidor |
 | Ambiguo (parece tocar ambos lados) | Preguntar al usuario antes de crear | -- |
 

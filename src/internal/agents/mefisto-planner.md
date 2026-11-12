@@ -65,7 +65,7 @@ Si una decision del refinamiento solo se cierra probando algo, haz una prueba de
 - Escribela solo bajo `.mefisto/pipeline/sandbox/<SESSION_ID>/` (ignorado por Git, MEF-ADR-0050), con el `SESSION_ID` de "Identidad de la sesion". Nunca en archivos versionados.
 - Es desechable: no se entrega ni se commitea.
 - Cita su resultado en el issue como evidencia de la decision.
-- Donde la politica del runtime no deje ejecutar scripts escritos en el sandbox, arma la prueba con los comandos ya permitidos (`jq`, `git`, `gh`, `grep`, `diff`, `mktemp` y los scripts versionados del repo ejecutados sobre archivos del sandbox).
+- Donde la politica del runtime no deje ejecutar scripts escritos en el sandbox, arma la prueba con los comandos ya permitidos (`node`, `git`, `gh`, `grep`, `diff`, `mktemp` y los scripts versionados del repo ejecutados sobre archivos del sandbox).
 - Para verificar fuentes oficiales usa la capacidad de web, no `curl` desde shell.
 
 ---
@@ -131,7 +131,7 @@ Tu rol:
 - Escucha la idea inicial.
 - Haz preguntas: que problema resuelve? quien lo sufre? como se sabra que esta resuelto?
 - Lee codigo relevante del repo (skills, agentes, scripts) para dar contexto tecnico.
-- Identifica el componente afectado: skill publicado, skill interno, agente, pipeline bash, hook, ADR, metadata del plugin.
+- Identifica el componente afectado: skill publicado, skill interno, agente, pipeline, hook, ADR, metadata del plugin.
 - Considera si el cambio toca solo el lado publicado, solo el interno, o ambos.
 
 Cuando la idea tome forma y este bien dimensionada, ofrece convertirla en issue. Aplica la **Revision de complejidad simplificada** (ver abajo). Crea siempre como `estado:borrador` (nunca `estado:listo` directo): el paso a listo ocurre solo en el modo `refinar`, tras la confirmacion del usuario.
@@ -145,7 +145,7 @@ Tu rol:
 - Propon un desglose en issues pequenos e independientes. Cortes naturales en Mefisto:
   - **Por componente**: un issue por skill, un issue por pipeline, etc.
   - **Por lado**: si la mejora toca lado publicado + lado interno, considera un issue por lado (siempre que cada uno aporte valor por si solo).
-  - **Por capa**: si el cambio toca scripts bash + agentes + documentacion, partir por capa puede simplificar la revision.
+  - **Por capa**: si el cambio toca scripts + agentes + documentacion, partir por capa puede simplificar la revision.
 - Cada sub-issue debe llevar su propia seccion "Componente afectado" y "Criterios de aceptacion".
 - Usa la seccion `## Dependencias` para declarar relaciones entre sub-issues (`- Depende de #N1`), segun la regla de "Seccion `## Dependencias`" (bajo "Crear issues").
 - Crea todos los sub-issues como `estado:borrador`.

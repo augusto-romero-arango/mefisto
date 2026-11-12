@@ -8,15 +8,19 @@ Estructura del plugin y guía para evolucionarlo. Movido desde el [README](../RE
 .claude-plugin/
   plugin.json          # metadata (name, version, author)
   marketplace.json     # catálogo
-commands/              # skills publicados (los que ve el consumidor)
-agents/                # agentes publicados
+commands/              # skills publicados (los que ve el consumidor), generados desde src/published/commands/
+agents/                # agentes publicados, generados desde src/published/agents/
+skills/                # Agent Skills publicados
 scripts/               # pipelines + utilidades publicadas (.mts, se invocan con node)
 hooks/hooks.json       # salida Claude generada: SessionStart (.mefisto/pipeline/.plugin-root y mirror temporal, sessions.jsonl) + PostToolUse para logging
-.claude/               # skills/agentes/pipelines INTERNOS (no se publican)
+src/published/         # fuente neutral de comandos y agentes publicados, contrato y generador
+src/runtime/           # runner neutral de agentes (mefisto-run-agent.mts) y adaptador de Claude Code
+src/internal/          # fuente neutral de lo interno: agents/, commands/, skills/ y scripts/ (pipelines internos)
+dist/claude/           # distribución generada que publica el release
+.claude/               # adaptador interno generado (no se publica)
   commands/            # /mefisto-tooling, /mefisto-plan, /mefisto-bug, ...
-  agents/              # mefisto-investigator, mefisto-planner, mefisto-historiador
+  agents/              # mefisto-investigator, mefisto-planner, mefisto-writer, ...
   scripts/             # hook de scope del adaptador (mefisto-scope-hook.mts) y tests internos
-src/internal/scripts/  # pipelines internos: node src/internal/scripts/mefisto-tooling-pipeline.mts, ...
 docs/
   adr/                 # ADRs del marco
   testing/harness-cheatsheet.md
@@ -44,13 +48,13 @@ Cuando descubras desde un consumidor un problema atribuible al plugin, el toolin
 
 ## Scripts en TypeScript
 
-Los scripts se estan portando de bash a TypeScript (MEF-ADR-0057). Un script portado es un `.mts` que Node ejecuta directo, sin build:
+Todos los scripts, pipelines, hooks y generadores del plugin son TypeScript (MEF-ADR-0057): cada uno es un `.mts` que Node ejecuta directo, sin build ni dependencias npm, y no queda ningun `.sh` en el repo. Por ejemplo:
 
 ```bash
 node src/internal/scripts/mefisto-portability-status.mts
 ```
 
-Requiere Node 22.18 o posterior. El avance del port esta en `docs/portabilidad/ESTADO.md`; ese mismo script lo mide.
+Requiere Node 22.18 o posterior. Ese script mide las metricas de portabilidad; el estado, con la verificacion manual en Windows todavia pendiente, esta en `docs/portabilidad/ESTADO.md`.
 
 Para verificar un cambio antes de abrir el PR:
 
@@ -69,5 +73,5 @@ node --test ".claude/scripts/**/*.test.mts" "scripts/**/*.test.mts" "src/**/*.te
 - **Procesos**: siempre con lista de argumentos y sin shell (`capture` de `scripts/lib/cli.mts`). Nada de `exec` con una cadena.
 - **Librerias compartidas**: lo publicado vive en `scripts/lib/`; lo interno, en `src/internal/scripts/lib/`. Lo interno puede importar lo publicado, nunca al reves.
 - **Rutas**: se arman con `node:path`, nunca concatenando `/`. Para decidir si una ruta cae dentro de otra se comparan rutas reales con `realpathSync.native`, que es la unica variante que expande los nombres cortos de Windows.
-- **Salida**: los mensajes y codigos de salida del script en bash se conservan; son contrato para los comandos y agentes que los leen.
+- **Salida**: los mensajes y codigos de salida de un script son contrato para los comandos y agentes que los leen; un cambio en ellos va junto con el de sus lectores.
 - **Tests**: con `node:test` y `node:assert/strict`, sobre carpetas temporales y repos git creados en el propio test. Nada que dependa de bash, salvo los que ejecutan un bloque de bash de un comando o agente con `scripts/tests/markdown-bash.mts`, que en Windows usa Git Bash.

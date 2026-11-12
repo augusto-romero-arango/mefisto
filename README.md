@@ -42,7 +42,7 @@ Claude Code, con adaptador en el repo. La doctrina es neutral a runtime y el con
 
 Node 22.18+, `gh` autenticado, `git` 2.x con worktrees, `dotnet` 10.x y `terraform` 1.6+. En Windows, además, [Git for Windows](https://git-scm.com/downloads/win): Claude Code ejecuta con Git Bash los bloques de bash de comandos y agentes, y sin él usaría PowerShell. `/mefisto:onboard` comprueba Node y, en Windows, Git Bash.
 
-Los scripts y los hooks corren con Node, sin `jq` ni `python3` ([MEF-ADR-0057](docs/adr/mef-adr-0057-portabilidad-typescript-node.md), decisión 9). Windows se declara soportado cuando se cierre la verificación manual de [docs/portabilidad/ESTADO.md](docs/portabilidad/ESTADO.md).
+Los scripts y los hooks corren con Node, sin `jq` ni `python3` ([MEF-ADR-0057](docs/adr/mef-adr-0057-portabilidad-typescript-node.md), decisión 9). Única excepción: cuando el planner actualiza el glosario YAML al cerrar la sesión, `field-note.mts` lo valida con un validador que ya esté en el PATH (`python3` con PyYAML, `ruby` o `yq`); sin ninguno, el cierre aborta con un mensaje y no stagea nada. Windows se declara soportado cuando se cierre la verificación manual de [docs/portabilidad/ESTADO.md](docs/portabilidad/ESTADO.md).
 
 ## Instalación rápida
 

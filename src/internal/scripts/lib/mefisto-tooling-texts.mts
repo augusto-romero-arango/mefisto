@@ -34,12 +34,12 @@ Contexto de la tarea de tooling a implementar:
 
 $ISSUE_CONTEXT
 
-Tu tarea: implementa lo descrito en el issue. Esto es una tarea de TOOLING sobre el propio plugin Mefisto: skills (en commands/), agentes (en agents/), pipelines bash (en scripts/), hooks (en hooks/), ADRs (en docs/adr/), metadata del plugin (.claude-plugin/), o equivalentes internos en .claude/{commands,agents,scripts}/.
+Tu tarea: implementa lo descrito en el issue. Esto es una tarea de TOOLING sobre el propio plugin Mefisto: skills (en commands/), agentes (en agents/), pipelines en TypeScript (en scripts/), hooks (en hooks/), ADRs (en docs/adr/), metadata del plugin (.claude-plugin/), o equivalentes internos en .claude/{commands,agents,scripts}/.
 
 ALCANCE DE ESCRITURA PERMITIDO:
 - commands/        (skills publicados)
 - agents/          (agentes publicados)
-- scripts/         (pipelines bash publicados)
+- scripts/         (pipelines publicados, .mts)
 - hooks/           (hooks publicados)
 - docs/            (ADRs, testing, field-notes, cheatsheets)
 - .claude-plugin/  (plugin.json, marketplace.json)

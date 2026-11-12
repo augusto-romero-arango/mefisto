@@ -170,7 +170,7 @@ etapa (a) por defecto, no es un estado incompleto) -- y gana un paso **opt-in** 
 y CI) que pregunta al usuario la estrategia vigente y **escribe/actualiza** `tenancy.strategy` en el
 config, solo tras confirmacion explicita: `/onboard` no sondea codigo ni infiere la etapa por su cuenta.
 
-**`domain-scaffolder`** lee `tenancy.strategy` inline con `jq` en su Paso 0 (mismo patron ya usado para
+**`domain-scaffolder`** lee `tenancy.strategy` inline con `scripts/json-value.mts` en su Paso 0 (mismo patron ya usado para
 `serviceBus.external`, MEF-ADR-0024) y rama la generacion del `ITenantContext` que registra en
 `Infraestructura/ComposicionServicios{Dominio}.cs`:
 
@@ -506,3 +506,4 @@ proyecto matura de (a) a (b), que es precisamente lo que el token declarativo `t
   Se alinea ademas la seccion 5 de MEF-ADR-0032, que describia la etapa (b) de este ADR como cableada con
   el hibrido -- descripcion que la enmienda vuelve falsa --, sin cambiar ninguna decision de ese ADR.
 - 2026-10-13: enmendado (issue #2399) para alinear la doctrina con `Cosmos.MultiTenancy` 3.1.0 (issue #2394): `ITenantResolver` pasa a `ITenantContext` en todo el cuerpo y la seccion 4 fija la semantica de `OrganizationMembershipId` (getter estricto, `SetDerivedIdentity` de tres parametros, constante `"membresia-no-autenticada"` en la etapa (a) y su motivo).
+- 2026-11-12: la seccion de `domain-scaffolder` cita `scripts/json-value.mts` como lector inline de `tenancy.strategy` en lugar de `jq`, que los bloques de bash del markdown ya no usan (MEF-ADR-0057, decision 9). Sin cambio de doctrina.

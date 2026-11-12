@@ -1,6 +1,6 @@
 # Smoke manual: shim `CLAUDE.md` -> `AGENTS.md`
 
-Verificacion de sesion (no automatizable con `bash + jq`) de que el runtime carga la doctrina canonica de `AGENTS.md` tras el shim del issue #855 (MEF-ADR-0049 CA-3). El gate automatizado (`.claude/scripts/tests/agents-md-shim.test.mts`) solo valida la forma de los archivos; este smoke valida que el runtime realmente los carga.
+Verificacion de sesion (no automatizable con `node --test`) de que el runtime carga la doctrina canonica de `AGENTS.md` tras el shim del issue #855 (MEF-ADR-0049 CA-3). El gate automatizado (`.claude/scripts/tests/agents-md-shim.test.mts`) solo valida la forma de los archivos; este smoke valida que el runtime realmente los carga.
 
 ## Claude Code
 

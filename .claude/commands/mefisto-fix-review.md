@@ -58,5 +58,5 @@ Sigue el mismo proceso conceptual que el skill `/fix-review` publicado:
 
 - **Nunca publiques una respuesta sin aprobacion del usuario**.
 - **Nunca auto-resuelvas comentarios**.
-- **Verifica sintaxis bash** antes de hacer push si modificaste scripts (`bash -n`).
+- **Verifica los tipos** antes de hacer push si modificaste scripts `.mts` (`npx tsc -p src/internal/tsconfig.json`).
 - **Las mejoras a agentes/skills van en commit separado en la misma rama del PR.** Nunca se pushean directo a `main`; si el usuario quiere partirlas en otro PR, crea rama nueva (`git switch -c docs/agentes-mejoras-pr-<n>`) y abre un segundo PR contra `main`. Aplica el mismo guard que el `/fix-review` publicado: si por error estuvieras en `main`, crea la rama antes de commitear.

@@ -77,7 +77,7 @@ Del lado interno, el mod vive en `.claude/mods/<mod>/` con la forma de plugin de
 - `types/index.d.ts`
 - `hooks/*.test.ts`
 
-La ruta queda registrada en `is_path_in_mefisto_scope` antes de poblarla (MEF-ADR-0019 seccion E). Los tipos que el engine regenera en `.claude-plugin/types/` no se versionan. Se cargan desde el marketplace de carpeta `.claude/mods/.claude-plugin/marketplace.json` (`mefisto-mods`), instalado una vez por checkout en alcance `local` (`claude plugin marketplace add ./.claude/mods --scope local` y `claude plugin install <mod>@mefisto-mods --scope local`). Esa configuracion vive en `.claude/settings.local.json`, que no se versiona y no existe en los worktrees de los pipelines, por lo que las sesiones `-p` de los agentes nunca cargan los mods. Un marketplace de carpeta se lee desde la propia carpeta: un cambio se aplica con `/reload-plugins`. `--plugin-dir` queda para probar una copia suelta.
+La ruta queda registrada en `isPathInMefistoScope` antes de poblarla (MEF-ADR-0019 seccion E). Los tipos que el engine regenera en `.claude-plugin/types/` no se versionan. Se cargan desde el marketplace de carpeta `.claude/mods/.claude-plugin/marketplace.json` (`mefisto-mods`), instalado una vez por checkout en alcance `local` (`claude plugin marketplace add ./.claude/mods --scope local` y `claude plugin install <mod>@mefisto-mods --scope local`). Esa configuracion vive en `.claude/settings.local.json`, que no se versiona y no existe en los worktrees de los pipelines, por lo que las sesiones `-p` de los agentes nunca cargan los mods. Un marketplace de carpeta se lee desde la propia carpeta: un cambio se aplica con `/reload-plugins`. `--plugin-dir` queda para probar una copia suelta.
 
 ### 5. Encaje con la neutralidad
 
@@ -211,3 +211,4 @@ Los mods de ambos lados no comparten codigo (MEF-ADR-0019), pero no deben diverg
 - 2026-10-08: decision 8 (tablero del planner) y orden de refinamiento en `mefisto-next-order.sh`.
 - 2026-10-08: version inicial.
 - 2026-11-12: se retiran los shims `.sh` (MEF-ADR-0057): el cuerpo cita los scripts `.mts`, y el modo desacoplado deja de describirse con `nohup`: el lanzador en TypeScript arranca el pipeline en su propia sesion (`launchDetached`).
+- 2026-11-12: la decision 4 nombra la allowlist interna por su funcion TypeScript, `isPathInMefistoScope`, en lugar de `is_path_in_mefisto_scope` (port a TypeScript, MEF-ADR-0057). Sin cambio de doctrina.

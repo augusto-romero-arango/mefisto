@@ -7,7 +7,7 @@ argument-hint: "[descripcion del sintoma]"
 
 Investiga un error o sintoma observado al desarrollar el plugin Mefisto. Enruta al agente `mefisto-investigator`. Comunicate en **espanol**.
 
-**Alcance**: solo investiga problemas del propio plugin (skills publicados, internos, agentes, pipelines bash, hooks, ADRs). NO investiga el entorno desplegado del consumidor (eso es trabajo del `/bug` publicado con `--deployed`).
+**Alcance**: solo investiga problemas del propio plugin (skills publicados, internos, agentes, pipelines, hooks, ADRs). NO investiga el entorno desplegado del consumidor (eso es trabajo del `/bug` publicado con `--deployed`).
 
 ## Entrada
 

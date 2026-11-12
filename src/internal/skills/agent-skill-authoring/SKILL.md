@@ -77,8 +77,9 @@ nueve pasos, con el archivo exacto de cada uno: MEF-ADR-0050 seccion 2):
    (`src/runtime/lib/mefisto-runtime.mts`) descubre `runtime-<id>.mts` por su nombre y ejecuta
    `isAvailable`; el descubrimiento sincrono que usan `/upgrade` y `/onboard` sale de la tabla
    `PROBES` del mismo modulo, a la que hay que sumar el runtime nuevo.
-3. Entradas espejo en las dos allowlists de scope: `is_path_in_mefisto_scope` (interno) e
-   `is_path_in_consumer_blocklist` (publicado).
+3. Entradas espejo en las dos allowlists de scope: `isPathInMefistoScope`
+   (`src/internal/scripts/lib/mefisto-scope.mts`, interno) e `isPathInConsumerBlocklist`
+   (`scripts/lib/pipeline/consumer-scope.mts`, publicado).
 4. Excepcion en `neutrality-allowlist.json` si el adaptador necesita nombrar su propio runtime en
    texto.
 5. Kind reconocido por Herdr, si algun pipeline orquesta ese runtime en un pane:
@@ -122,6 +123,7 @@ nueve pasos, con el archivo exacto de cada uno: MEF-ADR-0050 seccion 2):
 - MEF-ADR-0050 (principio de neutralidad de runtime): fuente de la regla de oro, el frontmatter
   portable de `SKILL.md` y el checklist de adaptador nuevo.
 - MEF-ADR-0049 (arquitectura neutral runtime/proveedor): fuente del layout `src/internal/` +
-  adaptadores generados, los perfiles `fast|balanced|deep` y el toolchain bash+jq.
+  adaptadores generados, los perfiles `fast|balanced|deep` y el toolchain del generador
+  (TypeScript sobre Node, MEF-ADR-0057).
 - `src/internal/contract/README.md`: contrato completo del generador (campos, vocabularios
   cerrados, mapeo por runtime).
