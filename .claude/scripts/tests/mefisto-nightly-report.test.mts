@@ -26,7 +26,7 @@ function row([order, path, state]: Row): string {
   return `${[order, path, state, ...rest].join('\t')}\n`
 }
 
-function lane(suite: string, name: string, rows: Row[]): void {
+function job(suite: string, name: string, rows: Row[]): void {
   const dir = join(work, suite, name)
   mkdirSync(dir, { recursive: true })
   writeFileSync(join(dir, 'results.tsv'), rows.map(row).join(''))
@@ -42,21 +42,21 @@ after(() => {
 
 describe('buildReport', () => {
   test('[A] todos PASS: conteos y ninguna ruta con FAIL', () => {
-    lane('a', 'publicado', [['1', 't1.sh', 'PASS']])
-    lane('a', 'interno', [['1', 't2.sh', 'PASS']])
+    job('a', 'publicado', [['1', 't1.sh', 'PASS']])
+    job('a', 'interno', [['1', 't2.sh', 'PASS']])
     const report = buildReport(join(work, 'a'), RUN_URL, SHA)
     assert.ok(report.includes(`- Run: ${RUN_URL}`))
     assert.ok(report.includes(`- SHA evaluado: \`${SHA}\``))
     assert.ok(report.includes('Total: PASS=2 FAIL=0'))
-    assert.ok(report.includes('(ninguna: todos los tests registrados pasaron'))
+    assert.ok(report.includes('(ninguna: todos los archivos de test pasaron'))
   })
 
-  test('[B] FAIL en dos carriles: totales, conteo por carril y lista de rutas', () => {
-    lane('b', 'publicado', [
+  test('[B] FAIL en dos jobs: totales, conteo por job y lista de rutas', () => {
+    job('b', 'publicado', [
       ['1', 'scripts/tests/test-ok.sh', 'PASS'],
       ['2', 'scripts/tests/test-rojo-a.sh', 'FAIL'],
     ])
-    lane('b', 'interno', [
+    job('b', 'interno', [
       ['1', '.claude/scripts/tests/test-rojo-b.sh', 'FAIL'],
       ['2', '.claude/scripts/tests/test-ok2.sh', 'PASS'],
       ['3', '.claude/scripts/tests/test-ok3.sh', 'PASS'],
@@ -65,14 +65,14 @@ describe('buildReport', () => {
     assert.ok(report.includes('Total: PASS=3 FAIL=2'))
     assert.ok(report.includes('| publicado | 1 | 1 |'))
     assert.ok(report.includes('| interno | 2 | 1 |'))
-    assert.ok(report.includes('- `scripts/tests/test-rojo-a.sh` (carril `publicado`)'))
-    assert.ok(report.includes('- `.claude/scripts/tests/test-rojo-b.sh` (carril `interno`)'))
+    assert.ok(report.includes('- `scripts/tests/test-rojo-a.sh` (job `publicado`)'))
+    assert.ok(report.includes('- `.claude/scripts/tests/test-rojo-b.sh` (job `interno`)'))
     assert.equal(report.includes('test-ok.sh'), false)
     assert.equal(report.includes('CANCELLED'), false)
   })
 
   test('[D] las entradas CANCELLED se reportan aparte, sin contar como PASS ni FAIL', () => {
-    lane('d', 'interno', [
+    job('d', 'interno', [
       ['1', 't-rojo.sh', 'FAIL'],
       ['2', 't-cortado.sh', 'CANCELLED'],
     ])
@@ -93,7 +93,7 @@ describe('buildReport', () => {
   })
 
   test('el cuerpo completo conserva el formato del issue', () => {
-    lane('e', 'interno', [
+    job('e', 'interno', [
       ['1', 'a.sh', 'FAIL'],
       ['2', 'b.sh', 'CANCELLED'],
     ])
@@ -111,13 +111,13 @@ describe('buildReport', () => {
         '',
         'CANCELLED=1: entradas interrumpidas o que no llegaron a correr (timeout o cancelacion del job).',
         '',
-        '| Carril | PASS | FAIL |',
+        '| Job | PASS | FAIL |',
         '|---|---|---|',
         '| interno | 0 | 1 |',
         '',
         '### Rutas con FAIL',
         '',
-        '- `a.sh` (carril `interno`)',
+        '- `a.sh` (job `interno`)',
         '',
       ].join('\n'),
     )
@@ -125,10 +125,10 @@ describe('buildReport', () => {
 })
 
 describe('findResultFiles', () => {
-  test('busca a cualquier profundidad y ordena los carriles por ruta', () => {
-    lane('f', 'zeta', [])
-    lane('f', 'alfa', [])
-    lane(join('f', 'medio'), 'hondo', [])
+  test('busca a cualquier profundidad y ordena los jobs por ruta', () => {
+    job('f', 'zeta', [])
+    job('f', 'alfa', [])
+    job(join('f', 'medio'), 'hondo', [])
     writeFileSync(join(work, 'f', 'otro.tsv'), '')
     assert.deepEqual(findResultFiles(join(work, 'f')), [
       join(work, 'f', 'alfa', 'results.tsv'),
@@ -168,7 +168,7 @@ describe('linea de comandos', () => {
   }
 
   test('escribe el cuerpo en stdout y sale con 0, tambien sin resultados', () => {
-    lane('g', 'interno', [['1', 't.sh', 'PASS']])
+    job('g', 'interno', [['1', 't.sh', 'PASS']])
     const withResults = run([join(work, 'g'), RUN_URL, SHA])
     assert.equal(withResults.status, 0)
     assert.equal(withResults.stdout, buildReport(join(work, 'g'), RUN_URL, SHA))
