@@ -60,9 +60,7 @@ export interface LaunchPipelineContext {
 
 const { red: RED, green: GREEN, yellow: YELLOW, blue: BLUE, bold: BOLD, reset: NC } = COLOR
 
-// La ayuda del bash salia por un heredoc, que no interpreta los escapes: el texto lleva los
-// codigos de color como literales `\033[...`.
-const H = { cyan: '\\033[0;36m', bold: '\\033[1m', nc: '\\033[0m' }
+const H = { cyan: COLOR.cyan, bold: BOLD, nc: NC }
 
 const HELP = `
 ${H.cyan}${H.bold}launch-pipeline.sh${H.nc} --- Despachador de los pipelines publicados
@@ -87,8 +85,8 @@ ${H.bold}Uso:${H.nc}
   ./scripts/launch-pipeline.sh --parallel --pipeline tdd 42 43      Paralelo forzando tdd
 
 ${H.bold}Modos de UI (MEFISTO_UI):${H.nc}
-  mod    Desacoplado, el default: el sub-pipeline corre en background con
-         nohup, sin pane. Con el runtime claude lo sigue la consola
+  mod    Desacoplado, el default: el sub-pipeline corre como proceso
+         desacoplado, sin pane. Con el runtime claude lo sigue la consola
          fausto-blood-pact de la sesion; en cualquier caso se imprime la ruta
          del report log y la linea de stream-watch.sh para abrir el visor en
          otra terminal.

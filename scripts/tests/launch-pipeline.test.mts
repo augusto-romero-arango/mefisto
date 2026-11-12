@@ -194,7 +194,7 @@ describe('ayuda y flags retirados', () => {
     for (const argv of [[], ['--help'], ['--tooling', '42', '-h']]) {
       const run = await launcher(argv)
       assert.equal(run.code, 0)
-      assert.ok(run.out.startsWith('\n\\033[0;36m\\033[1mlaunch-pipeline.sh\\033[0m --- Despachador de los pipelines publicados\n'))
+      assert.ok(run.out.startsWith('\n\u001b[0;36m\u001b[1mlaunch-pipeline.sh\u001b[0m --- Despachador de los pipelines publicados\n'))
       assert.ok(run.out.endsWith('  igual, usa /sequential o parallel-pipeline.sh directo.\n\n'))
       assert.equal(run.launches.length, 0)
     }
@@ -222,7 +222,7 @@ describe('ayuda y flags retirados', () => {
   test('un argumento desconocido imprime el error en rojo y la ayuda, y sale con 1', async () => {
     const run = await launcher(['foo'])
     assert.equal(run.code, 1)
-    assert.ok(run.out.startsWith('\u001b[0;31mArgumento desconocido: foo\u001b[0m\n\n\\033[0;36m'))
+    assert.ok(run.out.startsWith('\u001b[0;31mArgumento desconocido: foo\u001b[0m\n\n\u001b[0;36m'))
     assert.equal(run.launches.length, 0)
   })
 })
