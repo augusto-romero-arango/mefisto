@@ -4,6 +4,82 @@ Todo cambio notable a este proyecto se documenta aquí. Sigue [Keep a Changelog]
 
 ## [Unreleased]
 
+## [0.57.0] - 2026-11-12
+
+### Added
+
+- Se anade `docs/portabilidad/ESTADO.md`, la fuente unica del avance para portar Mefisto de bash a TypeScript y que corra en macOS, Linux y Windows: pasos, metricas medidas con git, verificacion manual en Windows y un goal por paso.
+- Se anade MEF-ADR-0057 (portabilidad a macOS, Linux y Windows): los scripts pasan a TypeScript ejecutado directo por Node >= 22.18, de forma incremental sobre `main`; se retiran tmux y OpenCode; se conservan herdr y el contrato neutral de runtime; un workflow verifica en los tres sistemas.
+- Se anade la base TypeScript del port (MEF-ADR-0057): `src/internal/tsconfig.json`, el workflow `typescript.yml` (macOS, Linux y Windows) y el primer script portado, `src/internal/scripts/mefisto-portability-status.mts`, que mide el avance de la portabilidad.
+- Se anaden las utilidades base de los scripts TypeScript del port (MEF-ADR-0057): `scripts/lib/cli.mts`, `scripts/lib/state.mts` y `src/internal/scripts/lib/mefisto-repo.mts`.
+- Se anaden las gemelas en TypeScript de la libreria de `harness.config.json` y de los nombres del tfstate (`scripts/lib/harness-config.mts`, `scripts/lib/tfstate-naming.mts`), con tests de paridad contra las funciones bash (MEF-ADR-0057).
+
+### Changed
+
+- `/mefisto:upgrade` actualiza solo el runtime activo: `upgrade.sh --status` pasa a `schemaVersion` 3 y ya no trae el campo `peer`.
+- `/mefisto:onboard` activa el repo escribiendo solo `.claude/settings.json`.
+- `scripts/herdr-workspace.sh` monta una sola fila (`claude`) en consumidores; en el repo de Mefisto el default de `MEFISTO_RUNTIMES` es `claude`.
+- Los ADRs MEF-ADR-0049, 0050, 0051, 0052, 0053, 0054 y 0055 dejan de describir OpenCode en su cuerpo (MEF-ADR-0057); MEF-ADR-0049 deja de descartar a Pi y MEF-ADR-0057 fija que el objetivo es macOS y Windows solo con Claude Code, sin un segundo runtime en los planes.
+- `docs/guia-del-consumidor.md`, `docs/migracion-y-versionado.md` y las certificaciones de `docs/testing/` describen el flujo con un solo runtime.
+- `scripts/tmux-pipeline.sh` pasa a llamarse `scripts/launch-pipeline.sh`, y `mefisto-tmux-pipeline.sh` a `mefisto-launch-pipeline.sh`. El modo desacoplado es el default; los panes de herdr se usan dentro de herdr o con `MEFISTO_UI=herdr`. `MEFISTO_UI` solo admite `mod` y `herdr`.
+- Sin el mod ni herdr, el lanzador imprime la ruta del log y la linea que abre el visor `stream-watch.sh` en otra terminal.
+- Los hooks publicados corren con Node y sin shell (MEF-ADR-0057): `hooks/hooks.json` usa la forma exec de Claude Code sobre `scripts/interactive-hooks.mts`, que reemplaza a los siete comandos inline en bash y `jq`. Node 22.18 o posterior pasa a ser requisito y `/mefisto:onboard` lo comprueba.
+- El hook de scope interno corre con Node y sin shell (`.claude/scripts/mefisto-scope-hook.mts`), y compara rutas reales: una ruta absoluta que nombra el repo por un enlace simbolico ya no se trata como ajena.
+- `scripts/next-order.sh` y `mefisto-next-order.sh` corren en TypeScript (MEF-ADR-0057); los `.sh` quedan como shims y la logica comun vive en `scripts/lib/next-order.mts`. La nightly instala Node.
+- `.gitattributes` queda registrado en los gates de scope de Mefisto, como paso previo a fijar LF en todo el repo.
+- `mefisto-nightly-report`, `mefisto-validate-batch-deps`, `mefisto-worktree` y `mefisto-bitacora-worktree` corren en TypeScript (MEF-ADR-0057); sus `.sh` quedan como shims.
+- `field-note` (publicado) y `mefisto-field-note` (interno) corren en TypeScript (MEF-ADR-0057), con la lógica común en `scripts/lib/field-note.mts`; sus `.sh` quedan como shims. La validación del glosario YAML sigue requiriendo `python3` con PyYAML, `ruby` o `yq` en el PATH.
+- `azure-account-info`, `worktree-clean`, `upgrade` y `warnings-diff` corren en TypeScript (MEF-ADR-0057); sus `.sh` quedan como shims. Sin `MEFISTO_RUNTIME`, `upgrade` descubre el runtime con una prueba por adaptador en `scripts/lib/upgrade-runtime.mts`.
+- `mefisto-release` corre en TypeScript (MEF-ADR-0057) y deja de exigir `jq` y `python3`; su `.sh` queda como shim. La salida de cada comando externo se muestra cuando termina, no en vivo.
+- `purge-store`, `setup-github-ci`, `bootstrap-backend` y `appinsights-query` corren en TypeScript (MEF-ADR-0057) y dejan de exigir `jq`, `column` y `python3`; sus `.sh` quedan como shims. `.mefisto/appinsights.env` se lee como asignaciones `CLAVE=valor` y ya no se ejecuta como bash.
+- `update-plugin`, `onboard-diagnose` y `onboard-activate-repo` corren en TypeScript (MEF-ADR-0057) y dejan de exigir `jq`; `scripts/_plugin-scopes.sh` se retira en favor de `scripts/lib/plugin-scopes.mts`. `onboard-activate-repo --apply` aborta sin escribir si `enabledPlugins` o `extraKnownMarketplaces` no son objetos.
+- `register-harness-secret`, `setup-github-labels`, `onboard-provision-appinsights`, `onboard-migrate-directives`, `seed-secret` y `validate-dockerfile` corren en TypeScript (MEF-ADR-0057) y dejan de exigir `jq`; sus `.sh` quedan como shims. La verificación de `AGENTS.md` y del puente `CLAUDE.md` vive en `scripts/lib/consumer-directives.mts`.
+- `metrics-report`, `work-status-collect` y `mefisto-metrics-report` corren en TypeScript (MEF-ADR-0057) y dejan de exigir `jq`; sus `.sh` quedan como shims. Lo común a los dos reportes vive en `scripts/lib/metrics-report.mts`.
+- El generador interno (`generate-internal-adapters`), su validador y el gate de neutralidad corren en TypeScript (MEF-ADR-0057) y dejan de exigir `jq`; sus `.sh` quedan como shims. MEF-ADR-0049 y MEF-ADR-0050 dejan de fijar Bash + jq como toolchain del generador.
+- El generador publicado (`generate-published-adapters`), sus validadores y `generate-claude-hooks` corren en TypeScript (MEF-ADR-0057) y dejan de exigir `jq`; sus `.sh` quedan como shims. La lista de assets de la distribución vive en `generate-published-adapters.mts`, y `--check` baja de unos 35 s a menos de 1 s.
+- En Windows, Git for Windows pasa a ser prerrequisito (MEF-ADR-0057, decisión 9): los bloques de bash de comandos y agentes corren en Git Bash.
+- El runner de agentes (`mefisto-run-agent`) y los adaptadores de runtime corren en TypeScript (MEF-ADR-0057); su `.sh` queda como shim. Ante una señal, el runner mata el árbol del agente en vez de dejarlo huérfano, y un comando de runtime inexistente da exit 127.
+- Los visores `stream-watch` (publicado e interno) corren en TypeScript (MEF-ADR-0057) y dejan de exigir `jq`; sus `.sh` quedan como shims.
+- Los bloques de bash de comandos y agentes dejan de usar `jq` y `python3`: leen y escriben JSON con el script nuevo `scripts/json-value.mts` (MEF-ADR-0057, decisión 9). Los `gh --jq` y los workflows generados no cambian.
+- `tooling-pipeline` corre en TypeScript (MEF-ADR-0057) y deja de exigir `jq` y `python3`; su `.sh` queda como shim. Ante una señal, el pipeline termina al runner que lanzó y hace su cierre antes de salir.
+- `pr-sync` corre en TypeScript (MEF-ADR-0057) y deja de exigir `jq`; su `.sh` queda como shim. Ante una señal, termina al runner que lanzó antes de salir.
+- `tdd-pipeline` corre en TypeScript (MEF-ADR-0057) y deja de exigir `jq` y `python3`; su `.sh` queda como shim. El timeout de 600 s de un paso ahora termina también a sus procesos hijos.
+- `iac-pipeline` y `scaffold-pipeline` corren en TypeScript (MEF-ADR-0057) y dejan de exigir `jq` y `python3`; sus `.sh` quedan como shims. `iac-pipeline` borra su directorio temporal también al abortar.
+- `batch-pipeline` y `parallel-pipeline` corren en TypeScript (MEF-ADR-0057) y dejan de exigir `jq` y `python3`; sus `.sh` quedan como shims. `/batch-stop` detecta el lote también cuando corre como `.mts`.
+- El pipeline interno de tooling (`mefisto-tooling-pipeline`) corre en TypeScript (MEF-ADR-0057) y deja de exigir `jq` y `python3`; su `.sh` queda como shim.
+- Los lanzadores de pipelines corren en TypeScript (MEF-ADR-0057): en modo desacoplado lanzan el pipeline sin pasar por un shell, así que un argumento con espacios llega intacto. La ayuda de `launch-pipeline` muestra sus colores en vez de los códigos de escape.
+- El batch interno (`mefisto-batch-pipeline`) corre en TypeScript (MEF-ADR-0057); su `.sh` queda como shim. `tooling-investigator`, `mefisto-investigator` y `/mefisto-batch-stop` detectan también los pipelines que corren como `.mts`.
+- `/onboard` y `/install-apim` resuelven el config sin cargar la librería bash, `/onboard` comprueba en Windows que Git Bash esté instalado, y el README deja de pedir `jq` y bash: pide Node 22.18+ y, en Windows, Git for Windows.
+- La integración con herdr corre en TypeScript (MEF-ADR-0057) y deja de exigir `jq`. En Windows, Mefisto marca la ocupación de cada pane con el PID de su runner y teclea `node <script>.mts ...`, una línea válida en bash, zsh, PowerShell y `cmd.exe`.
+- Mantenedor: 26 tests bash de `scripts/tests/` que cargaban `_pipeline-common.sh` se retiran; su cobertura vive en los `*.test.mts` de `node --test` contra las librerías TypeScript, que suman los casos que faltaban (raíz Git y override legacy del estado, guarda contra `--fork-session`). Los tests del agente de `pr-sync` usan un reloj congelado y ya no fallan con la máquina cargada.
+- Los tests internos de las librerías bash pasan a `node:test`: se borran 28 tests bash ya cubiertos contra TypeScript, el hook `pre-push` gana su `.test.mts` y los tests del agente del pipeline interno usan un reloj virtual, así que ya no fallan con la máquina cargada.
+- `test-guards.sh` y los tests bash de contrato de config, instrucciones y agentes pasan a `node --test`: los guards viven en `scripts/tests/guards.test.mts` (el bloque C2 corre con un entorno fijo y deja de ser intermitente) y los bloques de bash del markdown se ejecutan desde sus `.test.mts` con `markdown-bash.mts`.
+- Se retira el runner de la suite bash (`mefisto-test-suite.sh`, su inventario, su ejecutor, sus tests y `pty-run.py`) y el workflow `ci.yml`. La nightly pasa a `typescript.yml`, que corre `tsc` y `node --test` en macOS, Linux y Windows y conserva el aviso por issue `nightly-rojo`: el reporte lee el `results.tsv` que deja el nuevo reporter `src/internal/scripts/lib/mefisto-nightly-reporter.mts` y cuenta por job de la matriz.
+- Se borran las librerías bash de los pipelines y del runtime (`_pipeline-common.sh`, `_mefisto-common.sh` y su shim, `mefisto-state.sh`, `mefisto-deps.sh`, `frontmatter.sh`, las `.sh` de `src/runtime/lib/`) y sus programas `jq`: ya no queda ningún `.jq` en el repo ni en la release. Los tests dejan la paridad con bash y conservan como test directo los casos que solo ella cubría; los módulos TypeScript, los contratos, la guía de desarrollo y los ADRs dejan de hablar de gemelas.
+- Los comandos, agentes, hooks y mods invocan los scripts del plugin con `node <ruta>.mts` y desaparecen los `.sh` que reenviaban a ellos (en el paquete publicado, los 33 de `scripts/` y `src/runtime/`). Si invocabas a mano un `scripts/x.sh` del plugin, usa `node "<raiz del plugin>/scripts/x.mts"`. `/onboard` comprueba Node >= 22.18 en su propio bloque antes de correr el diagnostico. Del lado interno, los pipelines se invocan con `node src/internal/scripts/<script>.mts`; `.claude/scripts/` ya no lleva shims y el gate de neutralidad pierde la regla R4.
+- `README.md` documenta la unica excepcion a "sin `python3`": cuando el planner actualiza el glosario YAML, `field-note.mts` lo valida con un validador que ya este en el PATH (`python3` con PyYAML, `ruby` o `yq`) y, sin ninguno, aborta el cierre sin stagear nada.
+- La documentacion deja de describir el harness como bash tras el port a TypeScript: la guia del consumidor ubica los worktrees de los pipelines en `.mefisto/pipeline/worktrees/<rama>` y nombra `loadHarnessConfig` (`scripts/lib/harness-config.mts`) como cargador del config; los agentes y comandos que clasifican un problema del plugin hablan de sus pipelines sin llamarlos bash; `docs/desarrollo-del-plugin.md` describe el port como cerrado y el layout con `src/` y `dist/`; los contratos de `src/runtime/` y `src/published/` documentan `resolveModel`, `resolveEffort` y `resolveRuntime` en lugar de las funciones bash borradas; y `changelog.d/README.md` apunta el indice de ADRs a `docs/adr/INDICE-TEMATICO.md`.
+- Con un Node anterior a 22.18, todo comando de Mefisto avisa "Node >= 22.18 no esta en el PATH" en vez de fallar culpando a la raíz del plugin.
+- Los avisos del hook de scope y la documentación del config nombran las funciones TypeScript (`isPathInMefistoScope`, `validateMefistoScopeChanges`, `harnessConfigEnv`); la guía del consumidor ubica los artefactos de runtime en `.mefisto/pipeline/`.
+- Se retiran el clasificador de fallos por texto y los helpers de reanudación con `claude -c` del lado publicado, sin llamadores desde que los pipelines corren sobre el runner neutral.
+
+### Fixed
+
+- `append-session-model` compara con el ultimo modelo observado de la sesion: tras un cambio de modelo ya no vuelve a anexar la misma observacion en cada turno.
+- El repo fija saltos de linea LF con `.gitattributes`: en Windows git entregaba los archivos del plugin con CRLF.
+- Los scripts portados pueden lanzar en Windows comandos instalados como `.cmd` o `.bat` (`az`): `scripts/lib/cli.mts` los invoca a traves de `cmd.exe` con los argumentos escapados.
+- El bloque que resuelve la raíz del paquete en comandos y agentes ya no usa `jq` y acepta raíces de Windows (`C:\...`): valida la raíz con el script nuevo `scripts/verify-package-root.mts`.
+- Los pipelines `tooling`, `tdd` e `iac` dejan el archivo de estado en JSON válido aunque el título del issue lleve comillas o `\`, y conservan el título completo.
+
+### Removed
+
+- Se retira OpenCode como runtime soportado (MEF-ADR-0057): salen su adaptador publicado e interno, `runtime-opencode`, la politica de permisos, los scripts de instalacion, empaquetado y proyeccion, el launcher `mefisto-opencode`, `dist/opencode/`, `.opencode/` y `opencode.json`. El release deja de publicar el tarball de OpenCode.
+- Se elimina el comando `/mefisto:runtimes`, que solo administraba la proyeccion de OpenCode.
+- `scripts/upgrade.sh` pierde `--align-peer` y `--keep`, y `scripts/update-plugin.sh` pierde `--align-opencode`.
+- Se eliminan `docs/testing/lsp-pilot-opencode.md`, `docs/testing/opencode-consumer-cutover.md`, `docs/testing/opencode-dogfooding.md` y `docs/testing/opencode-global-projection.md`.
+- Se retira tmux (MEF-ADR-0057): los lanzadores dejan de crear sesiones, `--attach` e `--if-exists` abortan con un error explicito y `docs/tmux-cheatsheet.md` se elimina. tmux deja de ser requisito.
+- Se elimina el comando interno `/mefisto-tooling-verbose` y el flag `--verbose` de los lanzadores internos.
+
 ## [0.56.0] - 2026-11-10
 
 ### Added
@@ -3656,7 +3732,8 @@ Y reemplazar referencias en `CLAUDE.md` del proyecto: `/eda-evsourcing-azure-har
 - Los agentes `reviewer` e `implementer` mantienen el placeholder literal `ADR-XXXX` en sus plantillas de reporte (no es un bug; el agente lo sustituye en tiempo de ejecución por el número real del ADR aplicable).
 - Los ejemplos de código en `test-writer.md`, `implementer.md` y `smoke-test-writer.md` conservan nombres concretos de un proyecto consumidor (`Programacion`, `ControlHoras`) anotados en el "Contrato con el consumidor" de cada agente como ejemplos pedagógicos.
 
-[Unreleased]: https://github.com/augusto-romero-arango/mefisto/compare/v0.56.0...HEAD
+[Unreleased]: https://github.com/augusto-romero-arango/mefisto/compare/v0.57.0...HEAD
+[0.57.0]: https://github.com/augusto-romero-arango/mefisto/compare/v0.56.0...v0.57.0
 [0.56.0]: https://github.com/augusto-romero-arango/mefisto/compare/v0.55.0...v0.56.0
 [0.55.0]: https://github.com/augusto-romero-arango/mefisto/compare/v0.54.1...v0.55.0
 [0.54.1]: https://github.com/augusto-romero-arango/mefisto/compare/v0.54.0...v0.54.1
