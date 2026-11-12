@@ -65,8 +65,8 @@ repo (`--json` para la salida estructurada). `dist/` queda fuera porque lo regen
 
 | Id | Qué mide | Línea base (v0.56.0) | Actual | Meta |
 |---|---|---|---|---|
-| M1a | Archivos `.sh` | 408 | 219 | 0 |
-| M1b | Líneas en `.sh` | 104686 | 58301 | 0 |
+| M1a | Archivos `.sh` | 408 | 213 | 0 |
+| M1b | Líneas en `.sh` | 104686 | 54091 | 0 |
 | M2 | Archivos `.jq` | 21 | 3 | 0 |
 | M3 | Archivos que mencionan tmux | 96 | 6, todos excepción | 0 fuera de las excepciones |
 | M4 | Archivos que mencionan OpenCode | 283 | 11, todos excepción | 0 fuera de las excepciones |
@@ -93,8 +93,8 @@ Estados: `pendiente`, `en curso`, `hecho`.
 | 3 | Base TypeScript | hecho | #2556 |
 | 4 | Hooks | hecho | #2557, #2558 |
 | 5 | Scripts sueltos | hecho | #2559 a #2586 |
-| 6 | Librerías y pipelines | en curso | #2587, #2588, #2590 |
-| 7 | Despachador, herdr y cierre | pendiente | |
+| 6 | Librerías y pipelines | en curso | #2587, #2588, #2590, #2593, #2594, #2597, #2599 |
+| 7 | Despachador, herdr y cierre | en curso | #2595, #2596, #2598 |
 
 ### Paso 1: ADR de portabilidad
 
@@ -213,13 +213,13 @@ Hecho cuando: en esas rutas solo quedan pipelines, sus librerías y shims.
 
 | Fila | Alcance (líneas en la línea base) | Estado | PR |
 |---|---|---|---|
-| 6a | `src/runtime/` (2500) y `scripts/_pipeline-common.sh` (3150) | en curso | #2587, #2588, #2590 |
-| 6b | `scripts/tooling-pipeline.sh` (1065) | pendiente | |
+| 6a | `src/runtime/` (2500) y `scripts/_pipeline-common.sh` (3150) | en curso | #2587, #2588, #2590, #2593 |
+| 6b | `scripts/tooling-pipeline.sh` (1065) | hecho | #2599 |
 | 6c | `scripts/tdd-pipeline.sh` (2651) | pendiente | |
 | 6d | `scripts/iac-pipeline.sh` (812) | pendiente | |
 | 6e | `scripts/scaffold-pipeline.sh` (599) | pendiente | |
 | 6f | `scripts/batch-pipeline.sh` (660) y `scripts/parallel-pipeline.sh` (862) | pendiente | |
-| 6g | `src/internal/scripts/lib/_mefisto-common.sh` (1914) | pendiente | |
+| 6g | `src/internal/scripts/lib/_mefisto-common.sh` (1914) | en curso | #2594, #2597 |
 | 6h | `src/internal/scripts/mefisto-tooling-pipeline.sh` (1645) | pendiente | |
 | 6i | `src/internal/scripts/mefisto-batch-pipeline.sh` (958) | pendiente | |
 
@@ -241,13 +241,22 @@ Orden de trabajo: primero las librerías como gemelas, después cada pipeline.
   bash no cambia: gana un comentario `# Gemela en TypeScript` junto a cada función. Cada gemela
   lleva tests y una paridad contra la función bash real, que se salta en Windows y se borra con la
   librería. En `main`: scope, identidad, resolución de pipeline y PRs (#2588); tests, métricas de
-  stage, historial, cobertura y smokes (#2590). Falta el grupo de modelos, efforts, fallos, holds
-  y reanudación de agentes.
-- `src/internal/scripts/lib/_mefisto-common.sh` (6g) sigue el mismo esquema, reutilizando los
-  módulos publicados donde la función interna es idéntica.
+  stage, historial, cobertura y smokes (#2590); modelos, efforts, eventos, fallos, holds y
+  reanudación de agentes (#2593). Todas sus funciones tienen gemela.
+- `src/internal/scripts/lib/_mefisto-common.sh` (6g) sigue el mismo esquema y ya tiene gemela de
+  sus 37 funciones (#2594, #2597); reutiliza los módulos publicados donde la función interna es
+  idéntica.
+- Las filas 6a y 6g pasan a `hecho` cuando el último pipeline deja de cargar la librería bash y
+  esta se borra, junto con sus tests de paridad.
+- `tooling-pipeline` es el primer pipeline portado (#2599) y el modelo de los demás. Dejó en
+  `scripts/lib/pipeline/` los módulos que todos comparten: `pipeline-exit` (cierre único en
+  éxito, aborto, excepción y señal), `pipeline-log`, `pipeline-status`, `pipeline-agent-run`
+  (reintentos, espera por límite de uso y reanudación, con el runner como proceso hijo),
+  `pipeline-worktree` y `pipeline-pr`. Las diferencias entre pipelines entran como parámetros.
 - La paridad con `jq` no puede depender de su versión: jq 1.7 y 1.8 difieren (p. ej. `tonumber`
   sobre una cadena con espacios alrededor) y los runners de CI traen versiones distintas.
-- Defectos heredados del bash en estas librerías: borradores #2589 y #2591.
+- Defectos heredados del bash en estas librerías y en los pipelines: borradores #2589, #2591 y
+  #2600.
 
 Hecho cuando: todas las filas están en `hecho` y no queda ningún `.jq` (M2 = 0).
 
@@ -267,6 +276,20 @@ usa Git Bash para la herramienta Bash si Git for Windows está instalado y, si n
 (decisión 7), los bloques se quedan en bash y este paso reemplaza solo lo que Git Bash no trae:
 `jq` y `python3` pasan a invocaciones de `node`. `/onboard` comprueba que Git Bash esté disponible
 en Windows. Los tests residuales que ejecutan esos bloques se portan aquí.
+
+Ya hecho de este paso:
+
+- Los dos visores `stream-watch` corren en TypeScript (#2595).
+- Los bloques de bash del markdown ya no usan `jq` ni `python3`: leen y escriben JSON con
+  `scripts/json-value.mts` (#2596). Los `gh ... --jq` y los workflows de GitHub Actions que los
+  agentes generan se quedan como estaban: el filtro lo ejecuta `gh` y los runners traen `jq`.
+- El preámbulo que fija `MEFISTO_PACKAGE_ROOT` valida la raíz con `scripts/verify-package-root.mts`
+  y acepta raíces de Windows (`C:\...`) (#2598). Sin esto, en Windows abortaba todo comando o
+  agente que nombra la raíz del paquete.
+
+Falta: los lanzadores, herdr, los dos bloques del markdown que cargan `_pipeline-common.sh` con
+`source` (`load_harness_config` en `onboard` y en `install-apim`), la comprobación de Git Bash en
+`/onboard`, `README.md`, los tests residuales y el borrado de shims y del runner de la suite bash.
 
 Hecho cuando: M1a = 0, M1b = 0 y el workflow de los tres sistemas pasa.
 
