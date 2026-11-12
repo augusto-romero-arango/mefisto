@@ -156,6 +156,7 @@ export const TOOLING_CLOSURE_ASSETS: readonly string[] = [
   'scripts/upgrade.sh|0755',
   'scripts/upgrade.mts|0644',
   'scripts/json-value.mts|0644',
+  'scripts/verify-package-root.mts|0644',
   'scripts/lib/json-value.mts|0644',
   'scripts/lib/package-reference-pin.mts|0644',
   'src/runtime/mefisto-run-agent.sh|0755',
