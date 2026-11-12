@@ -65,13 +65,12 @@ Mapeo principal:
 | `profile` | modelo por tabla fija |
 | `effort` (agente) | `effort` nativo por tabla fija, justo despues de `model` |
 
-Las dos tablas fijas viven en `lib/adapter-claude.mts`, gemelas de
-`runtime_claude_default_model` y `runtime_claude_default_effort` de
-`src/runtime/lib/runtime-claude.sh`; `generate-internal-adapters.test.mts` las
-compara.
+Las dos tablas fijas viven en `lib/adapter-claude.mts` y coinciden con
+`defaultModel` y `defaultEffort` de `src/runtime/lib/runtime-claude.mts`;
+`generate-internal-adapters.test.mts` las compara.
 
 El mapping de modelos en ejecucion headless vive en los adaptadores y en
-`mefisto-models.sh`; el generador no lee `.mefisto/models.json`, porque eso
+`src/runtime/lib/mefisto-models.mts`; el generador no lee `.mefisto/models.json`, porque eso
 haria no determinista su `--check`. Una resolucion vacia significa heredar y
 el caller omite el flag de modelo.
 
@@ -173,15 +172,10 @@ obligatorias):
 | `translate(input)` | Devuelve los eventos del JSONL comun derivados del wire format; nunca emite `run.started` |
 | `supportsResume()` | `true` si soporta reanudacion; ausente equivale a no soportada |
 
-Mientras queden pipelines en bash, cada adaptador conserva su gemela
-`runtime-<id>.sh` (`runtime_<id>_is_available`, `runtime_<id>_build_cmd`,
-`runtime_<id>_translate`, `runtime_<id>_supports_resume`), que solo cargan esos
-pipelines y sus tests.
-
 El runner siempre entrega exit code y stderr al traductor para distinguir una
 muerte por senal o un error que el CLI no escribio en stdout. El traductor
-puede ignorarlos. El caller consulta `supports_resume` en un subshell antes de
-decidir reanudar; el runner solo reenvia el identificador opaco a `build_cmd`.
+puede ignorarlos. El caller consulta `supportsResume` antes de decidir
+reanudar; el runner solo reenvia el identificador opaco a `buildCmd`.
 
 El anexo de eventos no terminales durante una corrida es best-effort y
 append-only. Al cierre se detiene el anexo en vivo, se agregan los eventos que

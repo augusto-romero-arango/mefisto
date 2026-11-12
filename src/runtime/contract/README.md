@@ -117,7 +117,7 @@ mantener una segunda copia del contrato.
 ## Runner y adaptadores
 
 El runner es `src/runtime/mefisto-run-agent.mts` (MEF-ADR-0057);
-`mefisto-run-agent.sh` es el shim con que lo invocan los pipelines en bash.
+`mefisto-run-agent.sh` es su shim.
 Recibe `--agent`, `--cwd`, `--prompt-file` y `--event-log`; acepta `--runtime`,
 modelo opaco, system prompt, timeout, raw/stderr logs, `--events-log`,
 `--resume-session`, `--effort` y `--redact-observability`. Este ultimo es
@@ -197,23 +197,6 @@ El resolutor respeta `--runtime` -> `MEFISTO_RUNTIME` -> autodeteccion. Esta
 ultima recorre los adaptadores y ejecuta sus probes: un runtime nuevo no exige
 modificar el runner ni el resolutor.
 
-### Gemelas en bash
-
-Los pipelines en bash cargan con `source` las librerias `lib/*.sh`, que
-conviven con sus gemelas `.mts` hasta que esos pipelines se porten; un cambio
-va en los dos lados. Cada `lib/runtime-<id>.sh` declara las mismas operaciones
-como funciones `runtime_<id>_is_available`, `runtime_<id>_build_cmd`,
-`runtime_<id>_translate`, `runtime_<id>_supports_resume`,
-`runtime_<id>_interactive_refresh`, `runtime_<id>_default_model <profile>` y
-`runtime_<id>_default_effort <nivel>`. Los pipelines consultan de ahi las
-capacidades (`supports_resume`, `interactive_refresh`) y las tablas por
-defecto; el comando y la traduccion los usa solo el runner, desde el `.mts`.
-`runtime_<id>_interactive_refresh` no recibe argumentos: si conoce una
-estrategia, retorna 0 e imprime por stdout exactamente una linea con una de
-las dos formas de arriba; la ausencia de la funcion significa "este runtime no
-sabe refrescarse: el consumidor omite el pane". La ausencia de
-`runtime_<id>_default_model` significa heredar el modelo activo.
-
 ### Ejecucion vigilada y plataformas
 
 `lib/mefisto-process.mts` lanza el argv sin shell, con stdout y stderr a
@@ -268,10 +251,8 @@ extra puede quedar sin commitear (lo juzga `agent_work_is_trustworthy`).
 
 ## Mapping de modelos
 
-`models.validate.jq` valida el mapping abierto que entrega cada caller al
-resolutor `lib/mefisto-models.sh`; sus gemelas son `validateModelsMapping`,
-`resolveModel` y `resolveEffort` de `lib/mefisto-models.mts`, con las mismas
-reglas y los mismos mensajes. La forma es `<runtime-id> -> {profiles,
+`validateModelsMapping` de `lib/mefisto-models.mts` valida el mapping abierto
+que entrega cada caller; `resolveModel` y `resolveEffort` lo resuelven. La forma es `<runtime-id> -> {profiles,
 agents, efforts}` (las tres claves opcionales); `profiles` solo admite `fast`,
 `balanced` y `deep`, y cada modelo es un string no vacio (se preservan
 espacios). `models.example.json` usa

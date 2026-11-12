@@ -38,20 +38,12 @@ gate que verifique la conformidad: `mefisto-neutrality-gate.sh` (regla R4,
 issue #911), que `mefisto-tooling-pipeline.sh` corre tras cada stage y
 `mefisto-release.sh` en su fase `prepare` (issue #914).
 
-## Precedente: mefisto-release.sh (issue #864) y _mefisto-common.sh (issue #869)
+## Precedente: mefisto-release.sh (issue #864)
 
-`mefisto-release.sh` fue el primer script trasladado. `_mefisto-common.sh` -- la
-lib de todos los scripts internos -- lo siguio en el issue #869, junto con
-`mefisto-tooling-pipeline.sh`. Con la lib ya en `src/internal/scripts/lib/`,
-cada script en bash la `source`a relativa a su propio archivo (`lib/_mefisto-common.sh`),
-igual que el resto de la libreria (`mefisto-state.sh`, `mefisto-runtime.sh`...),
-sin pasar por `.claude/scripts/`. El shim de `_mefisto-common.sh` en
-`.claude/scripts/` es la unica excepcion a la plantilla de `exec` de arriba: es
-un `source` de una linea, para que los tests que la cargan desde `.claude/scripts/`
-sigan resolviendo la lib sin cambiar una linea, y para que el gate de scope (MEF-ADR-0019 seccion E) siga
-cargandose desde el checkout principal. `mefisto-batch-pipeline.sh` (issue
-#870), `mefisto-launch-pipeline.sh` (issue #871) y `mefisto-herdr-pipeline.sh`
-(issue #872) siguieron a `mefisto-tooling-pipeline.sh` a este mismo layout.
+`mefisto-release.sh` fue el primer script trasladado. `mefisto-tooling-pipeline.sh`
+(issue #869), `mefisto-batch-pipeline.sh` (issue #870), `mefisto-launch-pipeline.sh`
+(issue #871) y `mefisto-herdr-pipeline.sh` (issue #872) lo siguieron a este mismo
+layout.
 
 ## Runner de la suite completa: mefisto-test-suite.sh (issue #1439)
 
@@ -106,11 +98,3 @@ operacion publicada al proyecto consumidor (MEF-ADR-0019): vive solo del lado
 interno de Mefisto. Tampoco es gate de ningun stage interno -- los prompts de
 `mefisto-tooling-pipeline.sh` siguen cerrando con `scripts/tests/guards.test.mts`
 mas los tests del diff, nunca con esta suite completa.
-
-## Deuda conocida: `python3` en la consolidacion de `changelog.d/`
-
-`consolidate_changelog_fragments` y `consolidate_adr_index_fragments` de
-`lib/_mefisto-common.sh` usan `python3`: es la unica dependencia de este
-directorio fuera del toolchain bash + jq + git + gh. El release ya no las
-llama -- `mefisto-release.mts` usa sus gemelas de `lib/mefisto-release-lib.mts`
-(MEF-ADR-0057) --; se van con la libreria bash.

@@ -68,11 +68,10 @@ Code `allowed-tools` es legitimo, y del lado interno lo emite el generador desde
 El conjunto de runtimes soportados es abierto: "soportado" significa unicamente "tiene adaptador
 en el repo" (MEF-ADR-0050 seccion 1). Agregar el runtime `<id>` nunca edita
 `src/internal/{agents,commands}/*.md` -- solo maquinaria de adaptacion (checklist completo de
-diez pasos, con el archivo exacto de cada uno: MEF-ADR-0050 seccion 2):
+nueve pasos, con el archivo exacto de cada uno: MEF-ADR-0050 seccion 2):
 
 1. `src/runtime/lib/runtime-<id>.mts` (`buildCmd`, `translate`, `isAvailable` y la tabla de
-   modelos por defecto; mientras queden pipelines en bash, tambien su gemela `runtime-<id>.sh`
-   con su `.jq`) y `src/internal/scripts/lib/adapter-<id>.mts` (traduce las directivas
+   modelos por defecto) y `src/internal/scripts/lib/adapter-<id>.mts` (traduce las directivas
    `{{mefisto:...}}` del contrato y toma la tabla de modelos de `runtime-<id>.mts`).
 2. Cableado en `generate-internal-adapters.mts` (incluido su `--check`). `resolveRuntime`
    (`src/runtime/lib/mefisto-runtime.mts`) descubre `runtime-<id>.mts` por su nombre y ejecuta
