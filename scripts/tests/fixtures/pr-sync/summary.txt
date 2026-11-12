@@ -1,0 +1,9 @@
+
+[1mPR       Rama                                               Estado         [0m
+─────────────────────────────────────────────────────────────────────────────
+[0;32m#11      worktree-issue-11-agregar-pedido                   mergeado       [0m
+[0;34m#12      rama-con-acentos-día                              sincronizado   [0m
+[1;33m#13      (n/a)                                              omitido (MERGED)[0m
+[0;34m#14      una-rama-con-un-nombre-muy-largo-que-supera-los-cincuenta-caracteres al día        [0m
+[1;33m#15      worktree-issue-15-x                                ERROR: No se pudo hacer push de worktree-issue-15-x[0m
+[1;33m#16      rama-pendiente                                     pendiente      [0m

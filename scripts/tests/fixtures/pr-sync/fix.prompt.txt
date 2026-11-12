@@ -1,0 +1,9 @@
+Estás en el directorio raíz del proyecto Proyecto.
+
+Después de hacer merge con main, los siguientes tests fallan:
+  Failed Ventas.Tests.PedidoTests.Crear [12 ms]
+  Con error Ventas.Tests.PedidoTests.Anular
+
+Arregla el código en src/ para que todos los tests pasen.
+NO modifiques los tests.
+Cuando termines, haz commit de los cambios.
