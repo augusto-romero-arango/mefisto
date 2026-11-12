@@ -78,9 +78,11 @@ export function firstPullRequestUrl(text: string): string {
 
 /**
  * Comando de un pipeline hijo cuya ruta publica es `script` (`x-pipeline.sh`): su `x.mts` con
- * Node si existe; si no, el script tal cual, que requiere bash y no corre en Windows.
+ * Node si existe; si no, el script tal cual, que requiere bash y no corre en Windows. Un `script`
+ * que ya es un `.mts` se lanza con Node directamente.
  */
 export function childCommand(script: string): { command: string; args: string[] } {
+  if (script.endsWith('.mts')) return { command: process.execPath, args: [script] }
   const typescript = script.replace(/\.sh$/, '.mts')
   if (typescript !== script && existsSync(typescript)) return { command: process.execPath, args: [typescript] }
   return { command: script, args: [] }
@@ -148,7 +150,11 @@ export function runTeed(
   script: string,
   args: string[],
   logFile: string,
-  options: Omit<ChildOptions, 'stdio'> & { onOutput: (text: string) => void },
+  options: Omit<ChildOptions, 'stdio'> & {
+    onOutput: (text: string) => void
+    /** Recibe el proceso lanzado, para poder matarlo por su PID ante una senal. */
+    onChild?: (child: ChildProcess) => void
+  },
 ): Promise<number> {
   const run = launchChild(script, args, {
     ...options,
@@ -158,6 +164,7 @@ export function runTeed(
       appendFileSync(logFile, `${message}\n`)
     },
   })
+  options.onChild?.(run.child)
   const copy = (text: string): void => {
     options.onOutput(text)
     appendFileSync(logFile, text)

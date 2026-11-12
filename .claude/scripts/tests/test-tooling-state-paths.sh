@@ -10,12 +10,6 @@
 #   [A]   Los shims son EXACTAMENTE la plantilla documentada en
 #         src/internal/scripts/README.md: exec de 3 lineas para el pipeline,
 #         source de una linea para la lib (CA-1).
-#   [K]   MEFISTO_AGENT_TIMEOUT_SECONDS viaja hasta el eslabon (issue #946,
-#         CA-3): mefisto-batch-pipeline.sh no filtra el entorno del pipeline
-#         de tooling, asi que la variable llega heredada sin que ningun eslabon
-#         la reenvie a mano. Guarda estatica -- sin fixture, siempre corre. El
-#         lado herdr (runner que solo quita las HERDR_*) y su ruta de logs los
-#         cubre .claude/scripts/tests/mefisto-herdr-pipeline.test.mts.
 #
 # Uso: .claude/scripts/tests/test-tooling-state-paths.sh
 # Exit code: 0 si todos los chequeos pasan, 1 si alguno falla.
@@ -90,31 +84,6 @@ if grep -q 'BASH_SOURCE\[0\]' "$SHIM_LIB"; then
     pass "el shim de la lib resuelve via BASH_SOURCE (correcto para un archivo sourceado, no ejecutado)"
 else
     fail "el shim de la lib no usa BASH_SOURCE -- '\$0' resolveria mal cuando se sourcea"
-fi
-
-# -------- Bloque K: la variable de timeout viaja heredada hasta el eslabon --------
-
-echo ""
-echo "[K] MEFISTO_AGENT_TIMEOUT_SECONDS se hereda en batch sin reenvio explicito (issue #946, CA-3)"
-
-# CA-3 se cumple hoy por OMISION: ningun eslabon menciona la variable, y por
-# eso mismo un grep de presencia no la puede acreditar. Lo que hay que fijar
-# es la propiedad que la sostiene -- que el lanzador no PODE el entorno del
-# hijo.
-
-CANON_BATCH="$REPO_ROOT/src/internal/scripts/mefisto-batch-pipeline.sh"
-
-if grep -qE '\benv (-u|-i)\b' "$CANON_BATCH"; then
-    fail "K-1: mefisto-batch-pipeline.sh filtra el entorno del eslabon (env -u/-i): $(grep -nE '\benv (-u|-i)\b' "$CANON_BATCH" | head -n1)"
-else
-    pass "K-1: mefisto-batch-pipeline.sh no filtra el entorno del eslabon (lo hereda completo)"
-fi
-
-K3_HITS=$(grep -lE -- '-u "?MEFISTO_' "$CANON_BATCH" 2>/dev/null || true)
-if [ -z "$K3_HITS" ]; then
-    pass "K-3: mefisto-batch-pipeline.sh no desregistra ninguna MEFISTO_* del entorno del hijo"
-else
-    fail "K-3: mefisto-batch-pipeline.sh desregistra alguna MEFISTO_* del entorno del hijo: $K3_HITS"
 fi
 
 echo ""

@@ -19,7 +19,9 @@
 #
 # Casos cubiertos (fixture con repos git temporales, sin red):
 #   [pre] La funcion ensure_repo_on_base_branch() se pudo extraer de la
-#       libreria canonica y el motor conserva su llamada defensiva.
+#       libreria canonica y su mensaje no atribuye el worktree a la rama
+#       activa (issue #566). Que el motor la invoque antes de su cabecera lo
+#       prueba mefisto-batch-pipeline.test.mts sobre la gemela TypeScript.
 #   [A] Rama != main/master, arbol LIMPIO, origin adelanto de forma
 #       fast-forwardeable: se auto-recupera -- switch a main, pull --ff-only
 #       trae el commit nuevo, warn nombra la rama original, sin abort (CA-1).
@@ -70,13 +72,17 @@ if [ -z "$FN_SRC" ]; then
 fi
 pass "la funcion se extrajo del script real"
 
-BATCH_SCRIPT="$REPO_ROOT/src/internal/scripts/mefisto-batch-pipeline.sh"
-GATE_CALL_LINE=$(grep -n '^ensure_repo_on_base_branch$' "$BATCH_SCRIPT" | cut -d: -f1)
-HEADER_LINE=$(grep -n '^# --- Cabecera ---$' "$BATCH_SCRIPT" | cut -d: -f1)
-if [ -n "$GATE_CALL_LINE" ] && [ -n "$HEADER_LINE" ] && [ "$GATE_CALL_LINE" -lt "$HEADER_LINE" ]; then
-    pass "el motor conserva el gate defensivo antes de su cabecera y loop"
+# Guard de regresion (issue #566): el mensaje del gate ya no atribuye el
+# worktree a la rama activa; cita origin/main + issue #66 como la base real.
+if echo "$FN_SRC" | grep -q "El batch secuencial crea cada worktree desde la rama activa del repo"; then
+    fail "el mensaje del gate todavia afirma que el worktree nace de la rama activa (falso desde el issue #66)"
 else
-    fail "mefisto-batch-pipeline.sh debe invocar el gate antes de la cabecera"
+    pass "el mensaje del gate ya no afirma que el worktree nace de la rama activa"
+fi
+if echo "$FN_SRC" | grep -q "origin/main" && echo "$FN_SRC" | grep -q "#66"; then
+    pass "el gate cita origin/main + issue #66 como la base real del worktree"
+else
+    fail "el gate no cita origin/main ni el issue #66 como justificacion real"
 fi
 
 TMP=$(mktemp -d)
@@ -89,8 +95,7 @@ STATE_LOG="$TMP/state.log"
 
 # run_gate <workdir> -- ejecuta la funcion real en un subshell con cwd en
 # <workdir>, abort()/warn() instrumentados (abort sale con 77 en vez de matar
-# el proceso, igual que el patron ya usado en test-batch-sync-branch-race.sh
-# bloque E). Vuelca MAIN_BRANCH resultante a STATE_LOG para inspeccion.
+# el proceso). Vuelca MAIN_BRANCH resultante a STATE_LOG para inspeccion.
 run_gate() {
     local workdir="$1"
     : > "$WARN_LOG"; : > "$ABORT_LOG"; : > "$STATE_LOG"
