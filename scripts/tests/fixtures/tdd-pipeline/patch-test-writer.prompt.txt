@@ -1,0 +1,17 @@
+Estas en el directorio raiz del proyecto Control de Asistencias.
+
+El pipeline detecto brechas de cobertura en la implementacion existente. Tu tarea es agregar tests adicionales para cubrir los metodos y lineas que no estan siendo ejecutados por los tests existentes.
+
+La especificacion de remediacion esta en: /tmp/wt/.mefisto/pipeline/coverage-patch-spec.md
+
+## Coverage Patch Spec
+
+Archivos con brecha.
+
+IMPORTANTE:
+- Lee los archivos de produccion listados para entender que hacen los metodos/branches no cubiertos
+- Escribe tests que ejerciten esos paths especificos
+- Dado que la implementacion ya existe, los tests nuevos probablemente PASARAN directamente
+- Sigue las mismas convenciones de testing del proyecto (Given/When/Then, AwesomeAssertions)
+- Haz commit con mensaje: test(hu-42): tests de cobertura para brechas detectadas
+- PROHIBIDO hacer 'git push' o 'gh pr create' (ni ninguna operacion de publicacion de rama/PR): eso es responsabilidad exclusiva del pipeline, nunca tuya.

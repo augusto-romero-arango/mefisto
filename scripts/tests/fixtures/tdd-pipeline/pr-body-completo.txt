@@ -1,0 +1,94 @@
+## Resumen
+
+Pipeline TDD completado:
+- Fase roja: tests escritos con stubs
+- Fase verde: implementación completa
+- Smoke tests: escritos para endpoints detectados
+- Fase refactor: revisión de calidad
+- Fase roja no aplicable: Unica capa posible: config-test
+
+## Decisiones del pipeline
+
+<details>
+<summary>Projection Test Writer (fase roja) — 2m 5s</summary>
+
+## Tests\n\n- `RegistrarTurnoTests` con $VARIABLES sin expandir.
+
+</details>
+
+<details>
+<summary>Projection Implementer (fase verde) — 1m 1s</summary>
+
+_(El agente no generó resumen)_
+
+</details>
+<details>
+<summary>Smoke Test Writer — 0m 40s</summary>
+
+Smokes escritos.
+
+</details>
+<details>
+<summary>Reviewer (fase refactor) — 5m 0s</summary>
+
+Revisado.
+
+</details>
+
+## Anomalia de deteccion (Stage 2b)
+
+Un match bajo `src/` no permitio derivar el proyecto de smoke tests: `src/Empresa.Proyecto/SharedFunction/FunctionEndpoint.cs`. Revisa el patron de deteccion en `scripts/tdd-pipeline.sh` (Stage 2b) -- se salto con `AGENT_ST_RES=skipped`, igual que un dominio sin proyecto SmokeTests, pero aqui la causa es un patron no reconocido.
+## Smokes que invocan tools modificadas sin cambios
+
+Estos smokes invocan una tool MCP o un endpoint HTTP modificado por la HU y no cambiaron. Puede estar bien; revisa que sigan alineados con el contrato nuevo:
+
+- `tests/S.SmokeTests/Intacto.cs` (invoca `crear_turno`)
+- `tests/S.SmokeTests/Otro.cs` (invoca `turnos/{id}`)
+
+## Cobertura
+
+| Archivo | Cobertura | Umbral | Estado |
+|---|---|---|---|
+| A.cs | 80.0% | 95% | gap |
+| B.cs | - | sin clasificar | ⚠ revisar |
+
+> **Archivos sin clasificar** (`⚠ revisar`): ninguna regla de clasificacion los reconocio — el gate **no los midio**. No es una exclusion deliberada (a diferencia de `excluido`, donde si se decidio que no requieren cobertura): requieren revision humana para confirmar si necesitan tests.
+
+### Remediacion
+
+Se agregaron tests de remediacion. Gaps restantes: A.cs (80.0%)
+
+> **Gaps pendientes**: 1 archivo(s) no alcanzan el umbral de cobertura. Requiere revision humana.
+## Warnings remanentes
+
+- Relacionado: #77
+- Relacionado: acme/otro#5
+
+## Tests ajustados por el reviewer
+
+El reviewer modifico, renombro o elimino estos tests existentes en la fase refactor; se revisan en el diff del PR.
+
+Lo hizo al destrabar tests en rojo despues de la fase verde.
+
+- `tests/A.Tests/ATests.cs`
+- `tests/B.Tests/BTests.cs`
+
+## Commits
+
+89abcde refactor(hu-42): revisión y refactor
+0123456 test(hu-42): tests fase roja
+
+## Metricas de la corrida
+
+| Etapa | Modelo | Tokens | in/out/cache/reasoning | Tiempo | Costo estimado |
+|---|---|---:|---|---:|---:|
+| Scaffolder | modelo-a | 53.5k | 1.2k / 340 / 52k / 0 | 0m 10s | $0.43 |
+| Projection Test Writer | modelo-a | 53.5k | 1.2k / 340 / 52k / 0 | 2m 5s | $0.43 |
+| Projection Implementer | - | - | - | 1m 1s | - |
+| Smoke Test Writer | modelo-a | 53.5k | 1.2k / 340 / 52k / 0 | 0m 40s | $0.43 |
+| Reviewer | modelo-a | 53.5k | 1.2k / 340 / 52k / 0 | 5m 0s | $0.43 |
+| Remediacion: Projection Test Writer | modelo-a | 53.5k | 1.2k / 340 / 52k / 0 | 0m 30s | $0.43 |
+| coverage-gate | - | - | - | 0m 12s | - |
+| **Total (parcial)** | - | - | - | **9m 38s** | **$2.16** |
+
+Closes #42

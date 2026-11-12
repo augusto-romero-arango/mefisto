@@ -1,0 +1,4 @@
+src/X.Turnos/RegistrarTurnoCommandHandler.cs|83.3
+src/X.Turnos/Turno/TurnoAggregateRoot.cs|100.0
+src/X.Turnos/Otro/ValidadorValidator.cs|0.2
+src/X.Turnos/Sin/NoMedidoEventHandler.cs|N/A

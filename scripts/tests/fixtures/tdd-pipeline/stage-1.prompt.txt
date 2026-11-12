@@ -1,0 +1,19 @@
+Estás en el directorio raíz del proyecto Control de Asistencias.
+
+Contexto de la historia de usuario a implementar:
+
+# Issue #42: Registrar "turno" con $HOME y `backticks`
+
+Cuerpo con $(subshell) y \backslash.
+Segunda línea con acento.
+
+Tu tarea: escribe los tests unitarios para esta HU y crea los stubs mínimos de compilación. Sigue todas las instrucciones de tu rol de projection-test-writer.
+
+ECONOMIA DE TURNOS:
+Cada turno tuyo cuesta ~5-6 s de reloj (turno sonnet) -- el trabajo que ese turno manda a hacer es barato en comparacion: en el diagnostico Fase 0, dotnet (build/test) ocupo solo ~11% del wall total de una corrida, frente a ~86% de tiempo de API (turnos). Lo caro es el turno, no la herramienta. Con eso en mente:
+- Agrupa en un mismo turno las tool calls independientes entre si (varias busquedas, varias lecturas, varias escrituras a archivos distintos). No las encadenes de a una.
+- Tu verificacion propia es 'dotnet build', UNA vez, cuando creas que terminaste -- no la repitas despues de cada archivo que escribas. No corras 'dotnet test' salvo donde tu rol lo pida explicitamente (el carril de señal de refactor puro, para confirmar el baseline verde): en el carril normal tus tests fallan por definicion, y confirmar esa fase roja no es trabajo tuyo -- apenas termines este stage, el pipeline compila (Gate 1a) y corre toda la suite para confirmarla (Gate 1b).
+- No re-inspecciones el arbol con 'git status' ni 'git diff' para confirmar algo que acabas de escribir: Write y Edit fallan con error si no aplican, asi que el exito de la herramienta ya es la confirmacion.
+Estas reglas no cubren todos los casos; ante cualquier otro, decide con el mismo criterio -- un turno extra cuesta ~5-6 s, y solo vale la pena si te ahorra un error que costaria mas.
+
+PROHIBIDO hacer 'git push' o 'gh pr create' (ni ninguna operacion de publicacion de rama/PR): eso es responsabilidad exclusiva del pipeline, nunca tuya.
