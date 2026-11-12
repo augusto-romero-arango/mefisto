@@ -32,7 +32,7 @@ import { assertInMefisto } from './lib/mefisto-repo.mts'
 import type { MefistoRepo } from './lib/mefisto-repo.mts'
 import { Output, chomp } from './lib/mefisto-script-io.mts'
 
-// El nombre con que lo invocan los comandos: el shim que reenvia aqui.
+// El nombre con que lo invocan los comandos.
 const SCRIPT_NAME = 'mefisto-release.mts'
 const RETRIES = 3
 const RETRY_WAIT_MS = 2000

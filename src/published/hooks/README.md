@@ -40,4 +40,4 @@ Ver [adaptation-matrix.md](adaptation-matrix.md). La matriz es deliberadamente s
 
 ## Validación
 
-`../scripts/validate-interactive-hooks.mts` es un shim de `validate-interactive-hooks.mts`, que corre sobre Node 22.18 o posterior sin `jq`; valida el descriptor y un archivo alternativo pasado como único argumento. Sus fixtures y el test de inventario (`../scripts/tests/interactive-hooks-contract.test.mts` e `interactive-hooks-inventory.test.mts`) no necesitan red ni instalaciones de runtime.
+`../scripts/validate-interactive-hooks.mts` corre sobre Node 22.18 o posterior sin `jq`; valida el descriptor y un archivo alternativo pasado como único argumento. Sus fixtures y el test de inventario (`../scripts/tests/interactive-hooks-contract.test.mts` e `interactive-hooks-inventory.test.mts`) no necesitan red ni instalaciones de runtime.

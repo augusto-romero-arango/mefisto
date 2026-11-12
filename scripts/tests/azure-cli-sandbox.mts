@@ -132,7 +132,7 @@ function sameFile(left: string, right: string): boolean {
 
 /**
  * Falla si alguno de `files` (relativos a `scripts/`) no esta en `dist/claude/scripts` identico
- * e inventariado, o si un shim `.sh` perdio su bit de ejecucion.
+ * e inventariado.
  */
 export function assertDistributed(files: string[]): void {
   const inventory = JSON.parse(

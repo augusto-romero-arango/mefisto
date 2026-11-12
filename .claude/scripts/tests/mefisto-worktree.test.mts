@@ -423,7 +423,7 @@ describe('proceso de una raiz de batch', () => {
   })
 })
 
-describe('linea de comandos y shim', () => {
+describe('linea de comandos', () => {
   test('sin subcomando valido muestra el uso y sale con 1; con --help sale con 0', () => {
     for (const [args, status] of [[[], 1], [['otro'], 1], [['-h'], 0], [['--help'], 0]] as Array<[string[], number]>) {
       const result = runScript(repo, ...args)

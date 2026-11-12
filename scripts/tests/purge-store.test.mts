@@ -689,8 +689,8 @@ describe('ruta del config', () => {
 })
 
 describe('distribucion', () => {
-  test('dist/claude trae el shim y el script identicos a scripts/, y los inventaria', () => {
-    assertDistributed(['purge-store.mts', 'purge-store.mts'])
+  test('dist/claude trae el script identico a scripts/ y lo inventaria', () => {
+    assertDistributed(['purge-store.mts'])
   })
 
   test('la copia de dist resuelve sus modulos y sale por uso', () => {

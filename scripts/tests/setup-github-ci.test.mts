@@ -605,8 +605,8 @@ describe('argumentos y guard', () => {
 })
 
 describe('distribucion', () => {
-  test('dist/claude trae el shim y el script identicos a scripts/, y los inventaria', () => {
-    assertDistributed(['setup-github-ci.mts', 'setup-github-ci.mts', 'lib/azure-cli.mts'])
+  test('dist/claude trae el script identico a scripts/ y lo inventaria', () => {
+    assertDistributed(['setup-github-ci.mts', 'lib/azure-cli.mts'])
   })
 
   test('la copia de dist resuelve sus modulos: llega hasta el cargador del config', () => {

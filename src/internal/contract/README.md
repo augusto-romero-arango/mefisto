@@ -130,12 +130,11 @@ los ejercita `validate-internal-artifacts.test.mts`.
 ## Compatibilidad del runner interno
 
 La interfaz ejecutable y de adaptadores vive desde #1045 en el
-[contrato comun](../../runtime/contract/README.md). Los archivos homonimos de
-`src/internal/scripts/` son shims temporales hasta #1046 y delegan en
-`src/runtime/` sin duplicar mecanica. El shim del runner conserva el default
-interno `.mefisto/pipeline/events.log`; el nucleo no conoce esa ruta.
+[contrato comun](../../runtime/contract/README.md). El pipeline interno invoca
+`src/runtime/mefisto-run-agent.mts` directamente y le pasa su
+`.mefisto/pipeline/events.log`; el nucleo no conoce esa ruta.
 
-Contrato historico que conserva el shim:
+Contrato del runner:
 
 ```bash
 node src/runtime/mefisto-run-agent.mts \

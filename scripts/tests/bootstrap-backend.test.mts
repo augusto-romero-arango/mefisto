@@ -547,8 +547,8 @@ describe('escritura de backend.tf', () => {
 })
 
 describe('distribucion', () => {
-  test('dist/claude trae el shim y el script identicos a scripts/, y los inventaria', () => {
-    assertDistributed(['bootstrap-backend.mts', 'bootstrap-backend.mts', 'lib/tfstate-naming.mts'])
+  test('dist/claude trae el script identico a scripts/ y lo inventaria', () => {
+    assertDistributed(['bootstrap-backend.mts', 'lib/tfstate-naming.mts'])
   })
 
   test('la copia de dist resuelve sus modulos: llega hasta el cargador del config', () => {

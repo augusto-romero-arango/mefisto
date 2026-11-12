@@ -50,7 +50,7 @@ function gate(dir: string): string[] {
 }
 
 describe('arbol sin fugas', () => {
-  test('shims conformes, excepcion de la allowlist y prosa que no es invocacion: sin violaciones', () => {
+  test('excepcion de la allowlist y prosa que no es invocacion: sin violaciones', () => {
     const dir = newTree(
       'clean',
       JSON.stringify({

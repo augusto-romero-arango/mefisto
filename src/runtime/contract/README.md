@@ -116,8 +116,8 @@ mantener una segunda copia del contrato.
 
 ## Runner y adaptadores
 
-El runner es `src/runtime/mefisto-run-agent.mts` (MEF-ADR-0057);
-`mefisto-run-agent.sh` es su shim.
+El runner es `src/runtime/mefisto-run-agent.mts` (MEF-ADR-0057), que se invoca
+con `node`.
 Recibe `--agent`, `--cwd`, `--prompt-file` y `--event-log`; acepta `--runtime`,
 modelo opaco, system prompt, timeout, raw/stderr logs, `--events-log`,
 `--resume-session`, `--effort` y `--redact-observability`. Este ultimo es

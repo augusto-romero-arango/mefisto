@@ -1,5 +1,5 @@
 // Piezas del batch interno en aislamiento: registro de estados, status JSON, contabilidad de la
-// espera (hold), sync verificado de main y la forma del shim.
+// espera (hold) y sync verificado de main.
 
 import assert from 'node:assert/strict'
 import { spawnSync } from 'node:child_process'

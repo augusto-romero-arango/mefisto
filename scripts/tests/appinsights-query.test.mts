@@ -810,8 +810,8 @@ describe('guard y distribucion', () => {
     assert.deepEqual(result.cli.calls, [])
   })
 
-  test('dist/claude trae el shim y el script identicos a scripts/, y los inventaria', () => {
-    assertDistributed(['appinsights-query.mts', 'appinsights-query.mts', 'lib/state.mts'])
+  test('dist/claude trae el script identico a scripts/ y lo inventaria', () => {
+    assertDistributed(['appinsights-query.mts', 'lib/state.mts'])
   })
 
   test('la copia de dist, ejecutada desde fuera del repo del consumidor, avisa del env que falta y del legacy', () => {

@@ -310,11 +310,11 @@ describe('validaciones de publish', () => {
   })
 })
 
-describe('shims y comando', () => {
+describe('comando', () => {
   let work = ''
 
   before(() => {
-    work = mkdtempSync(join(tmpdir(), 'mefisto release shim '))
+    work = mkdtempSync(join(tmpdir(), 'mefisto release comando '))
   })
 
   after(() => {

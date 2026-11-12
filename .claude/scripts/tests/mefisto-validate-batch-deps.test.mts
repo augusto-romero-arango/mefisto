@@ -460,7 +460,7 @@ describe('[G] sin sintaxis posicional de shell en los bloques bash de los comand
   })
 })
 
-describe('[H-9] el shim estable delega en el canonico', { skip: !POSIX }, () => {
+describe('[H-9] la reconciliacion como proceso', { skip: !POSIX }, () => {
   let work = ''
 
   // `gh` de Node, invocable sin shell: responde solo lo que pide la reconciliacion del PR 908.
