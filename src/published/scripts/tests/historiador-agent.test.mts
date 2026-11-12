@@ -1,9 +1,14 @@
-// Contrato del agente historiador neutral y su proyeccion publicada. La consolidacion del
-// historial, que ejecuta el bloque de shell del agente, la cubre test-historiador-agent.sh.
+// Contrato del agente historiador neutral y su proyeccion publicada, incluida la consolidacion del
+// historial que hace el bloque de shell del agente.
 
-import { describe } from 'node:test'
+import assert from 'node:assert/strict'
+import { mkdtempSync, realpathSync, rmSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
+import { after, before, describe, test } from 'node:test'
 
-import { repoPath } from '../../../../scripts/tests/text-contract.mts'
+import { NO_BASH, runBashStreams, writeTree } from '../../../../scripts/tests/markdown-bash.mts'
+import { countOccurrences, lineRanges, repoPath } from '../../../../scripts/tests/text-contract.mts'
 import {
   absent,
   agent,
@@ -74,4 +79,45 @@ describe('[e] mirror', () => {
     distributionIsCurrent,
     'generate-published-adapters --check detecto divergencias',
   )
+})
+
+describe('[b] consolidacion del historial, ejecutada con bash', { skip: NO_BASH }, () => {
+  const block = lineRanges(claudeBody, /^HISTORIAL_CANONICO=/, /^done \| awk/)[0] ?? ''
+  const CANONICAL = '.mefisto/pipeline/pipeline-history.jsonl'
+  const LEGACY_NEW = '.claude/pipeline/pipeline-history.jsonl'
+  const LEGACY_OLD = '.claude/pipeline/history.jsonl'
+  let work = ''
+  let cases = 0
+
+  before(() => {
+    work = realpathSync.native(mkdtempSync(join(tmpdir(), 'mefisto historiador ')))
+  })
+
+  after(() => {
+    rmSync(work, { recursive: true, force: true })
+  })
+
+  function consolidate(files: Record<string, string>): string {
+    return runBashStreams(block, writeTree(join(work, `caso-${++cases}`), files)).stdout
+  }
+
+  test('se extrae el bloque de consolidacion', () => {
+    assert.notEqual(block, '')
+  })
+
+  test('consolida las tres fuentes y cuenta una sola vez la fila identica', () => {
+    const out = consolidate({
+      [CANONICAL]: '{"n":"canon"}\n{"n":"dup"}\n',
+      [LEGACY_NEW]: '{"n":"legacy-nuevo"}\n{"n":"dup"}\n',
+      [LEGACY_OLD]: '{"n":"legacy-viejo"}\n{"n":"dup"}\n',
+    })
+    for (const row of ['canon', 'legacy-nuevo', 'legacy-viejo']) assert.ok(out.includes(`"${row}"`), row)
+    assert.equal(countOccurrences(out, '"dup"'), 1)
+  })
+
+  test('cada fuente se lee aunque sea la unica', () => {
+    assert.ok(consolidate({ [CANONICAL]: '{"n":"canon"}\n' }).includes('"canon"'))
+    assert.ok(consolidate({ [LEGACY_NEW]: '{"n":"legacy-nuevo"}\n' }).includes('"legacy-nuevo"'))
+    assert.ok(consolidate({ [LEGACY_OLD]: '{"n":"legacy-viejo"}\n' }).includes('"legacy-viejo"'))
+  })
 })
