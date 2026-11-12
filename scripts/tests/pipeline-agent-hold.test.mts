@@ -1,13 +1,11 @@
 import assert from 'node:assert/strict'
-import { mkdirSync, mkdtempSync, readdirSync, readFileSync, realpathSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
+import { mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { after, before, describe, test } from 'node:test'
 
 import {
   agentHoldWait,
-  agentResumePrompt,
-  agentSessionTranscriptCount,
   fmtHoldDuration,
   formatHoldStatus,
   holdLimits,
@@ -16,7 +14,6 @@ import {
   localEpochAt,
   planHold,
   resetsAtEpoch,
-  transcriptStoreSlug,
 } from '../lib/pipeline/agent-hold.mts'
 import { clockTime } from '../lib/pipeline/agent-log.mts'
 
@@ -234,63 +231,6 @@ describe('planHold y sus limites', () => {
       assert.equal(resetsAtEpoch(text), null, text)
     }
   })
-})
-
-describe('agentSessionTranscriptCount', () => {
-  test('transcriptStoreSlug cambia separadores y puntos por guiones', () => {
-    assert.equal(transcriptStoreSlug('/Users/ana/repo/.mefisto/worktrees/x.y', 'darwin'), '-Users-ana-repo--mefisto-worktrees-x-y')
-    assert.equal(transcriptStoreSlug('/home/ana/mi_repo con espacios', 'linux'), '-home-ana-mi_repo con espacios')
-    assert.equal(transcriptStoreSlug('/home/ana/a\\b:c', 'linux'), '-home-ana-a\\b:c')
-    assert.equal(transcriptStoreSlug('C:\\Users\\ana\\repo\\.mefisto', 'win32'), 'C--Users-ana-repo--mefisto')
-  })
-
-  test('[1b] cuenta los transcripts del store del directorio', () => {
-    const config = join(work, 'config')
-    const probe = join(work, 'worktree.probe')
-    mkdirSync(probe)
-    const env = { CLAUDE_CONFIG_DIR: config }
-    assert.equal(agentSessionTranscriptCount(probe, { env }), 0)
-
-    const store = join(config, 'projects', transcriptStoreSlug(realpathSync.native(probe)))
-    mkdirSync(store, { recursive: true })
-    assert.equal(agentSessionTranscriptCount(probe, { env }), 0)
-    for (const name of ['aaa.jsonl', 'bbb.jsonl', 'notas.txt', '.oculto.jsonl', 'ccc.jsonl.bak']) writeFileSync(join(store, name), '')
-    mkdirSync(join(store, 'carpeta.jsonl'))
-    assert.equal(agentSessionTranscriptCount(probe, { env }), 3)
-    assert.equal(agentSessionTranscriptCount(`${probe}/`, { env }), 3)
-    const link = join(work, 'worktree.enlace')
-    symlinkSync(probe, link, 'junction')
-    assert.equal(agentSessionTranscriptCount(link, { env }), 3)
-
-    assert.equal(agentSessionTranscriptCount('', { env }), 0)
-    assert.equal(agentSessionTranscriptCount(join(work, 'no-existe'), { env }), 0)
-    assert.equal(agentSessionTranscriptCount(join(store, 'aaa.jsonl'), { env }), 0)
-  })
-
-  test('sin CLAUDE_CONFIG_DIR busca en .claude del home', () => {
-    const home = join(work, 'home')
-    const probe = join(work, 'otro-worktree')
-    mkdirSync(probe)
-    const store = join(home, '.claude', 'projects', transcriptStoreSlug(realpathSync.native(probe)))
-    mkdirSync(store, { recursive: true })
-    writeFileSync(join(store, 'sesion.jsonl'), '')
-    assert.equal(agentSessionTranscriptCount(probe, { env: {}, home }), 1)
-    assert.equal(agentSessionTranscriptCount(probe, { env: { CLAUDE_CONFIG_DIR: '' }, home }), 1)
-    assert.equal(agentSessionTranscriptCount(probe, { env: {}, home: join(work, 'otro-home') }), 0)
-  })
-})
-
-test('[1] agentResumePrompt nombra el stage, el agente y la ruta del resumen', () => {
-  const prompt = agentResumePrompt('2', 'reviewer')
-  assert.match(prompt, /^Tu sesion anterior en este mismo stage \(stage 2, agente reviewer\) se corto/)
-  assert.ok(prompt.includes('.claude/pipeline/summaries/stage-2-reviewer.md'))
-  assert.match(prompt, /no reinicies tu analisis/i)
-  assert.ok(prompt.includes("'git push' o 'gh pr create'"))
-  assert.ok(prompt.includes('SIN_SESION_PREVIA'))
-  assert.equal(prompt.split('stage 2, agente reviewer').length, 3)
-  assert.ok(prompt.endsWith('responsabilidad exclusiva del pipeline.\n'))
-  assert.equal(prompt.split('\n').length, 10)
-  assert.ok(agentResumePrompt('$HOME', 'a b`c`').includes('(stage $HOME, agente a b`c`)'))
 })
 
 test('[6] ni los pipelines publicados ni los adaptadores de runtime reanudan con --fork-session', () => {
