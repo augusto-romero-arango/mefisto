@@ -122,7 +122,7 @@ describe('getHarnessIdentity', () => {
 
   test('manifiesto de otro runtime: metadata_invalid', () => {
     writeFileSync(manifest, manifestJson())
-    assert.deepEqual(getHarnessIdentity('opencode', scriptsDir), INVALID)
+    assert.deepEqual(getHarnessIdentity('otro-runtime', scriptsDir), INVALID)
   })
 
   test('acepta versiones con prerelease o build', () => {
@@ -253,7 +253,7 @@ describe('paridad con la gemela bash', { skip: NO_BASH }, () => {
       manifestJson({ commit: `${COMMIT}\n` }),
       manifestJson({ version: '1.2.3\n\n' }),
       manifestJson({ version: 'x\n1.2.3' }),
-      manifestJson({ runtime: 'opencode' }),
+      manifestJson({ runtime: 'otro-runtime' }),
       manifestJson({ runtime: '' }),
       manifestJson({ schemaVersion: 2 }),
       manifestJson({ schemaVersion: '1' }),
@@ -274,7 +274,7 @@ describe('paridad con la gemela bash', { skip: NO_BASH }, () => {
     for (const content of contents) {
       rmSync(manifest, { force: true })
       if (content !== null) writeFileSync(manifest, content)
-      for (const runtime of ['', 'claude', 'opencode']) {
+      for (const runtime of ['', 'claude', 'otro-runtime']) {
         const fromBash = bashLibrary('get_harness_identity_json "$1"', [runtime], { library, cwd: tmp })
         assert.equal(fromBash.status, 0, fromBash.stderr)
         assert.equal(
