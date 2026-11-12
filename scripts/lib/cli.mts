@@ -34,7 +34,7 @@ export interface CommandOptions {
 const BATCH_FILE = /\.(cmd|bat)$/i
 const CMD_META = /([()\][%!^"`<>&|;, *?])/g
 
-function envValue(env: NodeJS.ProcessEnv, name: string): string | undefined {
+export function envValue(env: NodeJS.ProcessEnv, name: string): string | undefined {
   if (env[name] !== undefined) return env[name]
   // Fuera de `process.env`, las claves de Windows conservan su grafia (`Path`, `PathExt`).
   const key = Object.keys(env).find((candidate) => candidate.toUpperCase() === name.toUpperCase())

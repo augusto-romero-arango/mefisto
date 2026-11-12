@@ -120,3 +120,8 @@ describe('[f] mirror y salidas', () => {
   )
   generatorIsUpToDate()
 })
+
+describe('[g] filas del checklist', () => {
+  contains(body, 'solo en Windows, una fila **Git Bash**', 'describe la fila de Git Bash en Windows')
+  contains(body, 'con la acción de instalar Git for Windows', 'la fila FALTA pide instalar Git for Windows')
+})

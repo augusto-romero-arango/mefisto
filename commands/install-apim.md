@@ -268,15 +268,14 @@ fi
 ```bash
 REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null) || { echo "ERROR: no estas en un repositorio git"; exit 1; }
 
-COMMON="${MEFISTO_PACKAGE_ROOT}/scripts/_pipeline-common.sh"
-if [ ! -f "$COMMON" ]; then
-  echo "ERROR: no se hallo _pipeline-common.sh en el paquete activo ($COMMON)."
+CONFIG_SCRIPT="${MEFISTO_PACKAGE_ROOT}/scripts/harness-config-path.mts"
+if [ ! -f "$CONFIG_SCRIPT" ]; then
+  echo "ERROR: no se hallo harness-config-path.mts en el paquete activo ($CONFIG_SCRIPT)."
   exit 1
 fi
-source "$COMMON"
-CONFIG=$(resolve_harness_config_path write "$REPO_ROOT") || exit 1
+CONFIG=$(node "$CONFIG_SCRIPT" write "$REPO_ROOT") || exit 1
 
-if ! load_harness_config >/dev/null; then
+if ! HARNESS_CONFIG_PATH=$(node "$CONFIG_SCRIPT" valid "$REPO_ROOT"); then
   echo "ERROR: el config efectivo no es válido. Corrígelo antes de escribir $CONFIG."
   exit 1
 fi

@@ -12,7 +12,7 @@ El plugin asume que el repo consumidor cumple lo siguiente:
 Los lectores resuelven el archivo canonico `.mefisto/harness.config.json` y aceptan `.claude/harness.config.json` solo como fallback de lectura indefinido (MEF-ADR-0053, decision 4).
 Los escritores (`/onboard` paso 6, `/seed-secret` y `upsert_harness_secret`) escriben solo el canonico y rechazan un consumidor solo legacy, pidiendo migrar conscientemente el archivo completo.
 
-El resolver ejecutable de referencia es `scripts/_pipeline-common.sh:resolve_harness_config_path`; `load_harness_config` lo usa y exporta `HARNESS_CONFIG_PATH`. Para prompts, reutiliza la misma precedencia inline del Paso 0 de `agents/infra-base-scaffolder.md`, sin reinventarla.
+El resolver ejecutable de referencia es `resolveHarnessConfigPath` de `scripts/lib/harness-config.mts`; `loadHarnessConfig` lo usa y devuelve la ruta efectiva en `configPath`. Un bloque de bash obtiene la ruta con `scripts/harness-config-path.mts` (`read`, `write` o `valid`). Para prompts, reutiliza la misma precedencia inline del Paso 0 de `agents/infra-base-scaffolder.md`, sin reinventarla.
 
 Tokens operativos consumidos por los scripts shell. Estructura:
 
