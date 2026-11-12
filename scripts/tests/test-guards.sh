@@ -165,7 +165,7 @@ echo "[C] Pipelines publicados: contienen guard contra repo de Mefisto"
 
 PUBLISHED_PIPELINES=(
     parallel-pipeline.sh batch-pipeline.sh pr-sync.sh
-    tdd-pipeline.sh iac-pipeline.sh scaffold-pipeline.sh launch-pipeline.sh
+    iac-pipeline.sh scaffold-pipeline.sh launch-pipeline.sh
 )
 
 for pipe in "${PUBLISHED_PIPELINES[@]}"; do
@@ -196,7 +196,7 @@ echo "[C2] Scripts auxiliares publicados: el guard aborta cuando se ejecutan en 
 AUX_SCRIPTS=(
     appinsights-query.sh setup-github-ci.sh setup-github-labels.sh
     bootstrap-backend.sh seed-secret.sh onboard-diagnose.sh onboard-migrate-directives.sh onboard-activate-repo.sh update-plugin.sh upgrade.sh
-    purge-store.sh next-order.sh field-note.sh warnings-diff.sh tooling-pipeline.sh
+    purge-store.sh next-order.sh field-note.sh warnings-diff.sh tooling-pipeline.sh tdd-pipeline.sh
 )
 
 for aux in "${AUX_SCRIPTS[@]}"; do

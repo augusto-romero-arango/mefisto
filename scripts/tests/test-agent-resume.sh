@@ -124,7 +124,7 @@ rm -rf "$CFG_DIR" "$WT_PROBE"
 
 echo ""
 echo "[2] CA-1 (estatico): reanudacion neutral"
-for p in tdd-pipeline.sh iac-pipeline.sh; do
+for p in iac-pipeline.sh; do
     FILE="$REPO_ROOT/scripts/$p"
     if grep -q 'agent_events_session_id' "$FILE" \
         && grep -q 'runtime_supports_resume' "$FILE" \

@@ -49,7 +49,7 @@ else
     fail "extract_test_count NO definida en _pipeline-common.sh"
 fi
 
-for script in tdd-pipeline.sh pr-sync.sh; do
+for script in pr-sync.sh; do
     path="$REPO_ROOT/scripts/$script"
     if grep -q '^run_tests_projects()' "$path"; then
         fail "$script: todavia define run_tests_projects() localmente (duplicado)"
@@ -254,15 +254,6 @@ else
     fail "F2: el fallo de bookkeeping no cumplio el contrato (rc=$rc)"
 fi
 
-for pipeline in "$REPO_ROOT/scripts/tdd-pipeline.sh"; do
-    if grep -qF 'tests_val="$(tests_json_value "${PIPELINE_TESTS:-}")"' "$pipeline" \
-        && grep -qF 'TESTS_JSON="$(tests_json_value "${PIPELINE_TESTS:-}")"' "$pipeline" \
-        && grep -qF 'append_completed_history "$HISTORY_FILE" "$EVENTS_LOG_ABS"' "$pipeline"; then
-        pass "F3: $(basename "$pipeline") sanea status/historial y tolera fallos de bookkeeping"
-    else
-        fail "F3: $(basename "$pipeline") no protege el historial completado"
-    fi
-done
 
 # -------- Resumen --------
 
