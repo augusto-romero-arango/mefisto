@@ -52,7 +52,7 @@ describe('remate: merge, sync y publish encadenados', () => {
     assert.equal(sb.read('CHANGELOG.md'), RELEASED_CHANGELOG)
 
     assert.ok(sb.output.stdout.includes(`\n${COLOR.cyan}${COLOR.bold}=== Encadenando merge + sync + publish ===${COLOR.reset}\n`))
-    assert.ok(sb.output.stdout.includes(' Encadenando fase publish (re-invocando mefisto-release.sh sin argumentos)...\n'))
+    assert.ok(sb.output.stdout.includes(' Encadenando fase publish (re-invocando mefisto-release.mts sin argumentos)...\n'))
     assert.ok(sb.output.stdout.includes(`${COLOR.green}${COLOR.bold}v${COLOR.reset} PR #42 MERGED (commit ${sb.mergeSha}).\n`))
     assert.ok(
       sb.output.stdout.endsWith(

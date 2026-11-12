@@ -103,10 +103,10 @@ Con `DOMAIN_NAME_KEBAB` como dominio confirmado:
 
 ```bash
 # Con issue:
-{{mefisto:run launch-pipeline.sh --scaffold <issue> --domain <dominio-kebab-confirmado>}}
+{{mefisto:run launch-pipeline.mts --scaffold <issue> --domain <dominio-kebab-confirmado>}}
 
 # Sin issue:
-{{mefisto:run launch-pipeline.sh --scaffold --domain <dominio-kebab-confirmado>}}
+{{mefisto:run launch-pipeline.mts --scaffold --domain <dominio-kebab-confirmado>}}
 ```
 
 ### 7. Instrucciones de seguimiento
@@ -122,7 +122,7 @@ Fuera de Herdr el script tambien corre desacoplado, sin consola que lo siga: su 
 
 ```
 Pipeline de scaffold corriendo sin pane. Para monitorear, en otra terminal:
-  <linea de stream-watch.sh que imprimio el script>
+  <linea de stream-watch.mts que imprimio el script>
 
 Log: {{mefisto:state-path logs}}/scaffold-<timestamp>-<pid>.log
 ```

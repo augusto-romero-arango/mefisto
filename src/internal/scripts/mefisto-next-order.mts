@@ -43,7 +43,7 @@ export function parseArgs(argv: string[]): Options {
     else if (arg === '--json') options.json = true
     else {
       throw new CliError(
-        `ERROR: argumento desconocido: ${arg}.\nUso: src/internal/scripts/mefisto-next-order.sh [--refinement] [--json]`,
+        `ERROR: argumento desconocido: ${arg}.\nUso: src/internal/scripts/mefisto-next-order.mts [--refinement] [--json]`,
         2,
       )
     }

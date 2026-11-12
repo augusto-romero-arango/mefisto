@@ -143,14 +143,14 @@ describe('argumentos', () => {
       assert.equal(run.status, 64)
       assert.equal(run.stdout, '')
       assert.match(run.stderr, message)
-      assert.match(run.stderr, /\nUso: mefisto-run-agent\.sh --agent <id> --cwd <dir> --prompt-file <f> --event-log <jsonl>\n/)
+      assert.match(run.stderr, /\nUso: mefisto-run-agent\.mts --agent <id> --cwd <dir> --prompt-file <f> --event-log <jsonl>\n/)
     })
   }
 
   test('--help muestra el uso, con --redact-observability, y sale con 0', async () => {
     const run = await runRunner(['--help'])
     assert.equal(run.status, 0)
-    assert.match(run.stderr, /^Uso: mefisto-run-agent\.sh /)
+    assert.match(run.stderr, /^Uso: mefisto-run-agent\.mts /)
     assert.match(run.stderr, /--redact-observability/)
   })
 
@@ -650,23 +650,6 @@ describe('entorno del runner', () => {
     assert.equal(readEvents(eventLog).length > 1, true)
   })
 
-  test('el shim de bash delega en el runner con los mismos argumentos', { skip: process.platform === 'win32' ? 'el shim es bash' : false }, () => {
-    const shim = join(RUNTIME_DIR, 'mefisto-run-agent.sh')
-    assert.equal(
-      readFileSync(shim, 'utf8'),
-      [
-        '#!/usr/bin/env bash',
-        '# Shim: la implementacion vive en mefisto-run-agent.mts (MEF-ADR-0057). No editar.',
-        'exec node "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)/mefisto-run-agent.mts" "$@"',
-        '',
-      ].join('\n'),
-    )
-    assert.equal((statSync(shim).mode & 0o111) !== 0, true)
-    const help = capture(shim, ['--help'])
-    assert.equal(help.status, 0)
-    assert.match(help.stderr, /^Uso: mefisto-run-agent\.sh /)
-    assert.equal(capture(shim, ['--bogus']).status, 64)
-  })
 })
 
 describe('humanTelemetry', () => {

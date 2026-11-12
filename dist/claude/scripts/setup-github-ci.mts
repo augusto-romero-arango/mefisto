@@ -5,12 +5,12 @@
 // Contributor y Role Based Access Control Administrator con condicion anti-escalacion
 // (MEF-ADR-0025), y Storage Blob Data Contributor sobre la Storage del tfstate.
 //
-// Uso: ./scripts/setup-github-ci.sh <subscription-id> [<owner/repo>]
-// Ejemplo: ./scripts/setup-github-ci.sh 50fc1901-9723-4971-9d63-b3f1a015e8b8 acme/mi-proyecto
+// Uso: node scripts/setup-github-ci.mts <subscription-id> [<owner/repo>]
+// Ejemplo: node scripts/setup-github-ci.mts 50fc1901-9723-4971-9d63-b3f1a015e8b8 acme/mi-proyecto
 //
 // El slug owner/repo (subject de los federated credentials) se resuelve con 'gh repo view' o el
 // remote 'origin'; el 2do argumento lo fuerza. La pareja de Resource Group y Storage Account
-// del tfstate sale de backend.tf: correr despues de bootstrap-backend.sh.
+// del tfstate sale de backend.tf: correr despues de bootstrap-backend.mts.
 
 import { readdirSync, statSync } from 'node:fs'
 import { join } from 'node:path'
@@ -109,7 +109,7 @@ export function resolveBackendPair(cwd: string): BackendPair {
     message.push('  No se encontro un backend azurerm bajo infra/environments/*/.')
   }
   message.push(
-    '  Ejecuta scripts/bootstrap-backend.sh para un ambiente o corrige el backend antes de reintentar.',
+    '  Ejecuta scripts/bootstrap-backend.mts para un ambiente o corrige el backend antes de reintentar.',
   )
   throw new CliError(message.join('\n'))
 }
@@ -126,7 +126,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 function run(argv: string[], deps: SetupCiDeps): number {
   const { output } = deps
   consumerRoot(deps.cwd, [
-    'ERROR: scripts/setup-github-ci.sh es del plugin publicado y solo aplica al consumidor.',
+    'ERROR: scripts/setup-github-ci.mts es del plugin publicado y solo aplica al consumidor.',
     'Mefisto no se despliega a Azure ni necesita Service Principal.',
   ])
   const config = loadHarnessConfig(undefined, { cwd: deps.cwd, warn: (message) => output.err(message) })

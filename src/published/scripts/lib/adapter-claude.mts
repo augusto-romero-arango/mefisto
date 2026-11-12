@@ -164,7 +164,7 @@ const ID = '[a-z0-9]+(?:-[a-z0-9]+)*'
 const DIRECTIVES: Directive[] = [
   directive(`run${SPACE}+(${NOT_SPACE}+)${SPACE}+([^}]*)`, ([prefix, script, args, suffix]) => {
     const trimmed = (args ?? '').replace(TRAILING_SPACE, '')
-    return `${prefix}MEFISTO_RUNTIME=claude "\${MEFISTO_PACKAGE_ROOT}/scripts/${script}" ${trimmed}${suffix}`
+    return `${prefix}MEFISTO_RUNTIME=claude node "\${MEFISTO_PACKAGE_ROOT}/scripts/${script}" ${trimmed}${suffix}`
   }),
   directive('loaded-root', ([prefix, suffix]) => `${prefix}\${CLAUDE_PLUGIN_ROOT}${suffix}`),
   directive('package-root', ([prefix, suffix]) => `${prefix}\${MEFISTO_PACKAGE_ROOT}${suffix}`),
@@ -193,7 +193,7 @@ const DIRECTIVES: Directive[] = [
   directive(
     'assert-consumer-repo',
     ([prefix, suffix]) =>
-      `${prefix}Antes de continuar, aborta si existe \`src/internal/scripts/generate-internal-adapters.sh\`: ese directorio es el repositorio de Mefisto, no un consumidor.${suffix}`,
+      `${prefix}Antes de continuar, aborta si existe \`src/internal/scripts/generate-internal-adapters.mts\`: ese directorio es el repositorio de Mefisto, no un consumidor.${suffix}`,
   ),
 ]
 

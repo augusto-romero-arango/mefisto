@@ -57,7 +57,7 @@ const COMMAND_PATH = /^(.*)\{\{mefisto:command-path[ \t\n\v\f\r]+([A-Za-z0-9_-]+
  * Body con las directivas neutrales en su forma Claude Code:
  *   {{mefisto:launch-agent <id>}}   -> bloque bash con `claude --agent <id> "$ARGUMENTS"`
  *                                      (solo si la directiva ocupa toda la linea)
- *   {{mefisto:run <script> <args>}} -> MEFISTO_RUNTIME=claude ./.claude/scripts/<script> <args>
+ *   {{mefisto:run <script> <args>}} -> MEFISTO_RUNTIME=claude node src/internal/scripts/<script> <args>
  *   {{mefisto:command-path <id>}}   -> .claude/commands/<id>.md
  * Las dos ultimas se traducen en su sitio y conservan el resto de la linea. Con varias en una
  * misma linea solo se traduce la ultima.
@@ -73,7 +73,7 @@ export function claudeTranslateBody(relSource: string, body: string): string {
     } else if (run !== null) {
       const args = (run[3] ?? '').replace(/[ \t\n\v\f\r]+$/, '')
       const invocation = args.length > 0 ? `${run[2]} ${args}` : `${run[2]}`
-      out += `${run[1]}MEFISTO_RUNTIME=claude ./.claude/scripts/${invocation}${run[4]}\n`
+      out += `${run[1]}MEFISTO_RUNTIME=claude node src/internal/scripts/${invocation}${run[4]}\n`
     } else if (commandPath !== null) {
       out += `${commandPath[1]}.claude/commands/${commandPath[2]}.md${commandPath[3]}\n`
     } else if (line.includes('{{mefisto:')) {

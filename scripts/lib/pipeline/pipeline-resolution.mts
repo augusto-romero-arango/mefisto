@@ -38,7 +38,7 @@ export function resolutionText(resolution: Resolution): string {
 }
 
 function pipelineAt(pipeline: PipelineName, scriptsDir: string): Resolution {
-  return { kind: 'pipeline', pipeline, script: join(scriptsDir, `${pipeline}-pipeline.sh`) }
+  return { kind: 'pipeline', pipeline, script: join(scriptsDir, `${pipeline}-pipeline.mts`) }
 }
 
 function forcedPipeline(override: string, scriptsDir: string): Resolution {

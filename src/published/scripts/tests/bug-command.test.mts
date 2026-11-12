@@ -32,7 +32,7 @@ describe('[fuente] contrato neutral', () => {
   contains(body, '{{mefisto:assert-consumer-repo}}', 'guard consumidor presente')
   contains(body, '{{mefisto:launch-agent tooling-investigator ', 'delegacion puntual a tooling-investigator')
   contains(body, '{{mefisto:launch-agent bug-investigator ', 'delegacion puntual a bug-investigator')
-  contains(body, '{{mefisto:run azure-account-info.sh 2>&1}}', 'valida sesion con azure-account-info.sh')
+  contains(body, '{{mefisto:run azure-account-info.mts 2>&1}}', 'valida sesion con azure-account-info.mts')
   contains(body, '.mefisto/appinsights.env', 'valida appinsights.env')
   contains(body, 'Uso: {{mefisto:command bug}}', 'uso vacio con command bug')
   contains(body, '`.claude/`, `.mefisto/`', 'indicadores de tooling conservan .claude/ y suman .mefisto/')
@@ -53,8 +53,8 @@ describe('[salidas] adaptador y mirror', () => {
   claudeOutputExists(command)
   contains(
     claude,
-    'MEFISTO_RUNTIME=claude "${MEFISTO_PACKAGE_ROOT}/scripts/azure-account-info.sh" 2>&1',
-    'claude invoca azure-account-info.sh',
+    'MEFISTO_RUNTIME=claude node "${MEFISTO_PACKAGE_ROOT}/scripts/azure-account-info.mts" 2>&1',
+    'claude invoca azure-account-info.mts',
   )
   absent(claude, '{{mefisto:', 'claude sin directivas sin resolver')
   absent(claude, 'claude --agent', 'claude sin claude --agent')
@@ -65,19 +65,19 @@ describe('[salidas] adaptador y mirror', () => {
   contains(claude, 'bug-investigator', 'claude delega en bug-investigator')
   contains(
     beforeFirst(afterFirst(claude, 'Si entorno desplegado'), 'Si ambas validaciones pasan'),
-    'azure-account-info.sh',
+    'azure-account-info.mts',
     'claude valida Azure antes de delegar a bug-investigator',
   )
   absent(
     beforeFirst(afterFirst(claude, 'Si tooling'), 'Si entorno desplegado'),
-    'azure-account-info.sh',
+    'azure-account-info.mts',
     'claude: la ruta tooling no exige Azure',
   )
   contains(claude, 'model: "haiku"', 'Claude materializa el perfil fast')
   mirrorMatches(command)
   contains(
     mirror,
-    'GENERADO por src/published/scripts/generate-published-adapters.sh desde src/published/commands/bug.md',
+    'GENERADO por src/published/scripts/generate-published-adapters.mts desde src/published/commands/bug.md',
     'mirror conserva marcador generado',
   )
   check(

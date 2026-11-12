@@ -65,18 +65,18 @@ describe('[invocaciones]', () => {
   for (const arg of ['--status', '--disable-user', '--prune --only <versiones-confirmadas>']) {
     contains(
       claude,
-      `MEFISTO_RUNTIME=claude "\${MEFISTO_PACKAGE_ROOT}/scripts/upgrade.sh" ${arg}`,
-      `${name} invoca upgrade.sh ${arg} con su runtime`,
+      `MEFISTO_RUNTIME=claude node "\${MEFISTO_PACKAGE_ROOT}/scripts/upgrade.mts" ${arg}`,
+      `${name} invoca upgrade.mts ${arg} con su runtime`,
     )
   }
   contains(
     claude,
-    'MEFISTO_RUNTIME=claude "${MEFISTO_PACKAGE_ROOT}/scripts/upgrade.sh" 2>&1',
+    'MEFISTO_RUNTIME=claude node "${MEFISTO_PACKAGE_ROOT}/scripts/upgrade.mts" 2>&1',
     `${name} invoca la actualizacion simple`,
   )
   contains(
     claude,
-    'MEFISTO_RUNTIME=claude "${MEFISTO_PACKAGE_ROOT}/scripts/herdr-pipeline.sh" --refresh-agents',
+    'MEFISTO_RUNTIME=claude node "${MEFISTO_PACKAGE_ROOT}/scripts/herdr-pipeline.mts" --refresh-agents',
     `${name} refresca agentes herdr`,
   )
   contains(body, 'HERDR_ENV=1', `${name} limita el refresco a herdr`)
@@ -103,7 +103,7 @@ describe('[actualizacion y consentimiento]', () => {
   contains(body, 'El update no borra nada', `${name} conserva que el update no borra`)
   check(
     `${name} precede --disable-user con su confirmacion`,
-    () => ascending(lineOf(body, /MIGRACION PENDIENTE/), lineOf(body, /upgrade.sh" --disable-user/)),
+    () => ascending(lineOf(body, /MIGRACION PENDIENTE/), lineOf(body, /upgrade.mts" --disable-user/)),
     `${name} no precede --disable-user con su confirmacion`,
   )
   contains(
@@ -123,7 +123,7 @@ describe('[cierre y neutralidad]', () => {
   absent(body, '/reload-plugins', `${name} sin /reload-plugins`)
   absent(body, '.plugin-root', `${name} sin .plugin-root`)
   absent(body, 'plugins/cache', `${name} sin plugins/cache`)
-  absent(body, 'update-plugin.sh', `${name} no invoca update-plugin.sh directo`)
+  absent(body, 'update-plugin.mts', `${name} no invoca update-plugin.mts directo`)
   const stripped = linesOf(body)
     .filter((line) => !line.startsWith('MEFISTO_LOADED_ROOT='))
     .join('\n')
@@ -135,7 +135,7 @@ describe('[cierre y neutralidad]', () => {
 describe('[poda]', () => {
   check(
     `${name} precede la poda con su confirmacion`,
-    () => ascending(lineOf(body, /pide confirmacion explicita/), lineOf(body, /upgrade.sh" --prune/)),
+    () => ascending(lineOf(body, /pide confirmacion explicita/), lineOf(body, /upgrade.mts" --prune/)),
     `${name} no precede la poda con su confirmacion`,
   )
   contains(body, 'Nunca podes la version cargada', `${name} nunca poda la version cargada`)

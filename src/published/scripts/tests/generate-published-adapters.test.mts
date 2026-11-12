@@ -158,37 +158,6 @@ function inventory(out: string, runtime: string): { schemaVersion: number; asset
   }
 }
 
-describe('shims', () => {
-  const COMMANDS = [
-    'generate-published-adapters',
-    'validate-published-artifacts',
-    'validate-published-mcp',
-    'validate-interactive-hooks',
-    'generate-claude-hooks',
-  ]
-
-  for (const command of COMMANDS) {
-    test(`${command}.sh delega en su .mts`, () => {
-      assert.equal(
-        readFileSync(join(SCRIPTS, `${command}.sh`), 'utf8'),
-        [
-          '#!/usr/bin/env bash',
-          `# Shim: la implementacion vive en ${command}.mts (MEF-ADR-0057). No editar.`,
-          `exec node "$(cd "$(dirname "\${BASH_SOURCE[0]}")" && pwd -P)/${command}.mts" "$@"`,
-          '',
-        ].join('\n'),
-      )
-      assert.ok(existsSync(join(SCRIPTS, `${command}.mts`)))
-    })
-  }
-
-  test('los que se invocan por ruta conservan el bit de ejecucion', { skip: WINDOWS }, () => {
-    for (const command of COMMANDS.filter((name) => name !== 'generate-claude-hooks')) {
-      assert.notEqual(statSync(join(SCRIPTS, `${command}.sh`)).mode & 0o111, 0, command)
-    }
-  })
-})
-
 describe('argumentos', () => {
   test('separa opciones y fuentes', () => {
     assert.deepEqual(parseArgs(['--check', '--out', 'salida', 'a.md', 'b.md']), {
@@ -249,11 +218,11 @@ describe('dos adaptadores', () => {
     )
     assert.equal(markdown?.sha256.length, 64)
     const pipeline = assets.find(
-      (asset) => asset.adapter === 'tooling-closure' && asset.source === 'scripts/tdd-pipeline.sh',
+      (asset) => asset.adapter === 'tooling-closure' && asset.source === 'scripts/tdd-pipeline.mts',
     )
     assert.deepEqual(
       { destination: pipeline?.destination, mode: pipeline?.mode, digest: pipeline?.sha256.length },
-      { destination: 'scripts/tdd-pipeline.sh', mode: '0755', digest: 64 },
+      { destination: 'scripts/tdd-pipeline.mts', mode: '0644', digest: 64 },
     )
     assert.deepEqual(
       assets.filter((asset) => asset.adapter === 'tooling-knowledge').map((asset) => asset.source),
@@ -279,7 +248,7 @@ describe('dos adaptadores', () => {
   test('el marcador puede ir despues del frontmatter', () => {
     assert.equal(
       read(out, `dist/beta/${MARKDOWN}`).split('\n')[3],
-      `<!-- GENERADO por src/published/scripts/generate-published-adapters.sh desde ${SOURCE}. No editar a mano. -->`,
+      `<!-- GENERADO por src/published/scripts/generate-published-adapters.mts desde ${SOURCE}. No editar a mano. -->`,
     )
   })
 
@@ -314,7 +283,7 @@ describe('dos adaptadores', () => {
     writeIn(
       out,
       'dist/alpha/artefactos/huerfana.md',
-      '<!-- GENERADO por src/published/scripts/generate-published-adapters.sh desde x. No editar a mano. -->\n',
+      '<!-- GENERADO por src/published/scripts/generate-published-adapters.mts desde x. No editar a mano. -->\n',
     )
     writeIn(out, 'dist/beta/artefactos/manual.md', 'manual\n')
     const result = await check()
@@ -371,28 +340,28 @@ describe('dos adaptadores', () => {
 
   test('--check detecta contenido divergente en la clausura', async () => {
     await fresh()
-    appendFileSync(pathIn(out, 'dist/alpha/scripts/upgrade.sh'), 'alterada\n')
+    appendFileSync(pathIn(out, 'dist/alpha/scripts/upgrade.mts'), 'alterada\n')
     const result = await check()
     assert.equal(result.status, 1)
-    assert.ok(result.out.includes('dist/alpha/scripts/upgrade.sh: distinta'), result.out)
+    assert.ok(result.out.includes('dist/alpha/scripts/upgrade.mts: distinta'), result.out)
   })
 
   test('--check detecta el modo divergente en la clausura', { skip: WINDOWS }, async () => {
     await fresh()
-    chmodSync(pathIn(out, 'dist/alpha/scripts/upgrade.sh'), 0o644)
+    chmodSync(pathIn(out, 'dist/alpha/scripts/upgrade.mts'), 0o755)
     const result = await check()
     assert.equal(result.status, 1)
-    assert.ok(result.out.includes('dist/alpha/scripts/upgrade.sh: modo divergente'), result.out)
+    assert.ok(result.out.includes('dist/alpha/scripts/upgrade.mts: modo divergente'), result.out)
   })
 
   test('--check rechaza un symlink en una salida de la clausura', { skip: WINDOWS }, async () => {
     await fresh()
-    const published = pathIn(out, 'dist/alpha/scripts/upgrade.sh')
+    const published = pathIn(out, 'dist/alpha/scripts/upgrade.mts')
     rmSync(published)
-    symlinkSync(pathIn(repo, 'scripts/upgrade.sh'), published)
+    symlinkSync(pathIn(repo, 'scripts/upgrade.mts'), published)
     const result = await check()
     assert.equal(result.status, 1)
-    assert.ok(result.out.includes('dist/alpha/scripts/upgrade.sh: enlace simbolico'), result.out)
+    assert.ok(result.out.includes('dist/alpha/scripts/upgrade.mts: enlace simbolico'), result.out)
   })
 
   test('--check detecta un symlink huerfano', { skip: WINDOWS }, async () => {
@@ -761,7 +730,7 @@ describe('clausura declarada', () => {
 
   test('declara los scripts que arrancan el TDD publicado', () => {
     const sources = CLOSURE.map((asset) => asset.source)
-    assert.ok(sources.includes('scripts/tdd-pipeline.sh'))
+    assert.ok(sources.includes('scripts/tdd-pipeline.mts'))
     assert.ok(sources.includes('src/runtime/lib/mefisto-process.mts'))
   })
 })

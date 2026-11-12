@@ -1,5 +1,5 @@
 // Textos y reglas de `iac-pipeline.mts`: prompts y cuerpo del PR byte a byte contra los que
-// producia iac-pipeline.sh (`fixtures/iac-pipeline/`), lectura del gate de dependencias, la cola
+// producia iac-pipeline.mts (`fixtures/iac-pipeline/`), lectura del gate de dependencias, la cola
 // del log del agente y la frontera neutral del modulo.
 
 import assert from 'node:assert/strict'
@@ -43,7 +43,7 @@ const BODY = {
   commits: '89abcde infra(dev): correcciones de revision issue #42\n0123456 infra(dev): escritura HCL issue #42',
 }
 
-describe('textos identicos a los de iac-pipeline.sh', () => {
+describe('textos identicos a los de iac-pipeline.mts', () => {
   test('prompt del infra-writer (Stage 1)', () => {
     assert.equal(iacStage1Prompt(PROMPT), golden('stage-1-infra-writer.prompt.txt'))
   })

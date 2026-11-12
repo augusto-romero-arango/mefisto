@@ -27,11 +27,11 @@ describe('[fuente] contrato neutral', () => {
   contains(body, '{{mefisto:assert-consumer-repo}}', 'guard consumidor presente')
   contains(
     body,
-    '{{mefisto:run azure-account-info.sh 2>&1}}',
-    'fuente valida la sesion con azure-account-info.sh',
+    '{{mefisto:run azure-account-info.mts 2>&1}}',
+    'fuente valida la sesion con azure-account-info.mts',
   )
   for (const query of ['health-summary', 'dead-letters', 'function-errors']) {
-    contains(body, `{{mefisto:run appinsights-query.sh ${query} --hours 24}}`, `fuente consulta ${query} a 24h`)
+    contains(body, `{{mefisto:run appinsights-query.mts ${query} --hours 24}}`, `fuente consulta ${query} a 24h`)
   }
   contains(body, 'NO VERIFICADO', 'conserva NO VERIFICADO sin runs')
   contains(body, 'gh run list --workflow=infra-cd.yml', 'estado de infra-cd.yml via gh')
@@ -51,29 +51,29 @@ describe('[salidas] adaptador y mirror', () => {
   for (const query of ['health-summary', 'dead-letters', 'function-errors']) {
     contains(
       claude,
-      `MEFISTO_RUNTIME=claude "\${MEFISTO_PACKAGE_ROOT}/scripts/appinsights-query.sh" ${query} --hours 24`,
-      `claude invoca appinsights-query.sh ${query}`,
+      `MEFISTO_RUNTIME=claude node "\${MEFISTO_PACKAGE_ROOT}/scripts/appinsights-query.mts" ${query} --hours 24`,
+      `claude invoca appinsights-query.mts ${query}`,
     )
   }
   contains(
     claude,
-    'MEFISTO_RUNTIME=claude "${MEFISTO_PACKAGE_ROOT}/scripts/azure-account-info.sh" 2>&1',
-    'claude invoca azure-account-info.sh',
+    'MEFISTO_RUNTIME=claude node "${MEFISTO_PACKAGE_ROOT}/scripts/azure-account-info.mts" 2>&1',
+    'claude invoca azure-account-info.mts',
   )
   absent(claude, '{{mefisto:', 'claude sin directivas sin resolver')
   absent(claude, 'az ', 'claude sin az directo')
   absent(claude, 'PLUGIN_SCRIPTS', 'claude sin PLUGIN_SCRIPTS')
   absent(claude, 'plugins/cache', 'claude sin plugins/cache')
   contains(
-    beforeFirst(claude, 'appinsights-query.sh'),
-    'azure-account-info.sh',
+    beforeFirst(claude, 'appinsights-query.mts'),
+    'azure-account-info.mts',
     'claude valida la sesion antes de consultar',
   )
   contains(claude, 'model: "sonnet"', 'Claude materializa el perfil balanced')
   mirrorMatches(command)
   contains(
     mirror,
-    'GENERADO por src/published/scripts/generate-published-adapters.sh desde src/published/commands/health-check.md',
+    'GENERADO por src/published/scripts/generate-published-adapters.mts desde src/published/commands/health-check.md',
     'mirror conserva marcador generado',
   )
   check(

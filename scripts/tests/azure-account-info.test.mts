@@ -121,7 +121,7 @@ describe('azureAccountInfo', () => {
     const az = fakeAz(REPO_ROOT, { status: 0, stdout: JSON.stringify(ACCOUNT) })
     assert.equal(
       errorOf(az.deps).message,
-      'ERROR: scripts/azure-account-info.sh es del plugin publicado y solo aplica al consumidor.',
+      'ERROR: scripts/azure-account-info.mts es del plugin publicado y solo aplica al consumidor.',
     )
     assert.deepEqual(az.calls, [])
   })

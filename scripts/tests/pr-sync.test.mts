@@ -79,7 +79,7 @@ describe('guardas previas', () => {
     assert.equal(run.code, 1)
     assert.equal(
       run.out,
-      'Uso: scripts/pr-sync.sh [PR_NUM...] [--all] [--merge]\n' +
+      'Uso: scripts/pr-sync.mts [PR_NUM...] [--all] [--merge]\n' +
         '  PR_NUM...   Números de PRs a sincronizar (en orden)\n' +
         '  --all       Sincronizar todos los PRs abiertos\n' +
         '  --merge     Mergear a main después de sincronizar\n',
@@ -129,7 +129,7 @@ describe('guardas previas', () => {
     assert.equal(run.code, 1)
     assert.equal(
       run.err,
-      'ERROR: scripts/pr-sync.sh es del plugin publicado y solo aplica al consumidor.\n' +
+      'ERROR: scripts/pr-sync.mts es del plugin publicado y solo aplica al consumidor.\n' +
         'Estás en el repo de Mefisto. Para mergear PRs del plugin, usa /mefisto-merge.\n',
     )
     assert.deepEqual(run.github.calls, [])
@@ -502,7 +502,7 @@ describe('otros caminos por PR', () => {
     openPrBranch(repo, BRANCH, { 'src/Pedido.cs': 'x\n' })
     const run = await runPrSync(repo, work, ['7', '--merge'], { github: fakeGithub({ prs: { '7': PR() } }), cleanStatus: 1 })
     assert.equal(run.code, 0)
-    assert.match(text(run), /⚠ worktree-clean\.sh fallo; la limpieza de worktrees quedo pendiente \(ver .*\.log\)\n/)
+    assert.match(text(run), /⚠ worktree-clean\.mts fallo; la limpieza de worktrees quedo pendiente \(ver .*\.log\)\n/)
   })
 })
 
@@ -557,12 +557,6 @@ describe('como proceso', () => {
     assert.match(result.stdout, /^Uso: .*pr-sync\.mts \[PR_NUM\.\.\.\] \[--all\] \[--merge\]\n/)
   })
 
-  test('pr-sync.sh es el shim que lo lanza con sus argumentos', { skip: process.platform === 'win32' }, () => {
-    const repo = consumer()
-    const result = capture('bash', [join(REPO_ROOT, 'scripts', 'pr-sync.sh'), '--raro'], { cwd: repo.root })
-    assert.equal(result.status, 1)
-    assert.equal(result.stdout, 'Argumento desconocido: --raro\n')
-  })
 })
 
 function mergePromptFor(files: string): string {

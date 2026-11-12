@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { spawnSync } from 'node:child_process'
-import { chmodSync, mkdtempSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs'
+import { chmodSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { delimiter, dirname, join } from 'node:path'
 import { after, before, beforeEach, describe, test } from 'node:test'
@@ -19,8 +19,6 @@ import {
 const HERE = dirname(fileURLToPath(import.meta.url))
 const REPO_ROOT = join(HERE, '..', '..', '..')
 const SCRIPT = join(REPO_ROOT, 'src', 'internal', 'scripts', 'mefisto-validate-batch-deps.mts')
-const CANONICAL_SHIM = join(REPO_ROOT, 'src', 'internal', 'scripts', 'mefisto-validate-batch-deps.sh')
-const STABLE_SHIM = join(REPO_ROOT, '.claude', 'scripts', 'mefisto-validate-batch-deps.sh')
 const COMMANDS_DIR = join(REPO_ROOT, '.claude', 'commands')
 const POSIX = process.platform !== 'win32'
 
@@ -107,7 +105,7 @@ describe('[pre] guarda de invocacion', () => {
         error.message ===
           [
             'ERROR: se invoco sin issues. No se valido NADA (no interpretes esto como OK).',
-            'Uso: src/internal/scripts/mefisto-validate-batch-deps.sh <issue1> <issue2> ...',
+            'Uso: src/internal/scripts/mefisto-validate-batch-deps.mts <issue1> <issue2> ...',
           ].join('\n'),
     )
     const result = spawnSync(process.execPath, [SCRIPT], { encoding: 'utf8' })
@@ -116,18 +114,6 @@ describe('[pre] guarda de invocacion', () => {
     assert.match(result.stderr, /^ERROR: se invoco sin issues\./)
   })
 
-  test('el canonico en bash es el shim hacia el .mts', () => {
-    assert.equal(
-      readFileSync(CANONICAL_SHIM, 'utf8'),
-      [
-        '#!/usr/bin/env bash',
-        '# Shim: la implementacion vive en mefisto-validate-batch-deps.mts (MEF-ADR-0057). No editar.',
-        'exec node "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)/mefisto-validate-batch-deps.mts" "$@"',
-        '',
-      ].join('\n'),
-    )
-    if (POSIX) assert.notEqual(statSync(CANONICAL_SHIM).mode & 0o111, 0)
-  })
 })
 
 describe('[H] reconciliacion post-merge de los labels bloqueado', () => {
@@ -213,7 +199,7 @@ describe('[H] reconciliacion post-merge de los labels bloqueado', () => {
           error instanceof CliError &&
           error.exitCode === 2 &&
           error.message ===
-            'ERROR: uso: src/internal/scripts/mefisto-validate-batch-deps.sh --reconcile-pr <pr>',
+            'ERROR: uso: src/internal/scripts/mefisto-validate-batch-deps.mts --reconcile-pr <pr>',
       )
     }
     assert.deepEqual(edits, [])
@@ -474,7 +460,7 @@ describe('[G] sin sintaxis posicional de shell en los bloques bash de los comand
   })
 })
 
-describe('[H-9] el shim estable delega en el canonico', { skip: !POSIX }, () => {
+describe('[H-9] la reconciliacion como proceso', { skip: !POSIX }, () => {
   let work = ''
 
   // `gh` de Node, invocable sin shell: responde solo lo que pide la reconciliacion del PR 908.
@@ -508,9 +494,9 @@ if (args[0] === 'issue' && args[1] === 'edit') {
     rmSync(work, { recursive: true, force: true })
   })
 
-  test('la reconciliacion corre de punta a punta desde .claude/scripts', () => {
+  test('la reconciliacion corre de punta a punta como proceso', () => {
     const calls = join(work, 'gh-calls.log')
-    const result = spawnSync(STABLE_SHIM, ['--reconcile-pr', '908'], {
+    const result = spawnSync(process.execPath, [SCRIPT, '--reconcile-pr', '908'], {
       encoding: 'utf8',
       env: { ...process.env, PATH: `${work}${delimiter}${process.env.PATH ?? ''}`, GH_CALLS: calls },
     })

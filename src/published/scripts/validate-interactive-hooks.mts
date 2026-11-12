@@ -1,5 +1,5 @@
 // Valida el contrato neutral de hooks interactivos publicados.
-// Uso: validate-interactive-hooks.sh [contrato.json]
+// Uso: validate-interactive-hooks.mts [contrato.json]
 
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
@@ -213,7 +213,7 @@ export function validateInteractiveHooks(
   if (!isFile(schemaFile)) return fatal(`ERROR: falta schema: ${schemaFile}`)
   const spec = parseStream(readFileSync(schemaFile, 'utf8'))
   if (!spec.clean) return fatal('ERROR: schema JSON invalido')
-  if (args.length > 1) return fatal('Uso: validate-interactive-hooks.sh [contrato.json]')
+  if (args.length > 1) return fatal('Uso: validate-interactive-hooks.mts [contrato.json]')
   const [explicit] = args
   const contractFile =
     explicit === undefined || explicit === '' ? join(hooksDir, 'interactive-hooks.json') : explicit

@@ -49,6 +49,6 @@ Instrucciones:
 2. Revisa calidad: reutilizacion de patrones existentes, naming, legibilidad.
 3. Si hay codigo C#, verifica que compila y que los tests existentes pasan.
 4. Corrige problemas que encuentres directamente (no solo los reportes).
-5. Comando de verificacion permitido: scripts/warnings-diff.sh del plugin (politica de cero warnings nuevos, MEF-ADR-0056); sigue la doctrina de tu agente con --base 0123456789abcdef0123456789abcdef01234567.
+5. Comando de verificacion permitido: scripts/warnings-diff.mts del plugin (politica de cero warnings nuevos, MEF-ADR-0056); sigue la doctrina de tu agente con --base 0123456789abcdef0123456789abcdef01234567.
 6. Haz commit de tus correcciones con mensajes descriptivos.
 7. Al terminar, escribe un resumen en .mefisto/pipeline/summaries/stage-2-reviewer.md

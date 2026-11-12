@@ -21,7 +21,7 @@ import { ensureGithooksInstalled } from './lib/mefisto-repo.mts'
 import { Output, chomp } from './lib/mefisto-script-io.mts'
 
 const BASE_BRANCH = 'main'
-const USAGE = ['Uso: mefisto-worktree.sh new <slug>', '     mefisto-worktree.sh clean'].join('\n')
+const USAGE = ['Uso: mefisto-worktree.mts new <slug>', '     mefisto-worktree.mts clean'].join('\n')
 const PIPELINE_BRANCH = /^worktree-mefisto-issue-([0-9]+)-/
 const EXECUTION_ROOT_PREFIX = 'mefisto-batch-execution-'
 

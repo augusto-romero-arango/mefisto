@@ -38,7 +38,7 @@ before(() => {
   scripts = join(work, 'src', 'internal', 'scripts')
   mkdirSync(scripts, { recursive: true })
   copyFileSync(join(FIXTURES, 'stub-pipeline.mts'), join(scripts, 'mefisto-tooling-pipeline.mts'))
-  writeFileSync(join(scripts, 'mefisto-batch-pipeline.sh'), '#!/usr/bin/env bash\necho "stub batch $*"\n')
+  writeFileSync(join(scripts, 'mefisto-batch-pipeline.mts'), '#!/usr/bin/env bash\necho "stub batch $*"\n')
 })
 
 after(() => {
@@ -165,7 +165,7 @@ function assertAborts(outcome: Outcome, message: string): void {
   assert.equal(outcome.delegated.length, 0)
 }
 
-const self = (): string => join(scripts, 'mefisto-launch-pipeline.sh')
+const self = (): string => join(scripts, 'mefisto-launch-pipeline.mts')
 
 describe('guarda del repo de Mefisto', () => {
   test('fuera del repo de Mefisto se niega', async () => {
@@ -196,7 +196,7 @@ describe('uso, ayuda y argumentos rechazados', () => {
   test('sin argumentos imprime el uso y sale con 1; --help y -h, con 0', async () => {
     const empty = await launcher([])
     assert.equal(empty.code, 1)
-    assert.ok(empty.out.startsWith(`Uso: ${self()} --tooling <issue> [--from-stage N] [--models 'agente=modelo[,...]'] [--variant <label>]\n     ${self()} --batch <issue1> <issue2> ...\n`))
+    assert.ok(empty.out.startsWith(`Uso: node ${self()} --tooling <issue> [--from-stage N] [--models 'agente=modelo[,...]'] [--variant <label>]\n     node ${self()} --batch <issue1> <issue2> ...\n`))
     assert.ok(empty.out.endsWith('                  invalido aborta ANTES de crear el worktree.\n'))
     for (const flag of ['--help', '-h']) {
       const run = await launcher([flag], { env: { MEFISTO_UI: 'sesion' } })
@@ -248,7 +248,7 @@ describe('--tooling desacoplado', () => {
       run.out,
       '\u001b[0;32m\u001b[1mv\u001b[0m Pipeline mefisto-tooling iniciado para issue #42 (sin pane: lo sigue el mod mefisto-divine-wager)\n' +
         `\u001b[0;34m[09:08:07]\u001b[0m Reporte: ${report}\n` +
-        '\u001b[0;34m[09:08:07]\u001b[0m Visor en otra terminal: ./.claude/scripts/mefisto-stream-watch.sh --issues 42\n',
+        '\u001b[0;34m[09:08:07]\u001b[0m Visor en otra terminal: node src/internal/scripts/mefisto-stream-watch.mts --issues 42\n',
     )
   })
 
@@ -270,7 +270,7 @@ describe('--tooling desacoplado', () => {
     assert.ok(run.out.includes('Pipeline mefisto-tooling iniciado para issue #77 (sin pane)\n'))
     assert.ok(!run.out.includes('lo sigue el mod'))
     assert.ok(run.out.includes('issue-77.report.log'))
-    assert.ok(run.out.includes('./.claude/scripts/mefisto-stream-watch.sh --issues 77'))
+    assert.ok(run.out.includes('src/internal/scripts/mefisto-stream-watch.mts --issues 77'))
   })
 
   test('sin MEFISTO_RUNTIME heredado no fija ninguno', async () => {
@@ -336,15 +336,15 @@ describe('--tooling desacoplado', () => {
 })
 
 describe('--batch', () => {
-  test('lanza el batch desacoplado con los issues en orden; sin .mts corre por bash', async () => {
+  test('lanza el batch desacoplado con Node y los issues en orden', async () => {
     const run = await launcher(['--batch', '42', '43'], { env: INSIDE_HERDR })
     const { script, argv, spec } = launched(run)
-    assert.equal(script, 'mefisto-batch-pipeline.sh')
-    assert.equal(spec.command, 'bash')
+    assert.equal(script, 'mefisto-batch-pipeline.mts')
+    assert.equal(spec.command, process.execPath)
     assert.deepEqual(argv, ['42', '43'])
     assert.equal(spec.reportLog, join(run.root, '.mefisto', 'pipeline', 'logs', `mefisto-batch-run-${STAMP}.report.log`))
     assert.ok(stripAnsi(run.out).includes('v Batch pipeline interno iniciado: issues 42 43 (sin pane: lo sigue el mod mefisto-divine-wager)\n'))
-    assert.ok(run.out.includes('./.claude/scripts/mefisto-stream-watch.sh --issues 42,43'))
+    assert.ok(run.out.includes('node src/internal/scripts/mefisto-stream-watch.mts --issues 42,43'))
   })
 
   test('rechaza un issue no numerico sin lanzar nada', async () => {

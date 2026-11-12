@@ -172,8 +172,8 @@ test('dentro del repo de Mefisto aborta: el reporte es del consumidor', () => {
   assert.equal(stdout, '')
   assert.equal(
     stderr,
-    'ERROR: scripts/metrics-report.sh es del plugin publicado y solo aplica al consumidor.\n' +
-      'Mefisto tiene su propio reporte interno: .claude/scripts/mefisto-metrics-report.sh',
+    'ERROR: scripts/metrics-report.mts es del plugin publicado y solo aplica al consumidor.\n' +
+      'Mefisto tiene su propio reporte interno: src/internal/scripts/mefisto-metrics-report.mts',
   )
 })
 
@@ -378,7 +378,7 @@ describe('argumentos invalidos', () => {
   test('--help imprime el uso y sale con 0', () => {
     const { code, stdout } = report(repo, '--help')
     assert.equal(code, 0)
-    assert.equal(lines(stdout)[0], 'Uso: metrics-report.sh [--desde YYYY-MM-DD] [--hasta YYYY-MM-DD]')
+    assert.equal(lines(stdout)[0], 'Uso: metrics-report.mts [--desde YYYY-MM-DD] [--hasta YYYY-MM-DD]')
     assert.equal(lines(stdout).length, 8)
     assert.equal(report(repo, '-h').stdout, stdout)
   })

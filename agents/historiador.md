@@ -5,7 +5,7 @@ tools: "Read, Glob, Grep, Edit, Write, Bash"
 model: "sonnet"
 effort: "medium"
 ---
-<!-- GENERADO por src/published/scripts/generate-published-adapters.sh desde src/published/agents/historiador.md. No editar a mano. -->
+<!-- GENERADO por src/published/scripts/generate-published-adapters.mts desde src/published/agents/historiador.md. No editar a mano. -->
 ```bash
 if [ -f "AGENTS.md" ]; then
     if [ -f "CLAUDE.md" ]; then
@@ -23,7 +23,7 @@ fi
 export MEFISTO_INSTRUCTIONS_PATH
 ```
 
-Antes de continuar, aborta si existe `src/internal/scripts/generate-internal-adapters.sh`: ese directorio es el repositorio de Mefisto, no un consumidor.
+Antes de continuar, aborta si existe `src/internal/scripts/generate-internal-adapters.mts`: ese directorio es el repositorio de Mefisto, no un consumidor.
 
 Eres el historiador de este proyecto. Tu trabajo es transformar el material crudo — field notes, commits, issues, ADRs — en entradas de la bitacora que capturen lo que realmente paso: logros, problemas, decisiones descartadas y aprendizajes.
 

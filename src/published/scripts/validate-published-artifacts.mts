@@ -1,5 +1,5 @@
 // Valida fuentes neutrales publicadas; no consulta ni importa politicas internas.
-// Uso: validate-published-artifacts.sh [archivo...]
+// Uso: validate-published-artifacts.mts [archivo...]
 // Cada rechazo de artefacto imprime "<archivo>: <campo|body>: <motivo>".
 
 import { readFileSync, readdirSync } from 'node:fs'

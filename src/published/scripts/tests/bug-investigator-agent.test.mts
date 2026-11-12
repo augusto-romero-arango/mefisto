@@ -50,12 +50,12 @@ describe('[a] metadata, perfil y capacidad web', () => {
   contains(claudeBody, 'WebFetch', 'Claude emite WebFetch')
 })
 
-describe('[b] invocaciones de appinsights-query.sh', () => {
-  const total = matchingLines(claudeBody, /appinsights-query\.sh/).length
+describe('[b] invocaciones de appinsights-query.mts', () => {
+  const total = matchingLines(claudeBody, /appinsights-query\.mts/).length
   // El punto es comodin, como en el patron de grep del que viene.
   const good = matchingLines(
     claudeBody,
-    /MEFISTO_RUNTIME=claude "\$\{MEFISTO_PACKAGE_ROOT\}\/scripts\/appinsights-query.sh"/,
+    /MEFISTO_RUNTIME=claude node "\$\{MEFISTO_PACKAGE_ROOT\}\/scripts\/appinsights-query.mts"/,
   ).length
   check(
     `claude: ${good} invocaciones via MEFISTO_PACKAGE_ROOT con su runtime`,

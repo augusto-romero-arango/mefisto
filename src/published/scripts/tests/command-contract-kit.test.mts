@@ -9,7 +9,6 @@ import {
   ascending,
   beforeFirst,
   commandContract,
-  isExecutable,
   jsonStrings,
   lineCount,
   linesWith,
@@ -88,19 +87,13 @@ describe('archivos del repo', () => {
     assert.ok(!repoText(kit).endsWith('\n'))
   })
 
-  test('repoFileExists, sameBytes e isExecutable no fallan con rutas ausentes', () => {
+  test('repoFileExists y sameBytes no fallan con rutas ausentes', () => {
     assert.equal(repoFileExists(kit), true)
     assert.equal(repoFileExists('src/published/scripts/tests'), false)
     assert.equal(repoFileExists('no/existe.md'), false)
     assert.equal(sameBytes(kit, kit), true)
     assert.equal(sameBytes(kit, 'src/published/scripts/tests/command-contract-kit.test.mts'), false)
     assert.equal(sameBytes(kit, 'no/existe.md'), false)
-    assert.equal(isExecutable('no/existe.sh'), false)
-  })
-
-  test('isExecutable mira el bit de ejecucion', { skip: process.platform === 'win32' }, () => {
-    assert.equal(isExecutable('scripts/next-order.sh'), true)
-    assert.equal(isExecutable(kit), false)
   })
 })
 

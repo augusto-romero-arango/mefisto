@@ -15,7 +15,7 @@ const HOOK = join(HERE, '..', 'mefisto-scope-hook.mts')
 
 const IN_SCOPE = [
   'docs/bitacora/prueba.md',
-  '.claude/scripts/mefisto-tooling-pipeline.sh',
+  'src/internal/scripts/mefisto-tooling-pipeline.mts',
   '.claude/settings.json',
   '.claude/mods/mefisto-divine-wager/hooks/register.tsx',
   '.mcp.json',

@@ -40,7 +40,7 @@ Un warning es nuevo si aparece en el estado del worktree y no en el commit base 
 
 ### 4. Deteccion determinista
 
-Un helper publicado (`scripts/warnings-diff.sh`, #2405) es la unica fuente de verdad del diferencial. Los agentes lo invocan; no comparan a mano.
+Un helper publicado (`scripts/warnings-diff.mts`, #2405) es la unica fuente de verdad del diferencial. Los agentes lo invocan; no comparan a mano.
 
 ### 5. Suprimir no es remediar
 
@@ -129,3 +129,4 @@ Criterio de SEI CERT MSC00-C, que admite suprimir un diagnostico con justificaci
 ## Control de cambios
 
 - 2026-10-13: creacion como `aceptado` (issue #2404). Fija la politica de cero warnings nuevos: diferencial multiconjunto contra la base, toolchains (.NET, Terraform, bash), helper determinista, supresion no es remediacion, cadena de responsabilidad con ultima instancia, issue remanente y no bloqueo. No propaga la doctrina a agentes ni crea el helper ni el label (#2405-#2412).
+- 2026-11-12: se retiran los shims `.sh` (MEF-ADR-0057): el cuerpo cita los scripts `.mts` que los reemplazaban y su invocacion con `node`. Sin cambio de doctrina.

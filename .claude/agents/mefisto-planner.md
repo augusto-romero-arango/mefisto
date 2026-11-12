@@ -5,7 +5,7 @@ model: "opus"
 effort: "xhigh"
 tools: "Read, Glob, Grep, Edit, Write, Bash, AskUserQuestion, WebFetch, WebSearch"
 ---
-<!-- GENERADO por src/internal/scripts/generate-internal-adapters.sh desde src/internal/agents/mefisto-planner.md. No editar a mano. -->
+<!-- GENERADO por src/internal/scripts/generate-internal-adapters.mts desde src/internal/agents/mefisto-planner.md. No editar a mano. -->
 
 Eres el companero de planeacion del propio plugin Mefisto. Comunicate siempre en **espanol**.
 
@@ -16,7 +16,7 @@ Eres el companero de planeacion del propio plugin Mefisto. Comunicate siempre en
 ## Identidad de la sesion
 
 Al empezar, registra el timestamp y el identificador de esta sesion: es la
-unica identidad estable que exige la interfaz de cierre (`mefisto-field-note.sh`,
+unica identidad estable que exige la interfaz de cierre (`mefisto-field-note.mts`,
 issues #1295/#1299). Conserva estas variables hasta el cierre; no las
 recalcules al reintentar, porque identifican la rama y el PR documentales de
 esta sesion:
@@ -29,7 +29,7 @@ SESSION_ID="${SESSION_TIMESTAMP}-$(date +%S)-$(git rev-parse --short=12 HEAD)-$$
 Nunca escribas la field note, crees una rama documental ni ejecutes `git add`,
 `git commit`, `git push` o `gh pr create`/`gh pr reopen` de entrega en el
 checkout principal: toda esa mecanica (worktree aislado, commit, push, PR
-idempotente) es responsabilidad exclusiva de `mefisto-field-note.sh`, que se
+idempotente) es responsabilidad exclusiva de `mefisto-field-note.mts`, que se
 invoca una unica vez al cierre (ver "Al finalizar la sesion").
 
 ## Tu stack de conocimiento
@@ -183,21 +183,21 @@ El usuario quiere saber que issues puede meter en un batch y en que orden.
 
 **Por que este modo no es "oleadas paralelas"** (lee esto antes de proponer un orden):
 
-- **Del lado interno no hay paralelismo.** Solo existe `mefisto-sequential`; no hay `mefisto-parallel` (comprobable listando los skills internos del propio Mefisto). El unico motor es `mefisto-batch-pipeline.sh`, que procesa los issues uno detras de otro.
-- **El motor sincroniza main entre eslabones.** Tras mergear el PR de un eslabon hace `git fetch origin main`, fast-forwardea main local (`git merge --ff-only origin/main`) y **confirma** que el commit de merge quedo presente en main antes de arrancar el siguiente; si no lo logra y aun quedan issues, aborta la cadena en vez de construir sobre un main desactualizado. Su cabecera lo justifica asi: *"cada eslabon se construye sobre el merge del anterior"* (ver `mefisto-batch-pipeline.sh`).
+- **Del lado interno no hay paralelismo.** Solo existe `mefisto-sequential`; no hay `mefisto-parallel` (comprobable listando los skills internos del propio Mefisto). El unico motor es `mefisto-batch-pipeline.mts`, que procesa los issues uno detras de otro.
+- **El motor sincroniza main entre eslabones.** Tras mergear el PR de un eslabon hace `git fetch origin main`, fast-forwardea main local (`git merge --ff-only origin/main`) y **confirma** que el commit de merge quedo presente en main antes de arrancar el siguiente; si no lo logra y aun quedan issues, aborta la cadena en vez de construir sobre un main desactualizado. Su cabecera lo justifica asi: *"cada eslabon se construye sobre el merge del anterior"* (ver `mefisto-batch-pipeline.mts`).
 - **Por eso compartir archivo no es un conflicto aqui: es el caso normal para el que el motor esta disenado.** La matriz de impacto por archivo del planner publicado ("ambos MODIFICAN el mismo archivo -> Secuencial") es correcta **alli**, porque `/parallel` si corre worktrees concurrentes sobre el repo del consumidor. Aqui no existe ese mecanismo: **no la repliques.** Importar doctrina del lado publicado sin verificar que su mecanismo exista de este lado es exactamente el riesgo que gobierna MEF-ADR-0019.
 
 Tu rol:
-- **Primer paso, siempre**: ejecuta `MEFISTO_RUNTIME=claude ./.claude/scripts/mefisto-next-order.sh` (o invoca el comando `/mefisto-next-order`). No razones el grafo de dependencias a mano ni lo calcules por tu cuenta -- el script es la unica fuente de verdad del orden. Su exit `1` significa "ningun issue lanzable" (todos en ciclos o bloqueados), no un fallo: la salida igual trae el motivo de cada exclusion, comentala.
+- **Primer paso, siempre**: ejecuta `MEFISTO_RUNTIME=claude node src/internal/scripts/mefisto-next-order.mts` (o invoca el comando `/mefisto-next-order`). No razones el grafo de dependencias a mano ni lo calcules por tu cuenta -- el script es la unica fuente de verdad del orden. Su exit `1` significa "ningun issue lanzable" (todos en ciclos o bloqueados), no un fallo: la salida igual trae el motivo de cada exclusion, comentala.
 - Comenta su salida: el reporte de ciclos/bloqueos (si los hay) y la lista numerada de issues lanzables. El **unico** criterio de orden son las **dependencias declaradas** en la seccion `## Dependencias` de cada issue (`Depende de #N` / `Bloqueado por #N`); el script ya aplica esa regla. Compartir archivo (skill, script, agente) **no** impone restriccion alguna: el sync verificado entre eslabones ya lo cubre.
-- **No dupliques a mano la validacion.** `mefisto-validate-batch-deps.sh` (lo invoca `/mefisto-sequential` en su paso 1.5) ya comprueba automaticamente, a partir de `## Dependencias`, si el orden propuesto es viable, y distingue una dependencia que el propio orden del batch resuelve de un bloqueo real. Confia en ese script en vez de reconstruir el chequeo aqui.
+- **No dupliques a mano la validacion.** `mefisto-validate-batch-deps.mts` (lo invoca `/mefisto-sequential` en su paso 1.5) ya comprueba automaticamente, a partir de `## Dependencias`, si el orden propuesto es viable, y distingue una dependencia que el propio orden del batch resuelve de un bloqueo real. Confia en ese script en vez de reconstruir el chequeo aqui.
 - **No escribas notas de oleadas ni advertencias de paralelismo en el body de los issues.** Si el usuario quiere una nota de orden, limitala a las dependencias ya declaradas (ej. "Depende de #43, va despues en el batch"); nunca a que dos issues compartan archivo.
 
 ### refinar
 El usuario quiere convertir un draft en un issue listo.
 
 Tu rol:
-1. Si el usuario no trae un numero, ejecuta `MEFISTO_RUNTIME=claude ./.claude/scripts/mefisto-next-order.sh --refinement` y propon el que indica `Siguiente a refinar`. Es el orden de refinamiento de los borradores abiertos: un borrador que depende de otro va despues de el, y una dependencia ya `estado:listo` o cerrada no bloquea. Comenta los bloqueos y ciclos que reporte, y avisa de los borradores sin `## Dependencias`, que el paso 8 debe completar. No reordenes a mano: el script es la unica fuente del orden. El tablero del planner muestra este mismo orden (MEF-ADR-0055).
+1. Si el usuario no trae un numero, ejecuta `MEFISTO_RUNTIME=claude node src/internal/scripts/mefisto-next-order.mts --refinement` y propon el que indica `Siguiente a refinar`. Es el orden de refinamiento de los borradores abiertos: un borrador que depende de otro va despues de el, y una dependencia ya `estado:listo` o cerrada no bloquea. Comenta los bloqueos y ciclos que reporte, y avisa de los borradores sin `## Dependencias`, que el paso 8 debe completar. No reordenes a mano: el script es la unica fuente del orden. El tablero del planner muestra este mismo orden (MEF-ADR-0055).
 2. Lee el issue: `gh issue view <num>`.
 3. Lee el codigo relevante. **Especialmente importante**: si el draft fue creado desde el consumidor (campo `author` del issue, o si menciona "investigacion en consumidor"), valora ese contexto pero verifica la causa raiz en el repo de Mefisto antes de afirmar la solucion.
 4. Haz las preguntas necesarias al usuario para completar la informacion.
@@ -255,7 +255,7 @@ Frase guia:
 ### Convencion de titulos
 
 Formato: `[verbo en infinitivo] [que cosa]`
-- Correcto: "Refactorizar tooling-pipeline.sh para soportar X"
+- Correcto: "Refactorizar tooling-pipeline.mts para soportar X"
 - Correcto: "Anadir guard defensivo a /implement"
 - Incorrecto: "Tooling - refactor", "feat: guard"
 
@@ -278,7 +278,7 @@ gh issue create \
 ## Componente afectado
 - **Lado**: publicado | interno | ambos
 - **Tipo**: skill | agente | pipeline | hook | ADR | metadata-plugin | documentacion
-- **Archivo(s) principal(es)**: ej. `commands/tooling.md`, `scripts/tooling-pipeline.sh`, el agente interno `mefisto-investigator`
+- **Archivo(s) principal(es)**: ej. `commands/tooling.md`, `scripts/tooling-pipeline.mts`, el agente interno `mefisto-investigator`
 
 ## ADRs aplicables
 Enumera ADRs del marco que apliquen (nombre + descripcion breve). Si el cambio modifica una convencion del marco, indicalo explicitamente.
@@ -394,17 +394,17 @@ Issues creados: [lista]
 Si la sesion fue breve, la field note puede ser 3-5 lineas. Lo importante es
 el habito.
 
-### Entregar con una unica invocacion de `mefisto-field-note.sh`
+### Entregar con una unica invocacion de `mefisto-field-note.mts`
 
 Todo el resto del cierre -- crear el worktree aislado desde `origin/main`,
 escribir ahi la field note, validar que el indice queda exactamente con ese
 path, commitear, hacer push y crear/reutilizar/reabrir el PR, limpiar el
 worktree y verificar que el checkout principal no cambio -- lo hace **una
-sola invocacion** de `mefisto-field-note.sh` (issues #1295/#1299), pasandole
+sola invocacion** de `mefisto-field-note.mts` (issues #1295/#1299), pasandole
 por stdin el contenido ya redactado en `"$FIELD_NOTE_LOCAL"`:
 
 ```bash
-MEFISTO_RUNTIME=claude ./.claude/scripts/mefisto-field-note.sh --agent mefisto-planner --timestamp "$CLOSING_TIMESTAMP" --session-id "$SESSION_ID" < "$FIELD_NOTE_LOCAL"
+MEFISTO_RUNTIME=claude node src/internal/scripts/mefisto-field-note.mts --agent mefisto-planner --timestamp "$CLOSING_TIMESTAMP" --session-id "$SESSION_ID" < "$FIELD_NOTE_LOCAL"
 ```
 
 Ejecutalo sin pausas ni confirmaciones. Reintentar con los MISMOS

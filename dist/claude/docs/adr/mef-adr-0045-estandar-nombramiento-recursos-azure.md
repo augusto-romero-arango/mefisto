@@ -2,7 +2,7 @@
 
 - **Fecha**: 2026-08-27
 - **Estado**: aceptado
-- **Aplica a**: el patron de nombramiento que los agentes scaffolders del marco (`infra-base-scaffolder`, `domain-scaffolder`, `apim-gateway-scaffolder`, `projections-scaffolder`) y `scripts/bootstrap-backend.sh` deben seguir al generar HCL **nuevo** para recursos Azure del consumidor, y los tokens `azureRegionShort`/`resourceSequence` de `harness.config.json` que ese patron consume. No renombra ningun recurso ya desplegado (seccion 3) ni modifica por si mismo ningun scaffolder -- la alineacion de cada uno queda en issues dependientes que este ADR bloquea (ver "Consecuencias").
+- **Aplica a**: el patron de nombramiento que los agentes scaffolders del marco (`infra-base-scaffolder`, `domain-scaffolder`, `apim-gateway-scaffolder`, `projections-scaffolder`) y `scripts/bootstrap-backend.mts` deben seguir al generar HCL **nuevo** para recursos Azure del consumidor, y los tokens `azureRegionShort`/`resourceSequence` de `harness.config.json` que ese patron consume. No renombra ningun recurso ya desplegado (seccion 3) ni modifica por si mismo ningun scaffolder -- la alineacion de cada uno queda en issues dependientes que este ADR bloquea (ver "Consecuencias").
 
 ## Contexto
 
@@ -144,10 +144,10 @@ Renombrar `rg-cosmos-cplane-dev`, `kv-cplane-8iiups` y el resto de la superficie
 
 ### Negativas
 
-- **Heterogeneidad temporal**: hasta que cierren los issues de alineacion (`infra-base-scaffolder`, `domain-scaffolder`, `apim-gateway-scaffolder`, `scripts/bootstrap-backend.sh`, todos bloqueados por este ADR), el marco sigue generando nombres no conformes -- este ADR fija el estandar, no lo aplica todavia.
+- **Heterogeneidad temporal**: hasta que cierren los issues de alineacion (`infra-base-scaffolder`, `domain-scaffolder`, `apim-gateway-scaffolder`, `scripts/bootstrap-backend.mts`, todos bloqueados por este ADR), el marco sigue generando nombres no conformes -- este ADR fija el estandar, no lo aplica todavia.
 - **Consumidores sin `azureRegionShort` declarado siguen sin `{region}`** en los nombres que generen mientras tanto, hasta que lo agreguen a su config.
 - **Divergencia deliberada del borrador del issue en dos abreviaturas** (`pgsql`/`sbns` en vez de `psql`/`sb`, seccion 1): correcta contra la fuente oficial, pero exige que la alineacion de `infra-base-scaffolder` corrija tambien las formas que el scaffolder actual ya emite (`psql-`, `sbint-`, `acr`), no solo agregar `{env}`/`{region}`/`{seq}`.
-- **El reporte de los dos tokens en `/onboard` queda pendiente** (seccion 5): este ADR fija que debe ser informativo (nunca `FALTA`), pero no lo implementa -- `scripts/onboard-diagnose.sh` no conoce todavia `azureRegionShort`/`resourceSequence`, asi que hasta el issue dependiente el diagnostico simplemente no los menciona.
+- **El reporte de los dos tokens en `/onboard` queda pendiente** (seccion 5): este ADR fija que debe ser informativo (nunca `FALTA`), pero no lo implementa -- `scripts/onboard-diagnose.mts` no conoce todavia `azureRegionShort`/`resourceSequence`, asi que hasta el issue dependiente el diagnostico simplemente no los menciona.
 - **Recursos ya desplegados quedan permanentemente fuera del estandar** (seccion 3): `rg-cosmos-cplane-dev`/`rg-cosmos-cplane-tfstate` y su contenido no se alinean nunca por este ADR; una futura migracion de suscripcion o un proyecto nuevo greenfield son los unicos caminos donde el estandar aplica de punta a punta.
 
 ## Referencias
@@ -168,3 +168,4 @@ Renombrar `rg-cosmos-cplane-dev`, `kv-cplane-8iiups` y el resto de la superficie
 
 - 2026-08-27: creacion como `aceptado` (issue #729). Fija el patron `{abrev-tipo}-[{uso}-]{app}-{env}-{region}-{seq}` (y su forma sin guiones para Storage/ACR) con la tabla de abreviaturas adoptadas verificada contra el CAF; la politica de unicidad global sin sufijos random (fallback: incrementar `{seq}`); el alcance "solo greenfield" (ningun recurso desplegado se renombra); los limites de naming por tipo y la regla de truncado que prioriza `{app}`/`{uso}`; y los tokens nuevos `azureRegionShort`/`resourceSequence` del contrato, expuestos por `load_harness_config` como `HARNESS_AZURE_REGION_SHORT`/`HARNESS_RESOURCE_SEQUENCE`, ambos retrocompatibles. Corrige dos abreviaturas del borrador del issue (`pgsql`/`sbns` en vez de `psql`/`sb`) contra la fuente oficial del CAF. No modifica ningun scaffolder ni `bootstrap-backend.sh` -- la alineacion de cada uno queda en issues dependientes que este ADR bloquea.
 - 2026-11-12: las secciones 4 y 6 y la referencia [3] citan `scripts/lib/tfstate-naming.mts` y `scripts/lib/harness-config.mts` en lugar de `scripts/_pipeline-common.sh`, que se borra con el port a TypeScript (MEF-ADR-0057). Sin cambio de doctrina.
+- 2026-11-12: se retiran los shims `.sh` (MEF-ADR-0057): el cuerpo cita los scripts `.mts` que los reemplazaban y su invocacion con `node`. Sin cambio de doctrina.

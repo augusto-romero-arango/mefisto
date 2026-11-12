@@ -493,7 +493,7 @@ export function smokeOnlySection(smokePaths: readonly string[]): string {
 }
 
 export function smokeAnomalySection(path: string): string {
-  return `## Anomalia de deteccion (Stage 2b)\n\nUn match bajo \`src/\` no permitio derivar el proyecto de smoke tests: \`${path}\`. Revisa el patron de deteccion en \`scripts/tdd-pipeline.sh\` (Stage 2b) -- se salto con \`AGENT_ST_RES=skipped\`, igual que un dominio sin proyecto SmokeTests, pero aqui la causa es un patron no reconocido.\n`
+  return `## Anomalia de deteccion (Stage 2b)\n\nUn match bajo \`src/\` no permitio derivar el proyecto de smoke tests: \`${path}\`. Revisa el patron de deteccion en \`scripts/tdd-pipeline.mts\` (Stage 2b) -- se salto con \`AGENT_ST_RES=skipped\`, igual que un dominio sin proyecto SmokeTests, pero aqui la causa es un patron no reconocido.\n`
 }
 
 /** Seccion de smokes que invocan lo modificado y no cambiaron; vacia si todos cambiaron. */

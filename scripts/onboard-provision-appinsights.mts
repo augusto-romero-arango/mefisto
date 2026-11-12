@@ -1,9 +1,9 @@
 // Provision de `.mefisto/appinsights.env` (issue #2387).
 //
 // Descubre con `az` (sesion activa) los nombres de App Insights, Service Bus y Function Apps del
-// resource group del entorno y escribe las cinco claves que lee appinsights-query.sh
+// resource group del entorno y escribe las cinco claves que lee appinsights-query.mts
 // (MEF-ADR-0053). El descubrimiento es por tipo de recurso dentro del RG, agnostico a naming CAF
-// o legacy (MEF-ADR-0045), igual que purge-store.sh.
+// o legacy (MEF-ADR-0045), igual que purge-store.mts.
 //
 // Uso: node scripts/onboard-provision-appinsights.mts [--preview | --apply] [--env <env>]
 //          [--appinsights-app <nombre>] [--servicebus-namespace <nombre>]
@@ -28,7 +28,7 @@ export interface ProvisionDeps {
 }
 
 export const USAGE =
-  'Uso: onboard-provision-appinsights.sh [--preview | --apply] [--env <env>] [--appinsights-app <nombre>] [--servicebus-namespace <nombre>]'
+  'Uso: onboard-provision-appinsights.mts [--preview | --apply] [--env <env>] [--appinsights-app <nombre>] [--servicebus-namespace <nombre>]'
 
 type Mode = '--preview' | '--apply'
 
@@ -129,7 +129,7 @@ export function appinsightsEnvLines(
   functionApps: string[],
 ): string[] {
   return [
-    '# Nombres de recursos Azure para appinsights-query.sh (solo nombres, sin secretos). Generado por /onboard (issue #2387).',
+    '# Nombres de recursos Azure para appinsights-query.mts (solo nombres, sin secretos). Generado por /onboard (issue #2387).',
     `APPINSIGHTS_APP=${appInsights}`,
     `APPINSIGHTS_RG=${resourceGroup}`,
     `SERVICEBUS_NAMESPACE=${serviceBus}`,
@@ -145,7 +145,7 @@ function run(argv: string[], deps: ProvisionDeps): number {
     return 0
   }
   const root = consumerRepoRoot(deps.cwd, [
-    'ERROR: scripts/onboard-provision-appinsights.sh es del plugin publicado y solo aplica al consumidor.',
+    'ERROR: scripts/onboard-provision-appinsights.mts es del plugin publicado y solo aplica al consumidor.',
   ])
 
   const target = join(root, '.mefisto', 'appinsights.env')
@@ -176,7 +176,7 @@ function run(argv: string[], deps: ProvisionDeps): number {
     throw new CliError(`${error.message}\nERROR: el config efectivo no es valido; no se escribio nada.`)
   }
 
-  // Misma resolucion que resolve_resource_group de purge-store.sh (duplicada a proposito, dos
+  // Misma resolucion que resolve_resource_group de purge-store.mts (duplicada a proposito, dos
   // usos: Rule of Three no alcanzada, MEF-ADR-0018).
   const plain = `${config.rgPrefix}-${options.environment}`
   const candidates =

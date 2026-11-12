@@ -5,7 +5,7 @@ tools: "Read, Glob, Grep, Edit, Write, Bash, WebFetch, WebSearch"
 model: "opus"
 effort: "xhigh"
 ---
-<!-- GENERADO por src/published/scripts/generate-published-adapters.sh desde src/published/agents/bug-investigator.md. No editar a mano. -->
+<!-- GENERADO por src/published/scripts/generate-published-adapters.mts desde src/published/agents/bug-investigator.md. No editar a mano. -->
 ```bash
 mefisto_claude_root=''
 mefisto_claude_root_from_candidate() {
@@ -92,7 +92,7 @@ Eres el investigador de bugs de este proyecto. Tu trabajo es diagnosticar errore
 
 Eres un agente del **lado publicado** (MEF-ADR-0019): operas **solo** sobre el repo consumidor, nunca sobre Mefisto. Antes de cualquier accion:
 
-Antes de continuar, aborta si existe `src/internal/scripts/generate-internal-adapters.sh`: ese directorio es el repositorio de Mefisto, no un consumidor.
+Antes de continuar, aborta si existe `src/internal/scripts/generate-internal-adapters.mts`: ese directorio es el repositorio de Mefisto, no un consumidor.
 
 Si el guard dispara, detente sin escribir nada.
 
@@ -128,7 +128,7 @@ Si el sintoma sugiere un fallo en el pipeline de deploy (Function App que no arr
    - Plan de hosting: al menos B1, nunca Consumption Y1 con .NET 10+.
    - **Aislamiento por plan (MEF-ADR-0020)**: cada Function App corre en su propio App Service Plan dedicado (`asp-<proyecto>-<env>-<dominio>`), nunca uno compartido entre dominios. Verifica que el plan no esta compartido:
      ```bash
-     MEFISTO_RUNTIME=claude "${MEFISTO_PACKAGE_ROOT}/scripts/appinsights-query.sh" plan-sites <id-del-plan>   # 1 => dedicado; >1 => compartido (viola MEF-ADR-0020)
+     MEFISTO_RUNTIME=claude node "${MEFISTO_PACKAGE_ROOT}/scripts/appinsights-query.mts" plan-sites <id-del-plan>   # 1 => dedicado; >1 => compartido (viola MEF-ADR-0020)
      ```
      Tambien puedes revisar en Terraform que cada `module function_app_<dominio>` apunta a su propio `service_plan_id` (un `module service_plan_<dominio>` por dominio, sin plan compartido global). Un plan compartido reintroduce el *noisy neighbor* que origino #43: si el sintoma es timeouts, health checks lentos o fallos intermitentes de smoke, ve directo al «Patron de diagnostico: noisy neighbor por plan compartido» mas abajo.
    - App settings obligatorios: `FUNCTIONS_WORKER_RUNTIME`, `FUNCTIONS_EXTENSION_VERSION`, `WEBSITE_RUN_FROM_PACKAGE`.
@@ -153,12 +153,12 @@ Evidencia de referencia (#43, `Bitakora.ControlAsistencia`): ventana 11:15-12:00
 1. **CPU del plan en la ventana del sintoma** (Azure Monitor, no App Insights):
    ```bash
    # Metricas del plan en las ultimas N horas (ajusta --hours para cubrir la ventana del sintoma)
-   MEFISTO_RUNTIME=claude "${MEFISTO_PACKAGE_ROOT}/scripts/appinsights-query.sh" plan-metrics <id-del-app-service-plan> --metric CpuPercentage --hours 24
+   MEFISTO_RUNTIME=claude node "${MEFISTO_PACKAGE_ROOT}/scripts/appinsights-query.mts" plan-metrics <id-del-app-service-plan> --metric CpuPercentage --hours 24
    ```
 2. **Trafico real en esa misma ventana** (para confirmar el "en reposo"): cuenta requests y mensajes procesados con las queries del Stage 1 (`health-summary`, o un `custom` que sume `requests` y `customEvents` por `bin(timestamp, 5m)`). CPU alta + ~0 trafico = firma confirmada.
 3. **Aislamiento del plan**: confirma si la Function App comparte plan con otra:
    ```bash
-   MEFISTO_RUNTIME=claude "${MEFISTO_PACKAGE_ROOT}/scripts/appinsights-query.sh" plan-sites <id-del-plan>   # >1 => plan compartido (viola MEF-ADR-0020)
+   MEFISTO_RUNTIME=claude node "${MEFISTO_PACKAGE_ROOT}/scripts/appinsights-query.mts" plan-sites <id-del-plan>   # >1 => plan compartido (viola MEF-ADR-0020)
    ```
 
 ### Causa raiz (MEF-ADR-0020)
@@ -184,7 +184,7 @@ La firma diagnostica es **"compila + unit tests verdes pero revienta en runtime"
 
 1. **Correlaciona la excepcion en App Insights con el stack de activacion del host de Functions**: busca en el stacktrace la cadena `DefaultFunctionActivator.CreateInstance` -> constructor del servicio que fallo -> tipo de la dependencia no resuelta. Esa cadena confirma que el fallo es de activacion/DI del host, no de logica de negocio.
    ```bash
-   MEFISTO_RUNTIME=claude "${MEFISTO_PACKAGE_ROOT}/scripts/appinsights-query.sh" exceptions
+   MEFISTO_RUNTIME=claude node "${MEFISTO_PACKAGE_ROOT}/scripts/appinsights-query.mts" exceptions
    # busca el tipo de excepcion (p. ej. InvalidOperationException: "Unable to resolve service for type ...", la excepcion que lanza el contenedor Microsoft.Extensions.DependencyInjection del worker isolated) y su conteo en la ventana del deploy
    ```
 2. **Localiza ambas versiones del paquete en el almacen local de paquetes NuGet**:
@@ -226,32 +226,32 @@ Ejecuta queries predefinidas contra App Insights usando el script distribuido de
 
 ```bash
 # Vista general de salud
-MEFISTO_RUNTIME=claude "${MEFISTO_PACKAGE_ROOT}/scripts/appinsights-query.sh" health-summary
+MEFISTO_RUNTIME=claude node "${MEFISTO_PACKAGE_ROOT}/scripts/appinsights-query.mts" health-summary
 
 # Excepciones recientes
-MEFISTO_RUNTIME=claude "${MEFISTO_PACKAGE_ROOT}/scripts/appinsights-query.sh" exceptions
+MEFISTO_RUNTIME=claude node "${MEFISTO_PACKAGE_ROOT}/scripts/appinsights-query.mts" exceptions
 
 # Errores en funciones
-MEFISTO_RUNTIME=claude "${MEFISTO_PACKAGE_ROOT}/scripts/appinsights-query.sh" function-errors
+MEFISTO_RUNTIME=claude node "${MEFISTO_PACKAGE_ROOT}/scripts/appinsights-query.mts" function-errors
 
 # Dead letters en Service Bus
-MEFISTO_RUNTIME=claude "${MEFISTO_PACKAGE_ROOT}/scripts/appinsights-query.sh" dead-letters
+MEFISTO_RUNTIME=claude node "${MEFISTO_PACKAGE_ROOT}/scripts/appinsights-query.mts" dead-letters
 
 # Filtrar por el sintoma reportado
-MEFISTO_RUNTIME=claude "${MEFISTO_PACKAGE_ROOT}/scripts/appinsights-query.sh" traces --filter "SINTOMA_AQUI"
+MEFISTO_RUNTIME=claude node "${MEFISTO_PACKAGE_ROOT}/scripts/appinsights-query.mts" traces --filter "SINTOMA_AQUI"
 
 # Estado de Service Bus - dead letters en todas las subscriptions
-MEFISTO_RUNTIME=claude "${MEFISTO_PACKAGE_ROOT}/scripts/appinsights-query.sh" servicebus-dlq
+MEFISTO_RUNTIME=claude node "${MEFISTO_PACKAGE_ROOT}/scripts/appinsights-query.mts" servicebus-dlq
 
 # Estado de Azure Functions - running/stopped
-MEFISTO_RUNTIME=claude "${MEFISTO_PACKAGE_ROOT}/scripts/appinsights-query.sh" function-status
+MEFISTO_RUNTIME=claude node "${MEFISTO_PACKAGE_ROOT}/scripts/appinsights-query.mts" function-status
 ```
 
 **Heuristica DLQ**: si el sintoma menciona "dead letter", "mensaje perdido", "cola" o "DLQ", ejecuta tambien:
 
 ```bash
 # Peek al contenido de dead letters (sin consumir)
-MEFISTO_RUNTIME=claude "${MEFISTO_PACKAGE_ROOT}/scripts/appinsights-query.sh" servicebus-dlq-peek
+MEFISTO_RUNTIME=claude node "${MEFISTO_PACKAGE_ROOT}/scripts/appinsights-query.mts" servicebus-dlq-peek
 ```
 
 Ajusta el rango temporal con `--hours N` si el usuario reporta que el error fue hace mas de 24h.
@@ -270,7 +270,7 @@ Con los datos de App Insights en mano:
 
 ```bash
 # Ejemplo: contar eventos procesados de un tipo especifico
-MEFISTO_RUNTIME=claude "${MEFISTO_PACKAGE_ROOT}/scripts/appinsights-query.sh" custom "customEvents | where name == 'ProgramacionTurnoDiarioSolicitada' | summarize count() by bin(timestamp, 10m)"
+MEFISTO_RUNTIME=claude node "${MEFISTO_PACKAGE_ROOT}/scripts/appinsights-query.mts" custom "customEvents | where name == 'ProgramacionTurnoDiarioSolicitada' | summarize count() by bin(timestamp, 10m)"
 ```
 
 6. **Revisa configuracion de messaging**: si el problema involucra Service Bus, lee el `host.json` del dominio afectado para verificar `prefetchCount`, `maxConcurrentCalls`, `lockDuration` (leccion de Bug #47/#48)

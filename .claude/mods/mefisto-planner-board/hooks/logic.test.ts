@@ -77,7 +77,7 @@ test('el mensaje marca el foco: refinar #N o explorar con tema', async () => {
 test('reconoce las senales de cierre y de borradores creados', async () => {
   expect(issueMarkedListo('gh issue edit 801 --remove-label "estado:borrador" --add-label "estado:listo" --add-label "tipo:tooling"')).toBe(801)
   expect(issueMarkedListo('gh issue edit 801 --add-label bloqueado')).toBe(null)
-  expect(isPlannerClosing('MEFISTO_RUNTIME=claude ./.claude/scripts/mefisto-field-note.sh --agent mefisto-planner')).toBe(true)
+  expect(isPlannerClosing('MEFISTO_RUNTIME=claude node src/internal/scripts/mefisto-field-note.mts --agent mefisto-planner')).toBe(true)
   expect(isIssueCreate('gh issue create --title "X" --label "estado:borrador"')).toBe(true)
   expect(createdIssueOf('https://github.com/o/r/issues/2085\n')).toBe(2085)
 })
@@ -128,9 +128,9 @@ test('reconoce los cambios de issues que obligan a refrescar las listas', async 
 })
 
 test('solo cuenta los comandos que se ejecutan, no los que se nombran', async () => {
-  expect(isPlannerClosing('MEFISTO_RUNTIME=claude ./.claude/scripts/mefisto-field-note.sh --agent mefisto-planner')).toBe(true)
-  expect(isPlannerClosing('cd /repo; git show origin/main:src/internal/scripts/mefisto-field-note.sh | grep -n worktree')).toBe(false)
-  expect(isPlannerClosing("grep -rn 'mefisto-field-note.sh' docs")).toBe(false)
+  expect(isPlannerClosing('MEFISTO_RUNTIME=claude node src/internal/scripts/mefisto-field-note.mts --agent mefisto-planner')).toBe(true)
+  expect(isPlannerClosing('cd /repo; git show origin/main:src/internal/scripts/mefisto-field-note.mts | grep -n worktree')).toBe(false)
+  expect(isPlannerClosing("grep -rn 'mefisto-field-note.mts' docs")).toBe(false)
   expect(issueMarkedListo('gh issue edit 2105 --remove-label "estado:borrador" --add-label "estado:listo"')).toBe(2105)
   expect(issueMarkedListo('cd /r && S=x; gh issue edit 2105 --body-file $S/b.md && gh issue edit 2105 --add-label estado:listo')).toBe(2105)
   expect(issueMarkedListo("grep -n 'gh issue edit 7 --add-label estado:listo' a.md")).toBe(null)

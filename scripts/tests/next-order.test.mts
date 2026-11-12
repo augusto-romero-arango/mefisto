@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { execFileSync, spawnSync } from 'node:child_process'
-import { accessSync, constants, mkdirSync, mkdtempSync, readFileSync, rmSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, readFileSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { after, before, describe, test } from 'node:test'
@@ -15,9 +15,8 @@ import type { GhFixtures } from './next-order-fake-gh.mts'
 const HERE = dirname(fileURLToPath(import.meta.url))
 const REPO_ROOT = join(HERE, '..', '..')
 const SCRIPT = join(HERE, '..', 'next-order.mts')
-const SHIM = join(HERE, '..', 'next-order.sh')
 const USAGE =
-  'Uso: scripts/next-order.sh [--refinement] [--json] [--launch-command "<texto>"] [--parallel-command "<texto>"]'
+  'Uso: scripts/next-order.mts [--refinement] [--json] [--launch-command "<texto>"] [--parallel-command "<texto>"]'
 const NO_BLOCKS = 'Sin ciclos ni bloqueos externos.'
 const NONE = '## Dependencias\n\nNinguna.'
 
@@ -71,8 +70,8 @@ describe('guard del consumidor', () => {
     assert.equal(
       result.stderr,
       text(
-        'ERROR: scripts/next-order.sh es del plugin publicado y solo aplica al consumidor.',
-        'Estas en el repo de Mefisto. Usa src/internal/scripts/mefisto-next-order.sh en su lugar.',
+        'ERROR: scripts/next-order.mts es del plugin publicado y solo aplica al consumidor.',
+        'Estas en el repo de Mefisto. Usa src/internal/scripts/mefisto-next-order.mts en su lugar.',
       ),
     )
   })
@@ -804,18 +803,6 @@ describe('universo y consultas a gh', () => {
 })
 
 describe('linea de comando', () => {
-  test('next-order.sh es el shim hacia next-order.mts y conserva el bit de ejecucion', () => {
-    assert.equal(
-      readFileSync(SHIM, 'utf8'),
-      text(
-        '#!/usr/bin/env bash',
-        '# Shim: la implementacion vive en next-order.mts (MEF-ADR-0057). No editar.',
-        'exec node "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)/next-order.mts" "$@"',
-      ),
-    )
-    if (process.platform !== 'win32') accessSync(SHIM, constants.X_OK)
-  })
-
   test('imprime el orden en stdout, los avisos en stderr y sale con el codigo del resultado', { skip: process.platform === 'win32' }, () => {
     const bin = mkdtempSync(join(work, 'bin '))
     const fixtures: GhFixtures = {

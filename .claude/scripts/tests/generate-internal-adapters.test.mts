@@ -36,7 +36,7 @@ import { defaultEffort as runtimeDefaultEffort, defaultModel as runtimeDefaultMo
 const REPO_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..')
 const SCRIPTS = join(REPO_ROOT, 'src', 'internal', 'scripts')
 const CONTRACT = join(REPO_ROOT, 'src', 'internal', 'contract')
-const MARKER = '<!-- GENERADO por src/internal/scripts/generate-internal-adapters.sh desde '
+const MARKER = '<!-- GENERADO por src/internal/scripts/generate-internal-adapters.mts desde '
 
 const posix = (path: string): string => path.split(sep).join('/')
 
@@ -116,7 +116,7 @@ Invoca al agente:
 Corre el script auxiliar:
 
 \`\`\`bash
-{{mefisto:run some-script.sh --flag value}}
+{{mefisto:run some-script.mts --flag value}}
 \`\`\`
 
 Lee el comando hermano:
@@ -142,24 +142,7 @@ after(() => {
   rmSync(work, { recursive: true, force: true })
 })
 
-describe('shims y punto de entrada', () => {
-  for (const name of ['generate-internal-adapters', 'validate-internal-artifacts', 'mefisto-neutrality-gate']) {
-    test(`${name}.sh es el shim de tres lineas hacia su .mts`, () => {
-      const shim = join(SCRIPTS, `${name}.sh`)
-      assert.equal(
-        readFileSync(shim, 'utf8'),
-        [
-          '#!/usr/bin/env bash',
-          `# Shim: la implementacion vive en ${name}.mts (MEF-ADR-0057). No editar.`,
-          `exec node "$(cd "$(dirname "\${BASH_SOURCE[0]}")" && pwd -P)/${name}.mts" "$@"`,
-          '',
-        ].join('\n'),
-      )
-      assert.ok(existsSync(join(SCRIPTS, `${name}.mts`)))
-      if (process.platform !== 'win32') assert.notEqual(statSync(shim).mode & 0o111, 0)
-    })
-  }
-
+describe('punto de entrada', () => {
   test('el .mts corre como comando y propaga salida y codigo', () => {
     const script = join(SCRIPTS, 'generate-internal-adapters.mts')
     const missing = capture(process.execPath, [script, '--check', '--out', join(work, 'cli-nunca'), agentBasic()])
@@ -267,7 +250,7 @@ claude --agent mefisto-fx-agent-basic "$ARGUMENTS"
 Corre el script auxiliar:
 
 \`\`\`bash
-MEFISTO_RUNTIME=claude ./.claude/scripts/some-script.sh --flag value
+MEFISTO_RUNTIME=claude node src/internal/scripts/some-script.mts --flag value
 \`\`\`
 
 Lee el comando hermano:
@@ -322,19 +305,19 @@ describe('traduccion de directivas', () => {
 
   test('{{mefisto:run}} conserva un argumento con espacios y comillas', () => {
     assert.equal(
-      translate("{{mefisto:run mefisto-launch-pipeline.sh --tooling $ARGUMENTS --models 'writer=a b'}}"),
-      "MEFISTO_RUNTIME=claude ./.claude/scripts/mefisto-launch-pipeline.sh --tooling $ARGUMENTS --models 'writer=a b'\n",
+      translate("{{mefisto:run mefisto-launch-pipeline.mts --tooling $ARGUMENTS --models 'writer=a b'}}"),
+      "MEFISTO_RUNTIME=claude node src/internal/scripts/mefisto-launch-pipeline.mts --tooling $ARGUMENTS --models 'writer=a b'\n",
     )
   })
 
   test('las directivas en linea conservan el texto que las rodea', () => {
     assert.equal(
-      translate('pre {{mefisto:run a.sh}} post'),
-      'pre MEFISTO_RUNTIME=claude ./.claude/scripts/a.sh post\n',
+      translate('pre {{mefisto:run a.mts}} post'),
+      'pre MEFISTO_RUNTIME=claude node src/internal/scripts/a.mts post\n',
     )
     assert.equal(
-      translate('{{mefisto:run   a.sh    --x  y   }}'),
-      'MEFISTO_RUNTIME=claude ./.claude/scripts/a.sh --x  y\n',
+      translate('{{mefisto:run   a.mts    --x  y   }}'),
+      'MEFISTO_RUNTIME=claude node src/internal/scripts/a.mts --x  y\n',
     )
     assert.equal(
       translate('`{{mefisto:command-path mefisto-y}}`!'),
@@ -352,8 +335,8 @@ describe('traduccion de directivas', () => {
 
   test('con dos directivas en una linea solo se traduce la ultima', () => {
     assert.equal(
-      translate('{{mefisto:run a.sh}} y {{mefisto:run b.sh c}} z'),
-      '{{mefisto:run a.sh}} y MEFISTO_RUNTIME=claude ./.claude/scripts/b.sh c z\n',
+      translate('{{mefisto:run a.mts}} y {{mefisto:run b.mts c}} z'),
+      '{{mefisto:run a.mts}} y MEFISTO_RUNTIME=claude node src/internal/scripts/b.mts c z\n',
     )
   })
 })
@@ -390,7 +373,7 @@ describe('abortos sin escribir nada', () => {
     assert.ok(run.stderr.includes('distinto del nombre de archivo'), run.stderr)
     assert.ok(
       run.stderr.endsWith(
-        'ERROR: validacion previa (validate-internal-artifacts.sh) fallo; no se genero nada\n',
+        'ERROR: validacion previa (validate-internal-artifacts.mts) fallo; no se genero nada\n',
       ),
     )
     assert.equal(existsSync(out), false)

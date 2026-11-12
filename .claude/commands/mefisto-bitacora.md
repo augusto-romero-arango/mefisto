@@ -3,7 +3,7 @@ description: "Orquesta la bitacora del propio plugin Mefisto: invoca al agente `
 model: "haiku"
 argument-hint: "[YYYY-MM-DD]"
 ---
-<!-- GENERADO por src/internal/scripts/generate-internal-adapters.sh desde src/internal/commands/mefisto-bitacora.md. No editar a mano. -->
+<!-- GENERADO por src/internal/scripts/generate-internal-adapters.mts desde src/internal/commands/mefisto-bitacora.md. No editar a mano. -->
 
 Orquesta la bitacora del propio plugin Mefisto: invoca al agente `mefisto-historiador` (issue #529) para procesar de forma autonoma las field notes pendientes, verifica el PR que reporta y se detiene sugiriendo el siguiente paso; la decision de mergearlo o cerrarlo es del usuario. Comunicate en **espanol**.
 

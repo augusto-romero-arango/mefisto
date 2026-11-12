@@ -22,9 +22,9 @@ import {
   generatorIsUpToDate,
   hasExactMetadata,
   inventoryHasDestination,
-  isExecutable,
   linesWith,
   mirrorMatches,
+  repoFileExists,
   sameBytes,
   soleLine,
   sourceValidates,
@@ -47,7 +47,7 @@ describe('[fuente] contrato neutral', () => {
   contains(body, '{{mefisto:assert-consumer-repo}}', 'guard consumidor presente')
   contains(
     body,
-    '{{mefisto:run seed-secret.sh <nombre> --domain <Dominio> --env <env> <flag-de-fuente> <valor>}}',
+    '{{mefisto:run seed-secret.mts <nombre> --domain <Dominio> --env <env> <flag-de-fuente> <valor>}}',
     'invocacion neutral del script',
   )
   contains(body, 'Registro: <ruta>', 'extrae la linea Registro')
@@ -78,7 +78,7 @@ describe('[fuente] contrato neutral', () => {
     () =>
       ascending(
         confirmLine,
-        soleLine(command.source, '{{mefisto:run seed-secret.sh'),
+        soleLine(command.source, '{{mefisto:run seed-secret.mts'),
         soleLine(command.source, 'git add'),
       ),
     'confirmacion no precede las escrituras',
@@ -89,19 +89,19 @@ describe('[salidas] adaptador y mirror', () => {
   claudeOutputExists(command)
   contains(
     claude,
-    'MEFISTO_RUNTIME=claude "${MEFISTO_PACKAGE_ROOT}/scripts/seed-secret.sh"',
-    'Claude invoca seed-secret.sh con su runtime',
+    'MEFISTO_RUNTIME=claude node "${MEFISTO_PACKAGE_ROOT}/scripts/seed-secret.mts"',
+    'Claude invoca seed-secret.mts con su runtime',
   )
   contains(claude, 'model: "sonnet"', 'Claude materializa el perfil balanced')
   absent(claude, 'plugins/cache', 'Claude sin plugins/cache')
-  const invocation = linesWith(claude, 'scripts/seed-secret.sh"')
+  const invocation = linesWith(claude, 'scripts/seed-secret.mts"')
   absent(invocation, '.plugin-root', 'invocacion Claude sin lookup legacy .plugin-root')
   absent(invocation, 'PLUGIN_SCRIPTS', 'invocacion Claude sin PLUGIN_SCRIPTS')
   contains(claude, '/mefisto:scaffold', 'Claude resuelve command scaffold')
   mirrorMatches(command)
   contains(
     mirror,
-    '<!-- GENERADO por src/published/scripts/generate-published-adapters.sh desde src/published/commands/seed-secret.md. No editar a mano. -->',
+    '<!-- GENERADO por src/published/scripts/generate-published-adapters.mts desde src/published/commands/seed-secret.md. No editar a mano. -->',
     'mirror conserva marcador generado',
   )
   const claudeConfirmLine = lineOf(claude, '¿Continuar? (s/n)')
@@ -109,32 +109,32 @@ describe('[salidas] adaptador y mirror', () => {
     `guard antes de la confirmacion en ${command.claudePath}`,
     () =>
       ascending(
-        lineOf(claude, 'aborta si existe `src/internal/scripts/generate-internal-adapters.sh`'),
+        lineOf(claude, 'aborta si existe `src/internal/scripts/generate-internal-adapters.mts`'),
         claudeConfirmLine,
       ),
     `guard no precede la confirmacion en ${command.claudePath}`,
   )
   check(
     `confirmacion antes del script en ${command.claudePath}`,
-    () => ascending(claudeConfirmLine, lineOf(claude, 'scripts/seed-secret.sh')),
+    () => ascending(claudeConfirmLine, lineOf(claude, 'scripts/seed-secret.mts')),
     `confirmacion no precede al script en ${command.claudePath}`,
   )
 })
 
-describe('[assets] seed-secret.sh empaquetado', () => {
+describe('[assets] seed-secret.mts empaquetado', () => {
   check(
-    'seed-secret.sh ejecutable en dist/claude',
-    () => isExecutable('dist/claude/scripts/seed-secret.sh'),
-    'falta seed-secret.sh ejecutable en dist/claude',
+    'seed-secret.mts empaquetado en dist/claude',
+    () => repoFileExists('dist/claude/scripts/seed-secret.mts'),
+    'falta seed-secret.mts en dist/claude',
   )
   check(
     'dist/claude identico a la fuente',
-    () => sameBytes('scripts/seed-secret.sh', 'dist/claude/scripts/seed-secret.sh'),
+    () => sameBytes('scripts/seed-secret.mts', 'dist/claude/scripts/seed-secret.mts'),
     'dist/claude diverge de la fuente',
   )
   check(
     'inventario de dist/claude lo incluye',
-    () => inventoryHasDestination('scripts/seed-secret.sh'),
+    () => inventoryHasDestination('scripts/seed-secret.mts'),
     'inventario de dist/claude no lo incluye',
   )
   test('seed-secret distribuido resuelve sus modulos y responde el uso fuera del checkout', () => {
@@ -151,8 +151,8 @@ describe('[assets] seed-secret.sh empaquetado', () => {
         /No such file|command not found|unbound variable/,
         'seed-secret distribuido no resuelve sus modulos',
       )
-      assert.match(output, /Uso: /, 'seed-secret.sh distribuido no imprimio el uso esperado')
-      assert.equal(result.status, 1, `seed-secret.sh distribuido: rc inesperado ${result.status}`)
+      assert.match(output, /Uso: /, 'seed-secret.mts distribuido no imprimio el uso esperado')
+      assert.equal(result.status, 1, `seed-secret.mts distribuido: rc inesperado ${result.status}`)
     } finally {
       restoreGitConfig()
       rmSync(work, { recursive: true, force: true })

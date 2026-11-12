@@ -37,7 +37,7 @@ Los scripts se escriben en TypeScript y Node los ejecuta directo (`node x.mts`),
 
 ### 2. Ubicacion
 
-Cada `.mts` vive junto al `.sh` que reemplaza, con el mismo nombre base. Sus tests son `*.test.mts` en los mismos directorios `tests/`. La configuracion de tipos es `src/internal/tsconfig.json`. No nace ninguna raiz nueva: las rutas ya estan en los gates de scope. Un archivo nuevo en la raiz del repo se registra primero en los gates, en un PR anterior al que lo crea (MEF-ADR-0019, seccion E).
+Cada `.mts` ocupa el directorio del `.sh` que reemplazo, con el mismo nombre base, y se invoca con `node <ruta>.mts`. Sus tests son `*.test.mts` en los mismos directorios `tests/`. La configuracion de tipos es `src/internal/tsconfig.json`. No nace ninguna raiz nueva: las rutas ya estan en los gates de scope. Un archivo nuevo en la raiz del repo se registra primero en los gates, en un PR anterior al que lo crea (MEF-ADR-0019, seccion E).
 
 ### 3. Invocacion
 
@@ -180,3 +180,4 @@ Traen mejores utilidades de shell, pero estan menos instalados que Node. Es cono
 - 2026-11-10: enmienda de las decisiones 1, 2, 3, 4, 6 y 8 al montar la base TypeScript. La extension pasa de `.ts` a `.mts`, porque un `.ts` depende del `package.json` de las carpetas superiores; se fija `src/internal/tsconfig.json` y el workflow `typescript.yml`.
 - 2026-11-11: enmienda de la decision 9. Git for Windows pasa a ser prerrequisito en Windows: los bloques de bash del markdown de comandos, agentes y skills se quedan en bash y corren en Git Bash, y solo se reemplaza lo que Git Bash no trae (`jq`, `python3`). Se descarto reescribir cada bloque como invocacion de `node` para no exigir Git for Windows: tocaba casi todos los comandos y agentes.
 - 2026-11-12: enmienda de la decision 8. Se retira la suite bash con su runner (`mefisto-test-suite.sh`) y `ci.yml`: la nightly pasa a `typescript.yml`, que ya corria `tsc` y `node --test` de noche, junto con el aviso por issue `nightly-rojo`.
+- 2026-11-12: se borran los ultimos shims `.sh`: comandos, agentes, mods y documentacion invocan `node <ruta>.mts`, y la decision 2 deja de describir el `.mts` como vecino de un `.sh` vivo. Sin cambio de doctrina.

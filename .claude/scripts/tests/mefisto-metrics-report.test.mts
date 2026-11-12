@@ -423,7 +423,7 @@ describe('argumentos invalidos', () => {
   test('--help imprime el uso y sale con 0', () => {
     const { code, stdout } = report(['--help'])
     assert.equal(code, 0)
-    assert.equal(lines(stdout)[0], 'Uso: mefisto-metrics-report.sh [--desde YYYY-MM-DD]')
+    assert.equal(lines(stdout)[0], 'Uso: mefisto-metrics-report.mts [--desde YYYY-MM-DD]')
     assert.equal(lines(stdout).length, 7)
   })
 })

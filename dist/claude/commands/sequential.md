@@ -3,7 +3,7 @@ description: "Lanza el pipeline secuencial para multiples issues."
 argument-hint: "<issue1> <issue2> ... [--pipeline tdd|tooling]"
 model: "haiku"
 ---
-<!-- GENERADO por src/published/scripts/generate-published-adapters.sh desde src/published/commands/sequential.md. No editar a mano. -->
+<!-- GENERADO por src/published/scripts/generate-published-adapters.mts desde src/published/commands/sequential.md. No editar a mano. -->
 ```bash
 mefisto_claude_root=''
 mefisto_claude_root_from_candidate() {
@@ -53,7 +53,7 @@ export MEFISTO_PACKAGE_ROOT
 
 Ejecuta este bloque en cada llamada Bash de este comando, sin guardarlo en un archivo ni reutilizar el de otro comando: la raiz que fija es la de la version cargada.
 
-Antes de continuar, aborta si existe `src/internal/scripts/generate-internal-adapters.sh`: ese directorio es el repositorio de Mefisto, no un consumidor.
+Antes de continuar, aborta si existe `src/internal/scripts/generate-internal-adapters.mts`: ese directorio es el repositorio de Mefisto, no un consumidor.
 
 Lanza el pipeline secuencial para multiples issues. Cada issue se enruta automaticamente al pipeline correcto segun su label `tipo:*`. Comunicate en **espanol**.
 
@@ -91,7 +91,7 @@ Secuencial --- 3 issues:
 Luego lanza, pasando `--pipeline` si el usuario lo proporciono:
 
 ```bash
-MEFISTO_RUNTIME=claude "${MEFISTO_PACKAGE_ROOT}/scripts/launch-pipeline.sh" --batch $ARGUMENTS
+MEFISTO_RUNTIME=claude node "${MEFISTO_PACKAGE_ROOT}/scripts/launch-pipeline.mts" --batch $ARGUMENTS
 ```
 
 ### 3. Instrucciones de seguimiento
@@ -107,7 +107,7 @@ Fuera de Herdr el wrapper tambien corre desacoplado, sin consola que lo siga: su
 
 ```
 Secuencial corriendo sin pane. Para monitorear, en otra terminal:
-  <linea de stream-watch.sh que imprimio el wrapper>
+  <linea de stream-watch.mts que imprimio el wrapper>
 
 Los issues se procesaran en orden: pipeline -> PR -> merge -> siguiente.
 ```
@@ -116,6 +116,6 @@ Los issues se procesaran en orden: pipeline -> PR -> merge -> siguiente.
 
 - **No esperes a que termine.** Devuelve el control inmediatamente.
 - **No implementes nada tu mismo.** Solo lanza el wrapper.
-- Si el usuario pasa `--stop-on-error`, informale que ese flag requiere lanzar `${MEFISTO_PACKAGE_ROOT}/scripts/batch-pipeline.sh` directamente, porque `launch-pipeline.sh` no lo soporta. Para detener un batch ya en marcha usa /mefisto:batch-stop en su lugar.
+- Si el usuario pasa `--stop-on-error`, informale que ese flag requiere lanzar `node ${MEFISTO_PACKAGE_ROOT}/scripts/batch-pipeline.mts` directamente, porque `launch-pipeline.mts` no lo soporta. Para detener un batch ya en marcha usa /mefisto:batch-stop en su lugar.
 - Si el usuario pasa `--pipeline tdd|tooling`, pasalo tal cual al wrapper.
 - **Salto por dependencia**: antes de lanzar cada eslabon, el batch lee las dependencias canonicas de `## Dependencias` (`Depende de #N` / `Bloqueado por #N` al inicio del item). Una dependencia esta satisfecha si quedo `completado` en este mismo batch o si en GitHub esta `CLOSED` (issue) o `MERGED` (PR). Si alguna no lo esta, el issue queda `saltado: depende de #N (<motivo>)` (`fallido en este batch`, `OPEN` o `no consultable`) y el batch sigue con el siguiente; la cascada se propaga sola. Un issue con `bloqueado` y sin dependencias canonicas queda `saltado: bloqueado sin dependencias canonicas`; si tiene todas satisfechas, el batch le quita el label. El salto no cambia el exit code ni dispara `--stop-on-error`. El resumen final lista los saltados con `Relanza tras resolver sus dependencias: /sequential <nums>`.

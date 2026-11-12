@@ -164,7 +164,7 @@ describe('guard de consumidor', () => {
       const result = run(argv, {}, mefisto)
       assert.equal(result.status, 1)
       assert.deepEqual(result.err, [
-        'ERROR: scripts/validate-dockerfile.sh es del plugin publicado y solo aplica al consumidor.',
+        'ERROR: scripts/validate-dockerfile.mts es del plugin publicado y solo aplica al consumidor.',
       ])
       assert.deepEqual(result.calls, [])
     }
@@ -176,10 +176,6 @@ describe('linea de comando', () => {
     return spawnSync(process.execPath, [script, ...argv], { cwd: consumer, encoding: 'utf8' })
   }
 
-  test('el shim conserva el bit de ejecucion', { skip: process.platform === 'win32' }, () => {
-    assert.notEqual(statSync(join(HERE, '..', 'validate-dockerfile.sh')).mode & 0o111, 0)
-  })
-
   test('una ruta invalida termina en 1 con el mensaje por stderr', () => {
     const result = cli(SCRIPT, ['infra/Dockerfile'])
     assert.equal(result.status, 1)
@@ -188,7 +184,7 @@ describe('linea de comando', () => {
   })
 
   test('la copia distribuida es identica y resuelve sus modulos', () => {
-    for (const name of ['validate-dockerfile.sh', 'validate-dockerfile.mts']) {
+    for (const name of ['validate-dockerfile.mts']) {
       assert.ok(existsSync(join(DIST, name)), `falta dist/claude/scripts/${name}`)
       assert.deepEqual(readFileSync(join(DIST, name)), readFileSync(join(HERE, '..', name)), name)
     }

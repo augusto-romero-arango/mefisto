@@ -2,12 +2,12 @@
 // cola que respeta --max-parallel. Crea los PRs sin merge automatico.
 //
 // Uso:
-//   parallel-pipeline.sh 42 43 44                              enrutamiento automatico por label
-//   parallel-pipeline.sh --pipeline tooling 60 62 63           forzar pipeline tooling
-//   parallel-pipeline.sh --pipeline tdd 42 43                  forzar pipeline tdd
-//   parallel-pipeline.sh 42 43 44 --max-parallel 2             limitar concurrencia
-//   parallel-pipeline.sh 42 43 44 --keep-status                no borrar los status por issue al terminar
-//   MEFISTO_RUNTIME=<id> parallel-pipeline.sh 42 43 44         fijar runtime si la autodeteccion es ambigua
+//   parallel-pipeline.mts 42 43 44                              enrutamiento automatico por label
+//   parallel-pipeline.mts --pipeline tooling 60 62 63           forzar pipeline tooling
+//   parallel-pipeline.mts --pipeline tdd 42 43                  forzar pipeline tdd
+//   parallel-pipeline.mts 42 43 44 --max-parallel 2             limitar concurrencia
+//   parallel-pipeline.mts 42 43 44 --keep-status                no borrar los status por issue al terminar
+//   MEFISTO_RUNTIME=<id> parallel-pipeline.mts 42 43 44         fijar runtime si la autodeteccion es ambigua
 //
 // Sin --pipeline, cada issue se enruta por su label tipo:*: feature, refactor y projection van a
 // tdd-pipeline, tooling a tooling-pipeline; infra o sin tipo se saltan con aviso.
@@ -276,7 +276,7 @@ export async function parallelPipeline(deps: ParallelPipelineDeps): Promise<numb
   }
   const root = resolve(top.stdout.replace(/\n+$/, ''))
   if (isFile(join(root, '.claude-plugin', 'plugin.json'))) {
-    err('ERROR: parallel-pipeline.sh es del plugin publicado y solo aplica al consumidor.\n')
+    err('ERROR: parallel-pipeline.mts es del plugin publicado y solo aplica al consumidor.\n')
     err('Estás en el repo de Mefisto. Los pipelines internos no soportan paralelismo aún;\n')
     err('trabaja los issues de Mefisto secuencialmente con /mefisto-tooling.\n')
     return 1
@@ -672,7 +672,7 @@ export async function parallelPipeline(deps: ParallelPipelineDeps): Promise<numb
       `Parada solicitada: ${deferred.length} issue(s) quedaron aplazados en esta corrida. No es un fallo del lote: el exit code no cambia por esto y ningun worktree lanzado quedo a medio pipeline.`,
     )
     // Apunta al orquestador que se detuvo: proponer /sequential degradaria el lote a secuencial.
-    out(`  Relanza los aplazados, en el mismo orden: ${bold}parallel-pipeline.sh ${deferred.join(' ')}${reset}\n`)
+    out(`  Relanza los aplazados, en el mismo orden: ${bold}parallel-pipeline.mts ${deferred.join(' ')}${reset}\n`)
     out('\n')
   }
 

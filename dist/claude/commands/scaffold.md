@@ -3,7 +3,7 @@ description: "Lanza el pipeline de scaffold para crear un nuevo dominio, opciona
 argument-hint: "<issue> [dominio] | <dominio>"
 model: "haiku"
 ---
-<!-- GENERADO por src/published/scripts/generate-published-adapters.sh desde src/published/commands/scaffold.md. No editar a mano. -->
+<!-- GENERADO por src/published/scripts/generate-published-adapters.mts desde src/published/commands/scaffold.md. No editar a mano. -->
 ```bash
 mefisto_claude_root=''
 mefisto_claude_root_from_candidate() {
@@ -68,7 +68,7 @@ fi
 export MEFISTO_CONFIG_PATH
 ```
 
-Antes de continuar, aborta si existe `src/internal/scripts/generate-internal-adapters.sh`: ese directorio es el repositorio de Mefisto, no un consumidor.
+Antes de continuar, aborta si existe `src/internal/scripts/generate-internal-adapters.mts`: ese directorio es el repositorio de Mefisto, no un consumidor.
 
 Lanza el pipeline de scaffold para crear un nuevo dominio, opcionalmente asociado a un issue de GitHub. Comunicate en **espanol**.
 
@@ -163,10 +163,10 @@ Con `DOMAIN_NAME_KEBAB` como dominio confirmado:
 
 ```bash
 # Con issue:
-MEFISTO_RUNTIME=claude "${MEFISTO_PACKAGE_ROOT}/scripts/launch-pipeline.sh" --scaffold <issue> --domain <dominio-kebab-confirmado>
+MEFISTO_RUNTIME=claude node "${MEFISTO_PACKAGE_ROOT}/scripts/launch-pipeline.mts" --scaffold <issue> --domain <dominio-kebab-confirmado>
 
 # Sin issue:
-MEFISTO_RUNTIME=claude "${MEFISTO_PACKAGE_ROOT}/scripts/launch-pipeline.sh" --scaffold --domain <dominio-kebab-confirmado>
+MEFISTO_RUNTIME=claude node "${MEFISTO_PACKAGE_ROOT}/scripts/launch-pipeline.mts" --scaffold --domain <dominio-kebab-confirmado>
 ```
 
 ### 7. Instrucciones de seguimiento
@@ -182,7 +182,7 @@ Fuera de Herdr el script tambien corre desacoplado, sin consola que lo siga: su 
 
 ```
 Pipeline de scaffold corriendo sin pane. Para monitorear, en otra terminal:
-  <linea de stream-watch.sh que imprimio el script>
+  <linea de stream-watch.mts que imprimio el script>
 
 Log: .mefisto/pipeline/logs/scaffold-<timestamp>-<pid>.log
 ```

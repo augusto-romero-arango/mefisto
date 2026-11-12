@@ -1,8 +1,8 @@
 ---
 name: agent-skill-authoring
-description: Notas operativas para definir o modificar agentes y comandos -- fuente neutral `src/internal/{agents,commands}/*.md` regenerada con `generate-internal-adapters.sh` para el lado interno, `agents/*.md`/`commands/*.md` de Claude Code para el lado publicado -- y Agent Skills (`skills/<nombre>/SKILL.md`, `.claude/skills/<nombre>/SKILL.md`) del propio plugin Mefisto: el frontmatter portable obligatorio de todo `SKILL.md` (`allowed-tools` prohibido), la declaracion de tools MCP en allowlists Claude Code y su prefijo scoped cuando el servidor lo provee un plugin, y el checklist para agregar el adaptador de un runtime nuevo sin tocar la fuente neutral (MEF-ADR-0050). Usar al crear o editar un agente, un comando o un Skill de este repo.
+description: Notas operativas para definir o modificar agentes y comandos -- fuente neutral `src/internal/{agents,commands}/*.md` regenerada con `generate-internal-adapters.mts` para el lado interno, `agents/*.md`/`commands/*.md` de Claude Code para el lado publicado -- y Agent Skills (`skills/<nombre>/SKILL.md`, `.claude/skills/<nombre>/SKILL.md`) del propio plugin Mefisto: el frontmatter portable obligatorio de todo `SKILL.md` (`allowed-tools` prohibido), la declaracion de tools MCP en allowlists Claude Code y su prefijo scoped cuando el servidor lo provee un plugin, y el checklist para agregar el adaptador de un runtime nuevo sin tocar la fuente neutral (MEF-ADR-0050). Usar al crear o editar un agente, un comando o un Skill de este repo.
 ---
-<!-- GENERADO por src/internal/scripts/generate-internal-adapters.sh desde src/internal/skills/agent-skill-authoring/SKILL.md. No editar a mano. -->
+<!-- GENERADO por src/internal/scripts/generate-internal-adapters.mts desde src/internal/skills/agent-skill-authoring/SKILL.md. No editar a mano. -->
 
 # Notas para definir agentes y skills
 
@@ -15,9 +15,10 @@ Agent Skills precargados, mas `mode`/`agent`/`arguments` segun aplique) y un bod
 nombra un runtime concreto -- el validador rechaza la linea entera citando su numero, y solo
 inspecciona el body: el `description` del frontmatter si puede nombrar un runtime cuando ese
 runtime *es* el tema. Solo dos excepciones literales en el body: `.claude-plugin/` (el manifiesto
-fisico del plugin, identico e indispensable en cualquier runtime) y `.claude/scripts/` (la
-superficie estable de invocacion de los pipelines internos); ninguna otra forma de `.claude/`
-pasa. Se regeneran con `src/internal/scripts/generate-internal-adapters.sh`.
+fisico del plugin, identico e indispensable en cualquier runtime) y `.claude/scripts/` (el
+hook de scope del adaptador y los tests internos; los pipelines se invocan desde
+`src/internal/scripts/`); ninguna otra forma de `.claude/`
+pasa. Se regeneran con `src/internal/scripts/generate-internal-adapters.mts`.
 **Nunca se edita a mano** `.claude/{agents,commands}/*.md` -- son adaptadores generados; una
 edicion manual se pierde en la siguiente regeneracion y `--check` la reporta como divergencia.
 Contrato completo (campos, vocabularios cerrados, mapeo por runtime):
@@ -51,11 +52,11 @@ Code `allowed-tools` es legitimo, y del lado interno lo emite el generador desde
   toolchain que el resto del harness (MEF-ADR-0057, decisiones 1 y 9), nunca `jq`, Python ni un
   binario que no este ya disponible en cualquier maquina que corra los pipelines de Mefisto.
 - Ubicacion: la fuente canonica de los Skills internos es `src/internal/skills/<id>/SKILL.md`
-  (issue #1685); `generate-internal-adapters.sh` la copia a `.claude/skills/<id>/` con el marcador
+  (issue #1685); `generate-internal-adapters.mts` la copia a `.claude/skills/<id>/` con el marcador
   de generado tras el frontmatter, y nunca se edita a mano. `.claude/skills/` es la ruta fisica
   donde Claude Code descubre los Skills del repo [2]. Los Skills publicados siguen en `skills/`
   (a mano). `--check` detecta Skills faltantes, distintos, huerfanos o sin marcador bajo
-  `.claude/skills/`, y `validate-internal-artifacts.sh` valida el frontmatter de la fuente
+  `.claude/skills/`, y `validate-internal-artifacts.mts` valida el frontmatter de la fuente
   (`name` = directorio, `description` presente, sin `allowed-tools`).
 - Doctrina extensa que solo aplica a algunas tareas: envolverla en un Agent Skill en vez de crecer
   el body de un agente (progressive disclosure, MEF-ADR-0033) -- se carga por niveles y no se
@@ -82,7 +83,7 @@ nueve pasos, con el archivo exacto de cada uno: MEF-ADR-0050 seccion 2):
 4. Excepcion en `neutrality-allowlist.json` si el adaptador necesita nombrar su propio runtime en
    texto.
 5. Kind reconocido por Herdr, si algun pipeline orquesta ese runtime en un pane:
-   `scripts/herdr-workspace.sh` ya reenvia el id de runtime tal cual como `--kind`, asi que del
+   `scripts/herdr-workspace.mts` ya reenvia el id de runtime tal cual como `--kind`, asi que del
    lado de Mefisto no hay nada que editar -- solo verificarlo del lado de Herdr.
 6. Tests: `runtime-<id>.test.mts` (contrato del adaptador), discovery abierto y resolucion de
    modelos sin proveedor real.

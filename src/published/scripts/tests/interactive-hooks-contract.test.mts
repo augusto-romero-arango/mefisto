@@ -157,7 +157,7 @@ describe('validador del contrato', () => {
   test('diagnostica argumentos y archivos que no puede leer', () => {
     assert.deepEqual(validateInteractiveHooks(['a', 'b'], REPO_ROOT), {
       status: 1,
-      errors: ['Uso: validate-interactive-hooks.sh [contrato.json]'],
+      errors: ['Uso: validate-interactive-hooks.mts [contrato.json]'],
     })
     const missing = join(work, 'no-existe.json')
     assert.deepEqual(validateInteractiveHooks([missing], REPO_ROOT), {

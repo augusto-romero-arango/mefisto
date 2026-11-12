@@ -1,5 +1,5 @@
 // Textos y reglas de `scaffold-pipeline.mts`: prompt, cuerpo del PR y ayuda byte a byte contra los
-// que producia scaffold-pipeline.sh (`fixtures/scaffold-pipeline/`), normalizacion del dominio,
+// que producia scaffold-pipeline.mts (`fixtures/scaffold-pipeline/`), normalizacion del dominio,
 // gate de pines OpenTelemetry y frontera neutral del modulo.
 
 import assert from 'node:assert/strict'
@@ -34,7 +34,7 @@ const BODY = {
   namespacePrefix: 'Empresa.Proyecto',
 }
 
-describe('textos identicos a los de scaffold-pipeline.sh', () => {
+describe('textos identicos a los de scaffold-pipeline.mts', () => {
   test('prompt del domain-scaffolder', () => {
     assert.equal(scaffoldPrompt('calculo-horas'), golden('domain-scaffolder.prompt.txt'))
   })

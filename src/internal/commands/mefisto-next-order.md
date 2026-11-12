@@ -26,7 +26,7 @@ REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null) || {
 Este comando no acepta argumentos: siempre analiza TODO el universo `estado:listo` abierto. Si `$ARGUMENTS` trae texto, ignoralo por completo -- no se lo pases al script.
 
 ```bash
-{{mefisto:run mefisto-next-order.sh}}
+{{mefisto:run mefisto-next-order.mts}}
 ```
 
 Reproduce la salida tal cual, sin reordenarla, resumirla ni completarla con informacion propia: el reporte de ciclos/bloqueos (si los hay) y la lista numerada de issues lanzables, terminando siempre con la linea `/mefisto-sequential ...`.

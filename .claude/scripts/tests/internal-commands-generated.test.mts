@@ -114,20 +114,20 @@ describe('adaptadores generados de los comandos', () => {
   })
 
   for (const [id, invocation] of [
-    ['mefisto-tooling', 'mefisto-launch-pipeline.sh --tooling $ARGUMENTS'],
-    ['mefisto-sequential', 'mefisto-validate-batch-deps.sh <issue1> <issue2> ...'],
-    ['mefisto-sequential', 'mefisto-launch-pipeline.sh --batch <issue1> <issue2> ...'],
-    ['mefisto-release', 'mefisto-release.sh $ARGUMENTS'],
-    ['mefisto-merge', 'mefisto-validate-batch-deps.sh --reconcile-pr "$pr"'],
+    ['mefisto-tooling', 'mefisto-launch-pipeline.mts --tooling $ARGUMENTS'],
+    ['mefisto-sequential', 'mefisto-validate-batch-deps.mts <issue1> <issue2> ...'],
+    ['mefisto-sequential', 'mefisto-launch-pipeline.mts --batch <issue1> <issue2> ...'],
+    ['mefisto-release', 'mefisto-release.mts $ARGUMENTS'],
+    ['mefisto-merge', 'mefisto-validate-batch-deps.mts --reconcile-pr "$pr"'],
   ] as const) {
-    test(`${id}: invoca ${invocation.split(' ')[0]} por la superficie estable`, () => {
-      assert.ok(generated(id).includes(`MEFISTO_RUNTIME=claude ./.claude/scripts/${invocation}`))
+    test(`${id}: invoca ${invocation.split(' ')[0]} desde su fuente`, () => {
+      assert.ok(generated(id).includes(`MEFISTO_RUNTIME=claude node src/internal/scripts/${invocation}`))
     })
   }
 })
 
 describe('mefisto-merge reconcilia cada merge exitoso', () => {
-  const DIRECTIVE = '{{mefisto:run mefisto-validate-batch-deps.sh --reconcile-pr "$pr"}}'
+  const DIRECTIVE = '{{mefisto:run mefisto-validate-batch-deps.mts --reconcile-pr "$pr"}}'
 
   test('la fuente contiene una unica directiva --reconcile-pr y no usa --delete-branch', () => {
     const lines = source('mefisto-merge').split('\n')
@@ -183,7 +183,7 @@ describe('{{mefisto:run}} conserva un argumento con espacios y comillas', () => 
 
 Invocacion de prueba:
 
-{{mefisto:run mefisto-launch-pipeline.sh --tooling $ARGUMENTS --models 'writer=a b'}}
+{{mefisto:run mefisto-launch-pipeline.mts --tooling $ARGUMENTS --models 'writer=a b'}}
 `,
       )
       const validation = new Output()
@@ -193,7 +193,7 @@ Invocacion de prueba:
       assert.ok(
         hasLine(
           readFileSync(join(work, 'out', '.claude', 'commands', 'mefisto-test-run-quoting.md'), 'utf8'),
-          "MEFISTO_RUNTIME=claude ./.claude/scripts/mefisto-launch-pipeline.sh --tooling $ARGUMENTS --models 'writer=a b'",
+          "MEFISTO_RUNTIME=claude node src/internal/scripts/mefisto-launch-pipeline.mts --tooling $ARGUMENTS --models 'writer=a b'",
         ),
       )
     } finally {

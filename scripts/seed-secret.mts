@@ -131,7 +131,7 @@ export function secretListed(listing: string, name: string): boolean {
 
 function run(argv: string[], deps: SeedSecretDeps): number {
   consumerRepoRoot(deps.cwd, [
-    'ERROR: scripts/seed-secret.sh es del plugin publicado y solo aplica al consumidor.',
+    'ERROR: scripts/seed-secret.mts es del plugin publicado y solo aplica al consumidor.',
     'Mefisto no tiene harness.config.json ni dominios de negocio que sembrar.',
   ])
   const options = parseArgs(argv, deps.program)
@@ -226,7 +226,7 @@ export function seedSecret(argv: string[], deps: SeedSecretDeps): number {
 if (isEntryPoint(import.meta.url)) {
   process.exitCode = seedSecret(process.argv.slice(2), {
     cwd: process.cwd(),
-    program: join(dirname(fileURLToPath(import.meta.url)), 'seed-secret.sh'),
+    program: `node ${join(dirname(fileURLToPath(import.meta.url)), 'seed-secret.mts')}`,
     hasCommand: commandExists,
     run: capture,
     out: (line) => console.log(line),

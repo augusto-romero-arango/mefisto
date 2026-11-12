@@ -94,7 +94,7 @@ test('(e) en el repo de Mefisto se niega sin registrar nada', () => {
   const mefisto = initRepo(join(work, 'mefisto'), { [PLUGIN_MANIFEST]: '{}', [CANONICAL_CONFIG]: EMPTY })
   assert.equal(
     errorOf(['s', 'output', 'r'], mefisto).message,
-    'ERROR: register-harness-secret.sh es del plugin publicado y solo aplica al consumidor.',
+    'ERROR: register-harness-secret.mts es del plugin publicado y solo aplica al consumidor.',
   )
   assert.deepEqual(secrets(mefisto), [])
 })

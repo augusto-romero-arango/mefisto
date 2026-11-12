@@ -40,7 +40,7 @@ import {
 import type { Gh, Issue, Mode, Order, Outcome } from './lib/next-order.mts'
 
 const USAGE =
-  'Uso: scripts/next-order.sh [--refinement] [--json] [--launch-command "<texto>"] [--parallel-command "<texto>"]'
+  'Uso: scripts/next-order.mts [--refinement] [--json] [--launch-command "<texto>"] [--parallel-command "<texto>"]'
 
 export interface Options {
   mode: Mode
@@ -82,8 +82,8 @@ function assertInConsumer(cwd: string): void {
   if (existsSync(join(root, '.claude-plugin', 'plugin.json'))) {
     throw new CliError(
       [
-        'ERROR: scripts/next-order.sh es del plugin publicado y solo aplica al consumidor.',
-        'Estas en el repo de Mefisto. Usa src/internal/scripts/mefisto-next-order.sh en su lugar.',
+        'ERROR: scripts/next-order.mts es del plugin publicado y solo aplica al consumidor.',
+        'Estas en el repo de Mefisto. Usa src/internal/scripts/mefisto-next-order.mts en su lugar.',
       ].join('\n'),
     )
   }

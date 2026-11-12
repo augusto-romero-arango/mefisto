@@ -1,10 +1,10 @@
 // Pipeline que crea un dominio nuevo en el proyecto consumidor.
 //
 // Uso:
-//   scaffold-pipeline.sh 42                          issue (extrae el dominio del body)
-//   scaffold-pipeline.sh 42 --domain calculo-horas   issue + dominio explicito
-//   scaffold-pipeline.sh --domain calculo-horas      sin issue (solo scaffold + PR)
-//   scaffold-pipeline.sh --help
+//   scaffold-pipeline.mts 42                          issue (extrae el dominio del body)
+//   scaffold-pipeline.mts 42 --domain calculo-horas   issue + dominio explicito
+//   scaffold-pipeline.mts --domain calculo-horas      sin issue (solo scaffold + PR)
+//   scaffold-pipeline.mts --help
 //
 // Ciclo: issue -> label dom:X -> worktree -> domain-scaffolder -> gates -> PR -> limpieza.
 //
@@ -67,12 +67,12 @@ function fileLine(kind: LogKind, message: string, clock: string): string {
 const RAW = { cyan: '\\033[0;36m', bold: '\\033[1m', reset: '\\033[0m' }
 
 export const SCAFFOLD_HELP = `
-${RAW.cyan}${RAW.bold}scaffold-pipeline.sh${RAW.reset} - Pipeline para crear un nuevo dominio
+${RAW.cyan}${RAW.bold}scaffold-pipeline.mts${RAW.reset} - Pipeline para crear un nuevo dominio
 
 ${RAW.bold}Uso:${RAW.reset}
-  ./scripts/scaffold-pipeline.sh 42                          Issue (extrae dominio del body)
-  ./scripts/scaffold-pipeline.sh 42 --domain calculo-horas   Issue + dominio explicito
-  ./scripts/scaffold-pipeline.sh --domain calculo-horas       Sin issue (solo scaffold + PR)
+  node scripts/scaffold-pipeline.mts 42                          Issue (extrae dominio del body)
+  node scripts/scaffold-pipeline.mts 42 --domain calculo-horas   Issue + dominio explicito
+  node scripts/scaffold-pipeline.mts --domain calculo-horas       Sin issue (solo scaffold + PR)
 
 ${RAW.bold}El issue debe contener en el body:${RAW.reset}
   Dominio: nombre-en-kebab
@@ -255,7 +255,7 @@ export async function scaffoldPipeline(deps: ScaffoldPipelineDeps): Promise<numb
   }
   const consumerRoot = resolve(chomp(top.stdout))
   if (isFile(join(consumerRoot, '.claude-plugin', 'plugin.json'))) {
-    err('ERROR: scripts/scaffold-pipeline.sh es del plugin publicado y solo aplica al consumidor.\n')
+    err('ERROR: scripts/scaffold-pipeline.mts es del plugin publicado y solo aplica al consumidor.\n')
     err('Estas en el repo de Mefisto, que no crea dominios de negocio.\n')
     err('Para mejorar el plugin usa /mefisto-tooling.\n')
     return 1
@@ -658,7 +658,7 @@ export async function scaffoldPipeline(deps: ScaffoldPipelineDeps): Promise<numb
     out(`  Duracion: ${bold}${duration}s${reset}\n`)
     out(`  Log:      ${logFile}\n\n`)
     out(`${yellow}Proximos pasos:${reset}\n`)
-    out(`  1. Configura los secrets OIDC de Azure en GitHub con ${bold}setup-github-ci.sh${reset} si no existen\n`)
+    out(`  1. Configura los secrets OIDC de Azure en GitHub con ${bold}setup-github-ci.mts${reset} si no existen\n`)
     out(
       `     (${bold}AZURE_CLIENT_ID${reset}, ${bold}AZURE_TENANT_ID${reset}, ${bold}AZURE_SUBSCRIPTION_ID${reset}; sin AZURE_CREDENTIALS, ver MEF-ADR-0022):\n`,
     )

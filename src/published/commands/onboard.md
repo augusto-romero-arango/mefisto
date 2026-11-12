@@ -26,7 +26,7 @@ Diagnostica el onboarding del consumidor: valida el `harness.config.json` efecti
 7. **Registro `secrets[]`** (issue #256, informativo): cuantas entradas hay registradas (las siembra el step data-driven de `infra-cd.yml`, sin ninguna linea hardcodeada por secreto) y, para cada entrada con `source.type: "github-secret"`, si el GitHub secret que referencia existe en el repo. La **forma** del array (`name` unico, `source.type` en {`output`, `github-secret`, `composite`}, `source.value` no vacio) ya la valida `loadHarnessConfig` como parte del punto 1 (`Configuracion`): un `secrets[]` mal formado hace que esa seccion reporte `FALTA`, con el mensaje exacto que emite la funcion. Ausente por completo, reporta `NO VERIFICADO` sin bloquear (normal antes del primer `{{mefisto:command infra-base}}`).
 8. **Bifurcacion de dos caminos de auth** (`tenancy.strategy`, MEF-ADR-0028 + enmienda #337, MEF-ADR-0032, issue #323 + #341, informativo): que camino declaro el proyecto, mapeado 1:1 a las dos etapas de tenancy de MEF-ADR-0028 -- **(A) crecer**: autenticacion orquestada desde el inicio (`multi-tenant-header`, etapa b, ya existe o se planea una autenticacion que produce un `TenantContext`) o **(B) POC**: sin autenticacion (`mono-tenant-transitorio`, etapa a, greenfield, el default). No se sondea en codigo (no hay señal fiable: el harness no referencia ningun tipo `Cosmos.MultiTenancy.*`/autenticacion); es un token **declarado** por el humano. Ausente equivale al camino (B) POC/etapa (a) por defecto, asi que nunca reporta `FALTA` -- solo `OK` (valor reconocido, cualquiera de los dos caminos) o `NO VERIFICADO` (ausente, o con un valor no reconocido).
 9. **Worker de proyecciones** (`projections.enabled`, MEF-ADR-0034, issue #369, informativo): si el BC declaro que adopta proyecciones y, si lo declaro, si el worker `<RootNamespace>.Projections` ya existe. Usa `projectionsEnabled` (`loadHarnessConfig`) y consulta el token original en el config efectivo para conservar su presencia: `false` explícito reporta **`OK`** como opt-out válido; ausente o `null` conserva `NO VERIFICADO` informativo. Nunca sondea codigo mas alla de la existencia del csproj. Si esta en `true` y el worker ya existe, reporta `OK`; si esta en `true` pero el worker no existe todavia, reporta `NO VERIFICADO` y habilita el paso opt-in 7 (encadenar `{{mefisto:command scaffold-projections}}`).
-10. **Configuracion de App Insights** (`.mefisto/appinsights.env`, MEF-ADR-0053, issue #2384; en la seccion "Estado operativo de Mefisto"): el archivo que lee `appinsights-query.sh` y que requieren `{{mefisto:command bug}}` (ruta desplegada), `{{mefisto:command health-check}}` y `{{mefisto:command purge-store}}`. Se parsea linea a linea (nunca con `source`). `OK` si declara `APPINSIGHTS_APP`, `APPINSIGHTS_RG`, `SERVICEBUS_NAMESPACE` y `SERVICEBUS_RG` con valor; `FALTA` si falta (y existe `infra/environments/`) o si le faltan claves (las lista), con la accion de crearlo con las cinco claves (o la provision opt-in del paso 9); `NO VERIFICADO` si falta y no hay `infra/environments/` (greenfield). `FUNCTIONAPP_NAMES` ausente o vacio no es `FALTA`: se reporta una fila `INFO` porque `function-errors` no funcionara.
+10. **Configuracion de App Insights** (`.mefisto/appinsights.env`, MEF-ADR-0053, issue #2384; en la seccion "Estado operativo de Mefisto"): el archivo que lee `appinsights-query.mts` y que requieren `{{mefisto:command bug}}` (ruta desplegada), `{{mefisto:command health-check}}` y `{{mefisto:command purge-store}}`. Se parsea linea a linea (nunca con `source`). `OK` si declara `APPINSIGHTS_APP`, `APPINSIGHTS_RG`, `SERVICEBUS_NAMESPACE` y `SERVICEBUS_RG` con valor; `FALTA` si falta (y existe `infra/environments/`) o si le faltan claves (las lista), con la accion de crearlo con las cinco claves (o la provision opt-in del paso 9); `NO VERIFICADO` si falta y no hay `infra/environments/` (greenfield). `FUNCTIONAPP_NAMES` ausente o vacio no es `FALTA`: se reporta una fila `INFO` porque `function-errors` no funcionara.
 
 La provision de **`.mefisto/appinsights.env`** (paso 9, descubre los nombres con `az` y escribe solo ese archivo, sin sobrescribir uno existente) tambien es opt-in, bajo su propia confirmacion explicita.
 
@@ -38,10 +38,15 @@ Al cerrar el reporte, `{{mefisto:command onboard}}` imprime un bloque **"Proximo
 
 ### 1. Ejecutar el diagnostico
 
-Corre este bloque tal cual. Invoca `onboard-diagnose.sh` del paquete activo: ese script trae el checklist completo de 9 secciones.
+Corre este bloque tal cual. Invoca `onboard-diagnose.mts` del paquete activo: ese script trae el checklist completo de 9 secciones. Antes comprueba Node >= 22.18 (MEF-ADR-0057): con un Node mas viejo el `.mts` no arranca y el checklist nunca llegaria a su fila de Node.
 
 ```bash
-{{mefisto:run onboard-diagnose.sh 2>&1}}
+if ! node -e 'const [a, b] = process.versions.node.split(".").map(Number); process.exit(a > 22 || (a === 22 && b >= 18) ? 0 : 1)' 2>/dev/null; then
+    echo "FALTA: Node >= 22.18 no esta en el PATH: /onboard y los hooks de Mefisto no corren." >&2
+    echo "  Instala Node 22.18 o superior (https://nodejs.org/en/download) y repite /onboard." >&2
+    exit 1
+fi
+{{mefisto:run onboard-diagnose.mts 2>&1}}
 ```
 
 ### 2. Presentar el resultado
@@ -57,10 +62,10 @@ Ofrece este paso **solo** cuando el diagnóstico reportó que falta `AGENTS.md` 
 Advierte que, aunque la migración es conservadora, escribe archivos del consumidor. Presenta primero el plan real con este bloque, sin aplicar cambios:
 
 ```bash
-{{mefisto:run onboard-migrate-directives.sh --preview}}
+{{mefisto:run onboard-migrate-directives.mts --preview}}
 ```
 
-Si la previsualización aborta por un preflight fallido -- incluido un `AGENTS.md` existente pero incompleto -- muestra sus instrucciones manuales y no ofrezcas aplicar. Si imprime el plan, pregunta si desea aplicar **ese plan exacto**. Sin un `si` explícito, no ejecutes ninguna escritura. Solo tras ese `si`, ejecuta `{{mefisto:run onboard-migrate-directives.sh --apply}}`. El script hace su preflight y es idempotente; no reimplementes su plantilla ni sus validaciones. Si informa secciones legacy en `CLAUDE.md`, deja visible que deben retirarse manualmente antes de que el contrato sea completamente canónico.
+Si la previsualización aborta por un preflight fallido -- incluido un `AGENTS.md` existente pero incompleto -- muestra sus instrucciones manuales y no ofrezcas aplicar. Si imprime el plan, pregunta si desea aplicar **ese plan exacto**. Sin un `si` explícito, no ejecutes ninguna escritura. Solo tras ese `si`, ejecuta `{{mefisto:run onboard-migrate-directives.mts --apply}}`. El script hace su preflight y es idempotente; no reimplementes su plantilla ni sus validaciones. Si informa secciones legacy en `CLAUDE.md`, deja visible que deben retirarse manualmente antes de que el contrato sea completamente canónico.
 
 ### 4. Provision opt-in de los labels faltantes
 
@@ -68,12 +73,12 @@ Este paso solo escribe bajo confirmacion explicita del usuario. El diagnostico (
 
 Aplica este paso **solo si** la seccion "Labels de GitHub" del diagnostico reporto `[FALTA] faltan labels: ...`. Si los labels salieron `OK`, no hay nada que provisionar -- omite el paso. Si salieron `NO VERIFICADO` (gh sin autenticar o sin repo), no se puede saber que falta: pide al usuario `gh auth login` y que vuelva a correr `{{mefisto:command onboard}}`; no intentes provisionar a ciegas.
 
-1. **Advierte que es destructivo y pide confirmacion.** `scripts/setup-github-labels.sh` **borra 8 de los 9 labels default de GitHub** (documentation, duplicate, enhancement, good first issue, help wanted, invalid, question, wontfix) y re-crea `bug` con el esquema del harness, antes de crear el resto del esquema. Dilo explicitamente y pregunta, p. ej.: "Faltan estos labels: <lista>. ¿Quieres que los provisione ahora? Esto **borra los labels default de GitHub** y recrea el esquema del harness. [si/no]".
+1. **Advierte que es destructivo y pide confirmacion.** `scripts/setup-github-labels.mts` **borra 8 de los 9 labels default de GitHub** (documentation, duplicate, enhancement, good first issue, help wanted, invalid, question, wontfix) y re-crea `bug` con el esquema del harness, antes de crear el resto del esquema. Dilo explicitamente y pregunta, p. ej.: "Faltan estos labels: <lista>. ¿Quieres que los provisione ahora? Esto **borra los labels default de GitHub** y recrea el esquema del harness. [si/no]".
 2. **No ejecutes nada sin un "si" explicito.** Si el usuario no confirma (o prefiere hacerlo a mano), no corras el script: recuerdale el comando de las "Acciones sugeridas" y termina. El comportamiento por defecto de `{{mefisto:command onboard}}` es solo diagnostico.
 3. **Solo si el usuario confirma**, corre la provision:
 
 ```bash
-{{mefisto:run setup-github-labels.sh 2>&1}}
+{{mefisto:run setup-github-labels.mts 2>&1}}
 ```
 
 Si el script sale con error, la causa tipica es `gh` sin autenticar o sin permiso de escritura sobre el repo: corre `gh auth login` (o pide acceso de escritura) y reintenta. El script es idempotente -- crea cada label con `--force` y tolera los labels default ya borrados --, asi que reintentarlo es seguro. En caso de exito, sugiere volver a correr {{mefisto:command onboard}} para ver el diagnostico en verde.
@@ -82,26 +87,26 @@ Si el script sale con error, la causa tipica es `gh` sin autenticar o sin permis
 
 ### 5. Provision opt-in del CI hacia Azure
 
-Esta provision solo se ejecuta bajo confirmacion explicita del usuario, porque `scripts/setup-github-ci.sh` **crea recursos reales en Azure** (la aplicacion de Entra + Service Principal, tres role assignments y dos federated credentials OIDC). El diagnostico (pasos 1-2) nunca crea recursos en Azure.
+Esta provision solo se ejecuta bajo confirmacion explicita del usuario, porque `scripts/setup-github-ci.mts` **crea recursos reales en Azure** (la aplicacion de Entra + Service Principal, tres role assignments y dos federated credentials OIDC). El diagnostico (pasos 1-2) nunca crea recursos en Azure.
 
-Aplica este paso **solo si** la seccion "CI hacia Azure" del diagnostico reporto `FALTA` -- ya sea la app de Entra (`aplicacion de Entra "..." no encontrada`) o los secrets OIDC (`faltan secrets OIDC: ...`). Ambos los resuelve `setup-github-ci.sh`: es **idempotente** (si la app/SP/federated credential ya existen, los reutiliza) y siempre re-imprime los 3 secrets OIDC al final, asi que tambien sirve cuando solo faltan los secrets en GitHub. Si la seccion salio `OK`, no hay nada que provisionar -- omite el paso. Si salio `NO VERIFICADO` (sin `az`, sin sesion de Azure, o `githubServicePrincipalName` ausente en el config), **no provisiones a ciegas**: pide al usuario instalar Azure CLI / correr `az login` / completar el config segun corresponda, y que vuelva a correr `{{mefisto:command onboard}}`.
+Aplica este paso **solo si** la seccion "CI hacia Azure" del diagnostico reporto `FALTA` -- ya sea la app de Entra (`aplicacion de Entra "..." no encontrada`) o los secrets OIDC (`faltan secrets OIDC: ...`). Ambos los resuelve `setup-github-ci.mts`: es **idempotente** (si la app/SP/federated credential ya existen, los reutiliza) y siempre re-imprime los 3 secrets OIDC al final, asi que tambien sirve cuando solo faltan los secrets en GitHub. Si la seccion salio `OK`, no hay nada que provisionar -- omite el paso. Si salio `NO VERIFICADO` (sin `az`, sin sesion de Azure, o `githubServicePrincipalName` ausente en el config), **no provisiones a ciegas**: pide al usuario instalar Azure CLI / correr `az login` / completar el config segun corresponda, y que vuelva a correr `{{mefisto:command onboard}}`.
 
 1. **Valida prerequisitos y reune los datos (CA-3).** Antes de ofrecer nada, confirma que se puede: `az` instalado y con **sesion activa** (`az account show`). El `<subscription-id>` **no esta en el config**: pideselo al usuario. El `<owner/repo>` el script lo auto-resuelve (via `gh` o el remote `origin`); ofrece pasarlo solo si la resolucion falla. Si falta `az`, la sesion o el subscription-id, **reportalo claro y no invoques el script** (en vez de dejarlo fallar opaco).
-2. **Advierte que crea recursos reales en Azure y pide confirmacion (CA-2).** Antes de ejecutar nada, dilo explicitamente y pregunta, p. ej.: "Esto configura el CI hacia Azure: crea la app de Entra + Service Principal (sin secret), le asigna `Contributor` y `Role Based Access Control Administrator` (con condicion anti-escalacion) a nivel suscripcion y `Storage Blob Data Contributor` sobre el tfstate, y anade dos federated credentials OIDC (rama `main` y `pull_request`). **Crea recursos reales en Azure.** Recuerda que debe correr **despues** de `bootstrap-backend.sh` (resuelve el nombre real del tfstate del backend ya creado). ¿Quieres que lo configure ahora? [si/no]".
+2. **Advierte que crea recursos reales en Azure y pide confirmacion (CA-2).** Antes de ejecutar nada, dilo explicitamente y pregunta, p. ej.: "Esto configura el CI hacia Azure: crea la app de Entra + Service Principal (sin secret), le asigna `Contributor` y `Role Based Access Control Administrator` (con condicion anti-escalacion) a nivel suscripcion y `Storage Blob Data Contributor` sobre el tfstate, y anade dos federated credentials OIDC (rama `main` y `pull_request`). **Crea recursos reales en Azure.** Recuerda que debe correr **despues** de `bootstrap-backend.mts` (resuelve el nombre real del tfstate del backend ya creado). ¿Quieres que lo configure ahora? [si/no]".
 3. **No ejecutes nada sin un "si" explicito (CA-4).** Si el usuario no confirma (o prefiere hacerlo a mano), no corras el script: recuerdale el comando de las "Acciones sugeridas" y termina. El comportamiento por defecto de `{{mefisto:command onboard}}` es solo diagnostico: una corrida sin confirmar **no crea ningun recurso en Azure ni copia secrets**.
-4. **Solo si el usuario confirma**, valida los prerequisitos del punto 1 (`az` instalado, `az account show` con sesion, subscription-id provisto; si falta alguno, reportalo y no invoques nada). Si el backend del tfstate aun no existe, corre primero `bootstrap-backend.sh` (mismo consentimiento; crea el Resource Group, la Storage Account y el container del tfstate):
+4. **Solo si el usuario confirma**, valida los prerequisitos del punto 1 (`az` instalado, `az account show` con sesion, subscription-id provisto; si falta alguno, reportalo y no invoques nada). Si el backend del tfstate aun no existe, corre primero `bootstrap-backend.mts` (mismo consentimiento; crea el Resource Group, la Storage Account y el container del tfstate):
 
 ```bash
-{{mefisto:run bootstrap-backend.sh --subscription <subscription-id>}}
+{{mefisto:run bootstrap-backend.mts --subscription <subscription-id>}}
 ```
 
 Despues, sustituyendo `<subscription-id>` por el que dio el usuario:
 
 ```bash
-{{mefisto:run setup-github-ci.sh <subscription-id>}}
+{{mefisto:run setup-github-ci.mts <subscription-id>}}
 ```
 
-Con `<owner/repo>` como segundo argumento (solo si la auto-resolucion fallo): `{{mefisto:run setup-github-ci.sh <subscription-id> <owner/repo>}}`. El script crea la app de Entra + Service Principal SIN secret, los role assignments y las federated credentials OIDC (MEF-ADR-0022). Si falla, las causas tipicas son: `bootstrap-backend.sh` aun no corrio (no se resuelve la Storage del tfstate); sin permisos de gestion de aplicaciones en Microsoft Entra (pide a un admin que lo provisione); no se pudo resolver el slug owner/repo (reintenta pasandolo).
+Con `<owner/repo>` como segundo argumento (solo si la auto-resolucion fallo): `{{mefisto:run setup-github-ci.mts <subscription-id> <owner/repo>}}`. El script crea la app de Entra + Service Principal SIN secret, los role assignments y las federated credentials OIDC (MEF-ADR-0022). Si falla, las causas tipicas son: `bootstrap-backend.mts` aun no corrio (no se resuelve la Storage del tfstate); sin permisos de gestion de aplicaciones en Microsoft Entra (pide a un admin que lo provisione); no se pudo resolver el slug owner/repo (reintenta pasandolo).
 
 5. **Reporta el resultado al usuario (CA-5)** tal como lo imprimio el bloque. Si la provision fue exitosa, **recuerdale explicitamente que el script imprime 3 secrets OIDC** (`AZURE_CLIENT_ID`, `AZURE_TENANT_ID`, `AZURE_SUBSCRIPTION_ID`) que debe **pegar a mano** en GitHub (Settings > Secrets and variables > Actions), porque ni el script ni `{{mefisto:command onboard}}` los suben; no hay client secret que expire (OIDC, MEF-ADR-0022). Si fallo, no abortes ni reescribas el resto del flujo: el diagnostico (pasos 1-2) y las otras provisiones (labels) son independientes. En ambos casos sugiere volver a correr `{{mefisto:command onboard}}` para confirmar el estado real tras la provision.
 
@@ -166,14 +171,14 @@ Aplica este paso **solo si** la sección de activación por repositorio reportó
 1. Previsualiza el cambio:
 
 ```bash
-{{mefisto:run onboard-activate-repo.sh --preview}}
+{{mefisto:run onboard-activate-repo.mts --preview}}
 ```
 
 2. Muestra el plan y pregunta si desea aplicarlo. Sin un `si` explícito, no escribas nada.
 3. Solo tras el `si`:
 
 ```bash
-{{mefisto:run onboard-activate-repo.sh --apply}}
+{{mefisto:run onboard-activate-repo.mts --apply}}
 ```
 
 4. Recuerda que debe commitear el archivo que el script nombra y llevarlo a `main`. El script solo fusiona las claves de habilitación; no toca nada más ni commitea.
@@ -185,12 +190,12 @@ Aplica este paso **solo si** el punto 10 del diagnostico reporto `FALTA` para `.
 1. Muestra primero el plan, sin escribir nada (entorno `dev` por defecto; `--env <env>` lo cambia):
 
 ```bash
-{{mefisto:run onboard-provision-appinsights.sh --preview}}
+{{mefisto:run onboard-provision-appinsights.mts --preview}}
 ```
 
 2. Si aborta por ambiguedad (mas de un App Insights o namespace), muestra los candidatos, pregunta cual usar y repite el preview con `--appinsights-app <nombre>` / `--servicebus-namespace <nombre>`. Si aborta por otra causa (sin `az`, sin sesion, sin resource group, sin App Insights o Service Bus), muestra la causa y no ofrezcas aplicar.
 3. Si imprime las cinco claves, pregunta si desea aplicar **ese contenido exacto**. Sin un `si` explicito, no ejecutes ninguna escritura.
-4. Solo tras el `si`, ejecuta `{{mefisto:run onboard-provision-appinsights.sh --apply}}` con los mismos flags del preview. Si el archivo ya existe, el script se niega: indica editarlo o borrarlo a mano.
+4. Solo tras el `si`, ejecuta `{{mefisto:run onboard-provision-appinsights.mts --apply}}` con los mismos flags del preview. Si el archivo ya existe, el script se niega: indica editarlo o borrarlo a mano.
 5. Recuerda que el archivo solo contiene nombres de recursos (sin secretos) y debe commitearse.
 
 ## Reglas

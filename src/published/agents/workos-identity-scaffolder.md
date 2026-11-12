@@ -101,9 +101,9 @@ Este agente corre sin reviewer y genera codigo desde plantillas del harness: es 
    Cada bloque `bash` corre en un shell nuevo: interpola el SHA impreso en los comandos siguientes. Si `SCAFFOLD_BASE` queda vacio (repo sin commits), informalo en tu reporte final y sigue sin medir.
 
 2. **Al terminar de generar, mide** (antes del commit, si tu flujo commitea; si no, antes del reporte final). Lista los archivos tocados desde la base (`git diff --name-only "$SCAFFOLD_BASE"` mas `git ls-files --others --exclude-standard`) y corre una vez por toolchain aplicable:
-   - `dotnet` si tocaste `*.cs`, `*.csproj`, `*.props`, `*.targets` o `.editorconfig`: `{{mefisto:package-root}}/scripts/warnings-diff.sh --toolchain dotnet --base "$SCAFFOLD_BASE"`
-   - `terraform` si tocaste `*.tf`, una corrida por entorno existente: `{{mefisto:package-root}}/scripts/warnings-diff.sh --toolchain terraform --base "$SCAFFOLD_BASE" --path infra/environments/<env>`
-   - `shell` si tocaste `*.sh`: `{{mefisto:package-root}}/scripts/warnings-diff.sh --toolchain shell --base "$SCAFFOLD_BASE"`
+   - `dotnet` si tocaste `*.cs`, `*.csproj`, `*.props`, `*.targets` o `.editorconfig`: `node {{mefisto:package-root}}/scripts/warnings-diff.mts --toolchain dotnet --base "$SCAFFOLD_BASE"`
+   - `terraform` si tocaste `*.tf`, una corrida por entorno existente: `node {{mefisto:package-root}}/scripts/warnings-diff.mts --toolchain terraform --base "$SCAFFOLD_BASE" --path infra/environments/<env>`
+   - `shell` si tocaste `*.sh`: `node {{mefisto:package-root}}/scripts/warnings-diff.mts --toolchain shell --base "$SCAFFOLD_BASE"`
 
    Salida `0`: sin warnings nuevos. Salida `2`: lista `NEW <toolchain> <archivo> <codigo> <mensaje>`. Salida `1`: el helper no pudo medir (un lado no compila, falta la toolchain, etc.): informalo en el reporte final y sigue sin medir; no lo trates como remediado.
 

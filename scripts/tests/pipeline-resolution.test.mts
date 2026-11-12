@@ -43,7 +43,7 @@ function assertPipeline(resolution: Resolution, name: 'tdd' | 'tooling'): void {
   const script = scriptOf(resolution)
   assert.equal(resolution.kind === 'pipeline' && resolution.pipeline, name)
   assert.equal(isAbsolute(script), true, script)
-  assert.equal(basename(script), `${name}-pipeline.sh`)
+  assert.equal(basename(script), `${name}-pipeline.mts`)
   assert.equal(existsSync(script), true, script)
 }
 
@@ -126,7 +126,7 @@ describe('resolveFromLabels', () => {
 
   test('la ruta sale del directorio de scripts indicado', () => {
     const scriptsDir = join(tmpdir(), 'plugin', 'scripts')
-    assert.equal(resolutionText(resolveFromLabels(['tipo:tooling'], scriptsDir)), join(scriptsDir, 'tooling-pipeline.sh'))
+    assert.equal(resolutionText(resolveFromLabels(['tipo:tooling'], scriptsDir)), join(scriptsDir, 'tooling-pipeline.mts'))
   })
 })
 

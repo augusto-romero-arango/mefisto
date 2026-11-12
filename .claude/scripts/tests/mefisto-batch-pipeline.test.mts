@@ -57,7 +57,7 @@ describe('argumentos y precondiciones', () => {
     const repo = mefisto()
     const usage = await runMefistoBatch(repo, [])
     assert.equal(usage.code, 1)
-    assert.match(text(usage), /^Uso: src\/internal\/scripts\/mefisto-batch-pipeline\.sh <issue1> <issue2> \.\.\. \[--stop-on-error\]\n/)
+    assert.match(text(usage), /^Uso: src\/internal\/scripts\/mefisto-batch-pipeline\.mts <issue1> <issue2> \.\.\. \[--stop-on-error\]\n/)
     const unknown = await runMefistoBatch(repo, ['12', '--rapido'])
     assert.equal(unknown.code, 1)
     assert.equal(text(unknown), 'Argumento desconocido: --rapido\n')

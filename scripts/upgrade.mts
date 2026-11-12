@@ -99,7 +99,7 @@ function assertConsumerRepo(cwd: string): void {
     throw new CliError(
       [
         'ERROR: /mefisto:upgrade no aplica al repo de Mefisto.',
-        '       scripts/upgrade.sh es del plugin publicado y solo aplica al consumidor.',
+        '       scripts/upgrade.mts es del plugin publicado y solo aplica al consumidor.',
         '       Mefisto se actualiza a si mismo por su propio flujo de release (/mefisto-release).',
       ].join('\n'),
     )
@@ -176,7 +176,7 @@ export function loadedFromRoot(env: NodeJS.ProcessEnv): string {
 
 function updatePluginScript(deps: UpgradeDeps): string {
   const script = join(deps.scriptDir, 'update-plugin.mts')
-  if (!isFile(script)) throw new CliError('ERROR: no se hallo update-plugin.sh junto a upgrade.sh.')
+  if (!isFile(script)) throw new CliError('ERROR: no se hallo update-plugin.mts junto a upgrade.mts.')
   return script
 }
 

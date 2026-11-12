@@ -1,5 +1,5 @@
 // Piezas del batch interno en aislamiento: registro de estados, status JSON, contabilidad de la
-// espera (hold), sync verificado de main y la forma del shim.
+// espera (hold) y sync verificado de main.
 
 import assert from 'node:assert/strict'
 import { spawnSync } from 'node:child_process'
@@ -28,7 +28,6 @@ import {
 import { holdLine } from './mefisto-batch-pipeline-sandbox.mts'
 
 const REPO_ROOT = join(import.meta.dirname, '..', '..', '..')
-const CANON_SHIM = join(REPO_ROOT, 'src', 'internal', 'scripts', 'mefisto-batch-pipeline.sh')
 const CANON_MTS = join(REPO_ROOT, 'src', 'internal', 'scripts', 'mefisto-batch-pipeline.mts')
 
 let work = ''
@@ -283,18 +282,7 @@ describe('sync verificado de main', () => {
   })
 })
 
-describe('shim y fuente', () => {
-  test('el canonico .sh es el shim de tres lineas hacia el .mts', () => {
-    assert.equal(
-      readFileSync(CANON_SHIM, 'utf8'),
-      '#!/usr/bin/env bash\n# Shim: la implementacion vive en mefisto-batch-pipeline.mts (MEF-ADR-0057). No editar.\nexec node "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)/mefisto-batch-pipeline.mts" "$@"\n',
-    )
-    assert.equal(
-      readFileSync(join(REPO_ROOT, '.claude', 'scripts', 'mefisto-batch-pipeline.sh'), 'utf8').split('\n')[2],
-      'exec "$(cd "$(dirname "$0")/../.." && pwd)/src/internal/scripts/$(basename "$0")" "$@"',
-    )
-  })
-
+describe('fuente', () => {
   test('ninguna linea de codigo nombra rutas legacy de .claude', () => {
     const code = readFileSync(CANON_MTS, 'utf8')
       .split('\n')
@@ -311,10 +299,4 @@ describe('shim y fuente', () => {
     assert.match(result.stderr, /ERROR: no estas en un repositorio git/)
   })
 
-  test('el shim .sh reenvia al .mts con el mismo codigo', { skip: process.platform === 'win32' }, () => {
-    const dir = caseDir('sin-repo-shim')
-    const result = spawnSync('bash', [join(REPO_ROOT, '.claude', 'scripts', 'mefisto-batch-pipeline.sh')], { cwd: dir, encoding: 'utf8' })
-    assert.equal(result.status, 1)
-    assert.match(result.stderr, /ERROR: no estas en un repositorio git/)
-  })
 })

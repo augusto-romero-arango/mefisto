@@ -44,16 +44,6 @@ export function sameBytes(left: string, right: string): boolean {
   }
 }
 
-/** `true` si el archivo del repo existe y es ejecutable; Windows no tiene bit de ejecucion. */
-export function isExecutable(relative: string): boolean {
-  try {
-    const stats = statSync(repoPath(relative))
-    return process.platform === 'win32' || (stats.mode & 0o111) !== 0
-  } catch {
-    return false
-  }
-}
-
 export interface CommandContract {
   id: string
   /** Rutas relativas al repo, con `/`. */

@@ -110,15 +110,11 @@ function rows(filter: (event: ReturnType<typeof parseJq>) => string[][], json: s
 }
 
 describe('invocacion directa', () => {
-  test('el shim del visor publicado es ejecutable', { skip: process.platform === 'win32' }, () => {
-    assert.notEqual(statSync(join(HERE, '..', 'stream-watch.sh')).mode & 0o111, 0)
-  })
-
   test('--help muestra el uso y termina en 0', () => {
     const result = spawnSync(process.execPath, [SCRIPT, '--help'], { cwd: consumer, encoding: 'utf8' })
     assert.equal(result.status, 0, result.stderr)
     assert.equal(result.stdout, `${USAGE}\n`)
-    assert.match(result.stdout, /^Uso: stream-watch\.sh /)
+    assert.match(result.stdout, /^Uso: stream-watch\.mts /)
   })
 
   test('fuera de un repo git falla antes de mirar los argumentos', () => {
@@ -133,7 +129,7 @@ describe('invocacion directa', () => {
     assert.equal(result.status, 1)
     assert.equal(
       result.stderr,
-      'ERROR: scripts/stream-watch.sh es del plugin publicado y solo aplica al consumidor.\n',
+      'ERROR: scripts/stream-watch.mts es del plugin publicado y solo aplica al consumidor.\n',
     )
   })
 

@@ -31,11 +31,11 @@ describe('[fuente] contrato neutral y perfil', () => {
     'metadata neutral invalida',
   )
   contains(body, '{{mefisto:assert-consumer-repo}}', 'guard consumidor presente')
-  contains(body, '{{mefisto:run pr-sync.sh <PRs>}}', 'invoca pr-sync.sh sin merge')
-  contains(body, '{{mefisto:run pr-sync.sh <PRs> --merge}}', 'invoca pr-sync.sh con merge y lista de PRs')
-  contains(body, '{{mefisto:run pr-sync.sh --all}}', 'invoca pr-sync.sh con --all sin merge')
-  contains(body, '{{mefisto:run pr-sync.sh --all --merge}}', 'invoca pr-sync.sh con --all y merge')
-  contains(body, '{{mefisto:run pr-sync.sh <num>}}', 'reintento de un PR puntual via directiva run')
+  contains(body, '{{mefisto:run pr-sync.mts <PRs>}}', 'invoca pr-sync.mts sin merge')
+  contains(body, '{{mefisto:run pr-sync.mts <PRs> --merge}}', 'invoca pr-sync.mts con merge y lista de PRs')
+  contains(body, '{{mefisto:run pr-sync.mts --all}}', 'invoca pr-sync.mts con --all sin merge')
+  contains(body, '{{mefisto:run pr-sync.mts --all --merge}}', 'invoca pr-sync.mts con --all y merge')
+  contains(body, '{{mefisto:run pr-sync.mts <num>}}', 'reintento de un PR puntual via directiva run')
   contains(body, '{{mefisto:state-path logs}}', 'apunta al log via state-path')
   contains(body, 'pr-sync-<ts>.log', 'nombre de log con timestamp fuera de la directiva')
   contains(body, '{{mefisto:command merge}}', 'recomienda /mefisto:merge para el flujo con validaciones')
@@ -71,8 +71,8 @@ describe('[salidas] adaptador y mirror', () => {
   for (const form of ['<PRs>', '<PRs> --merge', '--all', '--all --merge', '<num>']) {
     contains(
       claudeBody,
-      `MEFISTO_RUNTIME=claude "\${MEFISTO_PACKAGE_ROOT}/scripts/pr-sync.sh" ${form}`,
-      `Claude invoca pr-sync.sh ${form} con su runtime`,
+      `MEFISTO_RUNTIME=claude node "\${MEFISTO_PACKAGE_ROOT}/scripts/pr-sync.mts" ${form}`,
+      `Claude invoca pr-sync.mts ${form} con su runtime`,
     )
   }
   contains(claudeBody, 'name: "pr-sync"', 'Claude expone el id del agente')
@@ -81,11 +81,11 @@ describe('[salidas] adaptador y mirror', () => {
   check('Claude omite MCP', () => !/[Mm][Cc][Pp]/.test(claudeBody))
 
   // El preambulo compartido que fija MEFISTO_PACKAGE_ROOT cita el marcador Claude como fallback
-  // de lectura; solo se exige que las invocaciones propias de pr-sync.sh no lo reimplementen.
-  const claudeInvocations = matchingLines(claudeBody, 'scripts/pr-sync.sh"')
+  // de lectura; solo se exige que las invocaciones propias de pr-sync.mts no lo reimplementen.
+  const claudeInvocations = matchingLines(claudeBody, 'scripts/pr-sync.mts"')
     .map((line) => line.text)
     .join('\n')
-  for (const forbiddenPath of ['./scripts/pr-sync.sh', '.claude/pipeline/.plugin-root', 'plugins/cache']) {
+  for (const forbiddenPath of ['./scripts/pr-sync.mts', '.claude/pipeline/.plugin-root', 'plugins/cache']) {
     absent(
       claudeInvocations,
       forbiddenPath,
@@ -93,7 +93,7 @@ describe('[salidas] adaptador y mirror', () => {
     )
   }
   absent(claudeBody, 'plugins/cache', 'salida Claude completa sin cache de plugins')
-  absent(claudeBody, './scripts/pr-sync.sh', 'salida Claude completa sin ruta relativa rota')
+  absent(claudeBody, './scripts/pr-sync.mts', 'salida Claude completa sin ruta relativa rota')
 
   check(
     'mirror Claude coincide byte a byte',

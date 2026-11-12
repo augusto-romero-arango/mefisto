@@ -218,7 +218,7 @@ set -o pipefail
 
 ### Comentario largo que se acorta (se queda lo no obvio)
 
-Basado en `scripts/setup-github-ci.sh`. El porque se queda y la URL tambien, porque el
+Basado en `scripts/setup-github-ci.mts`. El porque se queda y la URL tambien, porque el
 comportamiento de la API externa sorprende; la lista de que workflow usa cada credencial se lee
 en las llamadas de abajo.
 

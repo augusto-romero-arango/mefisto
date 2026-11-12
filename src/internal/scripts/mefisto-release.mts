@@ -32,8 +32,8 @@ import { assertInMefisto } from './lib/mefisto-repo.mts'
 import type { MefistoRepo } from './lib/mefisto-repo.mts'
 import { Output, chomp } from './lib/mefisto-script-io.mts'
 
-// El nombre con que lo invocan los comandos: el shim que reenvia aqui.
-const SCRIPT_NAME = 'mefisto-release.sh'
+// El nombre con que lo invocan los comandos.
+const SCRIPT_NAME = 'mefisto-release.mts'
 const RETRIES = 3
 const RETRY_WAIT_MS = 2000
 const FULL_SHA = /^[0-9a-f]{40}$/
@@ -505,7 +505,7 @@ function prepareMetadata(s: Session, version: string, sourceCommit: string): boo
   } catch {
     return false
   }
-  if (shown(s, 'bash', [s.generator]).status !== 0) return false
+  if (shown(s, process.execPath, [s.generator]).status !== 0) return false
   return sameBytes(s.manifest, s.distManifest)
 }
 
@@ -533,8 +533,6 @@ function prepare(s: Session, args: string[], currentVersion: string, lastTagVers
   logInfo(s, `Rama de release: ${releaseBranch}`)
   logInfo(s, `Fecha (UTC): ${releaseDate}`)
 
-  // El gate y el generador siguen en bash hasta su propio port: se lanzan como procesos externos.
-  if (!s.deps.commandExists('bash')) abort('Falta comando requerido: bash')
   requireCleanTree(s)
   requireGhAuth(s)
   if (tagExistsLocal(s, newTag) || tagExistsRemote(s, newTag)) {
@@ -578,7 +576,7 @@ function prepare(s: Session, args: string[], currentVersion: string, lastTagVers
   }
 
   logInfo(s, 'Verificando neutralidad de runtime (MEF-ADR-0049)...')
-  const gate = run(s, 'bash', [join(s.root, 'src', 'internal', 'scripts', 'mefisto-neutrality-gate.sh')])
+  const gate = run(s, process.execPath, [join(s.root, 'src', 'internal', 'scripts', 'mefisto-neutrality-gate.mts')])
   if (gate.status === 0) {
     logSuccess(s, 'Gate de neutralidad: sin fugas')
   } else {
@@ -975,7 +973,7 @@ function runRelease(args: string[], deps: ReleaseDeps): number {
     repoUrl: '',
     pluginJson: join(root, '.claude-plugin', 'plugin.json'),
     changelog: join(root, 'CHANGELOG.md'),
-    generator: join(root, 'src', 'published', 'scripts', 'generate-published-adapters.sh'),
+    generator: join(root, 'src', 'published', 'scripts', 'generate-published-adapters.mts'),
     identity: join(root, 'src', 'published', 'release-identity.json'),
     manifest: join(root, ROOT_MANIFEST),
     distManifest: join(root, 'dist', 'claude', 'mefisto-manifest.json'),
@@ -986,7 +984,7 @@ function runRelease(args: string[], deps: ReleaseDeps): number {
   }
   if (!isFile(s.pluginJson)) abort(`No existe ${s.pluginJson}`)
   if (!isFile(s.changelog)) abort(`No existe ${s.changelog}`)
-  if (!isFile(s.generator)) abort(`No existe o no es ejecutable el generador publicado: ${s.generator}`)
+  if (!isFile(s.generator)) abort(`No existe el generador publicado: ${s.generator}`)
 
   let repoSlug = repo.repoSlug
   if (repoSlug.length === 0) {

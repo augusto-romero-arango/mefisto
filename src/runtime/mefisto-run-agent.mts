@@ -23,7 +23,7 @@ import type { ProcessTree, WatchdogResult } from './lib/mefisto-process.mts'
 import { adapterPath, loadAdapter, resolveRuntime, runtimeLibDir } from './lib/mefisto-runtime.mts'
 import type { RuntimeCommand } from './lib/mefisto-runtime.mts'
 
-const USAGE = `Uso: mefisto-run-agent.sh --agent <id> --cwd <dir> --prompt-file <f> --event-log <jsonl>
+const USAGE = `Uso: mefisto-run-agent.mts --agent <id> --cwd <dir> --prompt-file <f> --event-log <jsonl>
                            [--runtime <id>] [--model <opaco>] [--effort <opaco>]
                            [--system-file <f>]
                            [--timeout <s>] [--raw-log <f>] [--stderr-log <f>]

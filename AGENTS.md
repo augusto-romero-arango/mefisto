@@ -9,7 +9,7 @@ Harness opinionado para agentes de codigo (nombre interno: `mefisto`, repo: `aug
 
 ## Qué es este repo
 
-Empaqueta skills, agentes, pipelines bash, ADRs y hooks (ver `ls` en la raíz del repo para el
+Empaqueta skills, agentes, pipelines en TypeScript, ADRs y hooks (ver `ls` en la raíz del repo para el
 layout exacto) con doctrina neutral a runtime (MEF-ADR-0049); el adaptador `.claude/` distribuye
 ese contenido como **Claude Code Plugin** (ver `.claude-plugin/plugin.json`). Además incluye:
 
@@ -39,7 +39,7 @@ y `Verificación de fuentes` en el `AGENTS.md` del consumidor, el puente mínimo
 | Skill | Propósito |
 |---|---|
 | `/onboard` | Diagnostica el onboarding del consumidor (config, labels, CI) y reporta un checklist; provisión opt-in bajo confirmación |
-| `/upgrade` | Actualiza Mefisto desde el runtime activo con `upgrade.sh`: evidencia la versión instalada y la versión destino, ofrece retirar el nivel de usuario cuando el repo ya lo activa con archivos commiteados, y poda bajo confirmación (nunca la versión cargada) |
+| `/upgrade` | Actualiza Mefisto desde el runtime activo con `upgrade.mts`: evidencia la versión instalada y la versión destino, ofrece retirar el nivel de usuario cuando el repo ya lo activa con archivos commiteados, y poda bajo confirmación (nunca la versión cargada) |
 | `/draft` | Captura una idea como issue `estado:borrador` |
 | `/implement` | Pipeline TDD para un issue `estado:listo` |
 | `/tooling` | Pipeline de tooling (scripts, fixtures, config, agentes) |
@@ -50,7 +50,7 @@ y `Verificación de fuentes` en el `AGENTS.md` del consumidor, el puente mínimo
 | `/install-apim` | Instala/actualiza el gateway APIM (agente `apim-gateway-scaffolder`), cablea `TF_VAR_workos_client_id`/`TF_VAR_cors_allowed_origins` y ejecuta la transicion a->b de tenancy (MEF-ADR-0028 seccion 4): flip de `tenancy.strategy` + scaffold de la biblioteca `src/{RootNamespace}.TenantResolver/` (patron AsyncLocal + middleware) + migracion del `ITenantResolver` de todos los dominios ya scaffoldeados a esa biblioteca; expone ademas en el mismo flip los servidores MCP ya scaffoldeados del BC (modulo `apim-mcp-api` + enrutador del PRM, gate OAuth de la variante MCP/Connect) |
 | `/install-auth` | Orquesta el camino completo de auth: encadena `/install-workos` -> gate humano (verifica `WORKOS_CLIENT_ID`/`WORKOS_API_KEY` via `gh`) -> `/install-apim`, stateless (delega en la idempotencia de ambos) |
 | `/parallel` | Corre varios issues en worktrees aislados |
-| `/batch-stop` | Escribe la senal de parada suave (`pipeline-state/batch-stop`, MEF-ADR-0017) que detiene los orquestadores con cola -- `batch-pipeline.sh` (el motor de `/sequential`) y `parallel-pipeline.sh` (el motor de `/parallel` sin panes) -- sin matar ningun proceso: el eslabon o los worktrees en vuelo terminan, la cola deja de lanzar issues nuevos y los no procesados quedan `aplazado`. `/parallel` en panes de herdr lanza todo de entrada (un pane por issue, sin cola) y no tiene nada que retener |
+| `/batch-stop` | Escribe la senal de parada suave (`pipeline-state/batch-stop`, MEF-ADR-0017) que detiene los orquestadores con cola -- `batch-pipeline.mts` (el motor de `/sequential`) y `parallel-pipeline.mts` (el motor de `/parallel` sin panes) -- sin matar ningun proceso: el eslabon o los worktrees en vuelo terminan, la cola deja de lanzar issues nuevos y los no procesados quedan `aplazado`. `/parallel` en panes de herdr lanza todo de entrada (un pane por issue, sin cola) y no tiene nada que retener |
 | `/next-order` | Calcula el orden topológico de lanzamiento de los issues `estado:listo` del consumidor y deja lista la línea de `/mefisto:sequential` |
 | `/sequential` | Cadena de issues con merge automático |
 | `/scaffold` | Crea el scaffold de un nuevo dominio |
@@ -62,7 +62,7 @@ y `Verificación de fuentes` en el `AGENTS.md` del consumidor, el puente mínimo
 | `/eraser-diagram` | Genera diagrama para Eraser |
 | `/merge` | Mergea uno o varios PRs a main |
 | `/bitacora` | Invoca al agente `historiador` y, si crea PR, encadena `/merge` automaticamente |
-| `/purge-store` | Diagnostica con evidencia (App Insights, smoke tests), confirma y valida la purga del store de un dominio en dev (mecanismo canonico de MEF-ADR-0036 seccion 5; los pasos destructivos los ejecuta `scripts/purge-store.sh`) |
+| `/purge-store` | Diagnostica con evidencia (App Insights, smoke tests), confirma y valida la purga del store de un dominio en dev (mecanismo canonico de MEF-ADR-0036 seccion 5; los pasos destructivos los ejecuta `scripts/purge-store.mts`) |
 
 ## Agent Skills disponibles
 
@@ -102,8 +102,8 @@ por fragmento en `changelog.d/<issue>.adr-index.md`.
 ### Flujo de entrega
 
 - **Nunca trabajar contra `main` directo.** Toda edición de archivos en este repo se hace en una rama nueva y se entrega vía Pull Request.
-- **Ninguna sesión de trabajo directo edita ni commitea en el checkout principal** (issue #2108): mover su `HEAD` compartido hace que otra sesión commitee o empuje sobre una rama ajena, incluida `main`. Antes de la primera edición, si `git rev-parse --git-dir` es igual a `git rev-parse --git-common-dir` (checkout principal), crear el worktree con `src/internal/scripts/mefisto-worktree.sh new <slug>` (shim: `.claude/scripts/mefisto-worktree.sh`; hace `git fetch origin main`, crea `.mefisto/worktrees/<slug>` en la rama `<slug>` desde `origin/main`, o lo reutiliza, e imprime su ruta) y editar, commitear, empujar y abrir el PR desde ahí. Si la sesión ya está en un worktree (p. ej. lanzada con `claude -w <slug>`), seguir ahí. Nunca `git switch`/`git checkout` de rama en el checkout principal.
-- En Claude Code se recomienda lanzar las sesiones de trabajo directo con `claude -w <slug>` (atajo del adaptador; el helper es la vía neutral a runtime, MEF-ADR-0050). Los pipelines internos también crean sus worktrees bajo `.mefisto/worktrees/` (issue #2336). Tras mergear el PR, limpiar con `mefisto-worktree.sh clean`: recorre todos los worktrees del repo (también los antiguos creados al lado del repo), elimina los de rama mergeada en `origin/main` con status limpio y las raíces de batch cuyo proceso ya no existe, y conserva (con aviso) los que tienen cambios sin commitear o trabajo sin mergear.
+- **Ninguna sesión de trabajo directo edita ni commitea en el checkout principal** (issue #2108): mover su `HEAD` compartido hace que otra sesión commitee o empuje sobre una rama ajena, incluida `main`. Antes de la primera edición, si `git rev-parse --git-dir` es igual a `git rev-parse --git-common-dir` (checkout principal), crear el worktree con `node src/internal/scripts/mefisto-worktree.mts new <slug>` (hace `git fetch origin main`, crea `.mefisto/worktrees/<slug>` en la rama `<slug>` desde `origin/main`, o lo reutiliza, e imprime su ruta) y editar, commitear, empujar y abrir el PR desde ahí. Si la sesión ya está en un worktree (p. ej. lanzada con `claude -w <slug>`), seguir ahí. Nunca `git switch`/`git checkout` de rama en el checkout principal.
+- En Claude Code se recomienda lanzar las sesiones de trabajo directo con `claude -w <slug>` (atajo del adaptador; el helper es la vía neutral a runtime, MEF-ADR-0050). Los pipelines internos también crean sus worktrees bajo `.mefisto/worktrees/` (issue #2336). Tras mergear el PR, limpiar con `node src/internal/scripts/mefisto-worktree.mts clean`: recorre todos los worktrees del repo (también los antiguos creados al lado del repo), elimina los de rama mergeada en `origin/main` con status limpio y las raíces de batch cuyo proceso ya no existe, y conserva (con aviso) los que tienen cambios sin commitear o trabajo sin mergear.
 - Al terminar: `git push -u origin <rama>` + `gh pr create` apuntando a `main`.
 - **Red de seguridad `pre-push`** (issue #2110): `src/internal/githooks/pre-push` (activado por `ensure_githooks_installed` vía `core.hooksPath`) desvía un push directo a `main`/`master` a una rama `rescate/<fecha>-<sha>` con su PR, anota los SHAs en `.mefisto/pipeline/rescued-main.txt` y rechaza solo ese push. Detrás está el ruleset `main` de GitHub (`.github/rulesets/main.json`): PR obligatorio, sin force-push, sin borrado y sin bypass, así que ni `git push --no-verify` llega a `main`; todo cambio entra por PR.
 - **Los cambios notables se anotan como fragmento en `changelog.d/`, nunca editando `CHANGELOG.md` ni el índice temático de ADRs (`docs/adr/INDICE-TEMATICO.md`)** (issue #380). Un archivo por issue (`changelog.d/<issue>.<categoria>.md`, y `changelog.d/<issue>.adr-index.md` si el issue toca `docs/adr/`); ver `changelog.d/README.md`. Editar esos dos archivos-índice por-PR es la contención que colisionaba entre PRs paralelos: sólo `/mefisto-release` los consolida, y sólo en su rama de release.
@@ -131,11 +131,11 @@ un plugin) y cuándo envolver doctrina extensa en un Agent Skill: ver skill inte
 Mefisto mantiene **dos sets** de skills/agentes/pipelines físicamente separados (doctrina completa en MEF-ADR-0019):
 
 - **Publicados** (`commands/`, `skills/`, `agents/`, `scripts/`, `hooks/`): se distribuyen vía marketplace y operan únicamente sobre archivos del consumidor.
-- **Internos** (`.claude/commands/`, `.claude/skills/`, `.claude/agents/`, `.claude/scripts/`): no se publican; el runtime de agente activo (MEF-ADR-0049) los carga al abrir este repo. Llevan prefijo `mefisto-` y operan solo sobre archivos del propio plugin.
+- **Internos** (`.claude/commands/`, `.claude/skills/`, `.claude/agents/`, `src/internal/scripts/`): no se publican; el runtime de agente activo (MEF-ADR-0049) los carga al abrir este repo. Llevan prefijo `mefisto-` y operan solo sobre archivos del propio plugin.
 
 Toda operacion de cualquiera de los dos sets -- skill, comando, agente, pipeline, hook o Agent Skill -- nace neutral a runtime, con el conjunto de runtimes soportados abierto (MEF-ADR-0050): "soportado" significa unicamente "tiene adaptador en el repo", hoy Claude Code (MEF-ADR-0057).
 
-Dentro del lado interno, `src/internal/{agents,commands}/*.md` es la **fuente neutral** (MEF-ADR-0049): `.claude/{agents,commands}/*.md` es su **salida generada** por `src/internal/scripts/generate-internal-adapters.sh` y **no se edita a mano** — se edita la fuente y se regenera (`--check` falla si diverge). Los pipelines internos viven en `src/internal/scripts/` y `.claude/scripts/` es su superficie estable con shims de tres lineas (MEF-ADR-0049 decision 2); la unica excepcion es `mefisto-scope-hook.mts`, hook `PostToolUse` del adaptador Claude (MEF-ADR-0050). Los Agent Skills internos siguen el mismo modelo (issue #1685): la fuente canonica es `src/internal/skills/<id>/` y `generate-internal-adapters.sh` genera `.claude/skills/<id>/` con marcador; `--check` los cubre igual que a agentes y comandos. Con el mismo tratamiento proyecta ahi, desde `skills/<id>/`, los Skills publicados de la allowlist `PUBLISHED_PROJECTED_SKILLS` del generador (hoy solo `code-comments`, issue #2529), sin segunda copia a mano.
+Dentro del lado interno, `src/internal/{agents,commands}/*.md` es la **fuente neutral** (MEF-ADR-0049): `.claude/{agents,commands}/*.md` es su **salida generada** por `src/internal/scripts/generate-internal-adapters.mts` y **no se edita a mano** — se edita la fuente y se regenera (`--check` falla si diverge). Los pipelines internos viven en `src/internal/scripts/` y se invocan desde ahi con `node src/internal/scripts/<script>.mts` (MEF-ADR-0049 decision 2); `.claude/scripts/` solo guarda `mefisto-scope-hook.mts`, hook `PostToolUse` del adaptador Claude (MEF-ADR-0050), y los tests internos. Los Agent Skills internos siguen el mismo modelo (issue #1685): la fuente canonica es `src/internal/skills/<id>/` y `generate-internal-adapters.mts` genera `.claude/skills/<id>/` con marcador; `--check` los cubre igual que a agentes y comandos. Con el mismo tratamiento proyecta ahi, desde `skills/<id>/`, los Skills publicados de la allowlist `PUBLISHED_PROJECTED_SKILLS` del generador (hoy solo `code-comments`, issue #2529), sin segunda copia a mano.
 
 `skills/` y `.claude/skills/` son las ubicaciones de Agent Skills (MEF-ADR-0033) y ya están registradas en los gates de scope; el primero publicado es `skills/projections/` (ver "Agent Skills disponibles"), y del lado interno están `harness-config-contract` y `agent-skill-authoring` (fuente en `src/internal/skills/`). La integridad de todo Skill nuevo (su `name` frontmatter, sus recursos de Nivel 3 y las referencias `skills:` de los agentes) la valida el bloque `[F]` de `scripts/tests/guards.test.mts`: un `skills:` mal escrito degrada en silencio, sin error visible en un pipeline headless. **Todo tipo de artefacto nuevo del plugin debe registrarse a mano** en el blocklist publicado (`is_path_in_consumer_blocklist`) y en la allowlist interna (`is_path_in_mefisto_scope`): ambos enumeran rutas explícitamente. Ese registro y el uso de la ruta son **dos PRs distintos, y el de registro va primero** — el gate que juzga un PR se carga fuera de su worktree, así que un PR que registra una ruta y la puebla a la vez se autobloquea (regla completa en MEF-ADR-0019, sección E).
 
@@ -147,14 +147,14 @@ Ver `README.md`.
 
 ## Trabajar sobre el propio plugin
 
-Si estás clonando este repo (Mefisto) para evolucionarlo, **no necesitas instalar el plugin sobre sí mismo**. El runtime de agente activo (MEF-ADR-0049) carga automáticamente los skills internos desde `.claude/commands/` y `.claude/agents/` del repo activo. Los pipelines internos viven bajo `.claude/scripts/`.
+Si estás clonando este repo (Mefisto) para evolucionarlo, **no necesitas instalar el plugin sobre sí mismo**. El runtime de agente activo (MEF-ADR-0049) carga automáticamente los skills internos desde `.claude/commands/` y `.claude/agents/` del repo activo. Los pipelines internos viven bajo `src/internal/scripts/` y se invocan con `node`.
 
 Workflow típico:
 
 1. Captura una idea: `/mefisto-plan` (modo draft) o `gh issue create --label "estado:borrador,tipo:tooling" --title "..."`.
 2. Refina: `/mefisto-plan` (modo refinar) hasta `estado:listo`.
 3. Si vas a lanzar varios issues juntos, calcula el orden: `/mefisto-next-order`.
-4. Implementa: `/mefisto-tooling <issue>`. El pipeline crea worktree, ejecuta writer+reviewer, valida scope y abre PR. Fuera del mod y de herdr, el lanzador entrega la linea que abre el visor (`mefisto-stream-watch.sh`) en otra terminal.
+4. Implementa: `/mefisto-tooling <issue>`. El pipeline crea worktree, ejecuta writer+reviewer, valida scope y abre PR. Fuera del mod y de herdr, el lanzador entrega la linea que abre el visor (`mefisto-stream-watch.mts`) en otra terminal.
 5. Revisa: comentarios del PR → `/mefisto-fix-review <pr>`.
-6. Mergea: `/mefisto-merge <pr>` (squash + delete-branch, sin `pr-sync.sh`).
+6. Mergea: `/mefisto-merge <pr>` (squash + delete-branch, sin `pr-sync.mts`).
 7. Pon al dia la bitacora: `/mefisto-bitacora` (invoca al agente `mefisto-historiador`, verifica el PR resultante y sugiere `/mefisto-merge <N>` o `gh pr close <N>`; no lo mergea).

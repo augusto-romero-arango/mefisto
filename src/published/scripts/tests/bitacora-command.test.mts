@@ -36,7 +36,7 @@ describe('[fuente] contrato neutral', () => {
   contains(body, 'mensaje final', 'PR tomado del mensaje final')
   contains(body, 'No pidas ninguna confirmacion adicional', 'sin confirmacion antes de mergear')
   contains(body, 'gh pr merge', 'regla de no merges manuales')
-  contains(body, 'No diagnostiques errores de `pr-sync.sh`', 'regla de no diagnosticar pr-sync')
+  contains(body, 'No diagnostiques errores de `pr-sync.mts`', 'regla de no diagnosticar pr-sync')
   absentAll(
     body,
     [

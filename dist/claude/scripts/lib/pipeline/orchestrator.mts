@@ -3,7 +3,7 @@
 // sus resumenes.
 
 import type { ChildProcess, StdioOptions } from 'node:child_process'
-import { appendFileSync, existsSync, readFileSync, renameSync, statSync, writeFileSync } from 'node:fs'
+import { appendFileSync, readFileSync, renameSync, statSync, writeFileSync } from 'node:fs'
 import { constants } from 'node:os'
 import { join } from 'node:path'
 
@@ -76,15 +76,9 @@ export function firstPullRequestUrl(text: string): string {
   return PR_URL.exec(text)?.[0] ?? ''
 }
 
-/**
- * Comando de un pipeline hijo cuya ruta publica es `script` (`x-pipeline.sh`): su `x.mts` con
- * Node si existe; si no, el script tal cual, que requiere bash y no corre en Windows. Un `script`
- * que ya es un `.mts` se lanza con Node directamente.
- */
+/** Comando de un pipeline hijo: un `.mts` se lanza con Node; cualquier otro ejecutable, tal cual. */
 export function childCommand(script: string): { command: string; args: string[] } {
   if (script.endsWith('.mts')) return { command: process.execPath, args: [script] }
-  const typescript = script.replace(/\.sh$/, '.mts')
-  if (typescript !== script && existsSync(typescript)) return { command: process.execPath, args: [typescript] }
   return { command: script, args: [] }
 }
 

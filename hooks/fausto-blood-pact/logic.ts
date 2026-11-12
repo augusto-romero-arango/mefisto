@@ -2,7 +2,7 @@ import type { Role } from '../sprites'
 import { padEnd, reasonOf, typeBadge } from '../logic'
 import type { BitacoraNote, BitacoraPr, BoardItem, BoardList, InPrItem, Historian, PactMerge, PactMergePr, PipelineKind, PaneLine, PipelineResult, PipelineRun, RunStep } from '../types'
 
-export const NEXT_ORDER_FILE = 'scripts/next-order.sh'
+export const NEXT_ORDER_FILE = 'scripts/next-order.mts'
 export const PLANNER_AGENT = 'mefisto:planner'
 export const PAGE_ROWS = 5
 
@@ -733,7 +733,7 @@ export function batchStatusPath(stateDir: string): string {
   return `${stateDir.replace(/\/+$/, '')}/${BATCH_STATUS_FILE}`
 }
 
-/** Ruta de la senal de parada: la raiz del checkout principal (donde `batch-pipeline.sh` lee su cwd), nunca el worktree. */
+/** Ruta de la senal de parada: la raiz del checkout principal (donde `batch-pipeline.mts` lee su cwd), nunca el worktree. */
 export function batchStopPath(repoRoot: string): string {
   return `${repoRoot.replace(/\/+$/, '')}/${BATCH_STOP_FILE}`
 }
@@ -1042,9 +1042,9 @@ export const canStopBatch = (b: BatchStatus | null): boolean => b !== null && is
 export const MERGE_POLL_MS = 5_000
 export const MERGE_RIBBON_HIDE_MS = 15_000
 
-/** Argumentos de un merge de `pr-sync.sh` (`--merge`): los numeros de PR o `--all`; null si el comando no es un merge de ese script. */
+/** Argumentos de un merge de `pr-sync.mts` (`--merge`): los numeros de PR o `--all`; null si el comando no es un merge de ese script. */
 export function mergeRunArgsOf(command: string): string | null {
-  const m = /pr-sync\.sh["']?(?=\s|$|[;&|])([^;&|]*)/.exec(command)
+  const m = /pr-sync\.mts["']?(?=\s|$|[;&|])([^;&|]*)/.exec(command)
   if (!m) return null
   const tokens = (m[1] ?? '').split(/\s+/).filter(t => t !== '')
   if (!tokens.includes('--merge')) return null
@@ -1232,9 +1232,9 @@ export const BAND_FETCH_ROWS = 12
 export const LAUNCH_POLL_WINDOW_MS = 120_000
 export const LOG_TAIL_BYTES = 8192
 
-const PIPELINE_SCRIPTS = /(^|[\s/"'=])(batch|launch|tdd|tooling|iac)-pipeline\.sh(\s|$|["';|&])/
+const PIPELINE_SCRIPTS = /(^|[\s/"'=])(batch|launch|tdd|tooling|iac)-pipeline\.mts(\s|$|["';|&])/
 
-/** True si el comando Bash lanza un pipeline del consumidor (`*-pipeline.sh`). */
+/** True si el comando Bash lanza un pipeline del consumidor (`*-pipeline.mts`). */
 export function isPipelineLaunch(command: string | null | undefined): boolean {
   return typeof command === 'string' && PIPELINE_SCRIPTS.test(command)
 }

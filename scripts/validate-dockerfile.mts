@@ -27,7 +27,7 @@ export interface DockerfileDeps {
   err: (line: string) => void
 }
 
-export const USAGE = 'Uso: validate-dockerfile.sh <ruta-relativa-al-Dockerfile> (bajo src/)'
+export const USAGE = 'Uso: validate-dockerfile.mts <ruta-relativa-al-Dockerfile> (bajo src/)'
 const LOG_TAIL_LINES = 20
 
 function isFile(path: string): boolean {
@@ -73,7 +73,7 @@ function tail(path: string, count: number): string[] {
 
 function run(argv: string[], deps: DockerfileDeps): number {
   const top = consumerRepoRoot(deps.cwd, [
-    'ERROR: scripts/validate-dockerfile.sh es del plugin publicado y solo aplica al consumidor.',
+    'ERROR: scripts/validate-dockerfile.mts es del plugin publicado y solo aplica al consumidor.',
   ])
   const [dockerfile] = argv
   if (argv.length !== 1 || dockerfile === undefined || dockerfile === '') throw new CliError(USAGE)

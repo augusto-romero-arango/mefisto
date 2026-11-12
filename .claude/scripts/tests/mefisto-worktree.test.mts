@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { execFileSync, spawnSync } from 'node:child_process'
-import { existsSync, mkdtempSync, readFileSync, realpathSync, rmSync, statSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { after, before, describe, test } from 'node:test'
@@ -20,10 +20,8 @@ import type { WorktreeContext } from '../../../src/internal/scripts/mefisto-work
 const HERE = dirname(fileURLToPath(import.meta.url))
 const REPO_ROOT = join(HERE, '..', '..', '..')
 const SCRIPT = join(REPO_ROOT, 'src', 'internal', 'scripts', 'mefisto-worktree.mts')
-const CANONICAL_SHIM = join(REPO_ROOT, 'src', 'internal', 'scripts', 'mefisto-worktree.sh')
-const STABLE_SHIM = join(REPO_ROOT, '.claude', 'scripts', 'mefisto-worktree.sh')
 const POSIX = process.platform !== 'win32'
-const USAGE = 'Uso: mefisto-worktree.sh new <slug>\n     mefisto-worktree.sh clean\n'
+const USAGE = 'Uso: mefisto-worktree.mts new <slug>\n     mefisto-worktree.mts clean\n'
 
 const GIT_ENV: Record<string, string> = {
   GIT_AUTHOR_NAME: 't',
@@ -425,7 +423,7 @@ describe('proceso de una raiz de batch', () => {
   })
 })
 
-describe('linea de comandos y shim', () => {
+describe('linea de comandos', () => {
   test('sin subcomando valido muestra el uso y sale con 1; con --help sale con 0', () => {
     for (const [args, status] of [[[], 1], [['otro'], 1], [['-h'], 0], [['--help'], 0]] as Array<[string[], number]>) {
       const result = runScript(repo, ...args)
@@ -458,21 +456,8 @@ describe('linea de comandos y shim', () => {
     git(repo, 'branch', '-D', 'feat-raiz')
   })
 
-  test('el canonico en bash es el shim hacia el .mts', () => {
-    assert.equal(
-      readFileSync(CANONICAL_SHIM, 'utf8'),
-      [
-        '#!/usr/bin/env bash',
-        '# Shim: la implementacion vive en mefisto-worktree.mts (MEF-ADR-0057). No editar.',
-        'exec node "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)/mefisto-worktree.mts" "$@"',
-        '',
-      ].join('\n'),
-    )
-    if (POSIX) assert.notEqual(statSync(CANONICAL_SHIM).mode & 0o111, 0)
-  })
-
-  test('el shim estable llega al .mts y conserva la ruta en stdout', { skip: !POSIX }, () => {
-    const result = spawnSync(STABLE_SHIM, ['new', 'feat-shim'], { cwd: repo, encoding: 'utf8' })
+  test('como proceso imprime la ruta del worktree en stdout', () => {
+    const result = spawnSync(process.execPath, [SCRIPT, 'new', 'feat-shim'], { cwd: repo, encoding: 'utf8' })
     assert.equal(result.status, 0, result.stderr)
     assert.equal(result.stdout, `${join(repo, '.mefisto', 'worktrees', 'feat-shim')}\n`)
     git(repo, 'worktree', 'remove', join(repo, '.mefisto', 'worktrees', 'feat-shim'))

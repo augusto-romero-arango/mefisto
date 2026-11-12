@@ -59,10 +59,10 @@ describe('[fuente] contrato neutral', () => {
     'variante conserva aislamiento sin efectos remotos',
   )
   contains(body, 'reenvia ambos flags intactos', 'forwarding de flags intacto')
-  contains(body, '{{mefisto:run launch-pipeline.sh --tooling $ARGUMENTS}}', 'despacho neutral exacto')
+  contains(body, '{{mefisto:run launch-pipeline.mts --tooling $ARGUMENTS}}', 'despacho neutral exacto')
   check(
     'existe un unico despacho',
-    () => lineCount(command.source, '{{mefisto:run launch-pipeline.sh --tooling $ARGUMENTS}}') === 1,
+    () => lineCount(command.source, '{{mefisto:run launch-pipeline.mts --tooling $ARGUMENTS}}') === 1,
     'el despacho no es unico',
   )
   contains(body, 'Herdr', 'documenta despacho Herdr')
@@ -71,7 +71,7 @@ describe('[fuente] contrato neutral', () => {
     'la salida del wrapper dice `sin pane` sin nombrar la consola',
     'documenta el seguimiento desacoplado fuera de Herdr',
   )
-  contains(body, 'stream-watch.sh', 'remite al visor en otra terminal')
+  contains(body, 'stream-watch.mts', 'remite al visor en otra terminal')
   contains(body, '/mefisto:tooling', 'documenta el nombre canonico')
   absentAll(
     body,
@@ -85,13 +85,13 @@ describe('[salidas] adaptador y mirror', () => {
   contains(claude, 'model: "haiku"', 'Claude materializa el perfil fast')
   contains(
     claude,
-    'MEFISTO_RUNTIME=claude "${MEFISTO_PACKAGE_ROOT}/scripts/launch-pipeline.sh" --tooling $ARGUMENTS',
+    'MEFISTO_RUNTIME=claude node "${MEFISTO_PACKAGE_ROOT}/scripts/launch-pipeline.mts" --tooling $ARGUMENTS',
     'Claude cita package root con espacios y fija su runtime',
   )
   mirrorMatches(command)
   contains(
     mirror,
-    '<!-- GENERADO por src/published/scripts/generate-published-adapters.sh desde src/published/commands/tooling.md. No editar a mano. -->',
+    '<!-- GENERADO por src/published/scripts/generate-published-adapters.mts desde src/published/commands/tooling.md. No editar a mano. -->',
     'mirror conserva marcador generado',
   )
   generatorIsUpToDate()

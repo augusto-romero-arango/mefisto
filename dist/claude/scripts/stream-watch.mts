@@ -376,7 +376,7 @@ export class StreamViewer {
   }
 }
 
-export const USAGE = 'Uso: stream-watch.sh [<ruta-al-stream>] [--issues <n1,n2,...>] [--newer-than <epoch-segundos>]'
+export const USAGE = 'Uso: stream-watch.mts [<ruta-al-stream>] [--issues <n1,n2,...>] [--newer-than <epoch-segundos>]'
 
 export interface Arguments {
   filter: DiscoveryFilter
@@ -416,7 +416,7 @@ export function prepare(argv: readonly string[], write: Write = toStdout): Strea
   const root = repoRoot()
   if (root === null) throw new CliError('ERROR: no estas en un repositorio git')
   if (existsSync(join(root, '.claude-plugin', 'plugin.json'))) {
-    throw new CliError('ERROR: scripts/stream-watch.sh es del plugin publicado y solo aplica al consumidor.')
+    throw new CliError('ERROR: scripts/stream-watch.mts es del plugin publicado y solo aplica al consumidor.')
   }
   const args = parseArguments(argv)
   if (args === null) {

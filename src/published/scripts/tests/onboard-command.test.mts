@@ -35,20 +35,20 @@ describe('[b] invocaciones de scripts', () => {
     assert.equal(guards, 1, `guard de consumidor aparece ${guards} veces`)
   })
   for (const script of [
-    'onboard-diagnose.sh',
-    'onboard-migrate-directives.sh',
-    'setup-github-labels.sh',
-    'setup-github-ci.sh',
-    'bootstrap-backend.sh',
+    'onboard-diagnose.mts',
+    'onboard-migrate-directives.mts',
+    'setup-github-labels.mts',
+    'setup-github-ci.mts',
+    'bootstrap-backend.mts',
   ]) {
     contains(
       claude,
-      `MEFISTO_RUNTIME=claude "\${MEFISTO_PACKAGE_ROOT}/scripts/${script}"`,
+      `MEFISTO_RUNTIME=claude node "\${MEFISTO_PACKAGE_ROOT}/scripts/${script}"`,
       `claude invoca ${script}`,
     )
   }
-  contains(claude, 'onboard-migrate-directives.sh" --preview', 'claude usa --preview')
-  contains(claude, 'onboard-migrate-directives.sh" --apply', 'claude usa --apply')
+  contains(claude, 'onboard-migrate-directives.mts" --preview', 'claude usa --preview')
+  contains(claude, 'onboard-migrate-directives.mts" --apply', 'claude usa --apply')
 })
 
 describe('[c] command-doc de scaffold-projections', () => {
@@ -82,14 +82,14 @@ describe('[d] ausencia de tokens de runtime', () => {
 
 describe('[e] cada provision despues de su confirmacion', () => {
   const provisions = [
-    ['pregunta si desea aplicar', 'onboard-migrate-directives.sh --apply}}'],
-    ['¿Quieres que los provisione ahora?', 'setup-github-labels.sh 2>&1}}'],
-    ['¿Quieres que lo configure ahora? [si/no]', 'bootstrap-backend.sh --subscription'],
-    ['¿Quieres que lo configure ahora? [si/no]', 'setup-github-ci.sh <subscription-id>}}'],
+    ['pregunta si desea aplicar', 'onboard-migrate-directives.mts --apply}}'],
+    ['¿Quieres que los provisione ahora?', 'setup-github-labels.mts 2>&1}}'],
+    ['¿Quieres que lo configure ahora? [si/no]', 'bootstrap-backend.mts --subscription'],
+    ['¿Quieres que lo configure ahora? [si/no]', 'setup-github-ci.mts <subscription-id>}}'],
     ['¿Confirmas? [si/no]', 'ESTRATEGIA="<'],
     ['¿Quieres que corra', 'command-doc scaffold-projections}}'],
-    ['pregunta si desea aplicar **ese contenido exacto**', 'onboard-provision-appinsights.sh --apply}}'],
-    ['onboard-provision-appinsights.sh --preview}}', 'onboard-provision-appinsights.sh --apply}}'],
+    ['pregunta si desea aplicar **ese contenido exacto**', 'onboard-provision-appinsights.mts --apply}}'],
+    ['onboard-provision-appinsights.mts --preview}}', 'onboard-provision-appinsights.mts --apply}}'],
   ] as const
   for (const [question, provision] of provisions) {
     test(`confirmacion antes de: ${provision}`, () => {
@@ -106,8 +106,8 @@ describe('[e] cada provision despues de su confirmacion', () => {
   contains(body, 'FALTA` para `.mefisto/appinsights.env`', 'el paso solo se ofrece ante FALTA')
   contains(
     claude,
-    'MEFISTO_RUNTIME=claude "${MEFISTO_PACKAGE_ROOT}/scripts/onboard-provision-appinsights.sh"',
-    'claude invoca onboard-provision-appinsights.sh',
+    'MEFISTO_RUNTIME=claude node "${MEFISTO_PACKAGE_ROOT}/scripts/onboard-provision-appinsights.mts"',
+    'claude invoca onboard-provision-appinsights.mts',
   )
 })
 

@@ -21,7 +21,7 @@ import {
 const HERE = dirname(fileURLToPath(import.meta.url))
 const SCRIPT = join(HERE, '..', 'seed-secret.mts')
 const COMMAND = join(HERE, '..', '..', 'commands', 'seed-secret.md')
-const PROGRAM = 'scripts/seed-secret.sh'
+const PROGRAM = 'scripts/seed-secret.mts'
 const USAGE = [
   `Uso: ${PROGRAM} <nombre> --domain <dominio> (--from-output <output> | --from-github-secret <NOMBRE>) [--env <env>]`,
   `Ejemplo: ${PROGRAM} stripe-api-key --domain facturacion --from-github-secret STRIPE_API_KEY`,
@@ -271,19 +271,19 @@ describe('argumentos y guard', () => {
     assert.equal(result.status, 1)
     assert.deepEqual(result.err, [
       [
-        'ERROR: scripts/seed-secret.sh es del plugin publicado y solo aplica al consumidor.',
+        'ERROR: scripts/seed-secret.mts es del plugin publicado y solo aplica al consumidor.',
         'Mefisto no tiene harness.config.json ni dominios de negocio que sembrar.',
       ].join('\n'),
     ])
   })
 
-  test('la linea de comando nombra el shim en el uso y termina en 1', () => {
+  test('la linea de comando nombra el script en el uso y termina en 1', () => {
     const repo = makeConsumer({ [CANONICAL_CONFIG]: config('canonical') })
     const result = spawnSync(process.execPath, [SCRIPT], { cwd: repo, encoding: 'utf8' })
     assert.equal(result.status, 1)
     assert.equal(result.stdout, '')
     assert.ok(
-      result.stderr.startsWith(`Uso: ${join(HERE, '..', 'seed-secret.sh')} <nombre> --domain <dominio> `),
+      result.stderr.startsWith(`Uso: node ${join(HERE, '..', 'seed-secret.mts')} <nombre> --domain <dominio> `),
     )
   })
 })

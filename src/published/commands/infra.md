@@ -85,7 +85,7 @@ Tipo: infra | Estado: listo
 Luego lanza el pipeline:
 
 ```bash
-{{mefisto:run launch-pipeline.sh --infra $ARGUMENTS}}
+{{mefisto:run launch-pipeline.mts --infra $ARGUMENTS}}
 ```
 
 ### 4. Instrucciones de seguimiento
@@ -100,7 +100,7 @@ Fuera de Herdr el script tambien corre desacoplado, sin consola que lo siga: su 
 
 ```
 Pipeline infra corriendo sin pane. Para monitorear, en otra terminal:
-  <linea de stream-watch.sh que imprimio el script>
+  <linea de stream-watch.mts que imprimio el script>
 Log: <ruta del log que imprimio el script>
 ```
 
@@ -114,7 +114,7 @@ En el flujo *ongoing*, el desarrollador que usa Mefisto **no tiene ningun permis
 
 El **plan real** corre en CI cuando se abre el PR (workflow `infra-cd.yml`, job `plan`, publicado como comentario del PR) y el **apply real** corre en CI al mergear el PR a `main` (job `apply`). Ese mismo job cierra el issue tras un apply exitoso (MEF-ADR-0022) -- nunca el propio merge del PR ni este pipeline local.
 
-**Distincion bootstrap vs ongoing**: el bootstrap inicial (`bootstrap-backend.sh` para el tfstate, `setup-github-ci.sh` para el Service Principal de CI) es una operacion **privilegiada de una sola vez** que corre un admin con permisos de Azure para habilitar la CI. No es parte de este flujo ongoing.
+**Distincion bootstrap vs ongoing**: el bootstrap inicial (`bootstrap-backend.mts` para el tfstate, `setup-github-ci.mts` para el Service Principal de CI) es una operacion **privilegiada de una sola vez** que corre un admin con permisos de Azure para habilitar la CI. No es parte de este flujo ongoing.
 
 ## Reglas
 

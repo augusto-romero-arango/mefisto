@@ -287,7 +287,7 @@ function envValue(content: string, key: string): string | null {
 }
 
 /**
- * `.mefisto/appinsights.env` lo lee appinsights-query.sh (#1701) y lo requieren /bug (ruta
+ * `.mefisto/appinsights.env` lo lee appinsights-query.mts (#1701) y lo requieren /bug (ruta
  * desplegada), /health-check y /purge-store. Se lee linea a linea: nunca se ejecuta.
  */
 export function checkAppinsightsEnv(root: string): AppinsightsEnv {
@@ -328,7 +328,7 @@ export function checkAppinsightsEnv(root: string): AppinsightsEnv {
       '.mefisto/appinsights.env declara APPINSIGHTS_APP, APPINSIGHTS_RG, SERVICEBUS_NAMESPACE y SERVICEBUS_RG',
     info:
       envValue(content, 'FUNCTIONAPP_NAMES') === null
-        ? 'FUNCTIONAPP_NAMES ausente o vacio en .mefisto/appinsights.env: appinsights-query.sh function-errors no funcionara (normal antes del primer /scaffold)'
+        ? 'FUNCTIONAPP_NAMES ausente o vacio en .mefisto/appinsights.env: appinsights-query.mts function-errors no funcionara (normal antes del primer /scaffold)'
         : '',
   }
 }
@@ -556,7 +556,7 @@ export function onboardDiagnose(deps: OnboardDeps): number {
   if (isFile(join(top, '.claude-plugin', 'plugin.json'))) {
     // La primera linea es la que /onboard le pide al modelo reconocer.
     out('ERROR: /onboard no aplica al repo de Mefisto.')
-    out('       scripts/onboard-diagnose.sh es del plugin publicado y solo aplica al consumidor.')
+    out('       scripts/onboard-diagnose.mts es del plugin publicado y solo aplica al consumidor.')
     return 1
   }
 
@@ -620,7 +620,7 @@ export function onboardDiagnose(deps: OnboardDeps): number {
   if (activation.userLevelDetail.length > 0) list.row('INFO', activation.userLevelDetail)
   if (activation.state === 'FALTA') {
     next.repoActivationFalta = true
-    actions += `  - Habilita Mefisto en este repo: "${script('onboard-activate-repo.sh')}" --apply (o confirma el paso opt-in) y commitea los archivos que escribe.\n`
+    actions += `  - Habilita Mefisto en este repo: node "${script('onboard-activate-repo.mts')}" --apply (o confirma el paso opt-in) y commitea los archivos que escribe.\n`
   }
 
   out('')
@@ -729,7 +729,7 @@ export function onboardDiagnose(deps: OnboardDeps): number {
     } else {
       list.row('FALTA', `faltan labels:${missing}`)
       next.labelsFalta = true
-      actions += `  - Faltan labels del esquema. /onboard puede crearlos en el paso de provision opt-in (te lo ofrece tras el diagnostico, bajo confirmacion: el script borra los labels default de GitHub y recrea el esquema). O ejecutalo tu mismo: "${script('setup-github-labels.sh')}".\n`
+      actions += `  - Faltan labels del esquema. /onboard puede crearlos en el paso de provision opt-in (te lo ofrece tras el diagnostico, bajo confirmacion: el script borra los labels default de GitHub y recrea el esquema). O ejecutalo tu mismo: node "${script('setup-github-labels.mts')}".\n`
     }
     if (vars.domainLabels.length === 0) {
       out('                  (dom:* no verificado - domainLabels vacio o config no cargada)')
@@ -756,7 +756,7 @@ export function onboardDiagnose(deps: OnboardDeps): number {
     } else {
       list.row('FALTA', `aplicacion de Entra "${vars.spName}" no encontrada`)
       next.ciFalta = true
-      actions += `  - Falta la app de Entra del CI. /onboard puede configurarlo en el paso de provision opt-in (te lo ofrece tras el diagnostico, bajo confirmacion: crea recursos reales en Azure -- app de Entra, role assignments y federated credential OIDC, MEF-ADR-0022 -- y debe correr DESPUES de bootstrap-backend.sh). O ejecutalo tu mismo: "${script('setup-github-ci.sh')} <subscription-id>".\n`
+      actions += `  - Falta la app de Entra del CI. /onboard puede configurarlo en el paso de provision opt-in (te lo ofrece tras el diagnostico, bajo confirmacion: crea recursos reales en Azure -- app de Entra, role assignments y federated credential OIDC, MEF-ADR-0022 -- y debe correr DESPUES de bootstrap-backend.mts). O ejecutalo tu mismo: "node ${script('setup-github-ci.mts')} <subscription-id>".\n`
     }
   }
 
@@ -776,7 +776,7 @@ export function onboardDiagnose(deps: OnboardDeps): number {
     } else {
       list.row('FALTA', `faltan secrets OIDC:${missing}`)
       next.ciFalta = true
-      actions += `  - Copia los tres secrets OIDC (AZURE_CLIENT_ID, AZURE_TENANT_ID, AZURE_SUBSCRIPTION_ID) que imprime "${script('setup-github-ci.sh')} <subscription-id>" a Settings > Secrets and variables > Actions. El script (y el paso de provision opt-in de /onboard) NO los sube: pegalos a mano. No hay client secret que expire (OIDC, MEF-ADR-0022).\n`
+      actions += `  - Copia los tres secrets OIDC (AZURE_CLIENT_ID, AZURE_TENANT_ID, AZURE_SUBSCRIPTION_ID) que imprime "node ${script('setup-github-ci.mts')} <subscription-id>" a Settings > Secrets and variables > Actions. El script (y el paso de provision opt-in de /onboard) NO los sube: pegalos a mano. No hay client secret que expire (OIDC, MEF-ADR-0022).\n`
     }
   }
 
@@ -987,7 +987,7 @@ export function onboardDiagnose(deps: OnboardDeps): number {
   } else {
     if (next.repoActivationFalta) {
       step(
-        `Habilita Mefisto en este repo: "${script('onboard-activate-repo.sh')}" --apply`,
+        `Habilita Mefisto en este repo: node "${script('onboard-activate-repo.mts')}" --apply`,
         '(o confirma el paso opt-in) y commitea los archivos que escribe.',
       )
     }
@@ -1014,14 +1014,14 @@ export function onboardDiagnose(deps: OnboardDeps): number {
     }
     if (next.labelsFalta) {
       step(
-        `Provisiona los labels de GitHub: "${script('setup-github-labels.sh')}"`,
+        `Provisiona los labels de GitHub: node "${script('setup-github-labels.mts')}"`,
         '(o confirma el paso opt-in que te ofrece este mismo /onboard).',
       )
     }
     if (next.ciFalta) {
       step(
-        `Configura el CI hacia Azure: "${script('setup-github-ci.sh')} <subscription-id>"`,
-        '(o confirma el paso opt-in). Corre DESPUES de "bootstrap-backend.sh" (MEF-ADR-0022).',
+        `Configura el CI hacia Azure: "node ${script('setup-github-ci.mts')} <subscription-id>"`,
+        '(o confirma el paso opt-in). Corre DESPUES de "bootstrap-backend.mts" (MEF-ADR-0022).',
       )
     }
     if (next.infraBaseMissing) infraBaseStep()

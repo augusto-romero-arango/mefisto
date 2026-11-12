@@ -3,7 +3,7 @@ description: "Resuelve los comentarios de revision de un pull request del repo d
 model: "opus"
 argument-hint: "<numero-de-PR>"
 ---
-<!-- GENERADO por src/internal/scripts/generate-internal-adapters.sh desde src/internal/commands/mefisto-fix-review.md. No editar a mano. -->
+<!-- GENERADO por src/internal/scripts/generate-internal-adapters.mts desde src/internal/commands/mefisto-fix-review.md. No editar a mano. -->
 
 Resuelve los comentarios de revision de un pull request del repo de Mefisto. Comunicate en **espanol**.
 
@@ -36,8 +36,10 @@ El flujo general es identico al `/fix-review` publicado (Triaje -> Plan -> Ejecu
 
 - **Sin `dotnet build` ni `dotnet test`**: Mefisto no tiene .sln. La verificacion post-cambios es:
   ```bash
-  bash -n scripts/*.sh .claude/scripts/*.sh src/internal/scripts/*.sh   # sintaxis bash
+  npx tsc -p src/internal/tsconfig.json   # tipos de los .mts
+  node --test scripts/tests/guards.test.mts
   ```
+  Suma los `*.test.mts` que mencionen los archivos que tocaste.
   Si modificaste archivos `.md` de skills/agentes, no hay verificacion automatica de schema; revisa que el frontmatter siga el formato del resto.
 - **Mejoras a agentes** se aplican sobre `agents/` (publicados) o `src/internal/agents/` (internos -- tras editar, regenera los adaptadores con el generador de `src/internal/scripts/`) segun corresponda.
 - **Commits**: separa el commit de correcciones del de mejoras a agentes, igual que en el publicado.

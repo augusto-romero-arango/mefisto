@@ -1,8 +1,8 @@
 // metrics-report.mts -- Reporte agregado de metricas de los pipelines del consumidor.
 //
 // Uso:
-//   scripts/metrics-report.sh
-//   scripts/metrics-report.sh --desde 2026-08-01 --hasta 2026-08-15
+//   node scripts/metrics-report.mts
+//   node scripts/metrics-report.mts --desde 2026-08-01 --hasta 2026-08-15
 //
 // Agrega los pipeline-history.jsonl canonico y legacy del repo principal (una linea por corrida,
 // con agents.<stage>.metrics): ranking de herramientas, reparto API vs no-API del wall-clock,
@@ -67,7 +67,7 @@ import {
 import type { ReportIo, Run, RunAccessors } from './lib/metrics-report.mts'
 import { stateReadPaths } from './lib/state.mts'
 
-const HELP = `Uso: metrics-report.sh [--desde YYYY-MM-DD] [--hasta YYYY-MM-DD]
+const HELP = `Uso: metrics-report.mts [--desde YYYY-MM-DD] [--hasta YYYY-MM-DD]
 
 Reporte agregado de las corridas de los pipelines del consumidor (tdd/tooling/
 infra), segmentado por pipeline: ranking de herramientas, reparto del
@@ -422,8 +422,8 @@ function report(argv: string[], deps: ReportDeps): number {
   if (top === null) throw new CliError('ERROR: no estas en un repositorio git')
   if (isFile(join(top, '.claude-plugin', 'plugin.json'))) {
     throw new CliError(
-      'ERROR: scripts/metrics-report.sh es del plugin publicado y solo aplica al consumidor.\n' +
-        'Mefisto tiene su propio reporte interno: .claude/scripts/mefisto-metrics-report.sh',
+      'ERROR: scripts/metrics-report.mts es del plugin publicado y solo aplica al consumidor.\n' +
+        'Mefisto tiene su propio reporte interno: src/internal/scripts/mefisto-metrics-report.mts',
     )
   }
   // Los pipelines escriben el historial en el repo principal, tambien cuando corren en un worktree.

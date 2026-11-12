@@ -18,10 +18,10 @@ const SCAFFOLDERS = [
 
 const NEEDLES = [
   'SCAFFOLD_BASE=$(git rev-parse HEAD',
-  '{{mefisto:package-root}}/scripts/warnings-diff.sh --toolchain dotnet',
-  '{{mefisto:package-root}}/scripts/warnings-diff.sh --toolchain terraform',
+  'node {{mefisto:package-root}}/scripts/warnings-diff.mts --toolchain dotnet',
+  'node {{mefisto:package-root}}/scripts/warnings-diff.mts --toolchain terraform',
   '--path infra/environments/<env>',
-  '{{mefisto:package-root}}/scripts/warnings-diff.sh --toolchain shell',
+  'node {{mefisto:package-root}}/scripts/warnings-diff.mts --toolchain shell',
   'Salida `1`',
   '#pragma warning disable',
   '<NoWarn>',

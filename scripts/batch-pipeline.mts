@@ -2,11 +2,11 @@
 // siguiente issue.
 //
 // Uso:
-//   batch-pipeline.sh 42 43 44                          enrutamiento automatico por label
-//   batch-pipeline.sh --pipeline tooling 60 62 63       forzar pipeline tooling
-//   batch-pipeline.sh --pipeline tdd 42 43              forzar pipeline tdd
-//   batch-pipeline.sh 42 43 --stop-on-error             abortar en el primer fallo
-//   MEFISTO_RUNTIME=<id> batch-pipeline.sh 42           fija el runtime cuando hay mas de un CLI
+//   batch-pipeline.mts 42 43 44                          enrutamiento automatico por label
+//   batch-pipeline.mts --pipeline tooling 60 62 63       forzar pipeline tooling
+//   batch-pipeline.mts --pipeline tdd 42 43              forzar pipeline tdd
+//   batch-pipeline.mts 42 43 --stop-on-error             abortar en el primer fallo
+//   MEFISTO_RUNTIME=<id> batch-pipeline.mts 42           fija el runtime cuando hay mas de un CLI
 //                                                       instalado (MEF-ADR-0049/0050); cada eslabon lo hereda
 //
 // Sin --pipeline, cada issue se enruta por su label tipo:*: feature, refactor y projection van a
@@ -228,7 +228,7 @@ export async function batchPipeline(deps: BatchPipelineDeps): Promise<number> {
   }
   const root = resolve(chomp(top.stdout))
   if (isFile(join(root, '.claude-plugin', 'plugin.json'))) {
-    err('ERROR: batch-pipeline.sh es del plugin publicado y solo aplica al consumidor.\n')
+    err('ERROR: batch-pipeline.mts es del plugin publicado y solo aplica al consumidor.\n')
     err('Estás en el repo de Mefisto. Trabaja los issues internos secuencialmente con /mefisto-tooling.\n')
     return 1
   }
@@ -470,7 +470,7 @@ export async function batchPipeline(deps: BatchPipelineDeps): Promise<number> {
 
     // --- Stage 3: merge del PR ---
     log.log(`Mergeando PR #${prNumber} a main...`)
-    const syncExit = await runTeed(join(scriptsDir, 'pr-sync.sh'), [prNumber, '--merge'], issueLog, teeOptions)
+    const syncExit = await runTeed(join(scriptsDir, 'pr-sync.mts'), [prNumber, '--merge'], issueLog, teeOptions)
     // El log del issue se vuelve a anexar entero: la salida del pipeline queda dos veces en el del lote.
     appendFileSync(logFile, stripAnsi(readFileSync(issueLog, 'utf8')))
 

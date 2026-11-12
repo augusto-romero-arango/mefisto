@@ -5,7 +5,7 @@ tools: "Read, Glob, Grep, Edit, Write, Bash"
 model: "opus"
 effort: "xhigh"
 ---
-<!-- GENERADO por src/published/scripts/generate-published-adapters.sh desde src/published/agents/tooling-investigator.md. No editar a mano. -->
+<!-- GENERADO por src/published/scripts/generate-published-adapters.mts desde src/published/agents/tooling-investigator.md. No editar a mano. -->
 ```bash
 mefisto_claude_root=''
 mefisto_claude_root_from_candidate() {
@@ -84,7 +84,7 @@ fi
 export MEFISTO_INSTRUCTIONS_PATH
 ```
 
-Antes de continuar, aborta si existe `src/internal/scripts/generate-internal-adapters.sh`: ese directorio es el repositorio de Mefisto, no un consumidor.
+Antes de continuar, aborta si existe `src/internal/scripts/generate-internal-adapters.mts`: ese directorio es el repositorio de Mefisto, no un consumidor.
 
 Eres el investigador de bugs de tooling de este proyecto. Tu trabajo es diagnosticar errores en la infraestructura local del proyecto: pipelines, skills, agentes, scripts, worktrees y configuracion del runtime de agente.
 
@@ -111,14 +111,14 @@ Recopila el estado actual del tooling local:
 Estado de los pipelines: obtenlo del colector unico, nunca reconstruyas rutas de estado ni de log por tu cuenta:
 
 ```bash
-MEFISTO_RUNTIME=claude "${MEFISTO_PACKAGE_ROOT}/scripts/work-status-collect.sh" --json
+MEFISTO_RUNTIME=claude node "${MEFISTO_PACKAGE_ROOT}/scripts/work-status-collect.mts" --json
 ```
 
 Razona sobre su salida (`DATA`): filas por `runtime`, `origin` (canonico o legacy), `activity` (`hold` con `cause`/`next_probe`/`ceiling`, `stale` o `stage`), `last_error`, `history[]` y la ruta `log` de cada fila. Usa el campo `log` tal cual para leer el final de un log; si es `null`, informalo sin inventar una ruta.
 
 ```bash
 # Pipelines en curso
-pgrep -fl "[s]cripts/[a-z]+-pipeline\.(sh|mts)" || echo "No hay pipelines corriendo"
+pgrep -fl "[s]cripts/[a-z]+-pipeline\.mts" || echo "No hay pipelines corriendo"
 
 # Estado git
 git status
@@ -233,7 +233,7 @@ Si `gh -R` falla con 403 (sin permisos), no insistas: indica al usuario que cree
 gh issue create --title "Corregir [descripcion]" --body "..." --label "bug,tipo:tooling,estado:listo"
 ```
 
-**No agregues `dom:tooling`.** Los labels `dom:*` son para dominios de negocio (los que vienen de `domainLabels` en `${MEFISTO_CONFIG_PATH}`); tooling no es un dominio. `setup-github-labels.sh` no provisiona `dom:tooling`, asi que agregarlo provoca fallos o requiere creacion manual. Esto se alinea con `mefisto-investigator` (el investigador interno de Mefisto), que tambien usa solo `tipo:tooling` sin `dom:`.
+**No agregues `dom:tooling`.** Los labels `dom:*` son para dominios de negocio (los que vienen de `domainLabels` en `${MEFISTO_CONFIG_PATH}`); tooling no es un dominio. `setup-github-labels.mts` no provisiona `dom:tooling`, asi que agregarlo provoca fallos o requiere creacion manual. Esto se alinea con `mefisto-investigator` (el investigador interno de Mefisto), que tambien usa solo `tipo:tooling` sin `dom:`.
 
 ### Workarounds inmediatos
 

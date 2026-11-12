@@ -1,9 +1,9 @@
 {
-  "$comment": "Allowlist declarativa de src/internal/scripts/mefisto-neutrality-gate.sh (issue #911, hijo 1 de 3 de #873, MEF-ADR-0049). El gate la carga SIEMPRE desde su propia ubicacion (src/internal/contract/ del checkout donde vive el script), nunca desde --root: es parte del gate, y el PR bajo revision no puede alterar el gate que lo juzga (MEF-ADR-0019 seccion E) -- registrar aqui una excepcion nueva y usarla son dos PRs, el de registro primero. Tres secciones, toda entrada exige motivo no vacio (CA-1): scope_excluded documenta rutas fuera del universo de archivos que escanea el gate (la exclusion real la aplica el filtro de prefijos del script, esto es solo trazabilidad); exceptions declara, por regla (R1-R4 o ALL), coincidencias legitimas y permanentes que el gate no debe reportar como violacion; not_migrated declara los .claude/scripts/*.sh de nivel superior que R4 exime de ser un shim. Una excepcion es para contenido CORRECTO y PERMANENTE -- no para las fugas que el hijo 2 de #873 va a limpiar, que el gate SI debe seguir reportando mientras existan.",
+  "$comment": "Allowlist declarativa de src/internal/scripts/mefisto-neutrality-gate.mts (issue #911, hijo 1 de 3 de #873, MEF-ADR-0049). El gate la carga SIEMPRE desde su propia ubicacion (src/internal/contract/ del checkout donde vive el script), nunca desde --root: es parte del gate, y el PR bajo revision no puede alterar el gate que lo juzga (MEF-ADR-0019 seccion E) -- registrar aqui una excepcion nueva y usarla son dos PRs, el de registro primero. Dos secciones, toda entrada exige motivo no vacio (CA-1): scope_excluded documenta rutas fuera del universo de archivos que escanea el gate (la exclusion real la aplica el filtro de prefijos del script, esto es solo trazabilidad); exceptions declara, por regla (R1-R3 o ALL), coincidencias legitimas y permanentes que el gate no debe reportar como violacion. Una excepcion es para contenido CORRECTO y PERMANENTE -- no para las fugas que el hijo 2 de #873 va a limpiar, que el gate SI debe seguir reportando mientras existan.",
   "scope_excluded": [
     {
       "path": "scripts/**",
-      "motivo": "Arbol publicado (incluye scripts/herdr-workspace.sh, la excepcion que nombraba el padre #873): fuera del universo de archivos del gate (MEF-ADR-0019). La exclusion real la aplica el filtro de prefijos (src/internal/, .claude/, AGENTS.md); esta entrada es solo documentacion."
+      "motivo": "Arbol publicado (incluye scripts/herdr-workspace.mts, la excepcion que nombraba el padre #873): fuera del universo de archivos del gate (MEF-ADR-0019). La exclusion real la aplica el filtro de prefijos (src/internal/, .claude/, AGENTS.md); esta entrada es solo documentacion."
     },
     {
       "path": "commands/**",
@@ -84,14 +84,14 @@
       "rules": [
         "R2"
       ],
-      "motivo": "Salida generada por generate-internal-adapters.sh (MEF-ADR-0049 decision 2, issue #854): un agente que traduce {{mefisto:launch-agent}} emite el literal `claude --agent <id> \"$ARGUMENTS\"`. No se edita a mano."
+      "motivo": "Salida generada por generate-internal-adapters.mts (MEF-ADR-0049 decision 2, issue #854): un agente que traduce {{mefisto:launch-agent}} emite el literal `claude --agent <id> \"$ARGUMENTS\"`. No se edita a mano."
     },
     {
       "path": ".claude/commands/**",
       "rules": [
         "R2"
       ],
-      "motivo": "Salida generada por generate-internal-adapters.sh, mismo motivo que .claude/agents/** (los comandos de lanzamiento -- mefisto-plan.md, mefisto-bug.md, mefisto-bitacora.md -- traducen {{mefisto:launch-agent}} al mismo literal)."
+      "motivo": "Salida generada por generate-internal-adapters.mts, mismo motivo que .claude/agents/** (los comandos de lanzamiento -- mefisto-plan.md, mefisto-bug.md, mefisto-bitacora.md -- traducen {{mefisto:launch-agent}} al mismo literal)."
     },
     {
       "path": ".claude/scripts/tests/**",
@@ -105,7 +105,7 @@
       "rules": [
         "ALL"
       ],
-      "motivo": "Fixtures de validate-internal-artifacts.sh/generate-internal-adapters.sh (issues #853/#854): fixtures/invalid/* declaran a proposito contenido no neutral (incluido un `model` de frontmatter y una referencia a `claude --agent`) para probar que el validador lo rechaza."
+      "motivo": "Fixtures de validate-internal-artifacts.mts/generate-internal-adapters.mts (issues #853/#854): fixtures/invalid/* declaran a proposito contenido no neutral (incluido un `model` de frontmatter y una referencia a `claude --agent`) para probar que el validador lo rechaza."
     },
     {
       "path": "AGENTS.md",
@@ -122,18 +122,11 @@
       "motivo": "Este mismo archivo: cada 'motivo' de esta lista documenta una excepcion citando el patron exacto que el gate prohibe en cualquier OTRO archivo (alias de modelo, invocaciones directas, variables/rutas de runtime, claves de permiso). Autorreferenciarse es la unica forma de explicar esas excepciones en prosa sin generar un falso positivo permanente sobre si mismo."
     },
     {
-      "path": "src/internal/scripts/mefisto-neutrality-gate.sh",
-      "rules": [
-        "ALL"
-      ],
-      "motivo": "El propio gate: sus comentarios de cabecera describen R1-R4 citando literalmente los patrones que persigue (alias de modelo, `claude -p`/`claude --agent`, `CLAUDE_PLUGIN_ROOT`/`CLAUDE_PROJECT_DIR`/`.claude/pipeline`), y R1_REGEX/R2_REGEX/R3_REGEX los contienen literalmente en su definicion. Un detector basado en grep necesariamente contiene el texto que busca; autorreferenciarse evita un falso positivo permanente sobre si mismo."
-    },
-    {
       "path": "src/internal/scripts/mefisto-neutrality-gate.mts",
       "rules": [
         "ALL"
       ],
-      "motivo": "El propio gate en TypeScript (MEF-ADR-0057); mefisto-neutrality-gate.sh queda como shim hacia este archivo. Mismo motivo que la entrada del .sh: su cabecera describe R1-R4 citando los patrones que persigue y sus expresiones regulares los contienen literalmente."
+      "motivo": "El propio gate: sus comentarios de cabecera describen R1-R3 citando literalmente los patrones que persigue (alias de modelo, `claude -p`/`claude --agent`, `CLAUDE_PLUGIN_ROOT`/`CLAUDE_PROJECT_DIR`/`.claude/pipeline`), y sus expresiones R1/R2/R3 los contienen literalmente en su definicion. Un detector basado en grep necesariamente contiene el texto que busca; autorreferenciarse evita un falso positivo permanente sobre si mismo."
     },
     {
       "path": ".claude/mods/**",
@@ -156,6 +149,5 @@
       ],
       "motivo": "Modulos del mod publicado bajo hooks/ (MEF-ADR-0055): artefactos exclusivos del paquete Claude. El tablero del planner se activa leyendo `--agent mefisto:planner` de la linea de comando del proceso, igual que .claude/mods/**. Ningun pipeline los invoca."
     }
-  ],
-  "not_migrated": []
+  ]
 }

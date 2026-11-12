@@ -455,7 +455,7 @@ describe('pareja del tfstate y roles', () => {
         'ERROR: no se pudo resolver una unica pareja completa del backend Terraform.\n' +
           '  Candidatos problematicos:\n' +
           `  - ${problem}\n` +
-          '  Ejecuta scripts/bootstrap-backend.sh para un ambiente o corrige el backend antes de reintentar.\n',
+          '  Ejecuta scripts/bootstrap-backend.mts para un ambiente o corrige el backend antes de reintentar.\n',
       )
     }
   })
@@ -474,7 +474,7 @@ describe('pareja del tfstate y roles', () => {
         '  Candidatos completos:\n' +
         '  - infra/environments/dev|rg-tfstate-dev|sttfstatecertdev001\n' +
         '  - infra/environments/prod|rg-tfstate-prod|sttfstatecertprod001\n' +
-        '  Ejecuta scripts/bootstrap-backend.sh para un ambiente o corrige el backend antes de reintentar.\n',
+        '  Ejecuta scripts/bootstrap-backend.mts para un ambiente o corrige el backend antes de reintentar.\n',
     )
   })
 
@@ -597,7 +597,7 @@ describe('argumentos y guard', () => {
     assert.equal(result.status, 1)
     assert.equal(
       result.stderr,
-      'ERROR: scripts/setup-github-ci.sh es del plugin publicado y solo aplica al consumidor.\n' +
+      'ERROR: scripts/setup-github-ci.mts es del plugin publicado y solo aplica al consumidor.\n' +
         'Mefisto no se despliega a Azure ni necesita Service Principal.\n',
     )
     assert.deepEqual(result.cli.calls, [])
@@ -605,8 +605,8 @@ describe('argumentos y guard', () => {
 })
 
 describe('distribucion', () => {
-  test('dist/claude trae el shim y el script identicos a scripts/, y los inventaria', () => {
-    assertDistributed(['setup-github-ci.sh', 'setup-github-ci.mts', 'lib/azure-cli.mts'])
+  test('dist/claude trae el script identico a scripts/ y lo inventaria', () => {
+    assertDistributed(['setup-github-ci.mts', 'lib/azure-cli.mts'])
   })
 
   test('la copia de dist resuelve sus modulos: llega hasta el cargador del config', () => {

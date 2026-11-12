@@ -18,7 +18,7 @@ Dashboard de salud del entorno desplegado. Ejecuta queries contra App Insights, 
 Verifica que hay sesion activa de Azure CLI:
 
 ```bash
-{{mefisto:run azure-account-info.sh 2>&1}}
+{{mefisto:run azure-account-info.mts 2>&1}}
 ```
 
 Si sale con codigo distinto de `0`, muestra tal cual el mensaje que emitio el script (indica iniciar sesion en Azure) y termina: no ejecutes ningun paso siguiente.
@@ -44,15 +44,15 @@ Si `gh` no esta autenticado o el comando falla, reporta `NO VERIFICADO` (mismo c
 Ejecuta las 3 queries en secuencia. Captura la salida completa de cada una:
 
 ```bash
-{{mefisto:run appinsights-query.sh health-summary --hours 24}}
+{{mefisto:run appinsights-query.mts health-summary --hours 24}}
 ```
 
 ```bash
-{{mefisto:run appinsights-query.sh dead-letters --hours 24}}
+{{mefisto:run appinsights-query.mts dead-letters --hours 24}}
 ```
 
 ```bash
-{{mefisto:run appinsights-query.sh function-errors --hours 24}}
+{{mefisto:run appinsights-query.mts function-errors --hours 24}}
 ```
 
 Si falta `.mefisto/appinsights.env`, el script lo reporta con su propio mensaje: muestralo tal cual en la linea correspondiente del dashboard. Si alguna query falla, reporta el error pero continua con las demas.
@@ -137,7 +137,7 @@ Tip: vuelve a ejecutar {{mefisto:command health-check}} periodicamente durante t
 
 ## Reglas
 
-- **No modifiques el script** `appinsights-query.sh` -- solo ejecuta sus comandos.
+- **No modifiques el script** `appinsights-query.mts` -- solo ejecuta sus comandos.
 - **No investigues problemas.** Solo presenta el dashboard y sugiere `{{mefisto:command bug}}` si hay algo anormal.
 - **Usa `--hours 24`** en todas las queries para mantener consistencia.
 - **Si una query falla**, muestra el error en la linea correspondiente del dashboard en lugar del valor, y continua con las demas queries.

@@ -140,7 +140,7 @@ describe('[M-1] preview y aplicacion explicita', () => {
     for (const expected of [
       'Ofrece este paso **solo** cuando el diagnóstico reportó que falta `AGENTS.md` o, bajo el adaptador Claude, el puente exacto',
       'Sin un `si` explícito, no ejecutes ninguna escritura',
-      '/scripts/onboard-migrate-directives.sh" --apply',
+      '/scripts/onboard-migrate-directives.mts" --apply',
     ]) {
       assert.ok(command.includes(expected), expected)
     }
@@ -323,7 +323,7 @@ describe('argumentos y guard', () => {
     assert.deepEqual(result.err, [
       [
         'ERROR: /onboard no aplica al repo de Mefisto.',
-        '       scripts/onboard-migrate-directives.sh es del plugin publicado y solo aplica al consumidor.',
+        '       scripts/onboard-migrate-directives.mts es del plugin publicado y solo aplica al consumidor.',
       ].join('\n'),
     ])
   })

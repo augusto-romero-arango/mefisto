@@ -15,9 +15,9 @@
 // en el RG del tfstate: una segunda corrida reusa esos nombres en vez de recalcularlos.
 //
 // Uso:
-//   ./scripts/bootstrap-backend.sh --subscription <id>
-//   ./scripts/bootstrap-backend.sh --subscription <id> --env dev
-//   ./scripts/bootstrap-backend.sh <id> --env staging --location westeurope
+//   node scripts/bootstrap-backend.mts --subscription <id>
+//   node scripts/bootstrap-backend.mts --subscription <id> --env dev
+//   node scripts/bootstrap-backend.mts <id> --env staging --location westeurope
 
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
@@ -120,7 +120,7 @@ function backendBlock(resourceGroup: string, storage: string, key: string): stri
 function run(argv: string[], deps: BootstrapDeps): number {
   const { output } = deps
   consumerRoot(deps.cwd, [
-    'ERROR: scripts/bootstrap-backend.sh es del plugin publicado y solo aplica al consumidor.',
+    'ERROR: scripts/bootstrap-backend.mts es del plugin publicado y solo aplica al consumidor.',
     'Mefisto no se despliega a Azure ni tiene backend de Terraform.',
     'Para mejorar el plugin usa /mefisto-tooling.',
   ])
@@ -401,7 +401,7 @@ function run(argv: string[], deps: BootstrapDeps): number {
     output.err(`  No se escribe ${backendFile} para no duplicar la definicion del backend.`)
   } else {
     const content = [
-      '# Generado por scripts/bootstrap-backend.sh -- no editar a mano.',
+      '# Generado por scripts/bootstrap-backend.mts -- no editar a mano.',
       `# Backend remoto del estado de Terraform para el ambiente '${environment}'.`,
       "# 'use_azuread_auth = true': acceso keyless por AAD/RBAC, nunca por access key",
       '# (MEF-ADR-0025, MEF-ADR-0022; developer.hashicorp.com/terraform/language/backend/azurerm).',
@@ -419,11 +419,11 @@ function run(argv: string[], deps: BootstrapDeps): number {
     'El backend es keyless (AAD/RBAC, MEF-ADR-0025): ningun access key se emite ni se',
     "persiste para el tfstate. El principal que hace 'terraform apply' en CI",
     "requiere el rol 'Storage Blob Data Contributor' (lectura+escritura, no solo",
-    'lectura) sobre esta Storage Account -- lo asigna scripts/setup-github-ci.sh',
+    'lectura) sobre esta Storage Account -- lo asigna scripts/setup-github-ci.mts',
     '(issue #195), no este script.',
     '',
     `Siguiente paso: el pipeline IaC ejecuta 'terraform init' en ${envDir}`,
-    'y reutiliza este backend. Lanzalo con /infra o scripts/iac-pipeline.sh.',
+    'y reutiliza este backend. Lanzalo con /infra o scripts/iac-pipeline.mts.',
     'Listo.',
   ]) {
     output.out(line)

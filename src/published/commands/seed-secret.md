@@ -74,7 +74,7 @@ muestralos y extrae de la linea `Registro: <ruta>` la ruta `<REGISTRO_PATH>`. Es
 fuente de verdad de la ruta que el script escribio:
 
 ```bash
-{{mefisto:run seed-secret.sh <nombre> --domain <Dominio> --env <env> <flag-de-fuente> <valor>}} 2>&1
+{{mefisto:run seed-secret.mts <nombre> --domain <Dominio> --env <env> <flag-de-fuente> <valor>}} 2>&1
 ```
 
 Donde `<flag-de-fuente> <valor>` es `--from-output <output>` o `--from-github-secret <NOMBRE>`. Si el script sale con codigo distinto de cero, muestra la salida y detente. Si la salida no trae ninguna linea `Registro: `, informa `ERROR: el script no informo la ruta de registro.` y detente.

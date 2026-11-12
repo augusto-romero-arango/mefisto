@@ -85,7 +85,7 @@ describe('guardas previas', () => {
     assert.equal(run.code, 1)
     assert.equal(
       run.err,
-      'ERROR: scripts/iac-pipeline.sh es del plugin publicado y solo aplica al consumidor.\n' +
+      'ERROR: scripts/iac-pipeline.mts es del plugin publicado y solo aplica al consumidor.\n' +
         'Estas en el repo de Mefisto, que no tiene infraestructura Terraform/Azure.\n' +
         'Para mejorar el plugin usa /mefisto-tooling.\n',
     )
@@ -391,7 +391,7 @@ describe('backend.tf del checkout', () => {
     const run = await runDouble(consumer(), ['42'], [WRITER, REVIEWER])
     assert.ok(
       text(run).includes(
-        '! No existe infra/environments/dev/backend.tf en el working tree -- el pipeline continua sin abortar; si necesitas backend remoto, ejecuta primero bootstrap-backend.sh\n',
+        '! No existe infra/environments/dev/backend.tf en el working tree -- el pipeline continua sin abortar; si necesitas backend remoto, ejecuta primero bootstrap-backend.mts\n',
       ),
     )
   })
@@ -777,15 +777,9 @@ describe('como proceso', () => {
     assert.match(stripAnsi(result.stdout), /x ERROR: Argumento no reconocido: --raro\n/)
   })
 
-  test('iac-pipeline.sh es el shim que lo lanza con sus argumentos', { skip: process.platform === 'win32' }, () => {
-    const result = capture('bash', [join(REPO_ROOT, 'scripts', 'iac-pipeline.sh'), '42', '--from-stage', '9'], { cwd: consumer().root })
-    assert.equal(result.status, 1)
-    assert.match(stripAnsi(result.stdout), /x ERROR: --from-stage debe ser 1 o 2\n/)
-  })
-
   test('en el repo de Mefisto el proceso se niega', () => {
     const result = capture(process.execPath, [join(REPO_ROOT, 'scripts', 'iac-pipeline.mts'), '42'], { cwd: REPO_ROOT })
     assert.equal(result.status, 1)
-    assert.match(result.stderr, /^ERROR: scripts\/iac-pipeline\.sh es del plugin publicado y solo aplica al consumidor\.\n/)
+    assert.match(result.stderr, /^ERROR: scripts\/iac-pipeline\.mts es del plugin publicado y solo aplica al consumidor\.\n/)
   })
 })

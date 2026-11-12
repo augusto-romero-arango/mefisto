@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { spawnSync } from 'node:child_process'
-import { accessSync, constants, mkdtempSync, readFileSync, rmSync } from 'node:fs'
+import { mkdtempSync, readFileSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { after, before, describe, test } from 'node:test'
@@ -17,8 +17,7 @@ const HERE = dirname(fileURLToPath(import.meta.url))
 const REPO_ROOT = join(HERE, '..', '..', '..')
 const INTERNAL = join(REPO_ROOT, 'src', 'internal', 'scripts')
 const SCRIPT = join(INTERNAL, 'mefisto-next-order.mts')
-const SHIM = join(INTERNAL, 'mefisto-next-order.sh')
-const USAGE = 'Uso: src/internal/scripts/mefisto-next-order.sh [--refinement] [--json]'
+const USAGE = 'Uso: src/internal/scripts/mefisto-next-order.mts [--refinement] [--json]'
 const NO_BLOCKS = 'Sin ciclos ni bloqueos externos.'
 const NONE = '## Dependencias\n\nNinguna.'
 
@@ -483,18 +482,6 @@ describe('issues con PR abierto', () => {
 })
 
 describe('linea de comando', () => {
-  test('mefisto-next-order.sh es el shim hacia mefisto-next-order.mts y conserva el bit de ejecucion', () => {
-    assert.equal(
-      readFileSync(SHIM, 'utf8'),
-      text(
-        '#!/usr/bin/env bash',
-        '# Shim: la implementacion vive en mefisto-next-order.mts (MEF-ADR-0057). No editar.',
-        'exec node "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)/mefisto-next-order.mts" "$@"',
-      ),
-    )
-    if (process.platform !== 'win32') accessSync(SHIM, constants.X_OK)
-  })
-
   test('imprime el orden en stdout, los avisos en stderr y sale con el codigo del resultado', { skip: process.platform === 'win32' }, () => {
     const bin = mkdtempSync(join(work, 'bin '))
     const fixtures: GhFixtures = {

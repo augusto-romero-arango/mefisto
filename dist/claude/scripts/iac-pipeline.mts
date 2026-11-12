@@ -1,9 +1,9 @@
 // Pipeline IaC: escribe y revisa el HCL de un issue de infraestructura y abre su PR.
 //
 // Uso:
-//   iac-pipeline.sh 42
-//   iac-pipeline.sh 42 --env dev
-//   iac-pipeline.sh 42 --from-stage 2      retoma desde el Stage 2 (revision estatica)
+//   iac-pipeline.mts 42
+//   iac-pipeline.mts 42 --env dev
+//   iac-pipeline.mts 42 --from-stage 2      retoma desde el Stage 2 (revision estatica)
 //
 // Ciclo: issue -> worktree -> write (HCL) -> review (revision estatica) -> PR -> limpieza.
 //
@@ -143,7 +143,7 @@ export function iacPullRequestBody(input: IacBodyInput): string {
       '',
       `- **Ambiente**: ${input.environment}`,
       '- **Estado**: HCL escrito y revisado localmente (sin plan ni apply local); pendiente de aplicar por CI',
-      '- **Pipeline**: iac-pipeline.sh',
+      '- **Pipeline**: iac-pipeline.mts',
       '',
       '## Decisiones del pipeline',
       '',
@@ -312,7 +312,7 @@ export async function iacPipeline(deps: IacPipelineDeps): Promise<number> {
   }
   const consumerRoot = resolve(chomp(top.stdout))
   if (isFile(join(consumerRoot, '.claude-plugin', 'plugin.json'))) {
-    err('ERROR: scripts/iac-pipeline.sh es del plugin publicado y solo aplica al consumidor.\n')
+    err('ERROR: scripts/iac-pipeline.mts es del plugin publicado y solo aplica al consumidor.\n')
     err('Estas en el repo de Mefisto, que no tiene infraestructura Terraform/Azure.\n')
     err('Para mejorar el plugin usa /mefisto-tooling.\n')
     return 1
@@ -607,7 +607,7 @@ de un issue ya cerrado, reabrelo primero.`)
       run.worktree = createWorktree({ repoRoot, branch, currentBranch }, worktreeTools)
       statePath(join('summaries', '.state'), run.worktree)
 
-      // bootstrap-backend.sh deja el backend.tf en el checkout del consumidor, y el worktree nace
+      // bootstrap-backend.mts deja el backend.tf en el checkout del consumidor, y el worktree nace
       // de origin/main, donde puede no estar versionado aun: se copia y se commitea para que viaje
       // en el PR. El reviewer sigue con `init -backend=false`; el backend remoto lo usa CI.
       const backendSrc = join(repoRoot, envDir, 'backend.tf')
@@ -624,7 +624,7 @@ de un issue ya cerrado, reabrelo primero.`)
         }
       } else {
         log.warn(
-          `No existe ${envDir}/backend.tf en el working tree -- el pipeline continua sin abortar; si necesitas backend remoto, ejecuta primero bootstrap-backend.sh`,
+          `No existe ${envDir}/backend.tf en el working tree -- el pipeline continua sin abortar; si necesitas backend remoto, ejecuta primero bootstrap-backend.mts`,
         )
       }
 

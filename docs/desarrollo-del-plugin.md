@@ -10,12 +10,13 @@ Estructura del plugin y guía para evolucionarlo. Movido desde el [README](../RE
   marketplace.json     # catálogo
 commands/              # skills publicados (los que ve el consumidor)
 agents/                # agentes publicados
-scripts/               # pipelines + utilidades bash publicadas
+scripts/               # pipelines + utilidades publicadas (.mts, se invocan con node)
 hooks/hooks.json       # salida Claude generada: SessionStart (.mefisto/pipeline/.plugin-root y mirror temporal, sessions.jsonl) + PostToolUse para logging
 .claude/               # skills/agentes/pipelines INTERNOS (no se publican)
   commands/            # /mefisto-tooling, /mefisto-plan, /mefisto-bug, ...
   agents/              # mefisto-investigator, mefisto-planner, mefisto-historiador
-  scripts/             # shims de los pipelines internos: mefisto-tooling-pipeline.sh, ...
+  scripts/             # hook de scope del adaptador (mefisto-scope-hook.mts) y tests internos
+src/internal/scripts/  # pipelines internos: node src/internal/scripts/mefisto-tooling-pipeline.mts, ...
 docs/
   adr/                 # ADRs del marco
   testing/harness-cheatsheet.md
@@ -63,8 +64,7 @@ node --test ".claude/scripts/**/*.test.mts" "scripts/**/*.test.mts" "src/**/*.te
 
 ### Convenciones al portar un script
 
-- **Ubicacion y nombre**: `x.mts` junto al `x.sh` que reemplaza. Su test es `x.test.mts` en la carpeta `tests/` de ese lado (`scripts/tests/` para lo publicado, `.claude/scripts/tests/` para lo interno).
-- **Shim**: mientras algo en bash o un comando invoque `x.sh`, queda como shim de una linea de codigo: `exec node "$(dirname "$0")/x.mts" "$@"`. Cuando no quede ningun llamador, se borra.
+- **Ubicacion y nombre**: `x.mts` en el directorio de su lado (`scripts/` o `src/internal/scripts/`), invocado con `node <ruta>/x.mts`. Su test es `x.test.mts` en la carpeta `tests/` de ese lado (`scripts/tests/` para lo publicado, `.claude/scripts/tests/` para lo interno).
 - **Forma del modulo**: funciones puras exportadas que el test importa, y un `main` que solo corre cuando el archivo es el punto de entrada (`isEntryPoint(import.meta.url)` de `scripts/lib/cli.mts`). Los errores previstos se lanzan como `CliError` y `runMain` los traduce a mensaje en stderr y codigo de salida.
 - **Procesos**: siempre con lista de argumentos y sin shell (`capture` de `scripts/lib/cli.mts`). Nada de `exec` con una cadena.
 - **Librerias compartidas**: lo publicado vive en `scripts/lib/`; lo interno, en `src/internal/scripts/lib/`. Lo interno puede importar lo publicado, nunca al reves.

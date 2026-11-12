@@ -31,15 +31,15 @@ describe('[fuente] contrato neutral y perfil', () => {
     'metadata neutral invalida',
   )
   contains(body, '{{mefisto:assert-consumer-repo}}', 'guard consumidor presente')
-  contains(body, '{{mefisto:run azure-account-info.sh 2>&1}}', 'directiva azure-account-info.sh')
+  contains(body, '{{mefisto:run azure-account-info.mts 2>&1}}', 'directiva azure-account-info.mts')
   contains(
     body,
-    '{{mefisto:run bootstrap-backend.sh --subscription <id> --env <env>}}',
-    'directiva bootstrap-backend.sh',
+    '{{mefisto:run bootstrap-backend.mts --subscription <id> --env <env>}}',
+    'directiva bootstrap-backend.mts',
   )
-  contains(body, '{{mefisto:run setup-github-labels.sh 2>&1}}', 'directiva setup-github-labels.sh')
-  contains(body, '{{mefisto:run setup-github-ci.sh <id>}}', 'directiva setup-github-ci.sh')
-  contains(body, '{{mefisto:run launch-pipeline.sh --infra <issue>}}', 'directiva launch-pipeline.sh --infra')
+  contains(body, '{{mefisto:run setup-github-labels.mts 2>&1}}', 'directiva setup-github-labels.mts')
+  contains(body, '{{mefisto:run setup-github-ci.mts <id>}}', 'directiva setup-github-ci.mts')
+  contains(body, '{{mefisto:run launch-pipeline.mts --infra <issue>}}', 'directiva launch-pipeline.mts --infra')
   contains(body, '{{mefisto:command infra-base}}', 'paso 6 remite a infra-base')
   absent(body, 'work-status', 'no remite a work-status')
   contains(body, 'az account set --subscription <id>', 'indica cambiar de suscripcion fuera del chat')
@@ -55,7 +55,7 @@ describe('[fuente] contrato neutral y perfil', () => {
   contains(body, 'idempotente', 'conserva idempotencia por paso')
   contains(
     body,
-    'la ruta del log con la línea del visor `stream-watch.sh`',
+    'la ruta del log con la línea del visor `stream-watch.mts`',
     'instrucciones de seguimiento sin pane',
   )
   for (const secret of ['AZURE_CLIENT_ID', 'AZURE_TENANT_ID', 'AZURE_SUBSCRIPTION_ID']) {
@@ -70,7 +70,7 @@ describe('[fuente] sin acoplamientos', () => {
     'plugins/cache',
     'PLUGIN_SCRIPTS',
     'az account show',
-    'iac-pipeline.sh',
+    'iac-pipeline.mts',
     'Claude',
     '.claude/pipeline',
     'model:',
@@ -85,12 +85,12 @@ describe('[fuente] orden de pasos', () => {
   const markers = [
     '### 1. ',
     '### 2. ',
-    'azure-account-info.sh',
-    'bootstrap-backend.sh --subscription',
-    'setup-github-labels.sh 2>&1}}',
-    'setup-github-ci.sh <id>}}',
+    'azure-account-info.mts',
+    'bootstrap-backend.mts --subscription',
+    'setup-github-labels.mts 2>&1}}',
+    'setup-github-ci.mts <id>}}',
     '### 6. ',
-    'launch-pipeline.sh --infra',
+    'launch-pipeline.mts --infra',
     '### 8. ',
   ]
   check(
@@ -111,20 +111,20 @@ describe('[fuente] orden de pasos', () => {
 describe('[salidas] adaptador y mirror', () => {
   check(`existe ${AGENT.claudePath}`, () => isRegularFile(repoPath(AGENT.claudePath)), `falta ${AGENT.claudePath}`)
   for (const form of [
-    'azure-account-info.sh" 2>&1',
-    'bootstrap-backend.sh" --subscription <id> --env <env>',
-    'setup-github-labels.sh" 2>&1',
-    'setup-github-ci.sh" <id>',
-    'launch-pipeline.sh" --infra <issue>',
+    'azure-account-info.mts" 2>&1',
+    'bootstrap-backend.mts" --subscription <id> --env <env>',
+    'setup-github-labels.mts" 2>&1',
+    'setup-github-ci.mts" <id>',
+    'launch-pipeline.mts" --infra <issue>',
   ]) {
     contains(
       claudeBody,
-      `MEFISTO_RUNTIME=claude "\${MEFISTO_PACKAGE_ROOT}/scripts/${form}`,
+      `MEFISTO_RUNTIME=claude node "\${MEFISTO_PACKAGE_ROOT}/scripts/${form}`,
       `Claude invoca ${form} con su runtime`,
     )
   }
   absent(claudeBody, 'az account show', 'salida sin az directo')
-  absent(claudeBody, 'iac-pipeline.sh', 'salida sin iac-pipeline.sh directo')
+  absent(claudeBody, 'iac-pipeline.mts', 'salida sin iac-pipeline.mts directo')
   absent(claudeBody, 'PLUGIN_SCRIPTS', 'salida sin PLUGIN_SCRIPTS')
   absent(claudeBody, 'plugins/cache', 'salida sin cache de plugins')
   absent(claudeBody, '{{mefisto:', 'salida sin directivas sin resolver')

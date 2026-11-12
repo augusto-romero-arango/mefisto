@@ -37,14 +37,14 @@ Recopila el estado actual del tooling local:
 Estado de los pipelines: obtenlo del colector unico, nunca reconstruyas rutas de estado ni de log por tu cuenta:
 
 ```bash
-{{mefisto:run work-status-collect.sh --json}}
+{{mefisto:run work-status-collect.mts --json}}
 ```
 
 Razona sobre su salida (`DATA`): filas por `runtime`, `origin` (canonico o legacy), `activity` (`hold` con `cause`/`next_probe`/`ceiling`, `stale` o `stage`), `last_error`, `history[]` y la ruta `log` de cada fila. Usa el campo `log` tal cual para leer el final de un log; si es `null`, informalo sin inventar una ruta.
 
 ```bash
 # Pipelines en curso
-pgrep -fl "[s]cripts/[a-z]+-pipeline\.(sh|mts)" || echo "No hay pipelines corriendo"
+pgrep -fl "[s]cripts/[a-z]+-pipeline\.mts" || echo "No hay pipelines corriendo"
 
 # Estado git
 git status
@@ -159,7 +159,7 @@ Si `gh -R` falla con 403 (sin permisos), no insistas: indica al usuario que cree
 gh issue create --title "Corregir [descripcion]" --body "..." --label "bug,tipo:tooling,estado:listo"
 ```
 
-**No agregues `dom:tooling`.** Los labels `dom:*` son para dominios de negocio (los que vienen de `domainLabels` en `{{mefisto:config-path}}`); tooling no es un dominio. `setup-github-labels.sh` no provisiona `dom:tooling`, asi que agregarlo provoca fallos o requiere creacion manual. Esto se alinea con `mefisto-investigator` (el investigador interno de Mefisto), que tambien usa solo `tipo:tooling` sin `dom:`.
+**No agregues `dom:tooling`.** Los labels `dom:*` son para dominios de negocio (los que vienen de `domainLabels` en `{{mefisto:config-path}}`); tooling no es un dominio. `setup-github-labels.mts` no provisiona `dom:tooling`, asi que agregarlo provoca fallos o requiere creacion manual. Esto se alinea con `mefisto-investigator` (el investigador interno de Mefisto), que tambien usa solo `tipo:tooling` sin `dom:`.
 
 ### Workarounds inmediatos
 

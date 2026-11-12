@@ -6,7 +6,7 @@ Aceptado
 
 ## Contexto
 
-El pipeline TDD (`scripts/tdd-pipeline.sh`) soporta un flujo de "refactoring puro"
+El pipeline TDD (`scripts/tdd-pipeline.mts`) soporta un flujo de "refactoring puro"
 donde el `test-writer` decide que la tarea no requiere tests nuevos y senaliza al
 pipeline para saltar Stages 2 y 2b y verificar baseline verde. El contrato de la
 senal hasta ahora era:
@@ -72,7 +72,7 @@ worktree, fuera de `.claude/`.
 
 ### Cambios concretos
 
-- `scripts/tdd-pipeline.sh`:
+- `scripts/tdd-pipeline.mts`:
   - `REFACTOR_SIGNAL_PATH` apunta a `$WORKTREE_PATH/pipeline-state/refactor-signal.md`.
   - `LEGACY_REFACTOR_SIGNAL_PATH` apunta a la ubicacion vieja como fallback.
   - El script crea `pipeline-state/` con `mkdir -p` antes del Stage 1.
@@ -151,3 +151,4 @@ parchear el runtime ni heuristicas fragiles.
   ubicacion del archivo señal (`pipeline-state/`, fuera de `.claude/`) y la
   razon original de la decision (interceptacion de escrituras del runtime) no
   cambian.
+- 2026-11-12: se retiran los shims `.sh` (MEF-ADR-0057): el cuerpo cita los scripts `.mts` que los reemplazaban y su invocacion con `node`. Sin cambio de doctrina.

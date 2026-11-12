@@ -20,10 +20,10 @@ Este comando no acepta argumentos: siempre analiza TODO el universo `estado:list
 ### Ejecutar el calculo
 
 ```bash
-{{mefisto:run next-order.sh --launch-command "/mefisto:sequential" --parallel-command "/mefisto:parallel"}}
+{{mefisto:run next-order.mts --launch-command "/mefisto:sequential" --parallel-command "/mefisto:parallel"}}
 ```
 
-Doctrina completa del algoritmo (extraccion de dependencias, clasificacion bloqueo externo/ciclo/bloqueo indirecto/lanzable, Kahn con seleccion golosa): cabecera de `scripts/next-order.sh`. No la dupliques aqui.
+Doctrina completa del algoritmo (extraccion de dependencias, clasificacion bloqueo externo/ciclo/bloqueo indirecto/lanzable, Kahn con seleccion golosa): cabecera de `scripts/next-order.mts`. No la dupliques aqui.
 
 Reproduce la salida **tal cual**, sin reordenarla, resumirla ni completarla con informacion propia: el reporte de ciclos/bloqueos (si los hay) al tope, la lista numerada de issues lanzables, la linea de infra (`/mefisto:infra #N`, una invocacion por issue, solo si hay `tipo:infra` lanzables: se ofrece desarrollarlos antes, sin exigirlo), la linea `{{mefisto:command sequential}} ...` lista para copiar y, si el script la emite, la linea `{{mefisto:command parallel}} ...` del lote parallel.
 

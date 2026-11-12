@@ -1,12 +1,12 @@
 // Despachador de los pipelines publicados.
 //
 // Uso:
-//   scripts/launch-pipeline.sh 42                        # issue unico (enruta por label)
-//   scripts/launch-pipeline.sh --pipeline tooling 42     # forzar pipeline tooling
-//   scripts/launch-pipeline.sh --batch 42 43 44          # secuencial (enruta por label)
-//   scripts/launch-pipeline.sh --parallel 42 43 44       # paralelo (enruta por label)
-//   scripts/launch-pipeline.sh --parallel 42 43 --max-parallel 2
-//   scripts/launch-pipeline.sh 42 --from-stage 3         # retomar issue #42 desde Stage 3
+//   node scripts/launch-pipeline.mts 42                        # issue unico (enruta por label)
+//   node scripts/launch-pipeline.mts --pipeline tooling 42     # forzar pipeline tooling
+//   node scripts/launch-pipeline.mts --batch 42 43 44          # secuencial (enruta por label)
+//   node scripts/launch-pipeline.mts --parallel 42 43 44       # paralelo (enruta por label)
+//   node scripts/launch-pipeline.mts --parallel 42 43 --max-parallel 2
+//   node scripts/launch-pipeline.mts 42 --from-stage 3         # retomar issue #42 desde Stage 3
 //
 // Dos modos de UI (MEFISTO_UI, MEF-ADR-0057 decision 5): 'mod', desacoplado y default (el
 // pipeline corre como proceso propio que sobrevive al lanzador), y 'herdr', que delega en
@@ -63,34 +63,34 @@ const { red: RED, green: GREEN, yellow: YELLOW, blue: BLUE, bold: BOLD, reset: N
 const H = { cyan: COLOR.cyan, bold: BOLD, nc: NC }
 
 const HELP = `
-${H.cyan}${H.bold}launch-pipeline.sh${H.nc} --- Despachador de los pipelines publicados
+${H.cyan}${H.bold}launch-pipeline.mts${H.nc} --- Despachador de los pipelines publicados
 
 ${H.bold}Uso:${H.nc}
-  ./scripts/launch-pipeline.sh 42                                   Issue unico (enruta por label)
-  ./scripts/launch-pipeline.sh 42 --from-stage 3                    Retomar issue #42 desde Stage 3
-  ./scripts/launch-pipeline.sh --pipeline tooling 42                Forzar pipeline tooling
-  ./scripts/launch-pipeline.sh --tooling 42                         Issue de tooling (override explicito)
-  ./scripts/launch-pipeline.sh --tooling 42 --models 'reviewer=opus,writer=sonnet'  Modelo por stage (experimentos)
-  ./scripts/launch-pipeline.sh 42 --models 'reviewer=opus,test-writer=sonnet'      Idem, enrutando por label a tdd-pipeline.sh
-  ./scripts/launch-pipeline.sh --tooling 42 --variant experimento-a                Corrida paralela del mismo issue (sin PR, rama local)
-  ./scripts/launch-pipeline.sh 42 --variant a --models 'test-writer=sonnet'       Idem, enrutando por label a tdd-pipeline.sh
-  ./scripts/launch-pipeline.sh 42 --variant a                                     Dos variantes del mismo issue
-  ./scripts/launch-pipeline.sh 42 --variant b                                     (lanzar ambos comandos, cada uno arranca en background)
-  ./scripts/launch-pipeline.sh --infra 42                           Issue de infraestructura (IaC)
-  ./scripts/launch-pipeline.sh --scaffold 42 --domain nombre        Scaffold de dominio
-  ./scripts/launch-pipeline.sh --scaffold --domain nombre           Scaffold sin issue
-  ./scripts/launch-pipeline.sh --batch 42 43 44                     Secuencial (enruta por label)
-  ./scripts/launch-pipeline.sh --batch --pipeline tooling 42 43     Secuencial forzando tooling
-  ./scripts/launch-pipeline.sh --parallel 42 43 44                  Paralelo (enruta por label)
-  ./scripts/launch-pipeline.sh --parallel --pipeline tdd 42 43      Paralelo forzando tdd
+  node scripts/launch-pipeline.mts 42                                   Issue unico (enruta por label)
+  node scripts/launch-pipeline.mts 42 --from-stage 3                    Retomar issue #42 desde Stage 3
+  node scripts/launch-pipeline.mts --pipeline tooling 42                Forzar pipeline tooling
+  node scripts/launch-pipeline.mts --tooling 42                         Issue de tooling (override explicito)
+  node scripts/launch-pipeline.mts --tooling 42 --models 'reviewer=opus,writer=sonnet'  Modelo por stage (experimentos)
+  node scripts/launch-pipeline.mts 42 --models 'reviewer=opus,test-writer=sonnet'      Idem, enrutando por label a tdd-pipeline.mts
+  node scripts/launch-pipeline.mts --tooling 42 --variant experimento-a                Corrida paralela del mismo issue (sin PR, rama local)
+  node scripts/launch-pipeline.mts 42 --variant a --models 'test-writer=sonnet'       Idem, enrutando por label a tdd-pipeline.mts
+  node scripts/launch-pipeline.mts 42 --variant a                                     Dos variantes del mismo issue
+  node scripts/launch-pipeline.mts 42 --variant b                                     (lanzar ambos comandos, cada uno arranca en background)
+  node scripts/launch-pipeline.mts --infra 42                           Issue de infraestructura (IaC)
+  node scripts/launch-pipeline.mts --scaffold 42 --domain nombre        Scaffold de dominio
+  node scripts/launch-pipeline.mts --scaffold --domain nombre           Scaffold sin issue
+  node scripts/launch-pipeline.mts --batch 42 43 44                     Secuencial (enruta por label)
+  node scripts/launch-pipeline.mts --batch --pipeline tooling 42 43     Secuencial forzando tooling
+  node scripts/launch-pipeline.mts --parallel 42 43 44                  Paralelo (enruta por label)
+  node scripts/launch-pipeline.mts --parallel --pipeline tdd 42 43      Paralelo forzando tdd
 
 ${H.bold}Modos de UI (MEFISTO_UI):${H.nc}
   mod    Desacoplado, el default: el sub-pipeline corre como proceso
          desacoplado, sin pane. Con el runtime claude lo sigue la consola
          fausto-blood-pact de la sesion; en cualquier caso se imprime la ruta
-         del report log y la linea de stream-watch.sh para abrir el visor en
+         del report log y la linea de stream-watch.mts para abrir el visor en
          otra terminal.
-  herdr  Panes: delega en herdr-pipeline.sh. Solo dentro de un pane herdr
+  herdr  Panes: delega en herdr-pipeline.mts. Solo dentro de un pane herdr
          (HERDR_ENV=1, HERDR_PANE_ID y herdr en PATH); fuera de herdr aborta.
   Sin MEFISTO_UI: desacoplado con el runtime claude; con otro runtime, herdr
   si la invocacion corre dentro de un pane herdr y desacoplado si no.
@@ -101,20 +101,20 @@ ${H.bold}Retomar una corrida caida (--from-stage):${H.nc}
   Se rechaza (mensaje explicito, nunca silencio) en --batch, --parallel, varios
   issues sueltos --- un unico --from-stage sobre un lote seria ambiguo --- y en
   --scaffold, que no tiene stages retomables. El despachador NO valida el
-  rango: lo valida el sub-script destino (tdd-pipeline.sh acepta 1-4;
-  tooling-pipeline.sh e iac-pipeline.sh, 1-2), para no desincronizarse con el
+  rango: lo valida el sub-script destino (tdd-pipeline.mts acepta 1-4;
+  tooling-pipeline.mts e iac-pipeline.mts, 1-2), para no desincronizarse con el
   la primera vez que un pipeline sume una fase.
 
 ${H.bold}Modelo por stage (--models, experimentos A/B de desempeno):${H.nc}
   Valido con --tooling y con el enrutamiento automatico de un unico issue
   (sea por label o por '--pipeline tdd|tooling <issue>' -- ambos overrides de
-  resolve_pipeline() resuelven siempre a tdd-pipeline.sh o tooling-pipeline.sh):
+  resolve_pipeline() resuelven siempre a tdd-pipeline.mts o tooling-pipeline.mts):
   --models 'agente=modelo[,agente=modelo...]' sobreescribe el modelo de un
   stage puntual. La clave es el nombre de agente que recibe run_agent() en el
   sub-script destino:
-    tooling-pipeline.sh: 'writer' (cubre Stage 1 y la etapa de merge, ambos
+    tooling-pipeline.mts: 'writer' (cubre Stage 1 y la etapa de merge, ambos
       invocados con ese mismo nombre) y 'reviewer' (Stage 2).
-    tdd-pipeline.sh: 'test-writer'/'projection-test-writer' (Stage 1),
+    tdd-pipeline.mts: 'test-writer'/'projection-test-writer' (Stage 1),
       'implementer'/'projection-implementer' (Stage 2, y la etapa de merge que
       SIEMPRE usa la clave 'implementer'), 'smoke-test-writer' (Stage 2b) y
       'reviewer' (Stage 3). Los dos sub-stages de remediacion del coverage gate
@@ -126,31 +126,31 @@ ${H.bold}Modelo por stage (--models, experimentos A/B de desempeno):${H.nc}
       El scaffold de dominio (Stage 0, domain-scaffolder) queda fuera del mapa
       -- no es un stage TDD.
   Sin entrada en el mapa, el stage usa su default de siempre (el frontmatter
-  'model:' del agente en tdd-pipeline.sh; sonnet/opus hardcodeado en
-  tooling-pipeline.sh). Se rechaza (mensaje explicito, nunca silencio) en
+  'model:' del agente en tdd-pipeline.mts; sonnet/opus hardcodeado en
+  tooling-pipeline.mts). Se rechaza (mensaje explicito, nunca silencio) en
   --infra, --scaffold, --batch y --parallel, porque sus sub-scripts no
   implementan el flag o serian ambiguos sobre varios issues. Un --models
   malformado aborta ANTES de crear el worktree. En modo herdr, esta
-  invocacion delega en herdr-pipeline.sh, que reenvia --models con la misma
+  invocacion delega en herdr-pipeline.mts, que reenvia --models con la misma
   superficie.
 
 ${H.bold}Corridas paralelas del mismo issue (--variant <label>):${H.nc}
   Valido con --tooling y con el enrutamiento automatico de un unico issue (sea
-  por label o por '--pipeline tdd|tooling <issue>' -- issue #713: tdd-pipeline.sh
-  y tooling-pipeline.sh ya implementan el flag). Se rechaza (mensaje explicito,
+  por label o por '--pipeline tdd|tooling <issue>' -- issue #713: tdd-pipeline.mts
+  y tooling-pipeline.mts ya implementan el flag). Se rechaza (mensaje explicito,
   nunca silencio) en --infra, --scaffold, --batch, --parallel y varios issues
   sueltos -- serian ambiguos sobre un lote, o el sub-script destino
-  (iac-pipeline.sh/scaffold-pipeline.sh) no implementa el flag. Corre el MISMO
+  (iac-pipeline.mts/scaffold-pipeline.mts) no implementa el flag. Corre el MISMO
   issue N veces en paralelo, cada corrida en su propio worktree y rama con el
   sufijo -<label> (slug [a-z0-9-], hasta 40 caracteres): dos corridas
   simultaneas del mismo issue sin --variant colisionarian worktree y rama.
   En modo variante el pipeline NO hace push, NO abre PR y NO comenta el issue
   -- la rama queda LOCAL. Se combina con --models para comparar modelo por
   variante (una variante sin --models es la corrida de control):
-    launch-pipeline.sh --tooling 42 --variant a --models 'writer=sonnet'
-    launch-pipeline.sh --tooling 42 --variant b --models 'writer=opus'
-    launch-pipeline.sh 42 --variant a --models 'test-writer=sonnet'    (issue TDD)
-    launch-pipeline.sh 42 --variant b --models 'test-writer=opus'
+    launch-pipeline.mts --tooling 42 --variant a --models 'writer=sonnet'
+    launch-pipeline.mts --tooling 42 --variant b --models 'writer=opus'
+    launch-pipeline.mts 42 --variant a --models 'test-writer=sonnet'    (issue TDD)
+    launch-pipeline.mts 42 --variant b --models 'test-writer=opus'
   Si una variante gana la comparacion, se promueve a mano (push + gh pr create
   sobre esa rama) o relanzando el pipeline sin --variant.
 
@@ -163,16 +163,16 @@ ${H.bold}Runtime (MEF-ADR-0049/0050):${H.nc}
 
 ${H.bold}Enrutamiento automatico:${H.nc}
   Sin --pipeline ni --tooling/--infra, el pipeline se determina por el label tipo:* del issue:
-    tipo:feature|refactor|projection -> tdd-pipeline.sh
-    tipo:tooling                     -> tooling-pipeline.sh
+    tipo:feature|refactor|projection -> tdd-pipeline.mts
+    tipo:tooling                     -> tooling-pipeline.mts
     tipo:infra                       -> SKIP (usar --infra explicitamente)
 
-  Con --parallel, el modo desacoplado delega en parallel-pipeline.sh, cuyo
+  Con --parallel, el modo desacoplado delega en parallel-pipeline.mts, cuyo
   scheduler serializa los issues tipo:projection del lote (comparten los
   archivos del worker de proyecciones del BC, MEF-ADR-0034) y respeta
   --max-parallel. En modo herdr no hay scheduler entre panes: un lote con dos
   o mas tipo:projection se rechaza con mensaje explicito; para correrlos
-  igual, usa /sequential o parallel-pipeline.sh directo.
+  igual, usa /sequential o parallel-pipeline.mts directo.
 
 `
 
@@ -205,10 +205,10 @@ export async function launchPipeline(ctx: LaunchPipelineContext): Promise<number
     ctx.err(`\n${RED}${BOLD}✗ ${msg}${NC}\n`)
     throw new LauncherExit(1)
   }
-  const shPath = join(ctx.scriptsDir, 'launch-pipeline.sh')
+  const self = join(ctx.scriptsDir, 'launch-pipeline.mts')
   // Lo que el bash dejaba caer en `set -u` al leer un valor ausente.
   const unbound = (): never => {
-    ctx.err(`${shPath}: $2: unbound variable\n`)
+    ctx.err(`${self}: $2: unbound variable\n`)
     throw new LauncherExit(1)
   }
 
@@ -226,7 +226,7 @@ export async function launchPipeline(ctx: LaunchPipelineContext): Promise<number
     const projectRoot = resolve(gitRoot)
     if (existsSync(join(projectRoot, '.claude-plugin', 'plugin.json'))) {
       ctx.err(
-        'ERROR: scripts/launch-pipeline.sh es del plugin publicado y solo aplica al consumidor.\n' +
+        'ERROR: scripts/launch-pipeline.mts es del plugin publicado y solo aplica al consumidor.\n' +
           'Estas en el repo de Mefisto. Para trabajar issues del plugin usa los skills internos /mefisto-tooling o /mefisto-sequential.\n',
       )
       return 1
@@ -254,7 +254,7 @@ export async function launchPipeline(ctx: LaunchPipelineContext): Promise<number
         success(`Pipeline ${name} iniciado (sin pane)`)
       }
       log(`Log: ${reportLog}`)
-      let watch = `'${join(ctx.scriptsDir, 'stream-watch.sh')}'`
+      let watch = `node '${join(ctx.scriptsDir, 'stream-watch.mts')}'`
       if (issuesCsv !== '') watch = `${watch} --issues ${issuesCsv}`
       log(`Visor en otra terminal: ${watch}`)
     }
@@ -262,7 +262,7 @@ export async function launchPipeline(ctx: LaunchPipelineContext): Promise<number
     const cmdSingle = (issue: string, extra: string[], override: string): void => {
       const resolution = resolvePipeline(issue, override, { run: ctx.run, scriptsDir: ctx.scriptsDir })
       if (resolution.kind === 'skip') abort(`Issue #${issue} no se puede enrutar a un pipeline (${resolution.reason}).`)
-      const pipeline = resolution.kind === 'pipeline' ? basename(resolution.script, '.sh') : ''
+      const pipeline = resolution.kind === 'pipeline' ? basename(resolution.script, '.mts') : ''
       launchDetachedRun(`${pipeline}-issue-${issue}`, issue, pipeline, [issue, ...extra])
     }
 
@@ -405,7 +405,7 @@ export async function launchPipeline(ctx: LaunchPipelineContext): Promise<number
       }
     }
     if (filtered.length === 0) {
-      abort(`Faltan argumentos posicionales (numero de issue o modo). Corre '${shPath} --help' para ver el uso.`)
+      abort(`Faltan argumentos posicionales (numero de issue o modo). Corre 'node ${self} --help' para ver el uso.`)
     }
 
     // Una sola resolucion propagada al sub-pipeline, para que no autodetecte otro runtime.
@@ -432,36 +432,36 @@ export async function launchPipeline(ctx: LaunchPipelineContext): Promise<number
       if (rest.length === 0) abort('Debes especificar un issue. Uso: --infra 42')
       if (hasModels) {
         abort(
-          "--models todavia no es valido con --infra (iac-pipeline.sh no implementa el flag). Usalo con --tooling o un issue TDD: launch-pipeline.sh --tooling <issue> --models 'agente=modelo'",
+          "--models todavia no es valido con --infra (iac-pipeline.mts no implementa el flag). Usalo con --tooling o un issue TDD: launch-pipeline.mts --tooling <issue> --models 'agente=modelo'",
         )
       }
       if (hasVariant) {
         abort(
-          '--variant todavia no es valido con --infra (iac-pipeline.sh no implementa el flag). Usalo con --tooling: launch-pipeline.sh --tooling <issue> --variant <label>',
+          '--variant todavia no es valido con --infra (iac-pipeline.mts no implementa el flag). Usalo con --tooling: launch-pipeline.mts --tooling <issue> --variant <label>',
         )
       }
       const issue = rest[0] as string
       launchDetachedRun(`infra-issue-${issue}`, issue, 'iac-pipeline', [issue, ...fromStageExtra])
     } else if (mode === '--scaffold') {
-      if (hasFromStage) abort('--from-stage no es valido con --scaffold (scaffold-pipeline.sh no tiene stages retomables).')
-      if (hasModels) abort('--models no es valido con --scaffold (scaffold-pipeline.sh no implementa el flag).')
-      if (hasVariant) abort('--variant no es valido con --scaffold (scaffold-pipeline.sh no implementa el flag).')
+      if (hasFromStage) abort('--from-stage no es valido con --scaffold (scaffold-pipeline.mts no tiene stages retomables).')
+      if (hasModels) abort('--models no es valido con --scaffold (scaffold-pipeline.mts no implementa el flag).')
+      if (hasVariant) abort('--variant no es valido con --scaffold (scaffold-pipeline.mts no implementa el flag).')
       cmdScaffold(rest)
     } else if (mode === '--batch' || mode === '--parallel') {
       if (rest.length === 0) abort(`Debes especificar al menos un issue. Uso: ${mode} 42 43 44`)
       if (hasFromStage) {
         abort(
-          `--from-stage no es valido con ${mode} (seria ambiguo sobre varios issues). Usalo con un unico issue: launch-pipeline.sh <issue> --from-stage N`,
+          `--from-stage no es valido con ${mode} (seria ambiguo sobre varios issues). Usalo con un unico issue: launch-pipeline.mts <issue> --from-stage N`,
         )
       }
       if (hasModels) {
         abort(
-          `--models no es valido con ${mode} (seria ambiguo sobre varios issues). Usalo con un unico issue: launch-pipeline.sh --tooling <issue> --models 'agente=modelo'`,
+          `--models no es valido con ${mode} (seria ambiguo sobre varios issues). Usalo con un unico issue: launch-pipeline.mts --tooling <issue> --models 'agente=modelo'`,
         )
       }
       if (hasVariant) {
         abort(
-          `--variant no es valido con ${mode} (seria ambiguo sobre varios issues). Usalo con un unico issue: launch-pipeline.sh --tooling <issue> --variant <label>`,
+          `--variant no es valido con ${mode} (seria ambiguo sobre varios issues). Usalo con un unico issue: launch-pipeline.mts --tooling <issue> --variant <label>`,
         )
       }
       if (mode === '--batch') cmdBatch(withOverride(rest))
@@ -470,17 +470,17 @@ export async function launchPipeline(ctx: LaunchPipelineContext): Promise<number
       if (filtered.length > 1) {
         if (hasFromStage) {
           abort(
-            '--from-stage no es valido con multiples issues (se interpretaria como --parallel). Especifica un unico issue: launch-pipeline.sh <issue> --from-stage N',
+            '--from-stage no es valido con multiples issues (se interpretaria como --parallel). Especifica un unico issue: launch-pipeline.mts <issue> --from-stage N',
           )
         }
         if (hasModels) {
           abort(
-            "--models no es valido con multiples issues (se interpretaria como --parallel). Usa: launch-pipeline.sh --tooling <issue> --models 'agente=modelo'",
+            "--models no es valido con multiples issues (se interpretaria como --parallel). Usa: launch-pipeline.mts --tooling <issue> --models 'agente=modelo'",
           )
         }
         if (hasVariant) {
           abort(
-            '--variant no es valido con multiples issues (se interpretaria como --parallel). Usa: launch-pipeline.sh --tooling <issue> --variant <label>',
+            '--variant no es valido con multiples issues (se interpretaria como --parallel). Usa: launch-pipeline.mts --tooling <issue> --variant <label>',
           )
         }
         warn('Multiples issues sin modo especificado. Usando --parallel.')

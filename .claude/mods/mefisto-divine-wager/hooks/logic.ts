@@ -15,10 +15,10 @@ export const statusPath = (issue: string) =>
 // El wrapper cuenta solo donde se ejecuta: al inicio de un comando (tras ; && || | ( then do o un salto de
 // linea), con asignaciones de entorno delante. Un texto que lo nombra (un heredoc, un grep, un echo) no lanza nada.
 const AT_COMMAND = String.raw`(?:^|[;&|(\n]|\bthen\b|\bdo\b)\s*(?:[A-Za-z_][A-Za-z0-9_]*=\S*\s+)*`
-const WRAPPER = String.raw`\S*mefisto-launch-pipeline\.sh`
+const WRAPPER = String.raw`(?:node\s+)?\S*mefisto-launch-pipeline\.mts`
 const LAUNCH = new RegExp(`${AT_COMMAND}${WRAPPER}\\s+--tooling\\s+#?(\\d+)`)
 
-const RELEASE_RUN = new RegExp(`${AT_COMMAND}\\S*mefisto-release\\.sh\\b`)
+const RELEASE_RUN = new RegExp(`${AT_COMMAND}(?:node\\s+)?\\S*mefisto-release\\.mts\\b`)
 
 /** El comando ejecuta el script de /mefisto-release (no basta con nombrarlo en un texto). */
 export function isReleaseRun(command: string): boolean {
@@ -40,7 +40,7 @@ export function toolingIssueOf(command: string): string | null {
 // Cada issue es un argumento completo: el `2` de un `2>&1` posterior no es un issue.
 const BATCH_LAUNCH = new RegExp(`${AT_COMMAND}${WRAPPER}\\s+--batch((?:\\s+#?\\d+(?=\\s|$|[;&|)]))+)`)
 
-/** Los issues de un `mefisto-launch-pipeline.sh --batch N M ...` (lo que corre /mefisto-sequential), en orden. */
+/** Los issues de un `mefisto-launch-pipeline.mts --batch N M ...` (lo que corre /mefisto-sequential), en orden. */
 export function batchIssuesOf(command: string): string[] | null {
   const m = BATCH_LAUNCH.exec(withoutHeredocs(command))
   return m?.[1] ? (m[1].match(/\d+/g) ?? []) : null
@@ -151,7 +151,7 @@ const clock = (ts: unknown) => {
   return `${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`
 }
 
-/** Filtro del visor (mefisto-stream-watch.sh) portado: una linea por evento relevante del contrato run-events v1. */
+/** Filtro del visor (mefisto-stream-watch.mts) portado: una linea por evento relevante del contrato run-events v1. */
 export function parseEvent(raw: string): LogLine | null {
   let ev: Record<string, any>
   try {
@@ -253,7 +253,7 @@ export function cropGrid(grid: Grid, cols: { from: number; to: number }): Grid {
   return grid.map(row => row.slice(cols.from, cols.to + 1).padEnd(cols.to - cols.from + 1, '.'))
 }
 
-export const NEXT_ORDER = './.claude/scripts/mefisto-next-order.sh'
+export const NEXT_ORDER = 'src/internal/scripts/mefisto-next-order.mts'
 export const PLANNER_AGENT = 'mefisto-planner'
 /** Filas fijas de la lista de listos: la banda no cambia de alto con la cantidad de issues. */
 export const READY_ROWS = 5
@@ -539,7 +539,7 @@ export function totalRowText(done: IssueStats[], currentMs: number | null, title
 
 /**
  * PRs abiertos (`gh pr list --json number,title,isDraft,headRefName`) sin los borradores, el mas reciente primero.
- * Los de field notes (rama `docs/<agente>-field-note-<sesion>` de mefisto-field-note.sh) se marcan aparte.
+ * Los de field notes (rama `docs/<agente>-field-note-<sesion>` de mefisto-field-note.mts) se marcan aparte.
  */
 export function parseOpenPrs(stdout: string): OpenPr[] | null {
   try {
@@ -622,12 +622,12 @@ const KEEP_CATEGORIES = ['added', 'changed', 'fixed', 'removed']
 
 /** El bump y el modo de un /mefisto-release o de su script, leidos de sus argumentos. Sin bump es la fase publish. */
 export function releaseInvocationOf(text: string): { bump: 'major' | 'minor' | 'patch' | null; prepareOnly: boolean } {
-  const args = withoutHeredocs(text).replace(/^[\s\S]*?(?:\/mefisto-release|mefisto-release\.sh)\b/, '')
+  const args = withoutHeredocs(text).replace(/^[\s\S]*?(?:\/mefisto-release|mefisto-release\.mts)\b/, '')
   const bump = /^[^;&|\n]*?\b(major|minor|patch)\b/.exec(args)?.[1] as 'major' | 'minor' | 'patch' | undefined
   return { bump: bump ?? null, prepareOnly: /^[^;&|\n]*--prepare-only\b/.test(args) }
 }
 
-/** Mismo calculo que bump_version de mefisto-release.sh. */
+/** Mismo calculo que bump_version de mefisto-release.mts. */
 export function bumpVersion(current: string, part: 'major' | 'minor' | 'patch'): string | null {
   const m = /^(\d+)\.(\d+)\.(\d+)$/.exec(current.trim())
   if (!m) return null
@@ -637,7 +637,7 @@ export function bumpVersion(current: string, part: 'major' | 'minor' | 'patch'):
   return `${major}.${minor}.${patch + 1}`
 }
 
-/** Nombres de mefisto-release.sh: RELEASE_BRANCH="release/${NEW_TAG}" y NEW_TAG="v${NEW_VERSION}". */
+/** Nombres de mefisto-release.mts: RELEASE_BRANCH="release/${NEW_TAG}" y NEW_TAG="v${NEW_VERSION}". */
 export const releaseTagOf = (version: string) => `v${version}`
 export const releaseBranchOf = (version: string) => `release/${releaseTagOf(version)}`
 
@@ -730,7 +730,7 @@ export function bitacoraPrompt(fieldNotePrs: number[]): string {
 const HOLD = /^\[\d{2}:\d{2}:\d{2}\]\[hold\] (\S+): esperando, proxima sonda (\d{2}:\d{2})(?::\d{2})? \(techo (\d{2}:\d{2})\)/
 
 /**
- * La espera en curso: la ultima linea de events.log es un `[hold]` (mefisto-tooling-pipeline.sh la escribe en
+ * La espera en curso: la ultima linea de events.log es un `[hold]` (mefisto-tooling-pipeline.mts la escribe en
  * cada sonda; cualquier actividad posterior, incluido `[hold][resume]`, la da por terminada).
  */
 export function holdOf(tail: string): Hold | null {
@@ -863,7 +863,7 @@ export function withProcessedNotes<T extends { notes: BitacoraNote[] }>(h: T, pr
   return { ...h, notes: h.notes.map(n => (n.estado === 'pendiente' && done.has(n.name) ? { ...n, estado: 'procesada' } : n)) }
 }
 
-/** Los `procesadas/` donde puede caer una nota: el del checkout y el de cada worktree de mefisto-bitacora-worktree.sh. */
+/** Los `procesadas/` donde puede caer una nota: el del checkout y el de cada worktree de mefisto-bitacora-worktree.mts. */
 export function processedDirsOf(summaries: readonly string[]): string[] {
   return [
     'docs/bitacora/field-notes/procesadas',

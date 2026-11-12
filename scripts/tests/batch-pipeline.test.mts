@@ -148,7 +148,7 @@ describe('guardas', () => {
   test('sin argumentos imprime el uso y sale con 1', async () => {
     const run = await runBatch(consumer(), [])
     assert.equal(run.code, 1)
-    assert.match(run.out, /^Uso: scripts\/batch-pipeline\.sh \[--pipeline tdd\|tooling\] <issue1> <issue2> \.\.\. \[--stop-on-error\]\n/)
+    assert.match(run.out, /^Uso: scripts\/batch-pipeline\.mts \[--pipeline tdd\|tooling\] <issue1> <issue2> \.\.\. \[--stop-on-error\]\n/)
     assert.match(run.out, /--stop-on-error {4}Abortar en el primer fallo/)
   })
 
@@ -181,7 +181,7 @@ describe('guardas', () => {
     assert.equal(mefisto.code, 1)
     assert.equal(
       mefisto.err,
-      'ERROR: batch-pipeline.sh es del plugin publicado y solo aplica al consumidor.\nEstás en el repo de Mefisto. Trabaja los issues internos secuencialmente con /mefisto-tooling.\n',
+      'ERROR: batch-pipeline.mts es del plugin publicado y solo aplica al consumidor.\nEstás en el repo de Mefisto. Trabaja los issues internos secuencialmente con /mefisto-tooling.\n',
     )
     assert.deepEqual(mefisto.calls, [])
   })
@@ -230,7 +230,7 @@ describe('corrida del lote', () => {
     assert.match(output, /── batch-pipeline --- Procesamiento secuencial de issues ──/)
     assert.match(output, /Runtime: claude/)
     assert.match(output, /Pipeline: automatico por label/)
-    assert.match(output, /Ejecutando tooling-pipeline\.sh para issue #11\.\.\./)
+    assert.match(output, /Ejecutando tooling-pipeline\.mts para issue #11\.\.\./)
     assert.match(output, /✓ Pipeline completado → PR #1011 \(https:\/\/github\.com\/acme\/consumidor\/pull\/1011\)/)
     assert.match(output, /Actualizando main local\.\.\./)
     assert.match(output, /✓ Issue #11 completado y mergeado\n/)
@@ -311,14 +311,21 @@ describe('corrida del lote', () => {
     assert.match(text(run), /Fallidos: 4/)
   })
 
-  test('el pipeline sin TypeScript se lanza tal cual', { skip: process.platform === 'win32' }, async () => {
+  test('un pipeline forzado corre su .mts con Node', async () => {
     const repo = consumer(['tooling-pipeline', 'pr-sync'])
-    const script = join(repo.scriptsDir, 'tdd-pipeline.sh')
-    writeFileSync(script, `#!/usr/bin/env bash\necho "tdd bash $1"\necho "PR creado: https://github.com/acme/consumidor/pull/$(($1 + 1000))"\n`)
-    chmodSync(script, 0o755)
+    const script = join(repo.scriptsDir, 'tdd-pipeline.mts')
+    writeFileSync(
+      script,
+      [
+        "const [issue = ''] = process.argv.slice(2)",
+        "console.log(`tdd node ${process.argv.slice(2).join(' ')}`)",
+        "console.log(`PR creado: https://github.com/acme/consumidor/pull/${Number(issue) + 1000}`)",
+        '',
+      ].join('\n'),
+    )
     const run = await runBatch(repo, ['--pipeline', 'tdd', '41'])
     assert.equal(run.code, 0, run.out)
-    assert.match(run.out, /tdd bash 41\n/)
+    assert.match(run.out, /tdd node 41\n/)
     assert.deepEqual(run.calls, ['pr-sync 1041 --merge'])
   })
 })

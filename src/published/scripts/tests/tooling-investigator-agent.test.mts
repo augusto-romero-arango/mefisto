@@ -38,23 +38,23 @@ describe('[a] metadata y perfil', () => {
     'metadata neutral invalida',
   )
   contains(body, '{{mefisto:assert-consumer-repo}}', 'guard consumidor presente')
-  contains(body, '{{mefisto:run work-status-collect.sh', 'usa el colector')
+  contains(body, '{{mefisto:run work-status-collect.mts', 'usa el colector')
   contains(body, '{{mefisto:config-path}}', 'lee el config via config-path')
   contains(body, '{{mefisto:instructions-path}}', 'lee directivas via instructions-path')
   contains(body, 'docs/bitacora/field-notes/', 'conserva la restriccion de escritura')
   contains(body, '.mefisto/', 'cubre .mefisto/')
   contains(body, 'repoSlug', 'conserva el routing via repoSlug')
-  contains(body, 'pgrep -fl "[s]cripts/[a-z]+-pipeline\\.(sh|mts)"', 'detecta pipelines vivos como .sh y como .mts')
-  contains(claudeBody, 'pgrep -fl "[s]cripts/[a-z]+-pipeline\\.(sh|mts)"', 'claude conserva la deteccion .sh|.mts')
+  contains(body, 'pgrep -fl "[s]cripts/[a-z]+-pipeline\\.mts"', 'detecta pipelines vivos por su .mts')
+  contains(claudeBody, 'pgrep -fl "[s]cripts/[a-z]+-pipeline\\.mts"', 'claude conserva la deteccion del .mts')
   check(`existe ${AGENT.claudePath}`, () => isRegularFile(repoPath(AGENT.claudePath)), `falta ${AGENT.claudePath}`)
 })
 
 describe('[b] invocacion del colector', () => {
-  const total = matchingLines(claudeBody, /work-status-collect\.sh/).length
+  const total = matchingLines(claudeBody, /work-status-collect\.mts/).length
   // El punto es comodin, como en el patron de grep del que viene.
   const good = matchingLines(
     claudeBody,
-    /MEFISTO_RUNTIME=claude "\$\{MEFISTO_PACKAGE_ROOT\}\/scripts\/work-status-collect.sh"/,
+    /MEFISTO_RUNTIME=claude node "\$\{MEFISTO_PACKAGE_ROOT\}\/scripts\/work-status-collect.mts"/,
   ).length
   check(
     `claude: ${good} invocaciones via MEFISTO_PACKAGE_ROOT`,

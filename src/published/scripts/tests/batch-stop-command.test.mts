@@ -40,7 +40,7 @@ describe('[fuente] contrato neutral', () => {
   contains(body, '{{mefisto:command sequential}}', 'referencia neutral a sequential')
   contains(body, '{{mefisto:command parallel}}', 'referencia neutral a parallel')
   contains(body, '{{mefisto:command batch-stop}}', 'autoreferencia neutral (confirmacion ya dada)')
-  contains(body, 'pgrep -f "[s]cripts/batch-pipeline\\.(sh|mts)"', 'patron de deteccion sin auto-coincidencia')
+  contains(body, 'pgrep -f "[s]cripts/batch-pipeline\\.mts"', 'patron de deteccion sin auto-coincidencia')
   contains(body, 'pipeline-state/batch-stop', 'ruta de la senal relativa a la raiz del repo')
   contains(
     body,
@@ -70,7 +70,7 @@ describe('[salidas] adaptador y mirror', () => {
   claudeOutputExists(command)
   contains(
     claude,
-    'pgrep -f "[s]cripts/batch-pipeline\\.(sh|mts)"',
+    'pgrep -f "[s]cripts/batch-pipeline\\.mts"',
     'claude conserva el patron de deteccion (CA-5a)',
   )
   contains(claude, 'pipeline-state/batch-stop', 'claude conserva la ruta de la senal (CA-5a)')
@@ -87,7 +87,7 @@ describe('[salidas] adaptador y mirror', () => {
   mirrorMatches(command)
   contains(
     mirror,
-    '<!-- GENERADO por src/published/scripts/generate-published-adapters.sh desde src/published/commands/batch-stop.md. No editar a mano. -->',
+    '<!-- GENERADO por src/published/scripts/generate-published-adapters.mts desde src/published/commands/batch-stop.md. No editar a mano. -->',
     'mirror conserva marcador generado',
   )
   generatorIsUpToDate()

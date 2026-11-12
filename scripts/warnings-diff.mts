@@ -2,7 +2,7 @@
 // trabajo respecto al commit base (MEF-ADR-0056).
 //
 // Uso:
-//   scripts/warnings-diff.sh --toolchain <t> [--base <sha>] [--path <dir>]
+//   node scripts/warnings-diff.mts --toolchain <t> [--base <sha>] [--path <dir>]
 //
 //   --toolchain  Obligatorio. 'shell' (shellcheck), 'dotnet' (dotnet build)
 //                y 'terraform' (terraform validate).
@@ -126,7 +126,7 @@ interface Toolchain {
   suppressions: RegExp[]
 }
 
-const USAGE = 'Uso: scripts/warnings-diff.sh --toolchain <t> [--base <sha>] [--path <dir>]'
+const USAGE = 'Uso: scripts/warnings-diff.mts --toolchain <t> [--base <sha>] [--path <dir>]'
 const WINDOWS = process.platform === 'win32'
 // Clase [[:space:]] de POSIX en la locale C.
 const SPACE = '[ \\t\\n\\v\\f\\r]'
@@ -580,7 +580,7 @@ function run(argv: string[], deps: DiffDeps): number {
   if (existsSync(join(repoRoot, '.claude-plugin', 'plugin.json'))) {
     throw new CliError(
       [
-        'ERROR: scripts/warnings-diff.sh es del plugin publicado y solo aplica al consumidor.',
+        'ERROR: scripts/warnings-diff.mts es del plugin publicado y solo aplica al consumidor.',
         'Estas en el repo de Mefisto.',
       ].join('\n'),
     )

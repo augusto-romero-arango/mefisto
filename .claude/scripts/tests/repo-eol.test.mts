@@ -13,7 +13,7 @@ test('los archivos de texto del repo llegan con LF en cualquier sistema', () => 
     'AGENTS.md',
     'hooks/hooks.json',
     'scripts/lib/cli.mts',
-    '.claude/scripts/mefisto-worktree.sh',
+    'src/internal/scripts/mefisto-worktree.mts',
   ]) {
     assert.equal(readFileSync(join(REPO_ROOT, ...file.split('/')), 'utf8').includes('\r'), false, file)
   }

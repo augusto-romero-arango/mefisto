@@ -171,7 +171,7 @@ export async function runMefistoBatch(repo: BatchRepo, argv: string[], options: 
     argv,
     cwd: repo.root,
     env,
-    scriptPath: 'src/internal/scripts/mefisto-batch-pipeline.sh',
+    scriptPath: 'src/internal/scripts/mefisto-batch-pipeline.mts',
     out: (text) => {
       result.out += text
     },

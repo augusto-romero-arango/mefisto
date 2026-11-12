@@ -104,7 +104,7 @@ Para clasificar, necesitas la **lista ordenada** de issues que sobrevivieron al 
 argumentos, respetando el orden del batch:
 
 ```bash
-{{mefisto:run mefisto-validate-batch-deps.sh <issue1> <issue2> ...}}
+{{mefisto:run mefisto-validate-batch-deps.mts <issue1> <issue2> ...}}
 ```
 
 El script interpreta el batch completo (no un issue a la vez) y termina con uno de tres
@@ -154,7 +154,7 @@ Secuencial --- N issues:
 Luego lanza el motor secuencial y verifica que el launcher haya terminado con exito:
 
 ```bash
-{{mefisto:run mefisto-launch-pipeline.sh --batch <issue1> <issue2> ...}}
+{{mefisto:run mefisto-launch-pipeline.mts --batch <issue1> <issue2> ...}}
 ```
 
 ### 4. Instrucciones de seguimiento (solo tras lanzamiento exitoso)
@@ -168,12 +168,12 @@ Si la salida del script dice `sin pane: lo sigue el mod mefisto-divine-wager` (m
 
 ```
 Batch secuencial mefisto corriendo sin pane: lo sigue el monitor de esta sesion.
-Sin el monitor, el visor se abre en otra terminal: ./.claude/scripts/mefisto-stream-watch.sh --issues <issue1>,<issue2>,...
+Sin el monitor, el visor se abre en otra terminal: node src/internal/scripts/mefisto-stream-watch.mts --issues <issue1>,<issue2>,...
 Los issues se procesaran en orden: pipeline -> PR -> merge -> sync verificado -> siguiente.
 Para frenarlo sin violencia: /mefisto-batch-stop (termina el eslabon en curso y aplaza el resto).
 ```
 
-Si la salida del script dice `corriendo en el pane` (interfaz herdr, `mefisto-herdr-pipeline.sh`), el batch queda corriendo en un pane de este mismo workspace con el visor en vivo, que salta solo de issue en issue. En ese caso responde con:
+Si la salida del script dice `corriendo en el pane` (interfaz herdr, `mefisto-herdr-pipeline.mts`), el batch queda corriendo en un pane de este mismo workspace con el visor en vivo, que salta solo de issue en issue. En ese caso responde con:
 
 ```
 Batch secuencial mefisto corriendo en un pane de este workspace (visor en vivo del agente).
@@ -183,14 +183,14 @@ Para frenarlo sin violencia: /mefisto-batch-stop (termina el eslabon en curso y 
 
 ### 5. Sincronizacion verificada entre eslabones (fail-loud)
 
-El motor (`mefisto-batch-pipeline.sh`) procesa los issues en orden
+El motor (`mefisto-batch-pipeline.mts`) procesa los issues en orden
 `pipeline -> PR -> merge -> sync -> siguiente`. Para que una cadena con dependencias
 funcione (ej. #44 depende de #43), cada eslabon debe construirse sobre el merge del
 anterior. El batch lo garantiza asi:
 
 - **La base real de cada eslabon es `origin/main`.** El worktree del tooling-pipeline se
   crea **siempre** desde `origin/main` actualizado, sea cual sea la rama activa del repo
-   principal (issue #66, `mefisto-tooling-pipeline.sh:269`). Ese invariante no depende de
+   principal (issue #66, `mefisto-tooling-pipeline.mts`). Ese invariante no depende de
    en que rama estes.
 - **Los ejecutables tambien quedan fijados.** Antes de cada eslabon, el batch crea un
   worktree detached temporal en el SHA de `origin/main` que acaba de verificar y ejecuta

@@ -3,7 +3,7 @@ description: "Lanza el pipeline IaC para un issue de GitHub."
 argument-hint: "<issue>"
 model: "haiku"
 ---
-<!-- GENERADO por src/published/scripts/generate-published-adapters.sh desde src/published/commands/infra.md. No editar a mano. -->
+<!-- GENERADO por src/published/scripts/generate-published-adapters.mts desde src/published/commands/infra.md. No editar a mano. -->
 ```bash
 mefisto_claude_root=''
 mefisto_claude_root_from_candidate() {
@@ -53,7 +53,7 @@ export MEFISTO_PACKAGE_ROOT
 
 Ejecuta este bloque en cada llamada Bash de este comando, sin guardarlo en un archivo ni reutilizar el de otro comando: la raiz que fija es la de la version cargada.
 
-Antes de continuar, aborta si existe `src/internal/scripts/generate-internal-adapters.sh`: ese directorio es el repositorio de Mefisto, no un consumidor.
+Antes de continuar, aborta si existe `src/internal/scripts/generate-internal-adapters.mts`: ese directorio es el repositorio de Mefisto, no un consumidor.
 
 Lanza el pipeline IaC para un issue de GitHub. Comunicate en **espanol**.
 
@@ -130,7 +130,7 @@ Tipo: infra | Estado: listo
 Luego lanza el pipeline:
 
 ```bash
-MEFISTO_RUNTIME=claude "${MEFISTO_PACKAGE_ROOT}/scripts/launch-pipeline.sh" --infra $ARGUMENTS
+MEFISTO_RUNTIME=claude node "${MEFISTO_PACKAGE_ROOT}/scripts/launch-pipeline.mts" --infra $ARGUMENTS
 ```
 
 ### 4. Instrucciones de seguimiento
@@ -145,7 +145,7 @@ Fuera de Herdr el script tambien corre desacoplado, sin consola que lo siga: su 
 
 ```
 Pipeline infra corriendo sin pane. Para monitorear, en otra terminal:
-  <linea de stream-watch.sh que imprimio el script>
+  <linea de stream-watch.mts que imprimio el script>
 Log: <ruta del log que imprimio el script>
 ```
 
@@ -159,7 +159,7 @@ En el flujo *ongoing*, el desarrollador que usa Mefisto **no tiene ningun permis
 
 El **plan real** corre en CI cuando se abre el PR (workflow `infra-cd.yml`, job `plan`, publicado como comentario del PR) y el **apply real** corre en CI al mergear el PR a `main` (job `apply`). Ese mismo job cierra el issue tras un apply exitoso (MEF-ADR-0022) -- nunca el propio merge del PR ni este pipeline local.
 
-**Distincion bootstrap vs ongoing**: el bootstrap inicial (`bootstrap-backend.sh` para el tfstate, `setup-github-ci.sh` para el Service Principal de CI) es una operacion **privilegiada de una sola vez** que corre un admin con permisos de Azure para habilitar la CI. No es parte de este flujo ongoing.
+**Distincion bootstrap vs ongoing**: el bootstrap inicial (`bootstrap-backend.mts` para el tfstate, `setup-github-ci.mts` para el Service Principal de CI) es una operacion **privilegiada de una sola vez** que corre un admin con permisos de Azure para habilitar la CI. No es parte de este flujo ongoing.
 
 ## Reglas
 

@@ -86,7 +86,7 @@ Valida primero los prerequisitos, en este orden, y no delegues si alguno falla.
 1. Sesion de Azure:
 
 ```bash
-{{mefisto:run azure-account-info.sh 2>&1}}
+{{mefisto:run azure-account-info.mts 2>&1}}
 ```
 
 Si sale con codigo distinto de `0`, muestra tal cual el mensaje que emitio el script (indica iniciar sesion en Azure) y termina sin delegar.
@@ -97,7 +97,7 @@ Si sale con codigo distinto de `0`, muestra tal cual el mensaje que emitio el sc
 test -f .mefisto/appinsights.env && echo "OK" || echo "FAIL"
 ```
 
-Si falta, responde con el formato que espera `appinsights-query.sh` y termina sin delegar:
+Si falta, responde con el formato que espera `appinsights-query.mts` y termina sin delegar:
 
 ```
 No se encontro .mefisto/appinsights.env en la raiz del consumidor.

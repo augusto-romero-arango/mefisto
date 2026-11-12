@@ -47,10 +47,10 @@ Solo cuando todas las dependencias canonicas declaradas cerraron (`CLOSED`) o se
 Muestra la informacion validada del issue y ejecuta exactamente:
 
 ```bash
-{{mefisto:run launch-pipeline.sh --tooling $ARGUMENTS}}
+{{mefisto:run launch-pipeline.mts --tooling $ARGUMENTS}}
 ```
 
-Seguimiento por runtime: cuando el runtime activo trae su propia cinta de seguimiento (la consola `fausto-blood-pact`) y el usuario no fijo la interfaz, el wrapper no abre pane: corre desacoplado, imprime la ruta del log y el avance lo sigue esa consola desde esta misma sesion. En el resto de los runtimes (MEF-ADR-0050): dentro de Herdr, informa que el pipeline queda corriendo en un pane de este workspace con el visor en vivo. Fuera de Herdr tambien corre desacoplado, sin consola que lo siga (la salida del wrapper dice `sin pane` sin nombrar la consola): entrega la ruta del log y la linea de `stream-watch.sh` que imprime el wrapper para abrir el visor en otra terminal.
+Seguimiento por runtime: cuando el runtime activo trae su propia cinta de seguimiento (la consola `fausto-blood-pact`) y el usuario no fijo la interfaz, el wrapper no abre pane: corre desacoplado, imprime la ruta del log y el avance lo sigue esa consola desde esta misma sesion. En el resto de los runtimes (MEF-ADR-0050): dentro de Herdr, informa que el pipeline queda corriendo en un pane de este workspace con el visor en vivo. Fuera de Herdr tambien corre desacoplado, sin consola que lo siga (la salida del wrapper dice `sin pane` sin nombrar la consola): entrega la ruta del log y la linea de `stream-watch.mts` que imprime el wrapper para abrir el visor en otra terminal.
 
 ## Reglas
 

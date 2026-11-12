@@ -12,10 +12,10 @@ import {
   generatorIsUpToDate,
   guardPrecedesOperation,
   hasExactMetadata,
-  isExecutable,
   lineCount,
   linesWith,
   mirrorMatches,
+  repoFileExists,
   sameBytes,
   sourceValidates,
 } from './command-contract-kit.mts'
@@ -32,10 +32,10 @@ describe('[fuente] contrato neutral', () => {
   )
   contains(body, '{{mefisto:assert-consumer-repo}}', 'guard consumidor presente')
   guardPrecedesOperation(command, /gh issue view/)
-  contains(body, '{{mefisto:run launch-pipeline.sh --parallel $ARGUMENTS}}', 'despacho neutral exacto')
+  contains(body, '{{mefisto:run launch-pipeline.mts --parallel $ARGUMENTS}}', 'despacho neutral exacto')
   check(
     'existe un unico despacho',
-    () => lineCount(command.source, '{{mefisto:run launch-pipeline.sh --parallel $ARGUMENTS}}') === 1,
+    () => lineCount(command.source, '{{mefisto:run launch-pipeline.mts --parallel $ARGUMENTS}}') === 1,
     'el despacho no es unico',
   )
   contains(body, 'gh issue view', 'valida issues antes de lanzar')
@@ -53,7 +53,7 @@ describe('[fuente] contrato neutral', () => {
     'Pipeline paralelo corriendo sin panes. Para monitorear, en otra terminal:',
     'documenta el seguimiento desacoplado fuera de Herdr',
   )
-  contains(body, 'stream-watch.sh', 'remite al visor en otra terminal')
+  contains(body, 'stream-watch.mts', 'remite al visor en otra terminal')
   contains(body, '{{mefisto:state-path logs}}', 'documenta logs por issue')
   contains(body, '{{mefisto:state-path events.log}}', 'documenta events.log')
   absent(body, 'propio tab', 'describe correctamente panes, no tabs')
@@ -63,7 +63,7 @@ describe('[fuente] contrato neutral', () => {
   absent(body, 'work-status', 'no remite a work-status')
   contains(
     body,
-    '{{mefisto:package-root}}/scripts/parallel-pipeline.sh',
+    '{{mefisto:package-root}}/scripts/parallel-pipeline.mts',
     'scheduler directo usa package-root',
   )
   contains(body, '--max-parallel', 'documenta limite de concurrencia')
@@ -91,33 +91,33 @@ describe('[salidas] adaptador y mirror', () => {
   claudeOutputExists(command)
   contains(
     claude,
-    'MEFISTO_RUNTIME=claude "${MEFISTO_PACKAGE_ROOT}/scripts/launch-pipeline.sh" --parallel $ARGUMENTS',
-    'Claude invoca launch-pipeline.sh --parallel y fija su runtime',
+    'MEFISTO_RUNTIME=claude node "${MEFISTO_PACKAGE_ROOT}/scripts/launch-pipeline.mts" --parallel $ARGUMENTS',
+    'Claude invoca launch-pipeline.mts --parallel y fija su runtime',
   )
   contains(claude, 'model: "haiku"', 'Claude materializa el perfil fast')
   for (const id of ['merge', 'batch-stop']) {
     contains(claude, `/mefisto:${id}`, `Claude resuelve ${id}`)
   }
   absentAll(
-    linesWith(claude, 'scripts/launch-pipeline.sh" --parallel'),
+    linesWith(claude, 'scripts/launch-pipeline.mts" --parallel'),
     ['.claude/pipeline/.plugin-root', 'plugins/cache'],
     (path) => `invocacion Claude no reimplementa lookup legacy (${path})`,
   )
   mirrorMatches(command)
   contains(
     mirror,
-    '<!-- GENERADO por src/published/scripts/generate-published-adapters.sh desde src/published/commands/parallel.md. No editar a mano. -->',
+    '<!-- GENERADO por src/published/scripts/generate-published-adapters.mts desde src/published/commands/parallel.md. No editar a mano. -->',
     'mirror conserva marcador generado',
   )
   check(
-    'parallel-pipeline.sh empaquetado en dist/claude/scripts',
-    () => isExecutable('dist/claude/scripts/parallel-pipeline.sh'),
-    'falta dist/claude/scripts/parallel-pipeline.sh',
+    'parallel-pipeline.mts empaquetado en dist/claude/scripts',
+    () => repoFileExists('dist/claude/scripts/parallel-pipeline.mts'),
+    'falta dist/claude/scripts/parallel-pipeline.mts',
   )
   check(
-    'parallel-pipeline.sh identico en dist/claude/scripts',
-    () => sameBytes('scripts/parallel-pipeline.sh', 'dist/claude/scripts/parallel-pipeline.sh'),
-    'dist/claude/scripts/parallel-pipeline.sh diverge de la fuente',
+    'parallel-pipeline.mts identico en dist/claude/scripts',
+    () => sameBytes('scripts/parallel-pipeline.mts', 'dist/claude/scripts/parallel-pipeline.mts'),
+    'dist/claude/scripts/parallel-pipeline.mts diverge de la fuente',
   )
   generatorIsUpToDate()
 })

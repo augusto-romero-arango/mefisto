@@ -238,7 +238,7 @@ let isRefreshingOpenPrs = false
 let isRefreshingRuns = false
 let mergeTimer: { cancel: () => void } | null = null
 let isPollingMerge = false
-// La llamada Bash a pr-sync.sh ya empezo; sin verla, el reloj cierra la cinta arrancada por teclas a los MERGE_STALE_MS.
+// La llamada Bash a pr-sync.mts ya empezo; sin verla, el reloj cierra la cinta arrancada por teclas a los MERGE_STALE_MS.
 let isMergeScriptSeen = false
 let mergeStartedMs = 0
 const MERGE_STALE_MS = 60_000
@@ -290,7 +290,7 @@ async function runNextOrder($: EngineInterface): Promise<BoardList> {
   const root = await pluginRoot($)
   if (!root) return parseNextOrder(2, '', 'raiz del plugin desconocida')
   const { exitCode, stdout, stderr } = await $.process
-    .run([nextOrderPath(root), ...NEXT_ORDER_ARGS], { timeoutMs: SCRIPT_TIMEOUT_MS })
+    .run(['node', nextOrderPath(root), ...NEXT_ORDER_ARGS], { timeoutMs: SCRIPT_TIMEOUT_MS })
     .catch(err => ({ exitCode: 2, stdout: '', stderr: String(err) }))
   return parseNextOrder(exitCode, stdout, stderr)
 }
@@ -782,7 +782,7 @@ async function closeMergedPrs($: EngineInterface) {
   }
 }
 
-// La cinta de merge: arranca con las teclas o al ver la llamada Bash a pr-sync.sh --merge; con --all la lista sale de los PRs abiertos de ese momento.
+// La cinta de merge: arranca con las teclas o al ver la llamada Bash a pr-sync.mts --merge; con --all la lista sale de los PRs abiertos de ese momento.
 async function startMerge($: EngineInterface, args: string) {
   const current = await read($, mergeAtom)
   if (current && current.finishedMs === null) return
@@ -1162,7 +1162,7 @@ async function heal($: EngineInterface) {
   }
 }
 
-// Cinta vencida: una arrancada por teclas cuyo skill nunca invoco pr-sync.sh (p. ej. descarto todos los PRs).
+// Cinta vencida: una arrancada por teclas cuyo skill nunca invoco pr-sync.mts (p. ej. descarto todos los PRs).
 async function closeStaleMerge($: EngineInterface) {
   if (!isEligible || !isWanted || isMergeScriptSeen) return
   const run = await read($, mergeAtom)
@@ -1170,7 +1170,7 @@ async function closeStaleMerge($: EngineInterface) {
 }
 
 export const register: Register = on => {
-  // La senal del merge es la llamada Bash a pr-sync.sh: el plugin carga en tier user y el engine no le entrega classic.*.
+  // La senal del merge es la llamada Bash a pr-sync.mts: el plugin carga en tier user y el engine no le entrega classic.*.
   // Convive con el tool.call Bash del tablero (mismo matcher, #2302).
   on('tool.call', { tool: 'Bash' }, async ($, e, next) => {
     if (isEligible && isWanted && isPipelineLaunch(e.command)) {

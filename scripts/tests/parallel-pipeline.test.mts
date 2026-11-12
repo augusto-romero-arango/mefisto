@@ -125,7 +125,7 @@ describe('guardas', () => {
   test('sin argumentos imprime el uso y sale con 1', async () => {
     const run = await runParallel(consumer(), [])
     assert.equal(run.code, 1)
-    assert.match(run.out, /^Uso: scripts\/parallel-pipeline\.sh \[--pipeline tdd\|tooling\] <issue1> <issue2> \.\.\. \[--max-parallel N\] \[--keep-status\]\n/)
+    assert.match(run.out, /^Uso: scripts\/parallel-pipeline\.mts \[--pipeline tdd\|tooling\] <issue1> <issue2> \.\.\. \[--max-parallel N\] \[--keep-status\]\n/)
     assert.match(run.out, /--stagger S {8}Segundos entre lanzamientos \(por defecto: 30; 0 = sin espera\)/)
   })
 
@@ -156,7 +156,7 @@ describe('guardas', () => {
     assert.equal(run.code, 1)
     assert.equal(
       run.err,
-      'ERROR: parallel-pipeline.sh es del plugin publicado y solo aplica al consumidor.\nEstás en el repo de Mefisto. Los pipelines internos no soportan paralelismo aún;\ntrabaja los issues de Mefisto secuencialmente con /mefisto-tooling.\n',
+      'ERROR: parallel-pipeline.mts es del plugin publicado y solo aplica al consumidor.\nEstás en el repo de Mefisto. Los pipelines internos no soportan paralelismo aún;\ntrabaja los issues de Mefisto secuencialmente con /mefisto-tooling.\n',
     )
   })
 
@@ -217,8 +217,8 @@ describe('corrida del lote', () => {
     const output = text(run)
     assert.match(output, /── parallel-pipeline --- Procesamiento paralelo de issues ──/)
     assert.match(output, /Paralelismo maximo: sin limite/)
-    assert.match(output, /Issue #11 -> tooling-pipeline\.sh\n/)
-    assert.match(output, /Lanzado issue #11 con tooling-pipeline\.sh \(PID \d+\) -> pipeline-status-tooling-11\.json/)
+    assert.match(output, /Issue #11 -> tooling-pipeline\.mts\n/)
+    assert.match(output, /Lanzado issue #11 con tooling-pipeline\.mts \(PID \d+\) -> pipeline-status-tooling-11\.json/)
     assert.match(output, /Todos los pipelines lanzados\. Monitoreando progreso \(Ctrl\+C para cancelar\)\.\.\./)
     assert.match(output, /── Recolectando resultados ──/)
     assert.match(output, /Issue {7}Estado {46}Duración {3}PR\n/)
@@ -286,11 +286,18 @@ describe('corrida del lote', () => {
     assert.match(text(run), /Total: 1 /)
   })
 
-  test('--pipeline fuerza el pipeline; el pipeline sin TypeScript se lanza tal cual', { skip: process.platform === 'win32' }, async () => {
+  test('--pipeline fuerza el pipeline, que corre su .mts con Node', async () => {
     const repo = consumer(['tooling-pipeline'])
-    const script = join(repo.scriptsDir, 'tdd-pipeline.sh')
-    writeFileSync(script, '#!/usr/bin/env bash\necho "tdd bash $*"\necho "PR creado: https://github.com/acme/consumidor/pull/$(($1 + 1000))"\n')
-    chmodSync(script, 0o755)
+    const script = join(repo.scriptsDir, 'tdd-pipeline.mts')
+    writeFileSync(
+      script,
+      [
+        "const [issue = ''] = process.argv.slice(2)",
+        "console.log(`tdd node ${process.argv.slice(2).join(' ')}`)",
+        "console.log(`PR creado: https://github.com/acme/consumidor/pull/${Number(issue) + 1000}`)",
+        '',
+      ].join('\n'),
+    )
     const run = await runParallel(repo, ['--pipeline', 'tdd', '--stagger', '0', '41'])
     assert.equal(run.code, 0, run.out)
     assert.match(text(run), /Pipeline: tdd \(override\)/)
@@ -326,7 +333,7 @@ describe('scheduler', () => {
     assert.ok(order.indexOf('73') < order.indexOf('72'), 'el issue que no es projection no espera')
     assert.ok(run.calls.includes('tdd-pipeline 72 --status-file pipeline-status-tdd-72.json'))
     const output = text(run)
-    assert.match(output, /Issue #71 -> tdd-pipeline\.sh \(read-side: se serializa con otras projections\)/)
+    assert.match(output, /Issue #71 -> tdd-pipeline\.mts \(read-side: se serializa con otras projections\)/)
     assert.match(output, /⚠ 2 issues tipo:projection detectados --- se serializaran entre si \(comparten el worker de proyecciones del BC, MEF-ADR-0034\)\./)
     assert.match(output, /#72 {5}en espera/)
   })
@@ -359,7 +366,7 @@ describe('parada suave', () => {
       /⚠ Parada solicitada \(pipeline-state\/batch-stop\): 2 issue\(s\) en cola quedan aplazados, sin lanzar ningun worktree\. Los ya lanzados terminan su pipeline y abren su PR\./,
     )
     assert.match(output, /Ningun pipeline quedo en vuelo: no hay nada que monitorear\./)
-    assert.match(output, /Relanza los aplazados, en el mismo orden: parallel-pipeline\.sh 501 502\n/)
+    assert.match(output, /Relanza los aplazados, en el mismo orden: parallel-pipeline\.mts 501 502\n/)
     assert.match(output, /Fallidos: 0 /)
     assert.equal(existsSync(signalOf(repo)), false)
     const status = parallelStatus(repo)
@@ -385,7 +392,7 @@ describe('parada suave', () => {
     assert.match(String(issues[1]?.detail), /parada/)
     assert.equal(issues[1]?.started, null)
     assert.match(text(run), /\n {2}#42 {5}aplazado {8}- {9}\n/, 'el dashboard ya no lo muestra en espera')
-    assert.match(text(run), /parallel-pipeline\.sh 42\n/)
+    assert.match(text(run), /parallel-pipeline\.mts 42\n/)
     assert.equal(existsSync(signalOf(repo)), false)
   })
 

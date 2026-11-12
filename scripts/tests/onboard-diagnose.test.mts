@@ -730,21 +730,21 @@ describe('diagnostico integrado', () => {
     )
     const missing = diagnose({ labelsWithoutWarning: true })
     assert.ok(missing.lines.includes('  [FALTA        ] faltan labels: warning'))
-    assert.ok(missing.text.includes(`"${join(scriptDir(), 'setup-github-labels.sh')}"`))
+    assert.ok(missing.text.includes(`"${join(scriptDir(), 'setup-github-labels.mts')}"`))
   })
 
   test('una aplicacion ausente conserva la FALTA accionable y ajusta solo sus conteos', () => {
     const base = diagnose()
     const absent = diagnose({ azAppMode: 'absent' })
     assert.ok(absent.lines.includes('  [FALTA        ] aplicacion de Entra "ci-diagnostico" no encontrada'))
-    assert.ok(absent.text.includes(`${join(scriptDir(), 'setup-github-ci.sh')} <subscription-id>`))
+    assert.ok(absent.text.includes(`${join(scriptDir(), 'setup-github-ci.mts')} <subscription-id>`))
     assert.deepEqual(absent.counts, { ok: base.counts.ok - 1, falta: base.counts.falta + 1, nv: base.counts.nv })
   })
 
   test('un error de Azure sigue siendo accionable sin filtrar identificadores', () => {
     const { lines, text } = diagnose({ azAppMode: 'error' })
     assert.ok(lines.includes('  [FALTA        ] aplicacion de Entra "ci-diagnostico" no encontrada'))
-    assert.ok(text.includes('setup-github-ci.sh <subscription-id>'))
+    assert.ok(text.includes('setup-github-ci.mts <subscription-id>'))
     assert.doesNotMatch(text, new RegExp(SENTINEL))
   })
 
@@ -901,7 +901,7 @@ describe('diagnostico integrado', () => {
     )
     assert.ok(
       lines.includes(
-        `  - Habilita Mefisto en este repo: "${join(scriptDir(), 'onboard-activate-repo.sh')}" --apply (o confirma el paso opt-in) y commitea los archivos que escribe.`,
+        `  - Habilita Mefisto en este repo: node "${join(scriptDir(), 'onboard-activate-repo.mts')}" --apply (o confirma el paso opt-in) y commitea los archivos que escribe.`,
       ),
     )
     assert.match(text, /Estado: INCOMPLETO - resuelve los FALTA antes de usar los pipelines\./)
@@ -945,7 +945,7 @@ describe('diagnostico integrado', () => {
     assert.equal(mefisto.status, 1)
     assert.deepEqual(mefisto.out, [
       'ERROR: /onboard no aplica al repo de Mefisto.',
-      '       scripts/onboard-diagnose.sh es del plugin publicado y solo aplica al consumidor.',
+      '       scripts/onboard-diagnose.mts es del plugin publicado y solo aplica al consumidor.',
     ])
 
     const outside = diagnose({}, scratch('no-git'))
@@ -961,7 +961,7 @@ describe('linea de comando', () => {
     assert.equal(result.stderr, '')
     assert.equal(
       result.stdout,
-      'ERROR: /onboard no aplica al repo de Mefisto.\n       scripts/onboard-diagnose.sh es del plugin publicado y solo aplica al consumidor.\n',
+      'ERROR: /onboard no aplica al repo de Mefisto.\n       scripts/onboard-diagnose.mts es del plugin publicado y solo aplica al consumidor.\n',
     )
   })
 })

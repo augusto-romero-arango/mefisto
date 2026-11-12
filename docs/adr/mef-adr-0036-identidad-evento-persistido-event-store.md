@@ -340,7 +340,7 @@ Antes de mover o renombrar un evento persistido:
 punto 4, el mecanismo canonico para ejecutarla es el skill `/purge-store` (`commands/purge-store.md`),
 nunca `psql`/`DROP` a mano ni otro script ad-hoc. El skill diagnostica con evidencia (App Insights,
 smoke tests del ultimo deploy) antes de siquiera ofrecer la purga, confirma con el humano mostrando el
-`--dry-run` de `scripts/purge-store.sh` (issue #725 -- la mitad determinista que ejecuta el
+`--dry-run` de `scripts/purge-store.mts` (issue #725 -- la mitad determinista que ejecuta el
 `DROP SCHEMA ... CASCADE` y reinicia los procesos afectados) y valida el resultado relanzando los smoke
 tests que estaban en rojo. Esta doctrina **no cambia** la regla del punto 4: la purga sigue
 perteneciendo al mismo despliegue que el movimiento de tipos; `/purge-store` es el **como** se ejecuta
@@ -594,3 +594,4 @@ identidad de cada evento, sin un artefacto adicional que mantener.
   guardrail 1, o se reemplaza por el. La proteccion frente a borrado o renombre la da el guardrail 2. La
   seccion 6 (d) acota el alcance (tablas evento->topic y tests de dominio quedan fuera) y declara la
   frontera del guardrail 2 en eventos antiguos. Alternativas 5 y 6 registran lo descartado.
+- 2026-11-12: se retiran los shims `.sh` (MEF-ADR-0057): el cuerpo cita los scripts `.mts` que los reemplazaban y su invocacion con `node`. Sin cambio de doctrina.

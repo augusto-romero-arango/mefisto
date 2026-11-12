@@ -34,7 +34,7 @@ describe('marcas de tiempo', () => {
 })
 
 describe('renderStatusJson', () => {
-  // Texto que escribia el heredoc de `update_status` de tooling-pipeline.sh para estos valores.
+  // Texto que escribia el heredoc de `update_status` de tooling-pipeline.mts para estos valores.
   const EXPECTED = `{
   "issue": "42",
   "title": "Agregar CI",

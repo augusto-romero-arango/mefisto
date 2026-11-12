@@ -1,6 +1,6 @@
 import type { BoardItem, BoardList, IssueCard, OpenIssueBrief } from '../types'
 
-export const NEXT_ORDER = './.claude/scripts/mefisto-next-order.sh'
+export const NEXT_ORDER = 'src/internal/scripts/mefisto-next-order.mts'
 /** Filas fijas de la lista: la banda no cambia de alto con la cantidad de issues. */
 export const LIST_ROWS = 5
 
@@ -170,9 +170,9 @@ export function settlePending(pending: ReadonlyMap<number, number>, freshDrafts:
   return out
 }
 
-/** El cierre del planner: ejecuta mefisto-field-note.sh (leerlo con git show o grep no cierra nada). */
+/** El cierre del planner: ejecuta mefisto-field-note.mts (leerlo con git show o grep no cierra nada). */
 export function isPlannerClosing(command: string): boolean {
-  return runs(command, String.raw`\S*mefisto-field-note\.sh\b`) !== null
+  return runs(command, String.raw`(?:node\s+)?\S*mefisto-field-note\.mts\b`) !== null
 }
 
 /** Numero del issue que `gh issue create` imprime como URL. */

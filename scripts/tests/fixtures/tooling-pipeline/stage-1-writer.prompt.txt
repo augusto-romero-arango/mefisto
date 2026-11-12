@@ -47,5 +47,5 @@ Instrucciones:
 2. Reutiliza patrones y convenciones del proyecto (mira archivos similares).
 3. Haz commits frecuentes con mensajes descriptivos en espanol.
 4. Verifica que el proyecto compila con 'dotnet build' si modificaste codigo C#.
-5. Comando de verificacion permitido: scripts/warnings-diff.sh del plugin (politica de cero warnings nuevos, MEF-ADR-0056); sigue la doctrina de tu agente con --base 0123456789abcdef0123456789abcdef01234567.
+5. Comando de verificacion permitido: scripts/warnings-diff.mts del plugin (politica de cero warnings nuevos, MEF-ADR-0056); sigue la doctrina de tu agente con --base 0123456789abcdef0123456789abcdef01234567.
 6. Al terminar, escribe un resumen de lo que hiciste en .mefisto/pipeline/summaries/stage-1-writer.md

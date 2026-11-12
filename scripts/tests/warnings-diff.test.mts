@@ -311,7 +311,7 @@ describe('cache de la base y worktree temporal', () => {
 })
 
 describe('argumentos y guard', () => {
-  const usage = 'Uso: scripts/warnings-diff.sh --toolchain <t> [--base <sha>] [--path <dir>]\n'
+  const usage = 'Uso: scripts/warnings-diff.mts --toolchain <t> [--base <sha>] [--path <dir>]\n'
 
   test('una toolchain no registrada termina en 1 con el uso', () => {
     const result = diff(newRepo(), ['--toolchain', 'nope', '--base', 'HEAD'])
@@ -344,7 +344,7 @@ describe('argumentos y guard', () => {
       assert.equal(result.stdout, '')
       assert.equal(
         result.stderr,
-        'ERROR: scripts/warnings-diff.sh es del plugin publicado y solo aplica al consumidor.\nEstas en el repo de Mefisto.\n',
+        'ERROR: scripts/warnings-diff.mts es del plugin publicado y solo aplica al consumidor.\nEstas en el repo de Mefisto.\n',
       )
     }
   })

@@ -23,7 +23,7 @@ import { dependenciesSection, forwardDependencies } from '../../../scripts/lib/i
 import { Output, chomp, runGh } from './lib/mefisto-script-io.mts'
 import type { Gh } from './lib/mefisto-script-io.mts'
 
-const SCRIPT = 'src/internal/scripts/mefisto-validate-batch-deps.sh'
+const SCRIPT = 'src/internal/scripts/mefisto-validate-batch-deps.mts'
 const CLOSES = /Closes[ \t\v\f\r]+#([0-9]+)/gi
 
 /** Posicion 1-based de un issue en el batch; 0 si no esta. */

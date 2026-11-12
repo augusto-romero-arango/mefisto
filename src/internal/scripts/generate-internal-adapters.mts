@@ -44,8 +44,8 @@ import { runValidator } from './validate-internal-artifacts.mts'
 
 const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..', '..')
 
-// El marcador nombra el .sh: es el comando que se invoca y su texto esta en cada archivo generado.
-const MARKER_SOURCE_SCRIPT = 'src/internal/scripts/generate-internal-adapters.sh'
+// El marcador nombra el script que se invoca para regenerar; su texto esta en cada archivo generado.
+const MARKER_SOURCE_SCRIPT = 'src/internal/scripts/generate-internal-adapters.mts'
 const MARKER_PREFIX = `<!-- GENERADO por ${MARKER_SOURCE_SCRIPT} desde `
 export const PUBLISHED_PROJECTED_SKILLS = ['code-comments']
 
@@ -147,7 +147,7 @@ export function runGenerator(argv: string[], output: Output, repoRoot: string = 
   if (runValidator(files, validation, repoRoot) !== 0) {
     const report = chomp(validation.stderr + validation.stdout)
     if (report.length > 0) output.err(report)
-    output.err('ERROR: validacion previa (validate-internal-artifacts.sh) fallo; no se genero nada')
+    output.err('ERROR: validacion previa (validate-internal-artifacts.mts) fallo; no se genero nada')
     return 1
   }
 

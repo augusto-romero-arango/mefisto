@@ -5,7 +5,7 @@ tools: "Read, Glob, Grep, Edit, Write, Bash, WebFetch, WebSearch"
 model: "sonnet"
 effort: "medium"
 ---
-<!-- GENERADO por src/published/scripts/generate-published-adapters.sh desde src/published/agents/apim-gateway-scaffolder.md. No editar a mano. -->
+<!-- GENERADO por src/published/scripts/generate-published-adapters.mts desde src/published/agents/apim-gateway-scaffolder.md. No editar a mano. -->
 ```bash
 mefisto_claude_root=''
 mefisto_claude_root_from_candidate() {
@@ -94,7 +94,7 @@ Tu salida son tres modulos Terraform reusables (`infra/modules/api-management/`,
 
 El nombre de la instancia APIM que instancias (Paso 3) sigue el patron CAF de **MEF-ADR-0045** (estandar de nombramiento de recursos Azure): `apim-{app}-{env}-{region}-{seq}`, compuesto sobre `local.prefix` -- el local que `infra-base-scaffolder` define en el `variables.tf` del entorno (Paso 2.2) y que ya compone `{region}-{seq}` cuando el consumidor declaro `azureRegionShort`. Sin sufijo `random_string`: la unicidad global la da esa composicion, con el fallback de incrementar `resourceSequence` ante una colision real. Solo aplica a una instancia que se crea de cero -- una ya desplegada con el nombre previo no se renombra (seccion 3 del ADR).
 
-Antes de continuar, aborta si existe `src/internal/scripts/generate-internal-adapters.sh`: ese directorio es el repositorio de Mefisto, no un consumidor.
+Antes de continuar, aborta si existe `src/internal/scripts/generate-internal-adapters.mts`: ese directorio es el repositorio de Mefisto, no un consumidor.
 
 ## Parametros de entrada
 
@@ -184,9 +184,9 @@ Este agente corre sin reviewer y genera codigo desde plantillas del harness: es 
    Cada bloque `bash` corre en un shell nuevo: interpola el SHA impreso en los comandos siguientes. Si `SCAFFOLD_BASE` queda vacio (repo sin commits), informalo en tu reporte final y sigue sin medir.
 
 2. **Al terminar de generar, mide** (antes del commit, si tu flujo commitea; si no, antes del reporte final). Lista los archivos tocados desde la base (`git diff --name-only "$SCAFFOLD_BASE"` mas `git ls-files --others --exclude-standard`) y corre una vez por toolchain aplicable:
-   - `dotnet` si tocaste `*.cs`, `*.csproj`, `*.props`, `*.targets` o `.editorconfig`: `${MEFISTO_PACKAGE_ROOT}/scripts/warnings-diff.sh --toolchain dotnet --base "$SCAFFOLD_BASE"`
-   - `terraform` si tocaste `*.tf`, una corrida por entorno existente: `${MEFISTO_PACKAGE_ROOT}/scripts/warnings-diff.sh --toolchain terraform --base "$SCAFFOLD_BASE" --path infra/environments/<env>`
-   - `shell` si tocaste `*.sh`: `${MEFISTO_PACKAGE_ROOT}/scripts/warnings-diff.sh --toolchain shell --base "$SCAFFOLD_BASE"`
+   - `dotnet` si tocaste `*.cs`, `*.csproj`, `*.props`, `*.targets` o `.editorconfig`: `node ${MEFISTO_PACKAGE_ROOT}/scripts/warnings-diff.mts --toolchain dotnet --base "$SCAFFOLD_BASE"`
+   - `terraform` si tocaste `*.tf`, una corrida por entorno existente: `node ${MEFISTO_PACKAGE_ROOT}/scripts/warnings-diff.mts --toolchain terraform --base "$SCAFFOLD_BASE" --path infra/environments/<env>`
+   - `shell` si tocaste `*.sh`: `node ${MEFISTO_PACKAGE_ROOT}/scripts/warnings-diff.mts --toolchain shell --base "$SCAFFOLD_BASE"`
 
    Salida `0`: sin warnings nuevos. Salida `2`: lista `NEW <toolchain> <archivo> <codigo> <mensaje>`. Salida `1`: el helper no pudo medir (un lado no compila, falta la toolchain, etc.): informalo en el reporte final y sigue sin medir; no lo trates como remediado.
 

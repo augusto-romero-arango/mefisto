@@ -7,7 +7,7 @@ import { CliError, isEntryPoint, runMain } from './lib/cli.mts'
 import { consumerRepoRoot } from './lib/consumer-guard.mts'
 import { upsertHarnessSecret } from './lib/harness-config.mts'
 
-export const USAGE = 'Uso: register-harness-secret.sh <nombre> <output|github-secret|composite> <referencia>'
+export const USAGE = 'Uso: register-harness-secret.mts <nombre> <output|github-secret|composite> <referencia>'
 
 const SOURCE_TYPES = ['output', 'github-secret', 'composite']
 
@@ -18,7 +18,7 @@ export function registerHarnessSecret(argv: string[], cwd: string): void {
   }
   if (name === '' || reference === '' || !SOURCE_TYPES.includes(type)) throw new CliError(USAGE)
   consumerRepoRoot(cwd, [
-    'ERROR: register-harness-secret.sh es del plugin publicado y solo aplica al consumidor.',
+    'ERROR: register-harness-secret.mts es del plugin publicado y solo aplica al consumidor.',
   ])
   upsertHarnessSecret(name, type, reference, undefined, { cwd })
 }
