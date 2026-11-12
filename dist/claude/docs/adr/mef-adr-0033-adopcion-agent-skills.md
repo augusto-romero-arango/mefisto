@@ -41,8 +41,8 @@ Ambas ubicaciones estan verificadas contra la tabla de ubicaciones de Skills de 
 
 **Precondicion 2 -- los gates de scope deben conocer `skills/`**: MEF-ADR-0019 protege la frontera publicado/interno con dos gates que enumeran rutas *explicitamente*, no por patron generico:
 
-- `is_path_in_consumer_blocklist` (`scripts/lib/pipeline/consumer-scope.mts`): **blocklist** de rutas reservadas al plugin que un pipeline publicado corriendo en el consumidor no puede tocar.
-- `is_path_in_mefisto_scope` (`src/internal/scripts/lib/mefisto-scope.mts`): **allowlist** de rutas que el pipeline interno (`/mefisto-tooling`) puede modificar.
+- `isPathInConsumerBlocklist` (`scripts/lib/pipeline/consumer-scope.mts`): **blocklist** de rutas reservadas al plugin que un pipeline publicado corriendo en el consumidor no puede tocar.
+- `isPathInMefistoScope` (`src/internal/scripts/lib/mefisto-scope.mts`): **allowlist** de rutas que el pipeline interno (`/mefisto-tooling`) puede modificar.
 
 Adoptar `skills/` como tercer tipo de artefacto obliga a registrarlo en **ambos**: sin `skills/*` en la allowlist interna, el propio pipeline que crearia el Skill `projections` rechazaria su PR por fuera-de-scope; sin `skills/*` en el blocklist publicado, un agente del consumidor podria modificar los Skills del plugin sin que el gate lo detecte -- el hueco exacto que MEF-ADR-0019 existe para cerrar. Este ADR extiende ambos gates (`skills/*` en el blocklist publicado; `skills/*` y `.claude/skills/*` en la allowlist interna) junto con su cobertura en `scripts/tests/guards.test.mts`, para que la convencion sea operable el dia que se cree el primer Skill. **Todo tipo de artefacto nuevo que se agregue al plugin en el futuro hereda esta obligacion**: los gates no lo cubren por defecto.
 
@@ -141,3 +141,4 @@ En vez de un Skill por tema (`projections`, futuros temas), consolidar toda la d
 - 2026-11-12: los guards de `scripts/tests/test-guards.sh` pasan a `scripts/tests/guards.test.mts` (port a TypeScript, MEF-ADR-0057); el cuerpo cita el archivo nuevo. Sin cambio de doctrina.
 - 2026-11-12: la precondicion 2 cita los modulos TypeScript de los gates de scope (`consumer-scope.mts` y `mefisto-scope.mts`) en lugar de las librerias bash `_pipeline-common.sh` y `_mefisto-common.sh`, que se borran (MEF-ADR-0057). Sin cambio de doctrina.
 - 2026-11-12: se retiran los shims `.sh` (MEF-ADR-0057): el cuerpo cita los scripts `.mts` que los reemplazaban y su invocacion con `node`. Sin cambio de doctrina.
+- 2026-11-12: la precondicion 2 nombra los gates de scope por sus funciones TypeScript (`isPathInConsumerBlocklist`, `isPathInMefistoScope`) en lugar de los nombres de las funciones bash borradas (port a TypeScript, MEF-ADR-0057). Sin cambio de doctrina.

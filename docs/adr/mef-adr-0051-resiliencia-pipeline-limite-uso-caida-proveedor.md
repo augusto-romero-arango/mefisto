@@ -30,7 +30,7 @@ Este ADR fija la taxonomia de fallos de agente y el trato que corresponde a cada
 
 ### 1. Taxonomia de fallos de agente: quien reintenta, quien espera, quien aborta (CA-1)
 
-`classifyAgentFailure` (`src/internal/scripts/lib/mefisto-agent-failures.mts`) traduce el desenlace de una invocacion fallida a una de ocho etiquetas. Cada una tiene exactamente un trato, decidido por tres funciones independientes que el bucle de `run_agent` (`src/internal/scripts/mefisto-tooling-pipeline.mts`) consulta en orden -- reintento corto primero, espera despues, abortar como default:
+`classifyAgentFailure` (`src/internal/scripts/lib/mefisto-agent-failures.mts`) traduce el desenlace de una invocacion fallida a una de ocho etiquetas. Cada una tiene exactamente un trato, decidido por tres funciones independientes que el bucle de `runAgent` (`src/internal/scripts/mefisto-tooling-pipeline.mts`) consulta en orden -- reintento corto primero, espera despues, abortar como default:
 
 | `failure_type` | `agentFailureIsRetryable` (reintento corto, #534) | `agentFailureIsHoldable` (espera, #967) | `agentFailureIsUnrecoverable` (descarta el trabajo, #906) |
 |---|---|---|---|
@@ -157,3 +157,4 @@ Bifurcar a una sesion nueva que herede el contexto de la original, en vez de rea
 - 2026-11-10: enmienda por MEF-ADR-0057 (decision 7, runtime unico): OpenCode deja de ser runtime soportado, asi que salen del cuerpo `runtime-opencode.jq`, `runtime-opencode.sh` y su reanudacion via `-s`/`--session`. La taxonomia, la politica de espera y la interfaz por runtime de la seccion 4 no cambian.
 - 2026-11-12: se borran las librerias bash `_mefisto-common.sh` y `_pipeline-common.sh` y el adaptador `runtime-claude.sh`/`runtime-claude.jq` (port a TypeScript, MEF-ADR-0057): el cuerpo cita los modulos TypeScript (`mefisto-agent-failures.mts`, `agent-failures.mts`, `agent-hold.mts`, `runtime-claude.mts`, `mefisto-tooling-pipeline.mts`) y sus funciones en lugar de las funciones bash y sus numeros de linea. Sin cambio de doctrina.
 - 2026-11-12: se retiran los shims `.sh` (MEF-ADR-0057): el cuerpo cita los scripts `.mts` que los reemplazaban y su invocacion con `node`. Sin cambio de doctrina.
+- 2026-11-12: la decision 1 nombra el bucle de `mefisto-tooling-pipeline.mts` por su funcion TypeScript, `runAgent`, en lugar de `run_agent` (port a TypeScript, MEF-ADR-0057). Sin cambio de doctrina.
