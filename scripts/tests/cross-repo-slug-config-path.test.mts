@@ -1,11 +1,16 @@
 // Contrato de ruta efectiva para leer `repoSlug` en los caminos de draft cross-repo hacia Mefisto
 // (#1534, MEF-ADR-0053 decision 4): planner, tooling-investigator y fix-review comparten el
 // preambulo renderizado de `{{mefisto:config-path}}` y ninguno lee el config legacy por su cuenta.
+// Los bloques extraidos tambien se ejecutan con bash contra consumidores temporales.
 
 import assert from 'node:assert/strict'
-import { test } from 'node:test'
+import { mkdtempSync, realpathSync, rmSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
+import { after, before, describe, test } from 'node:test'
 
-import { fencedBlocks, fromLine, linesOf, matchingLines, readRepoFile } from './text-contract.mts'
+import { NO_BASH, forwardSlashes, runBashStreams, writeTree } from './markdown-bash.mts'
+import { REPO_ROOT, fencedBlocks, fromLine, linesOf, matchingLines, readRepoFile } from './text-contract.mts'
 
 const PLANNER = readRepoFile('agents/planner.md')
 const INVESTIGATOR = readRepoFile('agents/tooling-investigator.md')
@@ -107,4 +112,64 @@ test('ningun artefacto reintroduce una lectura directa del config legacy fuera d
     }
   }
   assert.deepEqual(leaks, [])
+})
+
+// Matriz de resolucion (CA-3): cada bloque se ejecuta con su preambulo desde la raiz de un
+// consumidor temporal; el preambulo resuelve relativo al cwd (MEF-ADR-0053 seccion 4).
+describe('[ejecucion] matriz de resolucion del slug', { skip: NO_BASH }, () => {
+  const DEFAULT_SLUG = 'augusto-romero-arango/mefisto'
+  const PACKAGE_ROOT = { MEFISTO_PACKAGE_ROOT: forwardSlashes(REPO_ROOT) }
+  let work = ''
+
+  before(() => {
+    work = realpathSync.native(mkdtempSync(join(tmpdir(), 'mefisto slug ')))
+  })
+
+  after(() => {
+    rmSync(work, { recursive: true, force: true })
+  })
+
+  const consumer = (name: string, files: Record<string, string>): string => writeTree(join(work, name), files)
+  const slugConfig = (slug: string): string => `${JSON.stringify({ repoSlug: slug })}\n`
+  const CANONICAL = '.mefisto/harness.config.json'
+  const LEGACY = '.claude/harness.config.json'
+
+  for (const [label, block] of [
+    ['planner', `${PLANNER_PREAMBLE}\n${PLANNER_OWN}`],
+    ['investigator', `${INVESTIGATOR_PREAMBLE}\n${INVESTIGATOR_OWN}`],
+    ['fix-review', `${FIX_REVIEW_PREAMBLE}\n${FIX_REVIEW_OWN}`],
+  ] as const) {
+    const slug = (dir: string): string => {
+      const result = runBashStreams(block, dir, PACKAGE_ROOT)
+      assert.equal(result.status, 0, result.stderr)
+      return result.stdout.trimEnd()
+    }
+
+    test(`${label}: solo canonico resuelve org/fork`, () => {
+      assert.equal(slug(consumer(`${label}-canonico`, { [CANONICAL]: slugConfig('org/fork') })), 'org/fork')
+    })
+
+    test(`${label}: coexistencia prevalece el canonico`, () => {
+      const dir = consumer(`${label}-ambos`, {
+        [CANONICAL]: slugConfig('org/canonico'),
+        [LEGACY]: slugConfig('org/legacy'),
+      })
+      assert.equal(slug(dir), 'org/canonico')
+    })
+
+    test(`${label}: solo legacy resuelve org/legacy`, () => {
+      assert.equal(slug(consumer(`${label}-legacy`, { [LEGACY]: slugConfig('org/legacy') })), 'org/legacy')
+    })
+
+    test(`${label}: sin ningun config aborta sin stdout (preambulo compartido de config-path)`, () => {
+      const result = runBashStreams(block, consumer(`${label}-sin-config`, {}), PACKAGE_ROOT)
+      assert.notEqual(result.status, 0)
+      assert.equal(result.stdout, '')
+    })
+
+    test(`${label}: canonico sin repoSlug aplica el default`, () => {
+      const dir = consumer(`${label}-sin-campo`, { [CANONICAL]: '{"projectName":"demo"}\n' })
+      assert.equal(slug(dir), DEFAULT_SLUG)
+    })
+  }
 })
