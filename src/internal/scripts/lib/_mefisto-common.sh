@@ -778,6 +778,7 @@ find_open_pr_for_branch() {
 # necesario para formar un total completo. estimated_cost_usd: 0 es un valor
 # presente y se muestra como $0.00. Nunca aborta ni depende de jq para retornar
 # exito: la telemetria es observabilidad, no un gate del pipeline.
+# Gemela en TypeScript: renderRunMetricCount de scripts/lib/pipeline/run-history.mts, compartida con el lado publicado. Un cambio va en las dos.
 _render_run_metric_count() {
     local n="$1"
     if ! [[ "$n" =~ ^[0-9]+$ ]]; then
@@ -789,6 +790,7 @@ _render_run_metric_count() {
     return 0
 }
 
+# Gemela en TypeScript: renderRunMetricsTable de scripts/lib/pipeline/run-history.mts, compartida con el lado publicado. Un cambio va en las dos.
 render_run_metrics_table() {
     local label duration metrics
     local total_tokens=0 total_duration=0 total_cost="0" cost_values=0
@@ -920,6 +922,7 @@ render_run_metrics_table() {
 # Con spec vacio (flag no pasado), deja MEFISTO_STAGE_MODELS vacio y retorna 0
 # sin error: es el camino "sin --models", el que preserva el comportamiento
 # byte a byte actual.
+# Gemela en TypeScript: parseStageModels de scripts/lib/pipeline/stage-models.mts, compartida con el lado publicado. Un cambio va en las dos.
 parse_stage_models() {
     local spec="$1"
     MEFISTO_STAGE_MODELS=""
@@ -962,6 +965,7 @@ parse_stage_models() {
 # entrada de clave EXACTA en el mapa, o <default> si no hay mapa cargado o
 # <agente> no aparece en el. Pura -- no valida ni aborta, ese trabajo ya lo hizo
 # parse_stage_models(). Siempre retorna 0.
+# Gemela en TypeScript: resolveStageModel de scripts/lib/pipeline/stage-models.mts, compartida con el lado publicado. Un cambio va en las dos.
 resolve_stage_model() {
     local agent="$1" default="$2"
     local line
@@ -984,6 +988,7 @@ resolve_stage_model() {
 # ("agente=modelo, agente=modelo") lista para log()/eventos (auditabilidad del
 # mapa de overrides aplicado). Cadena vacia si no hay mapa cargado (sin
 # --models). Siempre retorna 0.
+# Gemela en TypeScript: formatStageModelsForLog de scripts/lib/pipeline/stage-models.mts, compartida con el lado publicado. Un cambio va en las dos.
 format_stage_models_for_log() {
     [ -z "${MEFISTO_STAGE_MODELS:-}" ] && return 0
     echo "$MEFISTO_STAGE_MODELS" | tr '\n' ',' | sed 's/,/, /g; s/, $//'
@@ -1194,6 +1199,7 @@ unset _mefisto_process_lib
 # mayoria de los fallos que le importan a run_agent. Un fallo de
 # instrumentacion (falta jq, stream vacio o inexistente) nunca debe tumbar el
 # pipeline: la funcion siempre retorna 0.
+# Gemela en TypeScript: src/internal/scripts/lib/mefisto-stage-metrics.mts. Un cambio va en las dos.
 derive_stage_log_from_stream() {
     local events_file="$1" stderr_file="$2" out_file="$3"
 
@@ -1247,6 +1253,7 @@ derive_stage_log_from_stream() {
 # Parseo tolerante (`try fromjson catch empty`) porque la traza puede traer
 # lineas truncadas si el proceso murio a media escritura -- y ese es
 # justamente el caso que NO debe reportar exito.
+# Gemela en TypeScript: src/internal/scripts/lib/mefisto-agent-events.mts. Un cambio va en las dos.
 agent_stream_completed_successfully() {
     local events_file="${1:-}"
 
@@ -1289,6 +1296,7 @@ agent_stream_completed_successfully() {
 # Parseo tolerante (`try fromjson catch empty`), igual que
 # agent_stream_completed_successfully: una linea truncada a mitad de escritura
 # se descarta sin perder las anteriores.
+# Gemela en TypeScript: src/internal/scripts/lib/mefisto-agent-events.mts. Un cambio va en las dos.
 agent_events_error_field() {
     local events_file="${1:-}" field="${2:-kind}"
 
@@ -1318,6 +1326,7 @@ agent_events_error_field() {
 # directo a su etiqueta -- ya no necesita `agent_events_error_detail` para
 # partir 5xx de 4xx, porque esa distincion la hace ahora el adaptador
 # (runtime-claude.jq), no un grep sobre el detalle.
+# Gemela en TypeScript: src/internal/scripts/lib/mefisto-agent-events.mts. Un cambio va en las dos.
 agent_events_error_kind() {
     agent_events_error_field "${1:-}" kind
 }
@@ -1328,6 +1337,7 @@ agent_events_error_kind() {
 # la consulta (issue #965: el split 5xx/4xx vive en el adaptador), pero sigue
 # siendo la interfaz para cualquier consumidor que quiera el texto crudo del
 # fallo (p. ej. un mensaje de log) sin reinventar el acceso al terminal.
+# Gemela en TypeScript: src/internal/scripts/lib/mefisto-agent-events.mts. Un cambio va en las dos.
 agent_events_error_detail() {
     agent_events_error_field "${1:-}" detail
 }
@@ -1341,6 +1351,7 @@ agent_events_error_detail() {
 # #965 lo agrega para documentar cuando se levanta el limite de la ventana de
 # uso; la politica de espera (hold, issue #967) lo usa para dormir hasta ese
 # instante en vez de sondear a ciegas cada MEFISTO_HOLD_PROBE_SECONDS.
+# Gemela en TypeScript: src/internal/scripts/lib/mefisto-agent-events.mts. Un cambio va en las dos.
 agent_events_resets_at() {
     local events_file="${1:-}"
 
@@ -1371,6 +1382,7 @@ agent_events_resets_at() {
 # `system/init`) y la
 # deja en el terminal aunque el proceso muera a mitad de camino: el 429/5xx
 # no destruye la sesion, solo el proceso que la sostenia.
+# Gemela en TypeScript: src/internal/scripts/lib/mefisto-agent-events.mts. Un cambio va en las dos.
 agent_events_session_id() {
     local events_file="${1:-}"
 
@@ -1431,6 +1443,7 @@ agent_events_session_id() {
 # vuelo. Ese caso si es recuperable, y sigue pasando por los gates de
 # agent_work_is_trustworthy (resumen de stage presente + diff real), asi que
 # la relajacion no abre la puerta a un PR con trabajo a medias.
+# Gemela en TypeScript: src/internal/scripts/lib/mefisto-agent-failures.mts. Un cambio va en las dos.
 agent_failure_is_unrecoverable() {
     local timed_out="$1" exit_code="$2" events_file="$3"
 
@@ -1473,6 +1486,7 @@ agent_failure_is_unrecoverable() {
 # 429 con `rate_limit_event`, issue #965) y API_ERROR_CLIENT conserva su
 # nombre y su alcance (un 4xx que YA no incluye 429 de limite, porque ese
 # ahora es RATE_LIMIT antes de llegar aqui).
+# Gemela en TypeScript: src/internal/scripts/lib/mefisto-agent-failures.mts. Un cambio va en las dos.
 classify_agent_failure() {
     local timed_out="$1" exit_code="$2" elapsed="$3" events_file="$4"
 
@@ -1543,6 +1557,7 @@ classify_agent_failure() {
 #
 # La comparacion es por prefijo porque classify_agent_failure adjunta el exit
 # code a la etiqueta ("PROVIDER_UNAVAILABLE (exit 1)").
+# Gemela en TypeScript: src/internal/scripts/lib/mefisto-agent-failures.mts. Un cambio va en las dos.
 agent_failure_is_retryable() {
     local failure_type="${1:-}"
 
@@ -1560,6 +1575,7 @@ agent_failure_is_retryable() {
 # pudo parsear. `date -j -f` es la forma BSD (macOS, el entorno del harness);
 # el segundo intento cubre el `date` de GNU por si el pipeline corre en Linux
 # -- mismo patron de dos intentos que fmt_time_hhmmss en mefisto-stream-watch.sh.
+# Gemela en TypeScript: resetsAtEpoch de scripts/lib/pipeline/agent-hold.mts, compartida con el lado publicado. Un cambio va en las dos.
 iso8601_to_epoch() {
     local iso="${1:-}"
     [ -z "$iso" ] && return 1
@@ -1581,6 +1597,7 @@ iso8601_to_epoch() {
 #
 # La comparacion es por prefijo, igual que agent_failure_is_retryable:
 # classify_agent_failure adjunta el exit code a la etiqueta.
+# Gemela en TypeScript: agentFailureIsHoldable de scripts/lib/pipeline/agent-failures.mts, compartida con el lado publicado. Un cambio va en las dos.
 agent_failure_is_holdable() {
     local failure_type="${1:-}"
 
@@ -1619,6 +1636,7 @@ agent_failure_is_holdable() {
 # Solo si ninguno de los dos gates anteriores descalifica, mira el has_work
 # original: diff sucio contra <base_commit> o working tree con cambios sin
 # commitear.
+# Gemela en TypeScript: src/internal/scripts/lib/mefisto-agent-failures.mts. Un cambio va en las dos.
 agent_work_is_trustworthy() {
     local wt="$1" base="$2" unrecoverable="$3" summary_file="$4"
 
@@ -1674,6 +1692,7 @@ agent_work_is_trustworthy() {
 # nombre y emitio "?") -- no aparece en `tool_calls`: `count` es la cuenta
 # de llamadas EMPEZADAS, y sumar ahi una duracion sin llamada que la
 # explique dejaria un `duration_ms_sum` sin `count` que lo respalde.
+# Gemela en TypeScript: src/internal/scripts/lib/mefisto-stage-metrics.mts. Un cambio va en las dos.
 compute_stage_metrics() {
     local events_file="$1"
 
@@ -1778,6 +1797,7 @@ compute_stage_metrics() {
 # "metrics" ni "runtime"), igual que antes de este issue (CA-5). Imprime por
 # stdout el JSON compacto de "agents" en una sola linea. Retorna siempre 0:
 # un fallo de instrumentacion nunca debe tumbar la escritura del historial.
+# Gemela en TypeScript: src/internal/scripts/lib/mefisto-run-history.mts. Un cambio va en las dos.
 build_agents_history_json() {
     local wr_dur="$1" wr_metrics="$2" rv_dur="$3" rv_metrics="$4"
 
