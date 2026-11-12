@@ -28,14 +28,13 @@
 #   [1] agent_resume_prompt: el texto menciona el stage/agente correctos, la
 #       ruta exacta del resumen del stage, y la instruccion de continuar sin
 #       reiniciar el analisis.
-#   [2] CA-1 (estatico): tdd-pipeline.sh, tooling-pipeline.sh e
-#       iac-pipeline.sh (issue #1624: se sumo al runner neutral, ultimo de
-#       los tres en migrar) reanudan por session_id/capability neutrales --
+#   [2] CA-1 (estatico): tdd-pipeline.sh e iac-pipeline.sh (issue #1624: se
+#       sumo al runner neutral) reanudan por session_id/capability neutrales --
 #       ninguno depende ya de agent_session_transcript_count ni de `-c` de un
 #       CLI concreto. El comportamiento dinamico de esa reanudacion (primera
 #       sonda con --resume-session, degradacion permanente si la sesion
 #       resumida vuelve a terminar sin el resumen del stage) vive en el arnes
-#       de cada pipeline (test-tooling-neutral-runner.sh,
+#       de cada pipeline (tooling-pipeline-agents.test.mts,
 #       test-iac-pipeline-neutral-runner.sh), no aqui.
 #   [6] Nunca se usa --fork-session en la sonda de ningun pipeline (notas
 #       tecnicas del issue: reusar la sesion mantiene un solo transcript por
@@ -125,7 +124,7 @@ rm -rf "$CFG_DIR" "$WT_PROBE"
 
 echo ""
 echo "[2] CA-1 (estatico): reanudacion neutral"
-for p in tdd-pipeline.sh tooling-pipeline.sh iac-pipeline.sh; do
+for p in tdd-pipeline.sh iac-pipeline.sh; do
     FILE="$REPO_ROOT/scripts/$p"
     if grep -q 'agent_events_session_id' "$FILE" \
         && grep -q 'runtime_supports_resume' "$FILE" \
@@ -153,7 +152,7 @@ fi
 # stage) ya NO tiene un unico "pipeline mas simple" con mecanica propia que
 # extraer: los tres pipelines (tdd/tooling/iac) delegan la MISMA politica de
 # _pipeline-common.sh sobre el runner neutral. Esa cobertura dinamica vive en
-# el arnes propio de cada uno (test-tooling-neutral-runner.sh,
+# el arnes propio de cada uno (tooling-pipeline-agents.test.mts,
 # test-iac-pipeline-neutral-runner.sh), issue #1624.
 
 echo ""

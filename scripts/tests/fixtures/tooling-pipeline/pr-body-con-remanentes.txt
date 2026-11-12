@@ -1,0 +1,43 @@
+## Resumen
+
+Pipeline tooling completado:
+- Writer: implementacion de la tarea
+- Reviewer: revision de calidad
+
+## Decisiones del pipeline
+
+<details>
+<summary>Writer -- 2m 5s</summary>
+
+## Implementado
+
+- Workflow `ci.yml` con $VARIABLES sin expandir.
+
+</details>
+
+<details>
+<summary>Reviewer -- 0m 0s</summary>
+
+_(El agente no genero resumen)_
+
+</details>
+
+## Warnings remanentes
+
+- Relacionado: #77
+- Relacionado: acme/otro#5
+
+## Commits
+
+89abcde tooling(#42): revision y correcciones
+0123456 tooling(#42): implementacion
+
+## Metricas de la corrida
+
+| Etapa | Modelo | Tokens | in/out/cache/reasoning | Tiempo | Costo estimado |
+|---|---|---:|---|---:|---:|
+| Writer | modelo-a | 53.5k | 1.2k / 340 / 52k / 0 | 2m 5s | $0.43 |
+| Reviewer | - | - | - | - | - |
+| **Total (parcial)** | - | - | - | - | **$0.43** |
+
+Closes #42

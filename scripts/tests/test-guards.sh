@@ -8,7 +8,7 @@
 #      src/published/ (directiva {{mefisto:assert-consumer-repo}}, MEF-ADR-0049),
 #      que en su lugar verifica src/internal/scripts/generate-internal-adapters.sh.
 #   B) Los skills internos (.claude/commands/mefisto-*.md) llevan el guard inverso.
-#   C) Los pipelines publicados (scripts/tooling-pipeline.sh, scripts/parallel-pipeline.sh,
+#   C) Los pipelines publicados que siguen en bash (scripts/parallel-pipeline.sh,
 #      scripts/batch-pipeline.sh, scripts/pr-sync.sh, scripts/tdd-pipeline.sh,
 #      scripts/iac-pipeline.sh, scripts/scaffold-pipeline.sh, scripts/launch-pipeline.sh)
 #      y los scripts auxiliares publicados que siguen en bash (setup-github-labels.sh,
@@ -164,7 +164,7 @@ echo ""
 echo "[C] Pipelines publicados: contienen guard contra repo de Mefisto"
 
 PUBLISHED_PIPELINES=(
-    tooling-pipeline.sh parallel-pipeline.sh batch-pipeline.sh pr-sync.sh
+    parallel-pipeline.sh batch-pipeline.sh pr-sync.sh
     tdd-pipeline.sh iac-pipeline.sh scaffold-pipeline.sh launch-pipeline.sh
 )
 
@@ -196,7 +196,7 @@ echo "[C2] Scripts auxiliares publicados: el guard aborta cuando se ejecutan en 
 AUX_SCRIPTS=(
     appinsights-query.sh setup-github-ci.sh setup-github-labels.sh
     bootstrap-backend.sh seed-secret.sh onboard-diagnose.sh onboard-migrate-directives.sh onboard-activate-repo.sh update-plugin.sh upgrade.sh
-    purge-store.sh next-order.sh field-note.sh warnings-diff.sh
+    purge-store.sh next-order.sh field-note.sh warnings-diff.sh tooling-pipeline.sh
 )
 
 for aux in "${AUX_SCRIPTS[@]}"; do

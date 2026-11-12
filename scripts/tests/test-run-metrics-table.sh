@@ -59,22 +59,6 @@ else
     fail "contador ausente deberia degradar la fila y el total: $OUT"
 fi
 
-echo "[E] El PR nuevo y reutilizado incluyen la tabla; el comentario no es fatal"
-PIPELINE="$REPO_ROOT/scripts/tooling-pipeline.sh"
-if grep -qF 'RUN_METRICS_TABLE=$(render_run_metrics_table' "$PIPELINE" \
-   && grep -qF '## Metricas de la corrida' "$PIPELINE" \
-   && grep -qF 'RUN_METRICS_COMMENT=$(cat <<EOF' "$PIPELINE" \
-   && grep -qF "Actualizado: \$(date '+%Y-%m-%d %H:%M:%S %Z')" "$PIPELINE" \
-   && grep -qF -- '--body "$RUN_METRICS_COMMENT"' "$PIPELINE" \
-   && grep -qF -- '--repo "$REPO_SLUG_PR"' "$PIPELINE" \
-   && grep -qF '|| warn "No se pudo publicar las metricas en el PR reutilizado' "$PIPELINE" \
-   && ! grep -qF -- '--body "## Metricas de la corrida\n' "$PIPELINE" \
-   && ! grep -qE '^RUN_METRICS_(TABLE|COMMENT)=|^gh pr comment' "$PIPELINE"; then
-    pass "la tabla se publica bajo el gate de variante, con saltos reales y degradacion a warn"
-else
-    fail "integracion de tabla, comentario o gate de variante no respeta el contrato"
-fi
-
 echo "[F] jq ausente nunca aborta y degrada la tabla"
 NO_JQ=$(mktemp -d)
 OUT=$(PATH="$NO_JQ" render_run_metrics_table Writer 60 "$WRITER")

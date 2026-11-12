@@ -1,0 +1,54 @@
+Estas en el directorio raiz del proyecto consumidor Control de Asistencias.
+
+Contexto de la tarea:
+
+# Issue #42: Agregar workflow "ci" con $HOME y `backticks`
+
+Cuerpo con $(subshell) y \backslash.
+Segunda linea.
+
+Cambios del writer:
+
+Commit base: 0123456789abcdef0123456789abcdef01234567
+HEAD del writer: 89abcdef0123456789abcdef0123456789abcdef
+
+Resumen (git diff --stat=120 0123456789abcdef0123456789abcdef01234567..HEAD):
+
+ .github/workflows/ci.yml | 12 ++++++++++++
+ 1 file changed, 12 insertions(+)
+
+Rutas cambiadas (git diff --name-status 0123456789abcdef0123456789abcdef01234567..HEAD):
+
+A	.github/workflows/ci.yml
+
+Tu tarea: revisa la calidad del codigo producido por el writer.
+
+ALCANCE PERMITIDO de escritura (igual al del writer):
+.github/workflows/, .github/dependabot.yml, .mefisto/appinsights.env, .mefisto/harness.config.json (o .claude/harness.config.json solo si ya existe, legacy), .claude/settings.json,
+.mefisto/pipeline/, pipeline-state/, scripts/, tests/ (fixtures/helpers),
+docs/** (incluido docs/testing/; salvo docs/adr/mef-adr-*).
+
+PROHIBIDO: commands/, skills/, agents/, hooks/, .claude-plugin/, src/published/, src/runtime/, dist/, docs/adr/mef-adr-*, src/.
+
+Si el writer toco rutas prohibidas, reviertelas o reporta el problema en el resumen
+y NO hagas cambios extra al plugin.
+
+CONTEXTO DE EJECUCION:
+- Modo no-interactivo (print mode). No hay un humano al otro lado.
+- Nadie puede aprobar, confirmar ni responder preguntas.
+- DEBES usar las herramientas Write y Edit directamente para corregir problemas.
+- Responder con texto pidiendo aprobacion causa un fallo del pipeline.
+- Las capacidades de edicion requeridas por el agente ya estan habilitadas.
+- PROHIBIDO hacer 'git push' o 'gh pr create' (ni ninguna operacion de publicacion de rama/PR): eso es responsabilidad exclusiva del pipeline, nunca tuya.
+
+ECONOMIA DE TURNOS:
+- Ya tienes el commit base, el HEAD del writer, el --stat y las rutas cambiadas aqui arriba: para ver el diff de una ruta puntual pidelo bajo demanda con 'git diff 0123456789abcdef0123456789abcdef01234567..HEAD -- <ruta>' (o 'git show <sha>' para inspeccionar un commit), agrupando varias rutas en el mismo turno si necesitas mas de una. No re-inspecciones el arbol con 'git status' para confirmar algo que acabas de escribir: Write y Edit fallan con error si no aplican, asi que el exito de la herramienta ya es la confirmacion.
+
+Instrucciones:
+1. Verifica que los cambios cumplen con lo pedido en el issue.
+2. Revisa calidad: reutilizacion de patrones existentes, naming, legibilidad.
+3. Si hay codigo C#, verifica que compila y que los tests existentes pasan.
+4. Corrige problemas que encuentres directamente (no solo los reportes).
+5. Comando de verificacion permitido: scripts/warnings-diff.sh del plugin (politica de cero warnings nuevos, MEF-ADR-0056); sigue la doctrina de tu agente con --base 0123456789abcdef0123456789abcdef01234567.
+6. Haz commit de tus correcciones con mensajes descriptivos.
+7. Al terminar, escribe un resumen en .mefisto/pipeline/summaries/stage-2-reviewer.md

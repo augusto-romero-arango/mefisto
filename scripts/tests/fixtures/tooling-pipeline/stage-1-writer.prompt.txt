@@ -1,0 +1,51 @@
+Estas en el directorio raiz del proyecto consumidor Control de Asistencias (un consumidor del plugin Mefisto).
+
+Contexto de la tarea de tooling a implementar:
+
+# Issue #42: Agregar workflow "ci" con $HOME y `backticks`
+
+Cuerpo con $(subshell) y \backslash.
+Segunda linea.
+
+Commit base: 0123456789abcdef0123456789abcdef01234567
+
+Tu tarea: implementa lo descrito en el issue. Esto es una tarea de TOOLING del CONSUMIDOR (workflows de GitHub Actions, configuracion local, fixtures de test, scripts ad-hoc del consumidor), NO logica de dominio y NO modificaciones al plugin Mefisto.
+
+ALCANCE PERMITIDO de escritura:
+- .github/workflows/                         (workflows del consumidor)
+- .github/dependabot.yml                     (configuracion de Dependabot del consumidor; solo este archivo)
+- .mefisto/harness.config.json               (configuracion del consumidor: contrato canonico)
+- .mefisto/appinsights.env                   (configuracion de telemetria del consumidor: solo nombres de recursos, sin secretos)
+- .claude/harness.config.json                (solo si ya existe: fallback legacy de lectura, no lo crees)
+- .claude/settings.json                      (configuracion Claude del consumidor)
+- .mefisto/pipeline/                         (estado runtime canonico; .gitignored)
+- pipeline-state/                            (senales del pipeline)
+- scripts/                                   (scripts ad-hoc del consumidor)
+- tests/                                     (SOLO fixtures, helpers, builders - NO logica de dominio)
+- docs/**                                  (documentacion del consumidor, incluido docs/testing/;
+  la unica exclusion documental es docs/adr/mef-adr-*, reservada al marco)
+
+PROHIBIDO MODIFICAR (pertenece al plugin Mefisto, no a este repo):
+- commands/, skills/, agents/, hooks/, .claude-plugin/, src/published/, src/runtime/, dist/
+- docs/adr/mef-adr-*  (ADRs del marco; si copias uno para editarlo local, renombralo con tu propio prefijo)
+- src/ (eso es para /implement, no para /tooling)
+
+Si la tarea requiere modificar el plugin Mefisto, NO la ejecutes. En su lugar, propon crear un draft con:
+  gh issue create -R acme/mefisto-fork --label "estado:borrador,tipo:tooling" --title "..." --body "..."
+Y registra esto en el resumen del stage.
+
+CONTEXTO DE EJECUCION:
+- Modo no-interactivo (print mode). No hay un humano al otro lado.
+- Nadie puede aprobar, confirmar ni responder preguntas.
+- DEBES usar las herramientas Write y Edit directamente para crear y modificar archivos.
+- Responder con texto pidiendo aprobacion causa un fallo del pipeline.
+- Las capacidades de edicion requeridas por el agente ya estan habilitadas.
+- PROHIBIDO hacer 'git push' o 'gh pr create' (ni ninguna operacion de publicacion de rama/PR): eso es responsabilidad exclusiva del pipeline, nunca tuya.
+
+Instrucciones:
+1. Lee los archivos existentes relevantes antes de escribir codigo nuevo.
+2. Reutiliza patrones y convenciones del proyecto (mira archivos similares).
+3. Haz commits frecuentes con mensajes descriptivos en espanol.
+4. Verifica que el proyecto compila con 'dotnet build' si modificaste codigo C#.
+5. Comando de verificacion permitido: scripts/warnings-diff.sh del plugin (politica de cero warnings nuevos, MEF-ADR-0056); sigue la doctrina de tu agente con --base 0123456789abcdef0123456789abcdef01234567.
+6. Al terminar, escribe un resumen de lo que hiciste en .mefisto/pipeline/summaries/stage-1-writer.md

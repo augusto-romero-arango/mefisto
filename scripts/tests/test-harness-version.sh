@@ -12,7 +12,8 @@
 #     _pc_script_dir) y no al cwd del pipeline. Con jq, lee '.version'; sin
 #     jq, degrada a extraccion con sed; si nada funciona o el archivo no
 #     existe, imprime cadena vacia. Nunca aborta, siempre retorna 0.
-#   - TDD, tooling e IaC inicializan HARNESS_IDENTITY_JSON desde el paquete y
+#   - TDD e IaC (y tooling, en tooling-pipeline.mts) inicializan
+#     HARNESS_IDENTITY_JSON desde el paquete y
 #     lo revalidan una unica vez contra el runtime activo antes de producir
 #     evidencia durable (issue #1363 neutraliza a TDD sobre el mismo patron de
 #     tooling, #1198; issue #1626 suma a IaC al mismo contrato). Sus
@@ -33,10 +34,10 @@
 #   [C] sin jq en PATH: fallback con sed extrae la misma version (CA-1).
 #   [D] plugin.json ausente: cadena vacia, exit 0, nunca aborta (CA-1).
 #   [E] smoke test contra el plugin.json REAL del repo (con y sin jq).
-#   [F] cableado: TDD, tooling e IaC revalidan HARNESS_IDENTITY_JSON una unica
+#   [F] cableado: TDD e IaC revalidan HARNESS_IDENTITY_JSON una unica
 #       vez contra el runtime activo, antes de producir evidencia durable
 #       (issue #1363 CA-1; CA-2 del #1198; issue #1626 CA-3 suma a IaC).
-#   [G] cableado: TDD, tooling e IaC persisten el objeto identity en los
+#   [G] cableado: TDD e IaC persisten el objeto identity en los
 #       historiales feliz y de aborto, sin el campo plano harness_version
 #       (issue #1363 CA-1; CA-3 del #1198; issue #1626 CA-3 suma a IaC).
 #   [H] un caller con 'set -euo pipefail' (como los tres pipelines) sobrevive
@@ -206,15 +207,15 @@ fi
 # -------- Bloque F: contratos de inicializacion de identidad/version --------
 
 echo ""
-echo "[F] TDD, tooling e IaC revalidan identidad neutral (issue #1363 CA-1; CA-2 del #1198; issue #1626 CA-3)"
+echo "[F] TDD e IaC revalidan identidad neutral (issue #1363 CA-1; issue #1626 CA-3)"
 
-# TDD y tooling revalidan su identidad exactamente una vez contra el runtime
-# ya resuelto (issue #1363/#1198); IaC se suma al mismo contrato (issue
-# #1626 CA-3) -- ninguno de los tres recalcula HARNESS_VERSION.
-TOOLING_PATH="$REPO_ROOT/scripts/tooling-pipeline.sh"
+# TDD revalida su identidad exactamente una vez contra el runtime ya resuelto
+# (issue #1363); IaC se suma al mismo contrato (issue #1626 CA-3) -- ninguno
+# recalcula HARNESS_VERSION. El pipeline de tooling, ya en TypeScript, lo
+# cubre en tooling-pipeline.test.mts.
 TDD_PATH="$REPO_ROOT/scripts/tdd-pipeline.sh"
 IAC_PATH="$REPO_ROOT/scripts/iac-pipeline.sh"
-for revalidated in "$TOOLING_PATH" "$TDD_PATH" "$IAC_PATH"; do
+for revalidated in "$TDD_PATH" "$IAC_PATH"; do
     identity_occurrences=$(grep -c 'HARNESS_IDENTITY_JSON="\$(get_harness_identity_json "\$MEFISTO_RUNTIME_RESUELTO")"' "$revalidated")
     if [ "$identity_occurrences" = "1" ]; then
         pass "F-3 ($(basename "$revalidated")): HARNESS_IDENTITY_JSON se revalida exactamente una vez contra el runtime activo"
@@ -222,14 +223,6 @@ for revalidated in "$TOOLING_PATH" "$TDD_PATH" "$IAC_PATH"; do
         fail "F-3 ($(basename "$revalidated")): se esperaba 1 revalidacion de identidad contra el runtime, se encontraron $identity_occurrences"
     fi
 done
-
-identity_line=$(grep -n 'HARNESS_IDENTITY_JSON="\$(get_harness_identity_json "\$MEFISTO_RUNTIME_RESUELTO")"' "$TOOLING_PATH" | head -n1 | cut -d: -f1)
-evidence_line=$(grep -n 'echo "Pipeline tooling iniciado: \$TIMESTAMP" > "\$LOG_FILE"' "$TOOLING_PATH" | head -n1 | cut -d: -f1)
-if [ -n "$identity_line" ] && [ -n "$evidence_line" ] && [ "$identity_line" -lt "$evidence_line" ]; then
-    pass "F-4 (tooling-pipeline.sh): la identidad validada antecede a la evidencia durable"
-else
-    fail "F-4 (tooling-pipeline.sh): la identidad (linea $identity_line) no antecede a la primera evidencia durable (linea $evidence_line)"
-fi
 
 iac_identity_line=$(grep -n 'HARNESS_IDENTITY_JSON="\$(get_harness_identity_json "\$MEFISTO_RUNTIME_RESUELTO")"' "$IAC_PATH" | head -n1 | cut -d: -f1)
 iac_evidence_line=$(grep -n 'echo "Pipeline IaC iniciado: \$TIMESTAMP" > "\$LOG_FILE"' "$IAC_PATH" | head -n1 | cut -d: -f1)
@@ -242,23 +235,9 @@ fi
 # -------- Bloque G: contratos de history por pipeline --------
 
 echo ""
-echo "[G] TDD, tooling e IaC escriben identity completo, sin harness_version plano (issue #1363 CA-1; CA-3 del #1198; issue #1626 CA-3)"
+echo "[G] TDD e IaC escriben identity completo, sin harness_version plano (issue #1363 CA-1; issue #1626 CA-3)"
 
-tooling_identity_args=$(grep -c -- '--argjson identity "\$HARNESS_IDENTITY_JSON"' "$TOOLING_PATH")
-tooling_identity_fields=$(grep -c 'identity:\$identity' "$TOOLING_PATH")
-tooling_flat_fields=$(grep -Ec '\\"harness_version\\"|(^|[,{[:space:]])harness_version[[:space:]]*:' "$TOOLING_PATH")
-if [ "$tooling_identity_args" = "2" ] && [ "$tooling_identity_fields" = "2" ]; then
-    pass "G-2 (tooling-pipeline.sh): los historiales feliz y de aborto reciben el objeto identity"
-else
-    fail "G-2 (tooling-pipeline.sh): se esperaban 2 argumentos y 2 campos identity, se encontraron args=$tooling_identity_args campos=$tooling_identity_fields"
-fi
-if [ "$tooling_flat_fields" = "0" ]; then
-    pass "G-3 (tooling-pipeline.sh): no reintroduce harness_version plano"
-else
-    fail "G-3 (tooling-pipeline.sh): se esperaban 0 campos harness_version planos, se encontraron $tooling_flat_fields"
-fi
-
-# TDD (issue #1363): mismo par de aserciones que tooling arriba -- las dos
+# TDD (issue #1363): las dos
 # lineas de history reciben el objeto identity via jq -cn y no reintroducen
 # la clave plana harness_version.
 tdd_identity_args=$(grep -c -- '--argjson identity "\$HARNESS_IDENTITY_JSON"' "$TDD_PATH")

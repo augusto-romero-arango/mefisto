@@ -2,7 +2,8 @@
 # test-agent-failure-hold.sh -- Tests de la clasificacion unificada de fallos
 # de agente y la politica de espera (hold) del lado publicado (issue #971).
 #
-# Contexto: hasta este issue, tdd-pipeline.sh y tooling-pipeline.sh
+# Contexto: hasta este issue, tdd-pipeline.sh y tooling-pipeline.sh (hoy
+# tooling-pipeline.mts, cubierto por tooling-pipeline-agents.test.mts)
 # duplicaban byte a byte una cadena de `grep` sobre el log del stage para
 # clasificar el fallo ("API Error: 5" / "API Error: 4" / resto CLI_ERROR), y
 # el reintento ante 5xx era one-shot y solo corria "sin trabajo previo".
@@ -32,8 +33,8 @@
 #   [9] agent_hold_wait: techo agotado -> retorna 1 SIN dormir de nuevo.
 #   [9b] agent_hold_wait: la sonda se recorta al remanente del techo -- nunca
 #        duerme mas alla de MEFISTO_HOLD_MAX_SECONDS.
-#   [10] CA-6: tdd-pipeline.sh, tooling-pipeline.sh, iac-pipeline.sh y
-#        scaffold-pipeline.sh consumen classify_agent_failure/
+#   [10] CA-6: tdd-pipeline.sh, iac-pipeline.sh y scaffold-pipeline.sh
+#        consumen classify_agent_failure/
 #        agent_failure_is_holdable -- no queda ninguna cadena de grep "API
 #        Error: 5"/"API Error: 4" inline duplicada en esos archivos (la unica
 #        que debe quedar es la de _pipeline-common.sh).
@@ -208,14 +209,14 @@ fi
 unset MEFISTO_HOLD_PROBE_SECONDS MEFISTO_HOLD_MAX_SECONDS
 
 echo ""
-echo "[10] CA-6: los cuatro pipelines consumen la funcion compartida, no una copia"
-for f in tdd-pipeline.sh tooling-pipeline.sh iac-pipeline.sh scaffold-pipeline.sh; do
+echo "[10] CA-6: los pipelines bash consumen la funcion compartida, no una copia"
+for f in tdd-pipeline.sh iac-pipeline.sh scaffold-pipeline.sh; do
     path="$REPO_ROOT/scripts/$f"
     classifier="classify_agent_failure"
     # iac-pipeline.sh (issue #1624) y scaffold-pipeline.sh (issue #1644) se
     # sumaron al runner neutral: desde ahi clasifican igual que tdd/tooling,
     # sobre el JSONL neutral.
-    case "$f" in tooling-pipeline.sh|tdd-pipeline.sh|iac-pipeline.sh|scaffold-pipeline.sh) classifier="classify_neutral_agent_failure" ;; esac
+    case "$f" in tdd-pipeline.sh|iac-pipeline.sh|scaffold-pipeline.sh) classifier="classify_neutral_agent_failure" ;; esac
     if grep -q "$classifier" "$path"; then
         pass "$f invoca $classifier"
     else
@@ -231,7 +232,7 @@ for f in tdd-pipeline.sh tooling-pipeline.sh iac-pipeline.sh scaffold-pipeline.s
     else
         pass "$f no tiene clasificacion inline duplicada"
     fi
-    # Ninguno de los cuatro debe redefinir las funciones compartidas: usarlas
+    # Ninguno debe redefinir las funciones compartidas: usarlas
     # es el punto del issue, copiarlas seria la duplicacion que elimina.
     if grep -qE '^[[:space:]]*(classify_agent_failure|agent_failure_is_holdable|agent_hold_wait)\(\)' "$path"; then
         fail "$f redefine una de las funciones compartidas (debe consumirlas, no copiarlas)"
@@ -253,7 +254,7 @@ echo "[11] CA-5: la sonda del bucle de espera corre bajo el watchdog de stage"
 # #1644, scaffold-pipeline.sh se sumo al mismo molde): si la sonda volviera a
 # invocar el CLI de forma sincrona (sin delegar el watchdog), una invocacion
 # colgada dejaria el pipeline esperando indefinidamente.
-for f in tdd-pipeline.sh tooling-pipeline.sh iac-pipeline.sh scaffold-pipeline.sh; do
+for f in tdd-pipeline.sh iac-pipeline.sh scaffold-pipeline.sh; do
     path="$REPO_ROOT/scripts/$f"
     if grep -q 'mefisto-run-agent.sh' "$path" && ! grep -q 'PROBE_WATCHDOG_PID' "$path"; then
         pass "$f: la sonda delega el watchdog al runner neutral"
