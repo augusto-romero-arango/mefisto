@@ -5,7 +5,7 @@
 # Valida que:
 #   A) run_tests_projects y extract_test_count se resuelven desde
 #      _pipeline-common.sh (no quedan definiciones locales duplicadas en
-#      tdd-pipeline.sh / pr-sync.sh).
+#      tdd-pipeline.sh).
 #   B) El glob tests/${HARNESS_NAMESPACE_PREFIX}.*.Tests/ de run_tests_projects
 #      EXCLUYE los directorios *.SmokeTests/, incluso cuando comparten el mismo
 #      prefijo de dominio (ej: Onboarding.Tests vs Onboarding.SmokeTests).
@@ -13,7 +13,6 @@
 #      global $WORKTREE_PATH).
 #   D) Contrato de exit code: 0 = todos pasan, 8 = ningun proyecto *.Tests/ (solo
 #      habia *.SmokeTests/), otro = codigo de fallo del primer proyecto que falla.
-#   E) pr-sync.sh ya no corre `dotnet test --solution` (que incluiria smoke tests).
 #   F) Microsoft.Testing.Platform y la frontera JSON del historial conservan el
 #      conteo de exitos o null, sin abortar el cierre posterior al PR.
 #
@@ -49,32 +48,7 @@ else
     fail "extract_test_count NO definida en _pipeline-common.sh"
 fi
 
-for script in tdd-pipeline.sh pr-sync.sh; do
-    path="$REPO_ROOT/scripts/$script"
-    if grep -q '^run_tests_projects()' "$path"; then
-        fail "$script: todavia define run_tests_projects() localmente (duplicado)"
-    else
-        pass "$script: no define run_tests_projects() localmente"
-    fi
-    if grep -q '^extract_test_count()' "$path"; then
-        fail "$script: todavia define extract_test_count() localmente (duplicado)"
-    else
-        pass "$script: no define extract_test_count() localmente"
-    fi
-done
-
-# pr-sync.sh ya no debe correr `dotnet test --solution` (incluye *.SmokeTests/).
-if grep -q 'dotnet test --solution' "$REPO_ROOT/scripts/pr-sync.sh"; then
-    fail "pr-sync.sh: todavia corre 'dotnet test --solution' (incluiria *.SmokeTests/)"
-else
-    pass "pr-sync.sh: ya no corre 'dotnet test --solution'"
-fi
-
-if grep -q 'run_tests_projects "\$worktree" --no-build' "$REPO_ROOT/scripts/pr-sync.sh"; then
-    pass "pr-sync.sh: validate_tests usa run_tests_projects \"\$worktree\" --no-build"
-else
-    fail "pr-sync.sh: validate_tests no invoca run_tests_projects como se espera"
-fi
+# pr-sync y tdd-pipeline ya no son bash: sus casos viven en sus .test.mts.
 
 # -------- Bloque B/C/D: comportamiento funcional del runner --------
 #
@@ -254,15 +228,6 @@ else
     fail "F2: el fallo de bookkeeping no cumplio el contrato (rc=$rc)"
 fi
 
-for pipeline in "$REPO_ROOT/scripts/tdd-pipeline.sh"; do
-    if grep -qF 'tests_val="$(tests_json_value "${PIPELINE_TESTS:-}")"' "$pipeline" \
-        && grep -qF 'TESTS_JSON="$(tests_json_value "${PIPELINE_TESTS:-}")"' "$pipeline" \
-        && grep -qF 'append_completed_history "$HISTORY_FILE" "$EVENTS_LOG_ABS"' "$pipeline"; then
-        pass "F3: $(basename "$pipeline") sanea status/historial y tolera fallos de bookkeeping"
-    else
-        fail "F3: $(basename "$pipeline") no protege el historial completado"
-    fi
-done
 
 # -------- Resumen --------
 

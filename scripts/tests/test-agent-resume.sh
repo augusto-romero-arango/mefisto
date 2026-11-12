@@ -28,13 +28,6 @@
 #   [1] agent_resume_prompt: el texto menciona el stage/agente correctos, la
 #       ruta exacta del resumen del stage, y la instruccion de continuar sin
 #       reiniciar el analisis.
-#   [2] CA-1 (estatico): tdd-pipeline.sh reanuda por session_id/capability
-#       neutrales -- no depende ya de agent_session_transcript_count ni de
-#       `-c` de un CLI concreto. El comportamiento dinamico de esa
-#       reanudacion (primera sonda con --resume-session, degradacion
-#       permanente si la sesion resumida vuelve a terminar sin el resumen del
-#       stage) vive en el arnes de cada pipeline
-#       (tooling-pipeline-agents.test.mts, iac-pipeline.test.mts), no aqui.
 #   [6] Nunca se usa --fork-session en la sonda de ningun pipeline (notas
 #       tecnicas del issue: reusar la sesion mantiene un solo transcript por
 #       stage).
@@ -122,19 +115,6 @@ if [ -n "$CFG_DIR_ORIG" ]; then export CLAUDE_CONFIG_DIR="$CFG_DIR_ORIG"; else u
 rm -rf "$CFG_DIR" "$WT_PROBE"
 
 echo ""
-echo "[2] CA-1 (estatico): reanudacion neutral"
-for p in tdd-pipeline.sh; do
-    FILE="$REPO_ROOT/scripts/$p"
-    if grep -q 'agent_events_session_id' "$FILE" \
-        && grep -q 'runtime_supports_resume' "$FILE" \
-        && grep -q 'args+=(--resume-session "$resume_session")' "$FILE"; then
-        pass "$p: reanuda por session_id y capability neutrales"
-    else
-        fail "$p: perdio la reanudacion neutral"
-    fi
-done
-
-echo ""
 echo "[6] Ningun pipeline publicado usa --fork-session en la sonda de hold"
 # Excluye lineas de comentario ('#'): _pipeline-common.sh documenta la
 # decision de NO usar --fork-session en un comentario, que menciona el flag
@@ -146,13 +126,10 @@ else
     fail "--fork-session invocado fuera de un comentario: $FORK_HITS"
 fi
 
-# El arnes de comportamiento (primera sonda con --resume-session, degradacion
-# permanente cuando la sesion resumida vuelve a terminar sin el resumen del
-# stage) ya NO tiene un unico "pipeline mas simple" con mecanica propia que
-# extraer: los tres pipelines (tdd/tooling/iac) delegan la MISMA politica de
-# _pipeline-common.sh sobre el runner neutral. Esa cobertura dinamica vive en
-# el arnes propio de cada uno (tooling-pipeline-agents.test.mts,
-# iac-pipeline.test.mts), issue #1624.
+# La reanudacion por session_id de cada pipeline (primera sonda con
+# --resume-session, degradacion permanente si la sesion reanudada vuelve a
+# terminar sin el resumen del stage) la cubren sus tests en TypeScript
+# (*-pipeline*.test.mts, pr-sync*.test.mts).
 
 echo ""
 echo "=== Resumen: $PASS passed, $FAIL failed ==="

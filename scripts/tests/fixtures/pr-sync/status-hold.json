@@ -1,0 +1,20 @@
+{
+  "issue": "42",
+  "pr": "42",
+  "title": "Título con \"comillas\" y \\\\ barra",
+  "pipeline": "pr-sync",
+  "variant": null,
+  "runtime": "claude",
+  "started": "2030-01-02T03:04:05",
+  "stage": "merge-pr42",
+  "state": "hold",
+  "updated": "2030-01-02T03:04:05",
+  "log": "/ruta/al/log \"citado\".log",
+  "last_error": null,
+  "hold": {
+    "cause": "RATE_LIMIT",
+    "next_probe": "2030-01-02T08:09:10Z",
+    "ceiling_seconds": 21600,
+    "accumulated_seconds": 300
+  }
+}

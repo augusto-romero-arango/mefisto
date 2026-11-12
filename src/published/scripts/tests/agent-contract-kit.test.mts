@@ -173,12 +173,12 @@ test('pipelineReferences reconoce los source con dirname y las rutas bajo las tr
 })
 
 test('scanPipelineClosure exige que cada referencia este declarada y un minimo de cuatro', () => {
-  const tdd = scanPipelineClosure('scripts/tdd-pipeline.sh')
-  assert.equal(tdd.problem, '')
-  assert.ok(tdd.references >= 4)
+  const launcher = scanPipelineClosure('scripts/launch-pipeline.sh')
+  assert.equal(launcher.problem, '')
+  assert.ok(launcher.references >= 4)
 
-  const undeclared = scanPipelineClosure('scripts/tdd-pipeline.sh', ['scripts/_pipeline-common.sh|0644'])
-  assert.equal(undeclared.references, tdd.references)
+  const undeclared = scanPipelineClosure('scripts/launch-pipeline.sh', ['scripts/_pipeline-common.sh|0644'])
+  assert.equal(undeclared.references, launcher.references)
   assert.notEqual(undeclared.problem, '')
   assert.ok(!undeclared.problem.split('\n').includes('scripts/_pipeline-common.sh'))
 

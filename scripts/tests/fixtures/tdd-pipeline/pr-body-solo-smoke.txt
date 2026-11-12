@@ -1,0 +1,51 @@
+## Resumen
+
+Pipeline TDD completado (solo smoke):
+- Smoke tests escritos en Stage 1 (corren post-deploy, MEF-ADR-0013)
+- Stage 2 en modo documental: solo entregables no-código
+- Fase refactor: revisión de calidad
+
+## Decisiones del pipeline
+
+<details>
+<summary>Test Writer (fase roja) — 0m 20s</summary>
+
+## Tests\n\n- `RegistrarTurnoTests` con $VARIABLES sin expandir.
+
+</details>
+
+<details>
+<summary>Implementer (modo documental) — 0m 5s</summary>
+
+_(El agente no generó resumen)_
+
+</details>
+## Validación pendiente post-deploy
+
+Este PR contiene solo smoke tests (`Category=Smoke`), que corren contra dev tras el despliegue (MEF-ADR-0013); el gate local no los ejecuta. La evidencia de los criterios de aceptación que dependen de ellos saldrá del job de smoke tras el merge: este PR **no** la presenta como verificada.
+
+Archivos smoke:
+- `tests/Empresa.Proyecto.Turnos.SmokeTests/A.cs`
+- `tests/Empresa.Proyecto.Turnos.SmokeTests/B.cs`
+<details>
+<summary>Reviewer (fase refactor) — 0m 7s</summary>
+
+Revisado.
+
+</details>
+
+## Commits
+
+89abcde refactor(hu-42): revisión y refactor
+0123456 test(hu-42): tests fase roja
+
+## Metricas de la corrida
+
+| Etapa | Modelo | Tokens | in/out/cache/reasoning | Tiempo | Costo estimado |
+|---|---|---:|---|---:|---:|
+| Test Writer | - | - | - | 0m 20s | - |
+| Implementer | - | - | - | 0m 5s | - |
+| Reviewer | - | - | - | 0m 7s | - |
+| **Total (parcial)** | - | - | - | **0m 32s** | - |
+
+Closes #42

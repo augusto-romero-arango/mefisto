@@ -1,0 +1,11 @@
+Estás en el directorio raíz del proyecto Control de Asistencias.
+
+Hay conflictos de merge con la rama main en los siguientes archivos:
+src/A.cs
+docs/b.md
+
+Resuelve los conflictos manteniendo tanto la funcionalidad nueva (de esta rama) como la existente (de main).
+Después de resolver cada archivo, haz git add del archivo.
+Cuando todos estén resueltos, haz git commit para completar el merge.
+NO elimines código de ninguna de las dos ramas — integra ambos cambios.
+PROHIBIDO hacer 'git push' o 'gh pr create': eso es responsabilidad exclusiva del pipeline, nunca tuya.

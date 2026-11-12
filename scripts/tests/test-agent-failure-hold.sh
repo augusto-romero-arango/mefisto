@@ -3,7 +3,7 @@
 # de agente y la politica de espera (hold) del lado publicado (issue #971).
 #
 # Contexto: hasta este issue, tdd-pipeline.sh y tooling-pipeline.sh (hoy
-# tooling-pipeline.mts, cubierto por tooling-pipeline-agents.test.mts)
+# en TypeScript, cubiertos por sus *-pipeline*.test.mts)
 # duplicaban byte a byte una cadena de `grep` sobre el log del stage para
 # clasificar el fallo ("API Error: 5" / "API Error: 4" / resto CLI_ERROR), y
 # el reintento ante 5xx era one-shot y solo corria "sin trabajo previo".
@@ -33,17 +33,10 @@
 #   [9] agent_hold_wait: techo agotado -> retorna 1 SIN dormir de nuevo.
 #   [9b] agent_hold_wait: la sonda se recorta al remanente del techo -- nunca
 #        duerme mas alla de MEFISTO_HOLD_MAX_SECONDS.
-#   [10] CA-6: tdd-pipeline.sh (iac y scaffold, ya en TypeScript, lo cubren
-#        en sus *-pipeline-prompts.test.mts) consume classify_agent_failure/
-#        agent_failure_is_holdable -- no queda ninguna cadena de grep "API
-#        Error: 5"/"API Error: 4" inline duplicada en esos archivos (la unica
-#        que debe quedar es la de _pipeline-common.sh).
-#   [11] CA-5: cada sonda del bucle de espera corre bajo el watchdog de stage
-#        (lo que queda fuera del watchdog es el `sleep` de la espera, no la
-#        invocacion del agente). Sin watchdog en la sonda, una invocacion
-#        colgada dejaria el pipeline esperando para siempre y el techo de
-#        agent_hold_wait -- que solo se evalua al tope del bucle -- nunca se
-#        alcanzaria.
+#   [10] CA-6: _pipeline-common.sh define classify_agent_failure/
+#        agent_failure_is_holdable/agent_hold_wait. Los pipelines que las
+#        consumian ya estan en TypeScript y cubren su clasificacion, su espera
+#        y el watchdog de la sonda en sus propios tests (*-pipeline*.test.mts).
 #
 # Uso: scripts/tests/test-agent-failure-hold.sh
 # Exit code: 0 si todos los chequeos pasan, 1 si alguno falla.
@@ -209,54 +202,12 @@ fi
 unset MEFISTO_HOLD_PROBE_SECONDS MEFISTO_HOLD_MAX_SECONDS
 
 echo ""
-echo "[10] CA-6: los pipelines bash consumen la funcion compartida, no una copia"
-for f in tdd-pipeline.sh; do
-    path="$REPO_ROOT/scripts/$f"
-    classifier="classify_agent_failure"
-    case "$f" in tdd-pipeline.sh) classifier="classify_neutral_agent_failure" ;; esac
-    if grep -q "$classifier" "$path"; then
-        pass "$f invoca $classifier"
-    else
-        fail "$f no invoca $classifier"
-    fi
-    if grep -q "agent_failure_is_holdable" "$path" && grep -q "agent_hold_wait" "$path"; then
-        pass "$f consume la politica de espera compartida"
-    else
-        fail "$f no consume agent_failure_is_holdable/agent_hold_wait"
-    fi
-    if grep -qE '(elif |if )grep -q "API Error: 5"' "$path"; then
-        fail "$f todavia tiene una cadena de grep inline (deberia haber desaparecido)"
-    else
-        pass "$f no tiene clasificacion inline duplicada"
-    fi
-    # Ninguno debe redefinir las funciones compartidas: usarlas
-    # es el punto del issue, copiarlas seria la duplicacion que elimina.
-    if grep -qE '^[[:space:]]*(classify_agent_failure|agent_failure_is_holdable|agent_hold_wait)\(\)' "$path"; then
-        fail "$f redefine una de las funciones compartidas (debe consumirlas, no copiarlas)"
-    else
-        pass "$f no redefine las funciones compartidas"
-    fi
-done
+echo "[10] CA-6: _pipeline-common.sh define la politica compartida"
 for fn in classify_agent_failure agent_failure_is_holdable agent_hold_wait; do
     if grep -qE "^${fn}\(\)" "$REPO_ROOT/scripts/_pipeline-common.sh"; then
         pass "_pipeline-common.sh define $fn"
     else
         fail "_pipeline-common.sh deberia definir $fn"
-    fi
-done
-
-echo ""
-echo "[11] CA-5: la sonda del bucle de espera corre bajo el watchdog de stage"
-# El watchdog de la sonda es el mismo --timeout del runner neutral (issue
-# #1644): si la sonda volviera a invocar el CLI de forma sincrona (sin delegar
-# el watchdog), una invocacion colgada dejaria el pipeline esperando
-# indefinidamente.
-for f in tdd-pipeline.sh; do
-    path="$REPO_ROOT/scripts/$f"
-    if grep -q 'mefisto-run-agent.sh' "$path" && ! grep -q 'PROBE_WATCHDOG_PID' "$path"; then
-        pass "$f: la sonda delega el watchdog al runner neutral"
-    else
-        fail "$f: la sonda no delega el watchdog neutral"
     fi
 done
 

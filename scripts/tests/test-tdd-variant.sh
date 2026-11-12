@@ -1,22 +1,12 @@
 #!/usr/bin/env bash
 # test-tdd-variant.sh -- Tests del modo --variant (corridas paralelas del
 # mismo issue, issue #713, segunda pieza tras #710/tooling-pipeline.sh) en
-# scripts/tdd-pipeline.sh, scripts/launch-pipeline.sh y scripts/herdr-pipeline.sh.
+# scripts/launch-pipeline.sh y scripts/herdr-pipeline.sh. El modo variante del propio
+# pipeline lo cubre scripts/tests/tdd-pipeline.test.mts.
 #
 # validate_variant_label ya la cubre scripts/tests/test-tooling-variant.sh
 # (vive en _pipeline-common.sh, sin cambios en este issue): este archivo no la
 # repite. Cubre en su lugar:
-#   tdd-pipeline.sh   - chequeos estaticos al estilo de test-guards.sh: el
-#                       sufijo -<label> llega a rama/worktree, status y log del
-#                       pipeline (CA-2); los nombres de log de stage usan
-#                       ISSUE_LOG_TAG en vez de ISSUE_NUM directo; los cuatro
-#                       efectos externos (push, gh pr create, label+comentario
-#                       de bloqueo, gh issue comment) quedan anidados bajo el
-#                       gate de VARIANT_LABEL, ninguno en el nivel superior
-#                       (CA-3); el reporte de bloqueo se preserva fuera del
-#                       worktree que el cleanup borra; el campo "variant" viaja
-#                       en el status, en la linea de historial de abort() y en
-#                       la de exito (CA-4).
 #   launch-pipeline.sh - el enrutamiento automatico de un unico issue (sin
 #                       --tooling explicito) acepta --variant y lo reenvia
 #                       intacto al sub-pipeline. Se fuerza el pipeline con
@@ -39,122 +29,6 @@ FAIL=0
 
 pass() { echo "  PASS: $1"; PASS=$((PASS+1)); }
 fail() { echo "  FAIL: $1"; FAIL=$((FAIL+1)); }
-
-# --- tdd-pipeline.sh: wiring del modo variante (CA-2/CA-3/CA-4) -------------
-#
-# Chequeos estaticos sobre el fuente: correr el pipeline completo pediria
-# stubs de claude/gh/dotnet, una config de consumidor y un worktree real, y lo
-# que aqui importa es DONDE quedan cableados el sufijo y las supresiones --
-# justamente lo que una refactorizacion futura puede mover de lugar sin que
-# ningun test se queje.
-PIPE="$REPO_ROOT/scripts/tdd-pipeline.sh"
-
-echo "[1] tdd-pipeline.sh: el sufijo -<label> llega a rama/worktree, status y log del pipeline (CA-2)"
-if grep -qF '[ -n "$VARIANT_LABEL" ] && BRANCH_NAME="${BRANCH_NAME}-${VARIANT_LABEL}"' "$PIPE"; then
-    pass "la rama -- y con ella el path del worktree, derivado de BRANCH_NAME -- lleva el sufijo"
-else
-    fail "la rama no lleva el sufijo: dos variantes del mismo issue colisionarian"
-fi
-if grep -qF 'STATUS_FILENAME="pipeline-status-tdd-${ISSUE_NUM}-${VARIANT_LABEL}.json"' "$PIPE"; then
-    pass "el archivo de status lleva el sufijo"
-else
-    fail "el status no lleva el sufijo: una variante pisaria el status de la otra"
-fi
-if grep -qF 'LOG_FILE="$LOG_DIR/pipeline-${TIMESTAMP}-${VARIANT_LABEL}.log"' "$PIPE"; then
-    pass "el log del pipeline lleva el sufijo (dos variantes del mismo segundo comparten TIMESTAMP)"
-else
-    fail "el log del pipeline NO lleva el sufijo: dos variantes lanzadas en el mismo segundo escribirian al mismo archivo"
-fi
-
-echo ""
-echo "[2] tdd-pipeline.sh: los nombres de log/metricas de stage usan ISSUE_LOG_TAG, no ISSUE_NUM directo"
-# El patron a cazar es el prefijo comun de TODOS los nombres de log/metrics
-# (`${TIMESTAMP}-issue-<tag>`), no solo los que terminan en .log/.json: asi el
-# chequeo cubre tambien las variantes -retry.log y -stage-N-<agente>.json de una
-# sola vez. Anclarlo a TIMESTAMP es lo que evita el falso positivo sobre
-# BRANCH_NAME="worktree-issue-${ISSUE_NUM}-${SLUG}", donde ISSUE_NUM directo es
-# correcto (el sufijo de variante se agrega aparte, sobre BRANCH_NAME ya armado).
-if grep -qE '\$\{TIMESTAMP\}-issue-\$\{ISSUE_NUM\}' "$PIPE"; then
-    fail "quedan nombres de log/metrics derivados de ISSUE_NUM directo (colisionan entre variantes)"
-else
-    pass "ningun nombre de log/metrics de stage deriva de ISSUE_NUM directo"
-fi
-LOG_TAG_HITS=$(grep -cF 'ISSUE_LOG_TAG' "$PIPE")
-if [ "$LOG_TAG_HITS" -ge 8 ]; then
-    pass "ISSUE_LOG_TAG cablea los nombres de log/metrics de stage ($LOG_TAG_HITS usos)"
-else
-    fail "solo $LOG_TAG_HITS usos de ISSUE_LOG_TAG: falta cablear algun nombre de log (stage, retry, scaffold, STAGE1_LOG, metrics, patch tw/im)"
-fi
-
-echo ""
-echo "[3] tdd-pipeline.sh: en modo variante no hay push, PR, label/comentario de bloqueo ni comentario al issue (CA-3)"
-if grep -qF 'if [ -n "$VARIANT_LABEL" ]; then' "$PIPE"; then
-    pass "existe el gate por VARIANT_LABEL en la seccion de PR"
-else
-    fail "no hay gate por VARIANT_LABEL antes de crear el PR"
-fi
-# Los cuatro efectos externos deben estar ANIDADOS (con sangria) bajo el gate:
-# en el nivel superior (columna 0) correrian tambien en modo variante.
-if grep -qE '^git -C "\$WORKTREE_PATH" push' "$PIPE"; then
-    fail "el push de la rama esta en el nivel superior: correria tambien en modo variante"
-else
-    pass "el push no esta en el nivel superior"
-fi
-if grep -qE '^gh issue comment' "$PIPE"; then
-    fail "el comentario al issue esta en el nivel superior: correria tambien en modo variante"
-else
-    pass "el comentario al issue no esta en el nivel superior"
-fi
-if grep -qE '^ +git -C "\$WORKTREE_PATH" push -u origin' "$PIPE" \
-    && grep -qE '^ +PR_URL=\$\(gh pr create' "$PIPE" \
-    && grep -qE '^ +gh pr edit "\$PR_NUM" --add-label "bloqueado"' "$PIPE" \
-    && grep -qE '^ +gh issue comment' "$PIPE"; then
-    pass "push, gh pr create, gh pr edit (label bloqueado) y gh issue comment quedan anidados bajo el gate"
-else
-    fail "no se encontraron los cuatro efectos externos anidados bajo el gate (push / gh pr create / gh pr edit bloqueado / gh issue comment)"
-fi
-
-echo ""
-echo "[3b] tdd-pipeline.sh: el reporte de bloqueo se preserva fuera del worktree en modo variante"
-# Sin PR donde publicar su contenido, el reporte solo existe dentro del worktree
-# -- que el cleanup elimina con --force al cierre. Si el aviso apunta al path
-# del worktree en vez de a una copia en el repo principal, senala un archivo ya
-# borrado en el momento en que el usuario lo lee.
-if grep -qF 'VARIANT_BLOCKAGE_COPY="$(mefisto_state_path "blockage-report-tdd-${ISSUE_LOG_TAG}.md")"' "$PIPE"; then
-    pass "el reporte se copia al estado canonico del repo principal, con el sufijo de variante"
-else
-    fail "el reporte de bloqueo no se preserva fuera del worktree: el cleanup lo borra antes de que se pueda leer"
-fi
-
-echo ""
-echo "[4] tdd-pipeline.sh: el label viaja en el status y en las dos lineas de historial (CA-4)"
-if grep -qF '"variant": ${VARIANT_LABEL_JSON:-null},' "$PIPE"; then
-    pass "el JSON de status declara el campo variant"
-else
-    fail "el JSON de status no declara el campo variant"
-fi
-# Las dos lineas de historial se componen con jq -cn desde issue #1363 (antes,
-# interpolacion de cadenas): el campo viaja como --argjson variant, no como
-# literal "variant":${VARIANT_LABEL_JSON:-null}.
-HISTORY_VARIANT_HITS=$(grep -cF -- '--argjson variant "${VARIANT_LABEL_JSON:-null}"' "$PIPE")
-if [ "$HISTORY_VARIANT_HITS" -ge 2 ]; then
-    pass "las dos lineas de pipeline-history.jsonl (completed y failed) llevan variant ($HISTORY_VARIANT_HITS)"
-else
-    fail "solo $HISTORY_VARIANT_HITS linea(s) de historial llevan variant: se esperan 2 (completed y failed)"
-fi
-
-LOG_HIST_ARGS=$(grep -cF -- '--arg log "' "$PIPE")
-LOG_HIST_FIELDS=$(grep -cF ',log:' "$PIPE")
-if [ "$LOG_HIST_ARGS" -ge 2 ] && [ "$LOG_HIST_FIELDS" -ge 2 ]; then
-    pass "las entradas completed/failed declaran log en pipeline-history.jsonl (#1734)"
-else
-    fail "faltan --arg log / log: en las entradas terminales del historial"
-fi
-
-echo ""
-echo "----------------------------------------"
-echo "  tdd-pipeline.sh: $PASS pass, $FAIL fail (hasta aqui)"
-echo "----------------------------------------"
 
 # --- launch-pipeline.sh: el enrutamiento automatico acepta --variant ---
 #

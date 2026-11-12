@@ -1,0 +1,10 @@
+| Etapa | Modelo | Tokens | in/out/cache/reasoning | Tiempo | Costo estimado |
+|---|---|---:|---|---:|---:|
+| Scaffolder | modelo-a | 53.5k | 1.2k / 340 / 52k / 0 | 0m 10s | $0.43 |
+| Projection Test Writer | modelo-a | 53.5k | 1.2k / 340 / 52k / 0 | 2m 5s | $0.43 |
+| Projection Implementer | - | - | - | 1m 1s | - |
+| Smoke Test Writer | modelo-a | 53.5k | 1.2k / 340 / 52k / 0 | 0m 40s | $0.43 |
+| Reviewer | modelo-a | 53.5k | 1.2k / 340 / 52k / 0 | 5m 0s | $0.43 |
+| Remediacion: Projection Test Writer | modelo-a | 53.5k | 1.2k / 340 / 52k / 0 | 0m 30s | $0.43 |
+| coverage-gate | - | - | - | 0m 12s | - |
+| **Total (parcial)** | - | - | - | **9m 38s** | **$2.16** |
