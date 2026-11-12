@@ -129,7 +129,7 @@ Por cada dia del backlog, el archivo destino es `docs/bitacora/YYYY-MM-DD.md`. S
 
 - **No solo los exitos.** Los problemas y los callejones sin salida son parte de la historia.
 - **El razonamiento vale mas que el resultado.** "Descartamos X porque Y" es mas valioso que solo listar lo que se hizo.
-- **Especificidad.** "El gate `is_path_in_mefisto_scope` se carga desde `main`, no del worktree" es mejor que "hubo un problema de scope".
+- **Especificidad.** "El gate `isPathInMefistoScope` se carga desde `main`, no del worktree" es mejor que "hubo un problema de scope".
 - **Continuidad.** Referencia al dia anterior si hay un hilo narrativo que continua — incluyendo entre los propios dias nuevos que estas cerrando en esta misma sesion.
 - **Primera persona del plural.** "Descubrimos", "decidimos", "descartamos".
 

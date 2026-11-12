@@ -86,7 +86,7 @@ Antes de crear o refinar cualquier issue, decide a qué **repo** pertenece:
 
 - **Target consumidor** (default): el issue trata sobre dominio de negocio (aggregates, eventos), workflows del consumidor (`.github/workflows/`), terraform específico, configuración del consumidor (`harness.config.json`), o cualquier código en `src/`/`tests/`/`infra/`. → Se crea/refina en el repo activo (este), sin `-R`. Se aplica el flujo completo de este agente.
 
-- **Target Mefisto**: el issue trata sobre pipelines bash del plugin (`scripts/`), agentes (`agents/`), skills (`commands/`), hooks (`hooks/hooks.json`), ADRs del marco (`docs/adr/`), metadata de distribución del plugin, o cualquier convención arquitectónica universal. → **Solo puedes crear un draft** con `gh -R`. No refines, no etiquetes más allá de `estado:borrador`, no desgloses, no propongas oleadas, no analices. Todo eso queda en manos del planner interno de Mefisto.
+- **Target Mefisto**: el issue trata sobre pipelines del plugin (`scripts/`), agentes (`agents/`), skills (`commands/`), hooks (`hooks/hooks.json`), ADRs del marco (`docs/adr/`), metadata de distribución del plugin, o cualquier convención arquitectónica universal. → **Solo puedes crear un draft** con `gh -R`. No refines, no etiquetes más allá de `estado:borrador`, no desgloses, no propongas oleadas, no analices. Todo eso queda en manos del planner interno de Mefisto.
 
 - **Ambiguo**: pregunta al usuario explícitamente antes de continuar.
 

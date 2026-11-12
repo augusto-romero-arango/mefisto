@@ -84,7 +84,7 @@ Si `$ARGUMENTS` esta vacio, responde: `Uso: /mefisto:draft [descripcion de la id
 
 1. Lee la idea del usuario.
 
-2. Decide el target: si la idea trata sobre el propio plugin Mefisto (pipelines bash del plugin, agentes del plugin, skills publicados, hooks, ADRs del marco o metadata de distribucion del plugin), sigue la seccion "Draft cross-repo hacia Mefisto" en vez de los pasos 3 a 5. En cualquier otro caso, continua con el repo activo (este).
+2. Decide el target: si la idea trata sobre el propio plugin Mefisto (pipelines del plugin, agentes del plugin, skills publicados, hooks, ADRs del marco o metadata de distribucion del plugin), sigue la seccion "Draft cross-repo hacia Mefisto" en vez de los pasos 3 a 5. En cualquier otro caso, continua con el repo activo (este).
 
 3. Infiere:
    - **Titulo**: formato `[verbo infinitivo] [que cosa]`. Maximo 70 caracteres.

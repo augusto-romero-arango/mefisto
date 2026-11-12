@@ -73,7 +73,7 @@ Genera el worker de proyecciones `<RootNamespace>.Projections` (daemon asincroni
 
 ## Pre-condicion: token `projections.enabled` (CA-1)
 
-El worker solo se genera si el BC declaro explicitamente que adopta proyecciones. El token vive en el contrato canonico `.mefisto/harness.config.json` bajo `projections.enabled` y se lee desde `${MEFISTO_CONFIG_PATH}` (MEF-ADR-0053, decision 4). El mecanismo de deteccion lo fija MEF-ADR-0034 (seccion 8); su contrato formal completo lo fija el issue #369. Este comando consume el token en la forma minima que necesita (no pasa por `load_harness_config`, que requiere `boundedContext` obligatorio y otros campos que aqui no hacen falta).
+El worker solo se genera si el BC declaro explicitamente que adopta proyecciones. El token vive en el contrato canonico `.mefisto/harness.config.json` bajo `projections.enabled` y se lee desde `${MEFISTO_CONFIG_PATH}` (MEF-ADR-0053, decision 4). El mecanismo de deteccion lo fija MEF-ADR-0034 (seccion 8); su contrato formal completo lo fija el issue #369. Este comando consume el token en la forma minima que necesita (no pasa por `loadHarnessConfig`, que requiere `boundedContext` obligatorio y otros campos que aqui no hacen falta).
 
 ```bash
 node "${MEFISTO_PACKAGE_ROOT}/scripts/json-value.mts" get "${MEFISTO_CONFIG_PATH}" projections.enabled 2>/dev/null

@@ -88,7 +88,7 @@ El script es **idempotente**: reutiliza la aplicación/Service Principal, los ro
 
 ### 6. Generar la infraestructura base (acción guiada, no la ejecutes tú)
 
-El eslabón que sigue -los 8 módulos Terraform + el esqueleto del entorno + el workflow `infra-cd.yml`- lo genera el agente `infra-base-scaffolder` (comando {{mefisto:command infra-base}}), no un script bash (MEF-ADR-0021). Tú solo dispones de shell: no puedes invocar otro agente ni correr un comando del harness. **Indícale al usuario que lo ejecute** y espera su confirmación antes de continuar al paso 7:
+El eslabón que sigue -los 8 módulos Terraform + el esqueleto del entorno + el workflow `infra-cd.yml`- lo genera el agente `infra-base-scaffolder` (comando {{mefisto:command infra-base}}), no un script (MEF-ADR-0021). Tú solo dispones de shell: no puedes invocar otro agente ni correr un comando del harness. **Indícale al usuario que lo ejecute** y espera su confirmación antes de continuar al paso 7:
 
 ```
 Antes de escribir el HCL del issue necesitas la infraestructura base (8 módulos +
