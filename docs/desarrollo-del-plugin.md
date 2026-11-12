@@ -59,7 +59,7 @@ npx tsc -p src/internal/tsconfig.json
 node --test ".claude/scripts/**/*.test.mts" "scripts/**/*.test.mts" "src/**/*.test.mts"
 ```
 
-`tsc` y los tipos de Node son herramientas de verificacion: se instalan en `node_modules/`, que no se versiona, y ningun script depende de ellos al ejecutarse. El workflow `typescript.yml` repite esos pasos en macOS, Linux y Windows.
+`tsc` y los tipos de Node son herramientas de verificacion: se instalan en `node_modules/`, que no se versiona, y ningun script depende de ellos al ejecutarse. El workflow `typescript.yml` repite esos pasos en macOS, Linux y Windows en los PRs que tocan TypeScript, cada noche y a mano; si la nightly sale roja, abre o comenta el issue `nightly-rojo`.
 
 ### Convenciones al portar un script
 
