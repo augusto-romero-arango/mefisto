@@ -15,10 +15,11 @@
 #         vigilando archivos que ya nadie escribe (CA-3; el porte completo de
 #         ambos es #871/#872).
 #   [K]   MEFISTO_AGENT_TIMEOUT_SECONDS viaja hasta el eslabon (issue #946,
-#         CA-3): ni mefisto-batch-pipeline.sh ni mefisto-herdr-pipeline.sh
-#         filtran el entorno del pipeline de tooling mas alla de las HERDR_*,
-#         asi que la variable llega heredada sin que ningun eslabon la
-#         reenvie a mano. Guarda estatica -- sin fixture, siempre corre.
+#         CA-3): mefisto-herdr-pipeline.sh no filtra el entorno del pipeline
+#         de tooling mas alla de las HERDR_*, asi que la variable llega
+#         heredada sin que ningun eslabon la reenvie a mano. Guarda estatica
+#         -- sin fixture, siempre corre. Que el batch la herede lo prueba
+#         mefisto-batch-pipeline.test.mts con una corrida real.
 #
 # Uso: .claude/scripts/tests/test-tooling-state-paths.sh
 # Exit code: 0 si todos los chequeos pasan, 1 si alguno falla.
@@ -98,25 +99,18 @@ fi
 # -------- Bloque K: la variable de timeout viaja heredada hasta el eslabon --------
 
 echo ""
-echo "[K] MEFISTO_AGENT_TIMEOUT_SECONDS se hereda en batch y herdr sin reenvio explicito (issue #946, CA-3)"
+echo "[K] MEFISTO_AGENT_TIMEOUT_SECONDS se hereda en herdr sin reenvio explicito (issue #946, CA-3)"
 
 # CA-3 se cumple hoy por OMISION: ningun eslabon menciona la variable, y por
 # eso mismo un grep de presencia no la puede acreditar. Lo que hay que fijar
-# es la propiedad que la sostiene -- que ninguno de los dos lanzadores PODE el
-# entorno del hijo. Es fragil de la forma que una guarda estatica ataja bien:
-# el filtro de mefisto-herdr-pipeline.sh (env_unset) ya existe y es un
-# denylist, asi que ampliarlo una linea de mas apagaria en silencio todo
-# override de timeout de una corrida en herdr -- sin error visible, solo
-# stages volviendo al default de 1800s.
+# es la propiedad que la sostiene -- que el lanzador no PODE el entorno del
+# hijo. Es fragil de la forma que una guarda estatica ataja bien: el filtro de
+# mefisto-herdr-pipeline.sh (env_unset) ya existe y es un denylist, asi que
+# ampliarlo una linea de mas apagaria en silencio todo override de timeout de
+# una corrida en herdr -- sin error visible, solo stages volviendo al default
+# de 1800s.
 
-CANON_BATCH="$REPO_ROOT/src/internal/scripts/mefisto-batch-pipeline.sh"
 CANON_HERDR="$REPO_ROOT/src/internal/scripts/mefisto-herdr-pipeline.sh"
-
-if grep -qE '\benv (-u|-i)\b' "$CANON_BATCH"; then
-    fail "K-1: mefisto-batch-pipeline.sh filtra el entorno del eslabon (env -u/-i): $(grep -nE '\benv (-u|-i)\b' "$CANON_BATCH" | head -n1)"
-else
-    pass "K-1: mefisto-batch-pipeline.sh no filtra el entorno del eslabon (lo hereda completo)"
-fi
 
 HERDR_UNSET_ARMS=$(grep -cE 'env_unset\+=' "$CANON_HERDR")
 HERDR_UNSET_NON_HERDR=$(grep -E 'env_unset\+=' "$CANON_HERDR" | grep -cvE '^[[:space:]]*HERDR_\*\)' || true)
@@ -126,11 +120,11 @@ else
     fail "K-2: mefisto-herdr-pipeline.sh acumula env_unset fuera de la rama HERDR_* ($HERDR_UNSET_NON_HERDR linea(s)): un denylist mas ancho puede tragarse MEFISTO_AGENT_TIMEOUT_SECONDS"
 fi
 
-K3_HITS=$(grep -lE -- '-u "?MEFISTO_' "$CANON_BATCH" "$CANON_HERDR" 2>/dev/null || true)
+K3_HITS=$(grep -lE -- '-u "?MEFISTO_' "$CANON_HERDR" 2>/dev/null || true)
 if [ -z "$K3_HITS" ]; then
-    pass "K-3: ninguno de los dos lanzadores desregistra una MEFISTO_* del entorno del hijo"
+    pass "K-3: el lanzador herdr no desregistra ninguna MEFISTO_* del entorno del hijo"
 else
-    fail "K-3: hay lanzadores que desregistran alguna MEFISTO_* del entorno del hijo: $K3_HITS"
+    fail "K-3: el lanzador herdr desregistra alguna MEFISTO_* del entorno del hijo: $K3_HITS"
 fi
 
 # -------- Bloque I: los lanzadores siguen viendo la corrida --------

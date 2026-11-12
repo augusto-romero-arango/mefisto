@@ -97,6 +97,28 @@ describe('clausura y pipelines hijos', () => {
     assert.deepEqual(childCommand(join(dir, 'tdd-pipeline.sh')), { command: join(dir, 'tdd-pipeline.sh'), args: [] })
   })
 
+  test('childCommand lanza con Node un hijo que ya es un .mts', () => {
+    const dir = mkdtempSync(join(work, 'hijos-mts-'))
+    assert.deepEqual(childCommand(join(dir, 'tooling-pipeline.mts')), { command: process.execPath, args: [join(dir, 'tooling-pipeline.mts')] })
+  })
+
+  test('runTeed entrega el proceso hijo a onChild antes de que termine', async () => {
+    const dir = mkdtempSync(join(work, 'tee-hijo-'))
+    writeFileSync(join(dir, 'hijo.mts'), "process.stdout.write('listo\\n')\n")
+    let pid: number | undefined
+    const code = await runTeed(join(dir, 'hijo.mts'), [], join(dir, 'issue.log'), {
+      cwd: dir,
+      env: process.env,
+      onOutput: () => {},
+      onChild: (child) => {
+        pid = child.pid
+      },
+    })
+    assert.equal(code, 0)
+    assert.equal(typeof pid, 'number')
+    assert.equal(readFileSync(join(dir, 'issue.log'), 'utf8'), 'listo\n')
+  })
+
   test('runTeed copia la salida de los dos canales a pantalla y al log, y devuelve el codigo', async () => {
     const dir = mkdtempSync(join(work, 'tee-'))
     writeFileSync(join(dir, 'hijo.mts'), "process.stdout.write('salida\\n'); process.stderr.write('error\\n'); process.exitCode = 4\n")
