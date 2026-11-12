@@ -54,7 +54,7 @@ Si el sintoma sugiere un fallo en el pipeline de deploy (Function App que no arr
    - Plan de hosting: al menos B1, nunca Consumption Y1 con .NET 10+.
    - **Aislamiento por plan (MEF-ADR-0020)**: cada Function App corre en su propio App Service Plan dedicado (`asp-<proyecto>-<env>-<dominio>`), nunca uno compartido entre dominios. Verifica que el plan no esta compartido:
      ```bash
-     {{mefisto:run appinsights-query.sh plan-sites <id-del-plan>}}   # 1 => dedicado; >1 => compartido (viola MEF-ADR-0020)
+     {{mefisto:run appinsights-query.mts plan-sites <id-del-plan>}}   # 1 => dedicado; >1 => compartido (viola MEF-ADR-0020)
      ```
      Tambien puedes revisar en Terraform que cada `module function_app_<dominio>` apunta a su propio `service_plan_id` (un `module service_plan_<dominio>` por dominio, sin plan compartido global). Un plan compartido reintroduce el *noisy neighbor* que origino #43: si el sintoma es timeouts, health checks lentos o fallos intermitentes de smoke, ve directo al «Patron de diagnostico: noisy neighbor por plan compartido» mas abajo.
    - App settings obligatorios: `FUNCTIONS_WORKER_RUNTIME`, `FUNCTIONS_EXTENSION_VERSION`, `WEBSITE_RUN_FROM_PACKAGE`.
@@ -79,12 +79,12 @@ Evidencia de referencia (#43, `Bitakora.ControlAsistencia`): ventana 11:15-12:00
 1. **CPU del plan en la ventana del sintoma** (Azure Monitor, no App Insights):
    ```bash
    # Metricas del plan en las ultimas N horas (ajusta --hours para cubrir la ventana del sintoma)
-   {{mefisto:run appinsights-query.sh plan-metrics <id-del-app-service-plan> --metric CpuPercentage --hours 24}}
+   {{mefisto:run appinsights-query.mts plan-metrics <id-del-app-service-plan> --metric CpuPercentage --hours 24}}
    ```
 2. **Trafico real en esa misma ventana** (para confirmar el "en reposo"): cuenta requests y mensajes procesados con las queries del Stage 1 (`health-summary`, o un `custom` que sume `requests` y `customEvents` por `bin(timestamp, 5m)`). CPU alta + ~0 trafico = firma confirmada.
 3. **Aislamiento del plan**: confirma si la Function App comparte plan con otra:
    ```bash
-   {{mefisto:run appinsights-query.sh plan-sites <id-del-plan>}}   # >1 => plan compartido (viola MEF-ADR-0020)
+   {{mefisto:run appinsights-query.mts plan-sites <id-del-plan>}}   # >1 => plan compartido (viola MEF-ADR-0020)
    ```
 
 ### Causa raiz (MEF-ADR-0020)
@@ -110,7 +110,7 @@ La firma diagnostica es **"compila + unit tests verdes pero revienta en runtime"
 
 1. **Correlaciona la excepcion en App Insights con el stack de activacion del host de Functions**: busca en el stacktrace la cadena `DefaultFunctionActivator.CreateInstance` -> constructor del servicio que fallo -> tipo de la dependencia no resuelta. Esa cadena confirma que el fallo es de activacion/DI del host, no de logica de negocio.
    ```bash
-   {{mefisto:run appinsights-query.sh exceptions}}
+   {{mefisto:run appinsights-query.mts exceptions}}
    # busca el tipo de excepcion (p. ej. InvalidOperationException: "Unable to resolve service for type ...", la excepcion que lanza el contenedor Microsoft.Extensions.DependencyInjection del worker isolated) y su conteo en la ventana del deploy
    ```
 2. **Localiza ambas versiones del paquete en el almacen local de paquetes NuGet**:
@@ -152,32 +152,32 @@ Ejecuta queries predefinidas contra App Insights usando el script distribuido de
 
 ```bash
 # Vista general de salud
-{{mefisto:run appinsights-query.sh health-summary}}
+{{mefisto:run appinsights-query.mts health-summary}}
 
 # Excepciones recientes
-{{mefisto:run appinsights-query.sh exceptions}}
+{{mefisto:run appinsights-query.mts exceptions}}
 
 # Errores en funciones
-{{mefisto:run appinsights-query.sh function-errors}}
+{{mefisto:run appinsights-query.mts function-errors}}
 
 # Dead letters en Service Bus
-{{mefisto:run appinsights-query.sh dead-letters}}
+{{mefisto:run appinsights-query.mts dead-letters}}
 
 # Filtrar por el sintoma reportado
-{{mefisto:run appinsights-query.sh traces --filter "SINTOMA_AQUI"}}
+{{mefisto:run appinsights-query.mts traces --filter "SINTOMA_AQUI"}}
 
 # Estado de Service Bus - dead letters en todas las subscriptions
-{{mefisto:run appinsights-query.sh servicebus-dlq}}
+{{mefisto:run appinsights-query.mts servicebus-dlq}}
 
 # Estado de Azure Functions - running/stopped
-{{mefisto:run appinsights-query.sh function-status}}
+{{mefisto:run appinsights-query.mts function-status}}
 ```
 
 **Heuristica DLQ**: si el sintoma menciona "dead letter", "mensaje perdido", "cola" o "DLQ", ejecuta tambien:
 
 ```bash
 # Peek al contenido de dead letters (sin consumir)
-{{mefisto:run appinsights-query.sh servicebus-dlq-peek}}
+{{mefisto:run appinsights-query.mts servicebus-dlq-peek}}
 ```
 
 Ajusta el rango temporal con `--hours N` si el usuario reporta que el error fue hace mas de 24h.
@@ -196,7 +196,7 @@ Con los datos de App Insights en mano:
 
 ```bash
 # Ejemplo: contar eventos procesados de un tipo especifico
-{{mefisto:run appinsights-query.sh custom "customEvents | where name == 'ProgramacionTurnoDiarioSolicitada' | summarize count() by bin(timestamp, 10m)"}}
+{{mefisto:run appinsights-query.mts custom "customEvents | where name == 'ProgramacionTurnoDiarioSolicitada' | summarize count() by bin(timestamp, 10m)"}}
 ```
 
 6. **Revisa configuracion de messaging**: si el problema involucra Service Bus, lee el `host.json` del dominio afectado para verificar `prefetchCount`, `maxConcurrentCalls`, `lockDuration` (leccion de Bug #47/#48)

@@ -30,7 +30,7 @@ El fallo al mantener el mirror no invalida la sesión (`failure: continue`) ni a
 
 ## Adaptador Claude Code
 
-`hooks/hooks.json` lo genera `../scripts/generate-claude-hooks.sh`. Cada hook usa la forma exec de Claude Code: `command: "node"` más `args` con `${CLAUDE_PLUGIN_ROOT}/scripts/interactive-hooks.mts` y el id del binding. No interviene ningún shell, así que el hook corre igual en macOS, Linux y Windows (MEF-ADR-0057, decisión 3). `scripts/interactive-hooks.mts` implementa los siete bindings; su comportamiento lo cubre `scripts/tests/interactive-hooks.test.mts`.
+`hooks/hooks.json` lo genera `../scripts/generate-claude-hooks.mts`. Cada hook usa la forma exec de Claude Code: `command: "node"` más `args` con `${CLAUDE_PLUGIN_ROOT}/scripts/interactive-hooks.mts` y el id del binding. No interviene ningún shell, así que el hook corre igual en macOS, Linux y Windows (MEF-ADR-0057, decisión 3). `scripts/interactive-hooks.mts` implementa los siete bindings; su comportamiento lo cubre `scripts/tests/interactive-hooks.test.mts`.
 
 Requiere Node 22.18 o posterior en el `PATH` y Claude Code con la forma exec de hooks, disponible desde la versión 2.1.139 ([changelog de Claude Code](https://github.com/anthropics/claude-code/blob/main/CHANGELOG.md)).
 
@@ -40,4 +40,4 @@ Ver [adaptation-matrix.md](adaptation-matrix.md). La matriz es deliberadamente s
 
 ## Validación
 
-`../scripts/validate-interactive-hooks.sh` es un shim de `validate-interactive-hooks.mts`, que corre sobre Node 22.18 o posterior sin `jq`; valida el descriptor y un archivo alternativo pasado como único argumento. Sus fixtures y el test de inventario (`../scripts/tests/interactive-hooks-contract.test.mts` e `interactive-hooks-inventory.test.mts`) no necesitan red ni instalaciones de runtime.
+`../scripts/validate-interactive-hooks.mts` es un shim de `validate-interactive-hooks.mts`, que corre sobre Node 22.18 o posterior sin `jq`; valida el descriptor y un archivo alternativo pasado como único argumento. Sus fixtures y el test de inventario (`../scripts/tests/interactive-hooks-contract.test.mts` e `interactive-hooks-inventory.test.mts`) no necesitan red ni instalaciones de runtime.

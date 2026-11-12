@@ -13,7 +13,7 @@
 
 Cuerpo de ejemplo de un agente neutral. Este archivo es un fixture de
 `fixtures/valid/` (issue #853): valida que un agente completo, con todos los
-campos opcionales poblados, pasa `validate-internal-artifacts.sh` sin
+campos opcionales poblados, pasa `validate-internal-artifacts.mts` sin
 rechazos.
 
 No se referencia desde ningun agente real ni desde ningun generador todavia

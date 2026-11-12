@@ -61,7 +61,7 @@ genérico.
 
 El registro no admite headers, environment, OAuth, tokens, secretos ni otras
 credenciales. Para cada entrada `bundled`,
-`validate-published-mcp.sh` deriva en memoria la proyección Claude
+`validate-published-mcp.mts` deriva en memoria la proyección Claude
 (`remote-http` a `type: http`) y exige que `.mcp.json` sea idéntico, sin
 servidores externos ni claves adicionales. `.mcp.json` sigue versionado como
 adaptador Claude, no como autoridad conceptual.
@@ -212,17 +212,16 @@ neutral ni en este contrato.
 ## Validación
 
 ```bash
-src/published/scripts/validate-published-artifacts.sh [archivo...]
+node src/published/scripts/validate-published-artifacts.mts [archivo...]
 ```
 
 Sin argumentos valida `src/published/{agents,commands}/*.md`. Cada rechazo usa
-`<archivo>: <campo|body>: <motivo>`. El `.sh` es un shim de
-`validate-published-artifacts.mts`, que corre sobre Node 22.18 o posterior sin
+`<archivo>: <campo|body>: <motivo>`. Corre sobre Node 22.18 o posterior sin
 `jq`; los fixtures y su prueba están en este contrato y en
 `src/published/scripts/tests/published-artifact-contract.test.mts`.
 
 ```bash
-src/published/scripts/validate-published-mcp.sh
+node src/published/scripts/validate-published-mcp.mts
 ```
 
 El segundo validador comprueba el schema del registro, sus reglas cruzadas, la

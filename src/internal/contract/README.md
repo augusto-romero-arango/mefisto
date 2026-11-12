@@ -24,8 +24,8 @@ El frontmatter debe ser un objeto valido tanto en JSON como en YAML 1.2. `id`
 coincide con el nombre del archivo, usa kebab-case y lleva prefijo `mefisto-`.
 El body no nombra runtimes concretos; el generador introduce esas diferencias.
 Las excepciones fisicas permanentes son `.claude-plugin/` y
-`.claude/scripts/`, esta ultima superficie estable de invocacion interna para
-todos los adaptadores.
+`.claude/scripts/`, donde viven el hook de scope del adaptador y los tests
+internos.
 
 `internal-artifact.schema.json` es la unica declaracion de campos validos:
 
@@ -45,12 +45,12 @@ expresan intenciones, nunca nombres de tools o claves de permisos.
 
 ## Generacion de adaptadores
 
-`src/internal/scripts/generate-internal-adapters.sh` transforma las fuentes
+`src/internal/scripts/generate-internal-adapters.mts` transforma las fuentes
 neutrales en `.claude/{agents,commands}/`. Las salidas incluyen un marcador
 estable de archivo generado y no se editan a mano. El modo `--check` genera en
 memoria, sin escribir nada, y detecta salidas faltantes, distintas, huerfanas o
-sin marcador. El `.sh` es un shim: la implementacion vive en
-`generate-internal-adapters.mts` y `lib/adapter-claude.mts` (MEF-ADR-0057).
+sin marcador. El traductor de cada directiva vive en `lib/adapter-claude.mts`
+(MEF-ADR-0057).
 
 Mapeo principal:
 
@@ -82,7 +82,7 @@ directorio a `.claude/skills/<id>/`; en `SKILL.md` inserta el marcador de
 generado justo despues del frontmatter (que se conserva verbatim) y los demas
 archivos se copian tal cual. `--check` reporta Skills faltantes, distintos,
 huerfanos o sin marcador bajo `.claude/skills/`.
-`validate-internal-artifacts.sh` exige en cada `SKILL.md`: `name` igual al
+`validate-internal-artifacts.mts` exige en cada `SKILL.md`: `name` igual al
 directorio, `description` presente y ningun `allowed-tools`. Los Skills no
 pasan por la regla de neutralidad de body de agentes/comandos (pueden
 documentar un adaptador concreto), pero si por el gate de neutralidad de texto.
@@ -106,7 +106,7 @@ aborta la generacion:
 | Directiva | Efecto |
 |---|---|
 | `{{mefisto:launch-agent <id>}}` | Lanza o enruta al agente indicado |
-| `{{mefisto:run <script> <args>}}` | Invoca la superficie estable `.claude/scripts/` con el runtime activo |
+| `{{mefisto:run <script> <args>}}` | Invoca `node src/internal/scripts/<script>` con el runtime activo |
 | `{{mefisto:command-path <id>}}` | Resuelve la ruta de comando propia del adaptador |
 
 La capacidad `mcp` no tiene mapping implicito: el generador aborta hasta que
@@ -117,13 +117,12 @@ pertenece a esa lista interna.
 ## Validacion de artefactos
 
 ```bash
-src/internal/scripts/validate-internal-artifacts.sh [archivo...]
+node src/internal/scripts/validate-internal-artifacts.mts [archivo...]
 ```
 
 Sin argumentos valida `src/internal/{agents,commands}/*.md` y `src/internal/skills/*/SKILL.md` (ver arriba). Extrae el
 frontmatter, aplica `internal-artifact.schema.json`, compara `id` con el nombre
-del archivo y comprueba la neutralidad del body. El `.sh` es un shim hacia
-`validate-internal-artifacts.mts`, que aplica el schema con
+del archivo y comprueba la neutralidad del body. Aplica el schema con
 `src/internal/scripts/lib/jsonschema-lite.mts`, sin un validador externo. Los
 fixtures propios de este contrato permanecen en `fixtures/{valid,invalid}/` y
 los ejercita `validate-internal-artifacts.test.mts`.
@@ -139,7 +138,7 @@ interno `.mefisto/pipeline/events.log`; el nucleo no conoce esa ruta.
 Contrato historico que conserva el shim:
 
 ```bash
-src/runtime/mefisto-run-agent.sh \
+node src/runtime/mefisto-run-agent.mts \
   --agent <id> --cwd <dir> --prompt-file <archivo> \
   --event-log <jsonl> \
   [--runtime <id>] [--model <opaco>] [--system-file <archivo>] \

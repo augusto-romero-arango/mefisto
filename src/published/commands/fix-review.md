@@ -171,9 +171,9 @@ git ls-files --others --exclude-standard
 - `shell`: si tocaste algun `*.sh`.
 
 ```bash
-{{mefisto:package-root}}/scripts/warnings-diff.sh --toolchain dotnet --base <FIX_BASE>
-{{mefisto:package-root}}/scripts/warnings-diff.sh --toolchain terraform --path infra/environments/<env> --base <FIX_BASE>
-{{mefisto:package-root}}/scripts/warnings-diff.sh --toolchain shell --base <FIX_BASE>
+node {{mefisto:package-root}}/scripts/warnings-diff.mts --toolchain dotnet --base <FIX_BASE>
+node {{mefisto:package-root}}/scripts/warnings-diff.mts --toolchain terraform --path infra/environments/<env> --base <FIX_BASE>
+node {{mefisto:package-root}}/scripts/warnings-diff.mts --toolchain shell --base <FIX_BASE>
 ```
 
 - Exit `2`: hay warnings `NEW` (una supresion anadida aparece con codigo `SUPPRESSION`). Remedia cada uno antes del commit y vuelve a correrlo.

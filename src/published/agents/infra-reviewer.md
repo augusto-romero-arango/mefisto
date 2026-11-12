@@ -93,7 +93,7 @@ Si `terraform fmt -check` falla, formatea con `terraform fmt -recursive ../..` y
 **Cero warnings nuevos, ultima instancia (MEF-ADR-0056):** cuando `terraform validate` pase, corre desde la raiz del repo:
 
 ```bash
-{{mefisto:package-root}}/scripts/warnings-diff.sh --toolchain terraform --base <Commit base del mensaje inicial> --path <Directorio relativo del ambiente, p. ej. infra/environments/<env>>
+node {{mefisto:package-root}}/scripts/warnings-diff.mts --toolchain terraform --base <Commit base del mensaje inicial> --path <Directorio relativo del ambiente, p. ej. infra/environments/<env>>
 ```
 
 Exit 2 significa que quedan `NEW`; exit 1 es un error del helper (informalo en tu resumen y sigue: no bloquea). Lee la seccion `## Warnings no remediados` de `{{mefisto:state-path summaries/stage-1-infra-writer.md}}` para recuperar la razon que dejo el writer (el diferencial sigue siendo la fuente de verdad). Remedia cada `NEW` corrigiendo el HCL y vuelve a correrlo. Por cada warning que no logres remediar:

@@ -16,7 +16,7 @@ Eres el punto de entrada para sincronizar PRs con main en este proyecto. Tu trab
 
 ## Principio fundamental
 
-**No sincronices nada tú mismo.** El script `pr-sync.sh` se encarga de todo. Tu rol es ser el intermediario entre el desarrollador y el script.
+**No sincronices nada tú mismo.** El script `pr-sync.mts` se encarga de todo. Tu rol es ser el intermediario entre el desarrollador y el script.
 
 ---
 
@@ -49,19 +49,19 @@ Muestra la lista de PRs que se van a procesar y confirma el orden.
 
 Para sincronizar sin mergear (solo actualizar la rama):
 ```bash
-{{mefisto:run pr-sync.sh <PRs>}}
+{{mefisto:run pr-sync.mts <PRs>}}
 ```
 
 Para sincronizar y mergear a main automáticamente:
 ```bash
-{{mefisto:run pr-sync.sh <PRs> --merge}}
+{{mefisto:run pr-sync.mts <PRs> --merge}}
 ```
 
 Para todos los PRs abiertos:
 ```bash
-{{mefisto:run pr-sync.sh --all}}
+{{mefisto:run pr-sync.mts --all}}
 # o con merge automático:
-{{mefisto:run pr-sync.sh --all --merge}}
+{{mefisto:run pr-sync.mts --all --merge}}
 ```
 
 El script imprime el progreso en tiempo real. Espera a que termine.
@@ -87,7 +87,7 @@ Si el script falla, el error ya viene explicado en su output. Muéstraselo al us
 - Si quedó un worktree temporal, sugiérele al usuario que lo inspeccione en `/tmp/pr-sync-<num>-*` (no lo inspecciones tú)
 - Reintentar con ese PR específico:
   ```bash
-  {{mefisto:run pr-sync.sh <num>}}
+  {{mefisto:run pr-sync.mts <num>}}
   ```
 
 **No intentes arreglar nada por tu cuenta. Solo reporta y ofrece opciones.**

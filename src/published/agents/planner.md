@@ -378,7 +378,7 @@ Aplica estas reglas para cada par de issues:
 | Tocan carpetas/capas completamente distintas | Paralelo |
 | Ambos son **`tipo:projection`** | Secuencial siempre, sin excepción |
 
-**`tipo:projection` es secuencial siempre entre sí, sin importar qué archivos declare cada issue en la tabla del Paso 2.** Todas las proyecciones de un mismo BC comparten los archivos del worker de proyecciones (`Projections/Program.cs`, `ConfiguracionMartenProjections` -- MEF-ADR-0034), así que dos issues `tipo:projection` en la misma oleada paralela producirían PRs que compiten por el mismo merge, sin importar que sus read models o eventos fuente sean distintos. `parallel-pipeline.sh` ya aplica esta regla como guarda de código (issue #372: cualquier par `tipo:projection` se serializa dentro del lote), pero en el análisis de oleadas nunca los agrupes en la misma oleada paralela -- `/sequential` es su camino natural cuando hay más de uno pendiente.
+**`tipo:projection` es secuencial siempre entre sí, sin importar qué archivos declare cada issue en la tabla del Paso 2.** Todas las proyecciones de un mismo BC comparten los archivos del worker de proyecciones (`Projections/Program.cs`, `ConfiguracionMartenProjections` -- MEF-ADR-0034), así que dos issues `tipo:projection` en la misma oleada paralela producirían PRs que compiten por el mismo merge, sin importar que sus read models o eventos fuente sean distintos. `parallel-pipeline.mts` ya aplica esta regla como guarda de código (issue #372: cualquier par `tipo:projection` se serializa dentro del lote), pero en el análisis de oleadas nunca los agrupes en la misma oleada paralela -- `/sequential` es su camino natural cuando hay más de uno pendiente.
 
 **Regla de oro: si no puedes determinar con certeza que no hay conflicto, van en secuencial.**
 
@@ -421,13 +421,13 @@ Tu rol:
 
 Usa el template de creación de la sección "Crear issues" con `--label "tipo:infra"` y el template de infra (ver más abajo).
 
-Los issues de infra se implementan con `iac-pipeline.sh`, no con `tdd-pipeline.sh`.
+Los issues de infra se implementan con `iac-pipeline.mts`, no con `tdd-pipeline.mts`.
 
 ### refinar
 El usuario quiere convertir un issue `estado:borrador` en un issue listo para el pipeline.
 
 Tu rol:
-1. Si el usuario no trae un número, ejecuta `{{mefisto:package-root}}/scripts/next-order.sh --refinement` y propón el que indica `Siguiente a refinar`. Es el orden de refinamiento de los borradores abiertos: un borrador que depende de otro va después de él, y una dependencia ya `estado:listo` o cerrada no bloquea. Comenta los bloqueos y ciclos que reporte, y avisa de los borradores sin `## Dependencias`, que el paso 8 debe completar. No reordenes a mano: el script es la única fuente del orden. El tablero del planner muestra este mismo orden (MEF-ADR-0055).
+1. Si el usuario no trae un número, ejecuta `node {{mefisto:package-root}}/scripts/next-order.mts --refinement` y propón el que indica `Siguiente a refinar`. Es el orden de refinamiento de los borradores abiertos: un borrador que depende de otro va después de él, y una dependencia ya `estado:listo` o cerrada no bloquea. Comenta los bloqueos y ciclos que reporte, y avisa de los borradores sin `## Dependencias`, que el paso 8 debe completar. No reordenes a mano: el script es la única fuente del orden. El tablero del planner muestra este mismo orden (MEF-ADR-0055).
 2. Lee el issue: `gh issue view <num>`
 3. Lee el código relevante para enriquecer con notas técnicas e impacto en archivos. Antes de sugerir una forma de implementación, aplica "Precedente primero: investigar antes de recomendar".
 4. Haz las preguntas necesarias al usuario para completar la información faltante
@@ -620,7 +620,7 @@ Preguntas que fuerzan la precisión:
 
 No toda necesidad `tipo:projection` es una vista nueva. El usuario también puede describir una necesidad de **configuración del continente** -- el worker `<RootNamespace>.Projections` en sí (crearlo, conectarle telemetría, ajustar su Dockerfile o `.csproj`, extender su config-test base) o el registro de un named store nuevo para un dominio que todavía no tiene su read-side conectado al worker -- en vez de una vista concreta que consultar. Reconoce esta señal cuando el usuario dice cosas como "conecta el dominio X al worker de proyecciones", "el worker necesita telemetría", "agrega el named store de Y" -- sin mencionar una colección o un reporte específico.
 
-Esta clase de issue sigue siendo **`tipo:projection`**, nunca `tipo:tooling`: toca `src/<RootNamespace>.Projections/`, que `tooling-pipeline.sh` tiene prohibido escribir (MEF-ADR-0011, nota sobre `projection`).
+Esta clase de issue sigue siendo **`tipo:projection`**, nunca `tipo:tooling`: toca `src/<RootNamespace>.Projections/`, que `tooling-pipeline.mts` tiene prohibido escribir (MEF-ADR-0011, nota sobre `projection`).
 
 El DoR **no se relaja** en este subtipo: usa el mismo template, con los mismos encabezados, y adapta el *contenido* de las secciones que asumen una vista concreta (MEF-ADR-0011, "La columna `projection` de la tabla aplica igual a las dos clases"):
 
@@ -1035,7 +1035,7 @@ Cuando la sección "Necesidades de lectura y proyecciones" concluya en un `tipo:
 
 Si la idea es de **configuración del worker** (segunda señal), conserva todos los encabezados y adapta su contenido según esa sección: `## Necesidad de lectura` declara qué read-side configura (dominios, named stores, proyecciones a hospedar) en vez de un término de vista (`{TerminoVista}`); `## Endpoints / rutas` declara "No aplica -- este issue no expone Functions de query" si no hay superficie de consulta; `## Capas de test esperadas` deja solo el config-test del worker.
 
-El esquema base de labels del consumidor (`scripts/setup-github-labels.sh`) ya incluye `tipo:projection` (issue #373). Si el consumidor no ha vuelto a correr ese script desde que actualizó el plugin, `gh issue create` fallaría con "label not found" -- asegúralo antes de crear el issue (no destructivo: solo lo crea si falta, y respeta el azul del esquema de tipos):
+El esquema base de labels del consumidor (`scripts/setup-github-labels.mts`) ya incluye `tipo:projection` (issue #373). Si el consumidor no ha vuelto a correr ese script desde que actualizó el plugin, `gh issue create` fallaría con "label not found" -- asegúralo antes de crear el issue (no destructivo: solo lo crea si falta, y respeta el azul del esquema de tipos):
 
 ```bash
 gh label list --limit 200 --json name -q '.[].name' | grep -qx "tipo:projection" \
@@ -1249,9 +1249,9 @@ git -C "$(git rev-parse --show-toplevel)" show "origin/$INITIAL_DEFAULT_BRANCH:$
 
 -- y, con tu herramienta Write, escribe en `"$GLOSSARY_LOCAL"` ese contenido con tu delta ya reaplicado término por término encima (nunca una reescritura completa del glosario). Si el glosario inicial estaba en la ruta vieja, el único archivo admisible sigue siendo `docs/eda/ubiquitous-language.yaml`; nunca crees una copia canónica en `docs/ddd/`.
 
-### Entregar con `field-note.sh`
+### Entregar con `field-note.mts`
 
-Todo el resto del cierre -- crear el worktree aislado desde `origin/$INITIAL_DEFAULT_BRANCH`, escribir ahí la field note y el glosario, validar que el índice queda exactamente con esos paths, validar el YAML del glosario, commitear, hacer push y crear/reutilizar/reabrir el PR, limpiar el worktree y verificar que el checkout principal no cambió -- lo hace **una sola invocación** de `field-note.sh` (sustituye los valores ya observados de `SESSION_ID`, `CLOSING_TIMESTAMP`, `FIELD_NOTE_LOCAL`, `GLOSSARY_PATH` y `GLOSSARY_LOCAL`):
+Todo el resto del cierre -- crear el worktree aislado desde `origin/$INITIAL_DEFAULT_BRANCH`, escribir ahí la field note y el glosario, validar que el índice queda exactamente con esos paths, validar el YAML del glosario, commitear, hacer push y crear/reutilizar/reabrir el PR, limpiar el worktree y verificar que el checkout principal no cambió -- lo hace **una sola invocación** de `field-note.mts` (sustituye los valores ya observados de `SESSION_ID`, `CLOSING_TIMESTAMP`, `FIELD_NOTE_LOCAL`, `GLOSSARY_PATH` y `GLOSSARY_LOCAL`):
 
 ```bash
 # Los flags del glosario solo viajan si de verdad preparaste el delta: una
@@ -1263,7 +1263,7 @@ Todo el resto del cierre -- crear el worktree aislado desde `origin/$INITIAL_DEF
 FIELD_NOTE_GLOSSARY_ARGS=""
 [ -z "$GLOSSARY_PATH" ] || FIELD_NOTE_GLOSSARY_ARGS="--glossary-path $GLOSSARY_PATH --glossary $GLOSSARY_LOCAL"
 
-{{mefisto:run field-note.sh --session-id "$SESSION_ID" --timestamp "$CLOSING_TIMESTAMP" --field-note "$FIELD_NOTE_LOCAL" $FIELD_NOTE_GLOSSARY_ARGS}}
+{{mefisto:run field-note.mts --session-id "$SESSION_ID" --timestamp "$CLOSING_TIMESTAMP" --field-note "$FIELD_NOTE_LOCAL" $FIELD_NOTE_GLOSSARY_ARGS}}
 ```
 
 Ejecútalo sin pausas ni confirmaciones. Reintentar con los MISMOS `--session-id`/`--timestamp` es seguro: el script reanuda la rama, el worktree, el commit y el PR de esta sesión en vez de duplicarlos -- no relances el cierre con valores nuevos solo porque una corrida anterior falló a mitad de camino.

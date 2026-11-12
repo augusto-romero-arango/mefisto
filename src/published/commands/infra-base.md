@@ -10,7 +10,7 @@
 
 {{mefisto:assert-consumer-repo}}
 
-Genera la infraestructura base del consumidor (8 modulos Terraform + esqueleto del entorno con outputs + el workflow de CI `infra-cd.yml`) delegando en el agente `infra-base-scaffolder`. Es el eslabon greenfield entre `bootstrap-backend.sh` (crea el `tfstate`) y el primer `{{mefisto:command infra}}`, que solo escribe y revisa el HCL: el `apply` real lo ejecuta CI al mergear el PR (MEF-ADR-0021, MEF-ADR-0022). El contrato de configuracion es `.mefisto/harness.config.json` (MEF-ADR-0053); un config legado solo se acepta como fallback de **lectura** cuando el canonico no existe, sin copiarlo ni migrarlo. Si el BC declara `projections.enabled` en el config efectivo, el mismo agente suma los 3 modulos **opt-in** del worker de proyecciones (`container-registry`, `container-app-environment`, `container-app`) y su wiring en el entorno (MEF-ADR-0034); sin ese token no genera ninguno. Comunicate en **espanol**.
+Genera la infraestructura base del consumidor (8 modulos Terraform + esqueleto del entorno con outputs + el workflow de CI `infra-cd.yml`) delegando en el agente `infra-base-scaffolder`. Es el eslabon greenfield entre `bootstrap-backend.mts` (crea el `tfstate`) y el primer `{{mefisto:command infra}}`, que solo escribe y revisa el HCL: el `apply` real lo ejecuta CI al mergear el PR (MEF-ADR-0021, MEF-ADR-0022). El contrato de configuracion es `.mefisto/harness.config.json` (MEF-ADR-0053); un config legado solo se acepta como fallback de **lectura** cuando el canonico no existe, sin copiarlo ni migrarlo. Si el BC declara `projections.enabled` en el config efectivo, el mismo agente suma los 3 modulos **opt-in** del worker de proyecciones (`container-registry`, `container-app-environment`, `container-app`) y su wiring en el entorno (MEF-ADR-0034); sin ese token no genera ninguno. Comunicate en **espanol**.
 
 ## Entrada
 
@@ -30,7 +30,7 @@ Se va a generar la infraestructura base del consumidor (ambiente: <env>):
   - infra/modules/{resource-group, monitoring, postgresql, service-bus,
                    service-plan, storage, function-app}/main.tf
   - infra/environments/<env>/{main, variables, providers, outputs}.tf
-    (NO se genera backend.tf: lo escribe bootstrap-backend.sh)
+    (NO se genera backend.tf: lo escribe bootstrap-backend.mts)
   - .github/workflows/infra-cd.yml (si no existe aun): plan en cada PR sobre
     infra/**, apply al mergear a main, autenticado por OIDC (MEF-ADR-0022)
 
@@ -50,12 +50,12 @@ Recuerda al usuario el orden del flujo greenfield:
 ```
 Infraestructura base generada. Siguiente:
   1. Si el backend del tfstate aun no existe, un administrador ejecuta una sola vez
-     {{mefisto:package-root}}/scripts/bootstrap-backend.sh y luego
-     {{mefisto:package-root}}/scripts/setup-github-ci.sh. Son operaciones privilegiadas
+     node {{mefisto:package-root}}/scripts/bootstrap-backend.mts y luego
+     node {{mefisto:package-root}}/scripts/setup-github-ci.mts. Son operaciones privilegiadas
      de una sola vez (MEF-ADR-0022); este comando no las ejecuta.
   2. Crea la GitHub variable ALERT_EMAIL y el GitHub secret
      TF_VAR_POSTGRESQL_ADMIN_PASSWORD (Settings > Secrets and variables > Actions;
-     setup-github-ci.sh no los crea) -- infra-cd.yml los inyecta como
+     setup-github-ci.mts no los crea) -- infra-cd.yml los inyecta como
      TF_VAR_alert_email/TF_VAR_postgresql_admin_password, nunca via terraform.tfvars
      commiteado (MEF-ADR-0025). subscription_id ya no es una variable: se resuelve de
      ARM_SUBSCRIPTION_ID. Revisa tambien los defaults derivados en variables.tf
@@ -78,4 +78,4 @@ Infraestructura base generada. Siguiente:
 - **No generes la infraestructura tu mismo.** Solo valida el ambiente, informa y delega en el agente.
 - El agente nunca corre `terraform plan`/`apply`: solo `fmt`, `init -backend=false` y `validate`. El plan real corre en CI al abrir el PR y el apply real al mergearlo a `main` (workflow `infra-cd.yml`, MEF-ADR-0021, MEF-ADR-0022).
 - El agente es idempotente: no sobrescribe archivos `.tf` ni el workflow `infra-cd.yml` existentes (MEF-ADR-0021).
-- Este comando no ejecuta `bootstrap-backend.sh` ni `setup-github-ci.sh`: solo los cita en el recordatorio.
+- Este comando no ejecuta `bootstrap-backend.mts` ni `setup-github-ci.mts`: solo los cita en el recordatorio.

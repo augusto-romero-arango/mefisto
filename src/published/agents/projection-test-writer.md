@@ -181,7 +181,7 @@ Si los tests referencian tipos que no existen, crealos con `throw new NotImpleme
 Despues de compilar (paso 5) y antes del commit del stage, corre desde la raiz del consumidor:
 
 ```bash
-{{mefisto:package-root}}/scripts/warnings-diff.sh --toolchain dotnet
+node {{mefisto:package-root}}/scripts/warnings-diff.mts --toolchain dotnet
 ```
 
 Sin `--base`: el helper compara contra el punto de partida de la rama del issue. Remedia en el codigo cada linea `NEW` que reporte (una supresion anadida aparece con codigo `SUPPRESSION`) y vuelve a correrlo hasta que salga con `warnings nuevos: 0` o solo queden los que no puedas remediar. Exit 2 significa que hay `NEW`; exit 1 es un error del helper (p. ej. un lado no compila), no un warning: corrige la compilacion y reintenta. La primera invocacion paga el build de la base; las siguientes lo reutilizan.

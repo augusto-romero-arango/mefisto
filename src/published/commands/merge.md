@@ -63,18 +63,18 @@ No pidas confirmacion adicional. El usuario ya la dio al escribir el comando exp
 
 ### 3. Invocar el script
 
-Lanza directamente el script `pr-sync.sh` con `--merge`.
+Lanza directamente el script `pr-sync.mts` con `--merge`.
 
 Para los PRs validados en el paso 1 (numeros separados por espacio):
 
 ```bash
-{{mefisto:run pr-sync.sh <PRs> --merge}}
+{{mefisto:run pr-sync.mts <PRs> --merge}}
 ```
 
 Para todos los PRs abiertos:
 
 ```bash
-{{mefisto:run pr-sync.sh --all --merge}}
+{{mefisto:run pr-sync.mts --all --merge}}
 ```
 
 El script imprime progreso en tiempo real. Espera a que termine.
@@ -85,7 +85,7 @@ Bajo `HERDR_ENV=1`, si la tabla de resumen del paso anterior muestra al menos un
 
 ```bash
 if [ "${HERDR_ENV:-}" = "1" ]; then
-    CLOSED=$({{mefisto:run herdr-pipeline.sh --collapse-panes}} 2>/dev/null || true)
+    CLOSED=$({{mefisto:run herdr-pipeline.mts --collapse-panes}} 2>/dev/null || true)
     echo "paneles_herdr_cerrados=${CLOSED:-0}"
 fi
 ```
@@ -94,7 +94,7 @@ fi
 
 ### 5. Reportar resultado
 
-El script ya imprime un resumen final con tabla `PR | Rama | Estado` y la ruta del log. Si al menos un merge del lote salio bien, `pr-sync.sh` corre ademas una vez `worktree-clean.sh`, que elimina los worktrees de rama mergeada o de pipeline abandonada (issue cerrado sin trabajo propio) y conserva con aviso los que tienen cambios sin commitear, rama sin mergear o HEAD desacoplado; su salida va al log y su fallo solo deja un aviso, sin cambiar el exit code. Tu solo debes:
+El script ya imprime un resumen final con tabla `PR | Rama | Estado` y la ruta del log. Si al menos un merge del lote salio bien, `pr-sync.mts` corre ademas una vez `worktree-clean.mts`, que elimina los worktrees de rama mergeada o de pipeline abandonada (issue cerrado sin trabajo propio) y conserva con aviso los que tienen cambios sin commitear, rama sin mergear o HEAD desacoplado; su salida va al log y su fallo solo deja un aviso, sin cambiar el exit code. Tu solo debes:
 
 - Confirmar el exit code.
 - Si hubo errores, apunta al log en `{{mefisto:state-path logs}}/pr-sync-<ts>.log` y ofrece reintentar con el PR concreto:
@@ -108,7 +108,7 @@ El script ya imprime un resumen final con tabla `PR | Rama | Estado` y la ruta d
 
 ## Reglas
 
-- **Nunca hagas merges manuales** (`gh pr merge`, `git merge` + push, etc.). Todo pasa por `pr-sync.sh`.
+- **Nunca hagas merges manuales** (`gh pr merge`, `git merge` + push, etc.). Todo pasa por `pr-sync.mts`.
 - **No diagnostiques errores del script.** Reporta el error tal cual viene en su output y espera instruccion del usuario.
 - **No reintentes automaticamente** un PR fallido. El script ya hace retry interno del merge con backoff exponencial. Si se rinde, es decision del usuario.
 - **No instales dependencias** ni arregles el entorno. Si falta `gh`, `git` o `dotnet`, informa al usuario y detente.

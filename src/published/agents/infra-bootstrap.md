@@ -43,19 +43,19 @@ Si el usuario no tiene estos privilegios, indícale que pida a un admin que ejec
 Obtén la suscripción y el tenant de la sesión activa **por tu cuenta**, sin preguntárselos al usuario:
 
 ```bash
-{{mefisto:run azure-account-info.sh 2>&1}}
+{{mefisto:run azure-account-info.mts 2>&1}}
 ```
 
 Si el script termina con exit distinto de 0, muestra su mensaje (indica ejecutar `az login` y reintentar) y **detente**.
 
-Si termina bien, muestra `subscriptionId`, `subscriptionName` y `tenantId` y pide **solo** la confirmación de que es la suscripción correcta. Si no lo es, indícale que cambie de suscripción fuera del chat (`az account set --subscription <id>`) y que reintente. Nunca le pidas que escriba el id de suscripción. Anota el `subscriptionId`: lo pasarás explícitamente al bootstrap en el paso 3 (`--subscription`) y a `setup-github-ci.sh` en el paso 5.
+Si termina bien, muestra `subscriptionId`, `subscriptionName` y `tenantId` y pide **solo** la confirmación de que es la suscripción correcta. Si no lo es, indícale que cambie de suscripción fuera del chat (`az account set --subscription <id>`) y que reintente. Nunca le pidas que escriba el id de suscripción. Anota el `subscriptionId`: lo pasarás explícitamente al bootstrap en el paso 3 (`--subscription`) y a `setup-github-ci.mts` en el paso 5.
 
 ### 3. Ejecutar el bootstrap del backend
 
-`bootstrap-backend.sh` crea de forma idempotente el Resource Group, la Storage Account y el container del tfstate, y escribe `infra/environments/<ambiente>/backend.tf` con el bloque `backend "azurerm"` resuelto. Si no pasas `--location`, lee el campo opcional `azureLocation` del contrato canónico `.mefisto/harness.config.json`.
+`bootstrap-backend.mts` crea de forma idempotente el Resource Group, la Storage Account y el container del tfstate, y escribe `infra/environments/<ambiente>/backend.tf` con el bloque `backend "azurerm"` resuelto. Si no pasas `--location`, lee el campo opcional `azureLocation` del contrato canónico `.mefisto/harness.config.json`.
 
 ```bash
-{{mefisto:run bootstrap-backend.sh --subscription <id> --env <env>}}
+{{mefisto:run bootstrap-backend.mts --subscription <id> --env <env>}}
 ```
 
 (Añade `--location <region>` solo si el config no tiene `azureLocation`.)
@@ -66,20 +66,20 @@ El bootstrap escribe `infra/environments/<ambiente>/backend.tf` en el working tr
 
 ### 4. Provisionar el esquema de labels de GitHub
 
-`setup-github-labels.sh` elimina los labels default de GitHub y crea el esquema dimensional (`tipo:*`, `dom:*`, `estado:*`, `bloqueado`) que el resto del harness asume al gestionar issues (MEF-ADR-0007). Sin este esquema, el planner y los pipelines no pueden clasificar ni filtrar issues.
+`setup-github-labels.mts` elimina los labels default de GitHub y crea el esquema dimensional (`tipo:*`, `dom:*`, `estado:*`, `bloqueado`) que el resto del harness asume al gestionar issues (MEF-ADR-0007). Sin este esquema, el planner y los pipelines no pueden clasificar ni filtrar issues.
 
 ```bash
-{{mefisto:run setup-github-labels.sh 2>&1}}
+{{mefisto:run setup-github-labels.mts 2>&1}}
 ```
 
 El script es **idempotente**: todos los labels del esquema (tipo/dominio/estado/`bloqueado`/`bug`) se crean con `--force` (se sobrescriben sin fallar si ya existen) y los labels default se borran con `2>/dev/null` (no aborta si ya no están). Si reporta labels "no encontrado (ok)" o los recrea sin error, el esquema ya está listo: **continúa al paso 5**. Solo detente si el script termina con exit distinto de 0.
 
 ### 5. Configurar la autenticación de CI hacia Azure
 
-`setup-github-ci.sh` crea el Service Principal de CI **sin secret** (OIDC / Workload Identity Federation), le asigna `Contributor` y `Role Based Access Control Administrator` (con condición anti-escalación) a nivel suscripción, y `Storage Blob Data Contributor` sobre la Storage Account **real** del tfstate que el paso 3 acaba de crear -- por eso corre **después** del bootstrap del backend, nunca antes: resuelve el nombre final de esa Storage (con su sufijo de unicidad global) leyendo el `backend.tf` recién escrito (MEF-ADR-0022). También añade los federated credentials para `push` a `main` (deploy + apply) y `pull_request` (plan).
+`setup-github-ci.mts` crea el Service Principal de CI **sin secret** (OIDC / Workload Identity Federation), le asigna `Contributor` y `Role Based Access Control Administrator` (con condición anti-escalación) a nivel suscripción, y `Storage Blob Data Contributor` sobre la Storage Account **real** del tfstate que el paso 3 acaba de crear -- por eso corre **después** del bootstrap del backend, nunca antes: resuelve el nombre final de esa Storage (con su sufijo de unicidad global) leyendo el `backend.tf` recién escrito (MEF-ADR-0022). También añade los federated credentials para `push` a `main` (deploy + apply) y `pull_request` (plan).
 
 ```bash
-{{mefisto:run setup-github-ci.sh <id>}}
+{{mefisto:run setup-github-ci.mts <id>}}
 ```
 
 (Pasa el mismo `<id>` de suscripción del paso 2. Si el slug `owner/repo` no se resuelve solo vía `gh repo view` o el remote `origin`, pásalo como segundo argumento.)
@@ -107,12 +107,12 @@ No lances el pipeline IaC del paso 7 sin que el usuario confirme que la infraest
 Lánzalo en segundo plano igual que {{mefisto:command infra}}, sin esperar a que termine:
 
 ```bash
-{{mefisto:run launch-pipeline.sh --infra <issue>}}
+{{mefisto:run launch-pipeline.mts --infra <issue>}}
 ```
 
 El pipeline corre **sin credenciales de Azure** (MEF-ADR-0021, MEF-ADR-0022): Write (HCL) -> Review (revision estatica: `fmt -check` + `init -backend=false` + `validate`, sin `terraform plan`) -> PR. El PR resultante **no cierra el issue** (no lleva `Closes #N`): el `terraform plan` real corre en el PR y el `terraform apply` real corre en CI al mergear a `main` (workflow `Infra CD`, ver MEF-ADR-0022); ese workflow cierra el issue tras un apply exitoso.
 
-**No esperes** a que termine: devuelve el control de inmediato con las instrucciones de seguimiento que imprimió el lanzador (la consola `fausto-blood-pact` de esta sesión, el pane del multiplexor si abrió uno, o la ruta del log con la línea del visor `stream-watch.sh`) y remite al usuario a ellas para ver el progreso.
+**No esperes** a que termine: devuelve el control de inmediato con las instrucciones de seguimiento que imprimió el lanzador (la consola `fausto-blood-pact` de esta sesión, el pane del multiplexor si abrió uno, o la ruta del log con la línea del visor `stream-watch.mts`) y remite al usuario a ellas para ver el progreso.
 
 ### 8. Reportar resultado
 
@@ -122,6 +122,6 @@ Tras lanzar el pipeline, responde con:
 
 ## Manejo de errores
 
-Si `setup-github-labels.sh` (paso 4) o `setup-github-ci.sh` (paso 5) fallan con un error real (exit distinto de 0, no un "ya existe"), corrige la causa (permisos, `gh auth login`, `az login`) y **reintenta solo ese script**: ambos son idempotentes, no hace falta repetir el bootstrap del backend (paso 3) ni ningún otro eslabón previo.
+Si `setup-github-labels.mts` (paso 4) o `setup-github-ci.mts` (paso 5) fallan con un error real (exit distinto de 0, no un "ya existe"), corrige la causa (permisos, `gh auth login`, `az login`) y **reintenta solo ese script**: ambos son idempotentes, no hace falta repetir el bootstrap del backend (paso 3) ni ningún otro eslabón previo.
 
 Si el pipeline IaC (paso 7) falla después de que el bootstrap fue exitoso, indica al usuario que consulte el log que el pipeline imprime al abortar (`Revisa el log: <ruta>`) y ofrece relanzarlo con el mismo comando del paso 7.

@@ -51,19 +51,19 @@ El contrato del historiador (CA-6 de #527) es reportar explicitamente el PR en s
 
 Con el numero de PR verificado, lee `{{mefisto:command-doc merge}}` (el documento del comando `{{mefisto:command merge}}` de la distribucion activa) sin transcribirlo aca, y ejecuta integramente su `Proceso` para ese PR.
 
-Ejecuta su `Proceso` completo (validar el PR, mostrar resumen, invocar `pr-sync.sh --merge`, reportar) tal cual, con el numero de PR del paso 2 como su `$ARGUMENTS` -- su `## Entrada` queda cubierta por ese numero, y su guard de consumidor por el de este skill. No pidas ninguna confirmacion adicional antes de mergear -- el usuario ya autorizo el ciclo completo al escribir `{{mefisto:command bitacora}}` explicitamente.
+Ejecuta su `Proceso` completo (validar el PR, mostrar resumen, invocar `pr-sync.mts --merge`, reportar) tal cual, con el numero de PR del paso 2 como su `$ARGUMENTS` -- su `## Entrada` queda cubierta por ese numero, y su guard de consumidor por el de este skill. No pidas ninguna confirmacion adicional antes de mergear -- el usuario ya autorizo el ciclo completo al escribir `{{mefisto:command bitacora}}` explicitamente.
 
 ### 4. Reportar
 
 Consolida en un solo resumen:
 - Lo que reporto el historiador (dias procesados, field notes integradas, o el motivo de no haber creado PR).
 - El PR verificado en el paso 2, o el motivo por el que no se mergeo nada (sin PR, o verificacion fallida).
-- El resultado de `{{mefisto:command merge}}` (PR mergeado, o el error tal cual lo imprimio `pr-sync.sh`).
+- El resultado de `{{mefisto:command merge}}` (PR mergeado, o el error tal cual lo imprimio `pr-sync.mts`).
 
 ## Reglas
 
 - **Nunca reimplementes la logica del historiador ni de `{{mefisto:command merge}}`.** Este skill delega leyendo integramente el `Proceso` de `{{mefisto:command merge}}`; el historiador corre de punta a punta de forma autonoma.
 - **Nunca invoques `{{mefisto:command merge}}` sin un numero de PR leido del mensaje final del historiador y verificado con `gh pr view`** (abierto y tocando `docs/bitacora/`). Si no hay PR, o la verificacion falla, reportalo y detente (CA-4).
 - **Nunca pidas una confirmacion adicional antes de mergear** un PR ya verificado. El usuario autorizo el ciclo completo al invocar el skill.
-- **Nunca hagas merges manuales** (`gh pr merge`, `git merge` + push). Todo pasa por `{{mefisto:command merge}}` -> `pr-sync.sh`.
-- **No diagnostiques errores de `pr-sync.sh`.** Propalos tal cual, igual que hace `{{mefisto:command merge}}`.
+- **Nunca hagas merges manuales** (`gh pr merge`, `git merge` + push). Todo pasa por `{{mefisto:command merge}}` -> `pr-sync.mts`.
+- **No diagnostiques errores de `pr-sync.mts`.** Propalos tal cual, igual que hace `{{mefisto:command merge}}`.
