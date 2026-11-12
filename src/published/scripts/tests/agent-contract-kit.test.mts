@@ -19,6 +19,7 @@ import {
   readOrEmpty,
   regularFilesUnder,
   sameBytes,
+  scanClosureText,
   scanPipelineClosure,
   sha256Of,
 } from './agent-contract-kit.mts'
@@ -173,14 +174,21 @@ test('pipelineReferences reconoce los source con dirname y las rutas bajo las tr
 })
 
 test('scanPipelineClosure exige que cada referencia este declarada y un minimo de cuatro', () => {
-  const herdr = scanPipelineClosure('scripts/herdr-pipeline.sh')
-  assert.equal(herdr.problem, '')
-  assert.ok(herdr.references >= 4)
+  const declared = [
+    'scripts/_pipeline-common.sh|0755',
+    'scripts/lib/otro.sh|0644',
+    'scripts/run-tests.sh|0755',
+    'scripts/sin-dirname.sh|0755',
+    'src/runtime/lib/runtime-claude.jq|0644',
+    'src/runtime/mefisto-process.sh|0755',
+  ]
+  const full = scanClosureText(PIPELINE, declared)
+  assert.equal(full.problem, '')
+  assert.equal(full.references, 6)
 
-  const undeclared = scanPipelineClosure('scripts/herdr-pipeline.sh', ['scripts/_pipeline-common.sh|0644'])
-  assert.equal(undeclared.references, herdr.references)
-  assert.notEqual(undeclared.problem, '')
-  assert.ok(!undeclared.problem.split('\n').includes('scripts/_pipeline-common.sh'))
+  const undeclared = scanClosureText(PIPELINE, declared.slice(1))
+  assert.equal(undeclared.references, full.references)
+  assert.equal(undeclared.problem, 'scripts/_pipeline-common.sh')
 
   assert.deepEqual(scanPipelineClosure('scripts/no-existe.sh'), {
     references: 0,

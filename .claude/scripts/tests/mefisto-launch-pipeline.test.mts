@@ -403,7 +403,7 @@ describe('delegacion en herdr', () => {
     const run = await launcher(argv, { env: { MEFISTO_UI: undefined, MEFISTO_RUNTIME: 'fake', ...INSIDE_HERDR }, delegateCode: 3 })
     assert.equal(run.code, 3)
     assert.equal(run.launches.length, 0)
-    assert.equal(run.delegated[0]?.script, join(scripts, 'mefisto-herdr-pipeline.sh'))
+    assert.equal(run.delegated[0]?.script, join(scripts, 'mefisto-herdr-pipeline.mts'))
     assert.deepEqual(run.delegated[0]?.args, argv)
     assert.equal(run.delegated[0]?.options.env.HERDR_PANE_ID, 'w1:p1')
   })

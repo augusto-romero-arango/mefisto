@@ -13,7 +13,22 @@ import { noHold } from '../lib/pipeline/pipeline-status.mts'
 import type { HoldState } from '../lib/pipeline/pipeline-status.mts'
 import { PR_SYNC_GLYPHS, PR_SYNC_RESUME_PROMPT, runPrSyncAgent, writePrStatusFile } from '../pr-sync.mts'
 import type { PrSyncAgentContext } from '../pr-sync.mts'
-import { fakeClock } from './tooling-pipeline-sandbox.mts'
+
+// Reloj que solo avanza con `sleep`: los segundos de intento y de espera que se afirman no
+// dependen de cuanto tarde la maquina.
+function frozenClock(): { now: () => Date; sleep: (seconds: number) => Promise<void>; slept: number[] } {
+  let epochMs = Date.UTC(2026, 5, 15, 12, 0, 0)
+  const slept: number[] = []
+  return {
+    now: () => new Date(epochMs),
+    sleep: (seconds) => {
+      slept.push(seconds)
+      epochMs += seconds * 1000
+      return Promise.resolve()
+    },
+    slept,
+  }
+}
 
 let work = ''
 let counter = 0
@@ -72,7 +87,7 @@ function harness(behaviors: Behavior[], overrides: Partial<PrSyncAgentContext> =
   mkdirSync(worktree, { recursive: true })
   mkdirSync(tmp)
   let out = ''
-  const clock = fakeClock()
+  const clock = frozenClock()
   const calls: string[][] = []
   const prompts: string[] = []
   const holds: HoldState[] = []
@@ -185,7 +200,7 @@ describe('espera (hold)', () => {
     const statusFile = join(h.dir, 'pipeline-status-pr-sync-777.json')
     let hold: HoldState = noHold()
     let snapshot = ''
-    const clock = fakeClock()
+    const clock = frozenClock()
     const write = (state: string): void =>
       writePrStatusFile(statusFile, { pr: '777', title: 'Titulo de prueba', runtime: 'fake-runtime', stage: 'merge-pr777', state, log: 'log', lastError: '', hold }, clock.now())
     h.ctx.setHold = (next) => {

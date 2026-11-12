@@ -38,8 +38,8 @@ Si el consumidor no tiene `.mefisto/harness.config.json` ni el fallback legacy
 onboardeado y abre el workspace igual. Si un agente no arranca, el pane queda
 con su shell y el script lo avisa.
 
-La cobertura con el stub de Herdr esta en
-`scripts/tests/test-herdr-workspace.sh`: verifica argv, paths con espacios,
+La cobertura con la CLI de Herdr inyectada esta en
+`scripts/tests/herdr-workspace.test.mts`: verifica argv, paths con espacios,
 el preflight de configuracion, fallos de arranque, migracion legacy,
 ambiguedad, adopcion de un workspace sin panes de Mefisto e idempotencia de
 las filas.

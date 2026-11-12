@@ -10,7 +10,7 @@ import { fileURLToPath } from 'node:url'
 
 import { kebabDomain, launchPipeline } from '../launch-pipeline.mts'
 import type { CommandResult } from '../lib/cli.mts'
-import { detachedEnv, insideHerdr, launchDetached, pipelineCommand, usesDetachedUi } from '../lib/launcher.mts'
+import { detachedEnv, insideHerdr, launchDetached, pipelineCommand, runDelegate, usesDetachedUi } from '../lib/launcher.mts'
 import type { DelegateOptions, DetachedLaunch, LaunchDetached } from '../lib/launcher.mts'
 import { stripAnsi } from '../lib/pipeline/pipeline-log.mts'
 import { initRepo } from './consumer-sandbox.mts'
@@ -283,13 +283,13 @@ describe('decision del modo de UI', () => {
     assert.ok(run.out.includes(`Visor en otra terminal: '${join(pkg, 'stream-watch.sh')}' --issues 1,2,3`))
   })
 
-  test('un runtime distinto de claude dentro de herdr delega en herdr-pipeline.sh con los argumentos originales', async () => {
+  test('un runtime distinto de claude dentro de herdr delega en herdr-pipeline.mts con los argumentos originales', async () => {
     const argv = ['--tooling', '2285', '--from-stage', '2']
     const run = await launcher(argv, { env: { MEFISTO_UI: undefined, MEFISTO_RUNTIME: 'fake', ...INSIDE_HERDR }, delegateCode: 7 })
     assert.equal(run.code, 7)
     assert.equal(run.launches.length, 0)
     assert.equal(run.delegated.length, 1)
-    assert.equal(run.delegated[0]?.script, join(pkg, 'herdr-pipeline.sh'))
+    assert.equal(run.delegated[0]?.script, join(pkg, 'herdr-pipeline.mts'))
     assert.deepEqual(run.delegated[0]?.args, argv)
     assert.equal(run.delegated[0]?.options.env.HERDR_PANE_ID, 'w1:p0')
     assert.equal(run.delegated[0]?.options.env.MEFISTO_RUNTIME, 'fake')
@@ -671,5 +671,24 @@ describe('lanzamiento real del pipeline desacoplado', () => {
       await new Promise((resolve) => setTimeout(resolve, 100))
     }
     assert.equal(readFileSync(report, 'utf8'), 'stub batch 7 8\n')
+  })
+})
+
+describe('delegacion real en herdr', () => {
+  test('runDelegate corre el .mts con Node, sin bash, y devuelve su codigo', () => {
+    const dir = realpathSync.native(mkdtempSync(join(tmpdir(), 'run-delegate-')))
+    try {
+      const script = join(dir, 'herdr-pipeline.mts')
+      const seen = join(dir, 'argv.json')
+      writeFileSync(
+        script,
+        `import { writeFileSync } from 'node:fs'\nwriteFileSync(${JSON.stringify(seen)}, JSON.stringify({ argv: process.argv.slice(2), cwd: process.cwd(), x: process.env.X }))\nprocess.exitCode = 7\n`,
+      )
+      const code = runDelegate(script, ['--tooling', '42', 'con espacio'], { cwd: dir, env: { ...process.env, PATH: '', X: 'y' } })
+      assert.equal(code, 7)
+      assert.deepEqual(JSON.parse(readFileSync(seen, 'utf8')), { argv: ['--tooling', '42', 'con espacio'], cwd: dir, x: 'y' })
+    } finally {
+      rmSync(dir, { recursive: true, force: true })
+    }
   })
 })

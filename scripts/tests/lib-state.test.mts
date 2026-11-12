@@ -1,10 +1,11 @@
 import assert from 'node:assert/strict'
-import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { after, before, test } from 'node:test'
 
 import { stateDirs, statePath, stateReadFirst, stateReadPaths } from '../lib/state.mts'
+import { git } from './field-note-sandbox.mts'
 
 let root = ''
 
@@ -39,12 +40,6 @@ test('sin raiz, statePath y stateReadPaths resuelven contra MEFISTO_STATE_DIR', 
   assert.deepEqual(stateReadPaths(join('logs', 'x.log'), undefined, env), [path])
 })
 
-test('statePath falla si no puede crear el directorio padre', () => {
-  const blocker = join(root, 'soy-un-archivo')
-  writeFileSync(blocker, '')
-  assert.throws(() => statePath(join('logs', 'x.log'), undefined, { MEFISTO_STATE_DIR: blocker }))
-})
-
 test('statePath escribe en la canonica sin tocar la legacy', () => {
   const repo = join(root, 'con-legacy')
   const legacy = join(repo, '.claude', 'pipeline')
@@ -77,4 +72,44 @@ test('stateReadPaths lista lo que existe, canonico primero', () => {
   writeFileSync(canonical, '{}')
   assert.deepEqual(stateReadPaths('status.json', root), [canonical, legacy])
   assert.equal(stateReadFirst('status.json', root), canonical)
+})
+
+test('sin raiz ni overrides las rutas cuelgan de la raiz Git, aunque se este en un subdirectorio', () => {
+  const repo = join(root, 'repo')
+  const nested = join(repo, 'anidado', 'trabajo')
+  mkdirSync(nested, { recursive: true })
+  git(repo, 'init', '-q')
+  const previous = process.cwd()
+  process.chdir(nested)
+  try {
+    const dirs = stateDirs(undefined, {})
+    const top = realpathSync.native(repo)
+    assert.ok(dirs.canonical.endsWith(join('.mefisto', 'pipeline')))
+    assert.ok(dirs.legacy.endsWith(join('.claude', 'pipeline')))
+    assert.equal(realpathSync.native(join(dirs.canonical, '..', '..')), top)
+    assert.equal(realpathSync.native(join(dirs.legacy, '..', '..')), top)
+  } finally {
+    process.chdir(previous)
+  }
+})
+
+test('la lectura respeta el override legacy y la escritura nunca toca la legacy', () => {
+  const env = { MEFISTO_STATE_DIR: join(root, 'override-canon'), MEFISTO_LEGACY_STATE_DIR: join(root, 'override-viejo') }
+  const legacy = join(env.MEFISTO_LEGACY_STATE_DIR, 'logs', 'override.log')
+  mkdirSync(join(env.MEFISTO_LEGACY_STATE_DIR, 'logs'), { recursive: true })
+  writeFileSync(legacy, 'legacy')
+  assert.equal(stateReadFirst(join('logs', 'override.log'), undefined, env), legacy)
+
+  const canonical = statePath(join('logs', 'override.log'), undefined, env)
+  assert.equal(canonical, join(env.MEFISTO_STATE_DIR, 'logs', 'override.log'))
+  writeFileSync(canonical, 'canon')
+  assert.equal(readFileSync(legacy, 'utf8'), 'legacy')
+  assert.deepEqual(stateReadPaths(join('logs', 'override.log'), undefined, env), [canonical, legacy])
+})
+
+test('statePath falla sin devolver ruta si no puede crear el directorio padre', () => {
+  const bad = join(root, 'bloqueado')
+  mkdirSync(join(bad, '.mefisto', 'pipeline'), { recursive: true })
+  writeFileSync(join(bad, '.mefisto', 'pipeline', 'logs'), 'archivo')
+  assert.throws(() => statePath(join('logs', 'x.log'), bad))
 })
