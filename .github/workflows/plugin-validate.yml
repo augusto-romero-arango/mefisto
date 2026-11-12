@@ -3,7 +3,7 @@
 # detecta ese defecto en segundos ('on("prompt.submit") is registered twice without a matcher'),
 # pero ningun gate lo corria. MEF-ADR-0055 pide validar los mods antes de commitear; este workflow
 # lo vuelve verificable en cada PR que toca esas superficies.
-# Excepcion acotada a la politica de ci.yml (#1743, #1766: ningun PR corre tests ni CLIs de agente):
+# Excepcion acotada a la politica de tests de typescript.yml (#1743, #1766: ningun PR corre tests ni CLIs de agente):
 # solo se dispara en PRs que tocan hooks/, .claude-plugin/ o .claude/mods/, y no usa secretos.
 # La validacion es estatica y no requiere autenticacion (verificado el 2026-10-11 con HOME vacio).
 # NO es obligatorio: el ruleset 'main' no lo exige, asi que la X roja avisa pero no frena el merge.
