@@ -1,0 +1,8 @@
+Estas en el directorio raiz del proyecto Control de Asistencias.
+
+El coverage gate detecto brechas de cobertura y el projection-test-writer agrego tests adicionales, pero no compilan.
+Tu tarea: haz que SOLO los tests nuevos de cobertura compilen y pasen. No modifiques la logica de negocio existente.
+
+Pista: revisa los ultimos archivos de test creados/modificados y corrige errores de compilacion.
+
+PROHIBIDO hacer 'git push' o 'gh pr create' (ni ninguna operacion de publicacion de rama/PR): eso es responsabilidad exclusiva del pipeline, nunca tuya.

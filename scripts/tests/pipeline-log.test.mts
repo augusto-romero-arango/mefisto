@@ -245,6 +245,65 @@ describe('createAbort', () => {
     )
     assert.equal(stripAnsi(readFileSync(file, 'utf8')), '\nx ERROR: fallo\n')
   })
+
+  test('el texto del error es un parametro y sin detalles no se nombra el log, su cola ni el worktree', () => {
+    const file = logFile()
+    writeFileSync(file, 'contexto\n')
+    const sink = screen()
+    const stderr = screen()
+    const worktree = join(work, 'wt-sin-detalles')
+    mkdirSync(worktree)
+    const recorded: string[] = []
+    const log = createPipelineLog({ logFile: () => file, out: sink.out })
+    const abort = createAbort({
+      log,
+      tailLines: 20,
+      worktree: () => worktree,
+      stream: stderr.out,
+      render: (message) => ({ stream: `\nx ${message}\n`, file: `ABORT ${message}\n` }),
+      details: false,
+      record: (message) => void recorded.push(message),
+    })
+    assert.throws(() => abort('dominio invalido'), PipelineAbort)
+    assert.equal(stderr.text, '\nx dominio invalido\n')
+    assert.equal(sink.text, '')
+    assert.equal(readFileSync(file, 'utf8'), 'contexto\nABORT dominio invalido\n')
+    assert.deepEqual(recorded, ['dominio invalido'])
+  })
+
+  test('con render y detalles, la ruta del log sigue al error propio', () => {
+    const file = logFile()
+    const sink = screen()
+    const log = createPipelineLog({ logFile: () => file, out: sink.out })
+    const abort = createAbort({ log, worktree: () => '', render: (message) => ({ stream: `<${message}>\n`, file: '' }) })
+    assert.throws(() => abort('m'), PipelineAbort)
+    assert.ok(sink.text.startsWith('<m>\n'))
+    assert.match(stripAnsi(sink.text), /Revisa el log: /)
+  })
+
+  test('las opciones de los dos pipelines se combinan: render gana a leadingBlankLine, y sin detalles no hay worktree', () => {
+    const file = logFile()
+    const stderr = screen()
+    const worktree = join(work, 'wt-combinado')
+    mkdirSync(worktree)
+    const log = createPipelineLog({ logFile: () => file, out: () => {} })
+    const rendered = createAbort({
+      log,
+      worktree: () => worktree,
+      stream: stderr.out,
+      leadingBlankLine: false,
+      inspectHint: false,
+      render: (message) => ({ stream: `<${message}>\n`, file: `[${message}]\n` }),
+    })
+    assert.throws(() => rendered('a'), PipelineAbort)
+    assert.equal(stripAnsi(stderr.text), `<a>\nRevisa el log: ${file}\nEl worktree queda en: ${worktree}\n`)
+    assert.equal(readFileSync(file, 'utf8'), '[a]\n')
+
+    const quiet = screen()
+    const compact = createAbort({ log, worktree: () => worktree, stream: quiet.out, leadingBlankLine: false, details: false })
+    assert.throws(() => compact('b'), PipelineAbort)
+    assert.equal(stripAnsi(quiet.text), 'x ERROR: b\n')
+  })
 })
 
 describe('runLogged y loggedThrough', () => {

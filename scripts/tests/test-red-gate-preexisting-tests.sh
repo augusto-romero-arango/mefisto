@@ -58,5 +58,4 @@ RES=$(detect_preexisting_red_tests "$W" "$SNAP" "basura sin formato"); rc=$?
 RES=$(detect_preexisting_red_tests "$W" "deadbeef" "$OUT"); rc=$?
 [ "$rc" -eq 2 ] && ok "snapshot invalido degrada (rc 2)" || bad "snapshot invalido: rc=$rc"
 
-grep -q 'detect_preexisting_red_tests' "$REPO_ROOT/scripts/tdd-pipeline.sh" && ok "gate 1b invoca el helper" || bad "gate no cableado"
 echo "Resultado: $PASS pass, $FAIL fail"; [ "$FAIL" -eq 0 ]

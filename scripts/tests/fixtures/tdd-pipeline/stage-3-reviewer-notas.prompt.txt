@@ -1,0 +1,42 @@
+Estás en el directorio raíz del proyecto Control de Asistencias.
+
+Contexto de la historia de usuario:
+
+# Issue #42: Registrar "turno" con $HOME y `backticks`
+
+Cuerpo con $(subshell) y \backslash.
+Segunda línea con acento.
+
+Cambios de las fases roja y verde:
+
+Commit base: 0123456789abcdef0123456789abcdef01234567
+HEAD del test-writer: 89abcdef0123456789abcdef0123456789abcdef
+
+Resumen (git diff --stat=120 0123456789abcdef0123456789abcdef01234567..HEAD):
+
+ src/A.cs | 12 ++++++++++++
+ 1 file changed, 12 insertions(+)
+
+Rutas cambiadas (git diff --name-status 0123456789abcdef0123456789abcdef01234567..HEAD):
+
+A	src/A.cs
+
+Tu tarea: revisa la calidad del código, refactoriza si es necesario, y verifica que los criterios de aceptación estén bien cubiertos.
+Si las rutas cambiadas incluyen smoke tests (archivos en *SmokeTests/), revísalos también: verifica que cubran los escenarios principales del endpoint (camino feliz, validación, duplicados) y que sigan las convenciones del proyecto.
+Sigue todas las instrucciones de tu rol de reviewer.
+
+ECONOMIA DE TURNOS:
+Cada turno tuyo cuesta ~8 s de reloj (turno opus) -- el trabajo que ese turno manda a hacer es barato en comparacion: en el diagnostico Fase 0, dotnet (build/test) ocupo solo ~11% del wall total de una corrida, frente a ~86% de tiempo de API (turnos). Lo caro es el turno, no la herramienta. Con eso en mente:
+- Agrupa en un mismo turno las tool calls independientes entre si (varias busquedas, varias lecturas, varias escrituras a archivos distintos). No las encadenes de a una.
+- Ya tienes el commit base, el HEAD del test-writer, el --stat y las rutas cambiadas aqui arriba: para ver el diff de una ruta puntual pidelo bajo demanda con 'git diff 0123456789abcdef0123456789abcdef01234567..HEAD -- <ruta>' (o 'git show <sha>' para inspeccionar un commit), agrupando varias rutas en el mismo turno si necesitas mas de una. Esto NO alcanza a las consultas acotadas que tu rol usa como disparador de gate ('git diff main...HEAD -- <ruta>'): esas corren contra main y filtran por ruta, y lo de arriba no las reemplaza.
+- Manten el protocolo de correccion de tu rol -- 'dotnet test' despues de cada cambio, revertir con 'git checkout -- <archivo>' si rompe: esa corrida es la que te dice CUAL cambio rompio, y agrupar varias correcciones te obliga a bisecar despues, que sale mas caro que los turnos que ahorra. Lo que sobra es la ronda extra 'por las dudas': si desde tu ultima corrida verde no tocaste codigo, no la repitas antes de cerrar -- apenas termines este stage, el pipeline vuelve a correr toda la suite igual (Gate 3).
+- No re-inspecciones el arbol con 'git status' para confirmar algo que acabas de escribir: Write y Edit fallan con error si no aplican, asi que el exito de la herramienta ya es la confirmacion.
+Estas reglas no cubren todos los casos; ante cualquier otro, decide con el mismo criterio -- un turno extra cuesta ~8 s, y solo vale la pena si te ahorra un error que costaria mas.
+
+PROHIBIDO hacer 'git push' o 'gh pr create' (ni ninguna operacion de publicacion de rama/PR): eso es responsabilidad exclusiva del pipeline, nunca tuya.
+
+Nota: el projection-test-writer señalizo que la fase roja del Stage 1 era estructuralmente inalcanzable (unica capa de test posible: composicion/config-test). Justificación: Unica capa posible: config-test del worker
+
+Nota: este issue es de SOLO SMOKE TESTS (corren post-deploy, MEF-ADR-0013). No hay implementación que revisar en src/: revisa la calidad de los smoke tests y de los entregables documentales (docs/), sin tocar src/.
+
+ATENCION: hay tests bloqueados tras la fase verde (reportados por el implementer o detectados por el pipeline como tests preexistentes que la implementacion volvio rojos). Lee el reporte en /tmp/wt/.mefisto/pipeline/blockage-report.md y sigue las instrucciones de tu seccion 2b para intentar resolverlos.

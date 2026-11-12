@@ -1,0 +1,32 @@
+Estás en el directorio raíz del proyecto Control de Asistencias.
+
+Esta es una tarea de REFACTORING PURO. No hay fases roja ni verde previas.
+Justificación del refactoring: Extrae "Turno" a un value object; elimina 2 tests obsoletos
+
+Contexto de la tarea:
+
+# Issue #42: Registrar "turno" con $HOME y `backticks`
+
+Cuerpo con $(subshell) y \backslash.
+Segunda línea con acento.
+
+Tu misión: ejecutar el refactoring descrito en el issue. Los tests existentes DEBEN seguir pasando en todo momento, salvo los tests obsoletos que la JUSTIFICACION de arriba declara explicitamente: el test-writer los señalizo pero no los toco (no edita produccion ni tests en el carril de señal) — eliminarlos o ajustarlos es tu responsabilidad como parte de este refactor. Tests declarados como eliminados en la señal: 2.
+
+Reglas:
+1. Corre dotnet test ANTES de empezar para confirmar el baseline verde.
+2. Ejecuta el refactoring en pasos pequeños y seguros. Si la JUSTIFICACION declara tests obsoletos, eliminalos o ajustalos como parte del refactor — no son una regresion.
+3. Después de cada cambio significativo, corre dotnet test.
+4. Si un cambio rompe un test que NO esta declarado como obsoleto en la JUSTIFICACION, reviértelo inmediatamente: git checkout -- <archivo>
+5. Al terminar, corre dotnet test una última vez para confirmar que todo sigue verde (descontando los tests obsoletos que eliminaste).
+6. Haz commit de tu trabajo con mensaje: refactor(hu-42): [descripción]
+
+Sigue todas las instrucciones de tu rol de reviewer.
+
+ECONOMIA DE TURNOS:
+Cada turno tuyo cuesta ~8 s de reloj (turno opus) -- el trabajo que ese turno manda a hacer es barato en comparacion: en el diagnostico Fase 0, dotnet (build/test) ocupo solo ~11% del wall total de una corrida, frente a ~86% de tiempo de API (turnos). Lo caro es el turno, no la herramienta. Con eso en mente:
+- Agrupa en un mismo turno las tool calls independientes entre si (varias busquedas, varias lecturas, varias escrituras a archivos distintos). No las encadenes de a una.
+- La Regla 3 sigue en pie: la corrida despues de cada cambio significativo es la que te dice CUAL cambio rompio un test, y es lo que hace posible el revert puntual de la Regla 4. Lo que sobra es la ronda extra 'por las dudas': la corrida de cierre de la Regla 5 se hace UNA vez, y si desde ella no volviste a tocar codigo no la repitas -- apenas termines este stage, el pipeline vuelve a correr toda la suite para confirmarlo igual (Gate 3).
+- No re-inspecciones el arbol con 'git status' ni 'git diff' para confirmar algo que acabas de escribir: Write y Edit fallan con error si no aplican, asi que el exito de la herramienta ya es la confirmacion.
+Estas reglas no cubren todos los casos; ante cualquier otro, decide con el mismo criterio -- un turno extra cuesta ~8 s, y solo vale la pena si te ahorra un error que costaria mas.
+
+PROHIBIDO hacer 'git push' o 'gh pr create' (ni ninguna operacion de publicacion de rama/PR): eso es responsabilidad exclusiva del pipeline, nunca tuya.

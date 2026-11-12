@@ -1,0 +1,42 @@
+## Resumen
+
+Pipeline TDD completado:
+- Fase roja: tests escritos con stubs
+- Fase verde: implementación completa
+- Fase refactor: revisión de calidad
+
+## Decisiones del pipeline
+
+<details>
+<summary>Test Writer (fase roja) — 0m 20s</summary>
+
+## Tests\n\n- `RegistrarTurnoTests` con $VARIABLES sin expandir.
+
+</details>
+
+<details>
+<summary>Implementer (fase verde) — 0m 30s</summary>
+
+_(El agente no generó resumen)_
+
+</details>
+<details>
+<summary>Reviewer (fase refactor) — 0m 40s</summary>
+
+Revisado.
+
+</details>
+
+## Commits
+
+89abcde refactor(hu-42): revisión y refactor
+0123456 test(hu-42): tests fase roja
+
+## Metricas de la corrida
+
+| Etapa | Modelo | Tokens | in/out/cache/reasoning | Tiempo | Costo estimado |
+|---|---|---:|---|---:|---:|
+| Test Writer | - | - | - | 0m 20s | - |
+| Implementer | - | - | - | 0m 30s | - |
+| Reviewer | - | - | - | 0m 40s | - |
+| **Total (parcial)** | - | - | - | **1m 30s** | - |
