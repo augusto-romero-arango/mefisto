@@ -82,8 +82,20 @@ interface Harness {
 
 const argOf = (args: string[], name: string): string => (args.includes(name) ? (args[args.indexOf(name) + 1] ?? '') : '')
 
-/** Worktree recien commiteado y un runner que reproduce `attempts`; agotados, termina bien. */
-function harness(attempts: Attempt[], options: { env?: NodeJS.ProcessEnv; supportsResume?: boolean; model?: string; dirty?: boolean } = {}): Harness {
+interface HarnessOptions {
+  env?: NodeJS.ProcessEnv
+  supportsResume?: boolean
+  model?: string
+  dirty?: boolean
+  /** Instante inicial del reloj, en ms. */
+  start?: number
+}
+
+/**
+ * Worktree recien commiteado y un runner que reproduce `attempts`; agotados, termina bien. El
+ * reloj es virtual: solo avanza con los segundos de cada intento y con las siestas.
+ */
+function harness(attempts: Attempt[], options: HarnessOptions = {}): Harness {
   const dir = join(work, `caso-${++counter}`)
   const worktree = join(dir, 'wt')
   mkdirSync(worktree, { recursive: true })
@@ -102,8 +114,9 @@ function harness(attempts: Attempt[], options: { env?: NodeJS.ProcessEnv; suppor
   const eventsLog = join(pipelineDir, 'events.log')
   writeFileSync(eventsLog, '')
 
+  const start = options.start ?? Date.now()
   let skewMs = 0
-  const now = (): Date => new Date(Date.now() + skewMs)
+  const now = (): Date => new Date(start + skewMs)
   const slept: number[] = []
   const calls: string[][] = []
   const prompts: string[] = []
@@ -284,11 +297,12 @@ describe('espera (hold) con su propio techo y sondeo', () => {
   })
 
   test('resets_at en el futuro espera hasta esa hora mas el margen', async () => {
-    const reset = new Date(Date.now() + 120_000).toISOString().replace(/\.\d{3}Z$/, 'Z')
-    const h = harness([{ events: rateLimit(null, reset), exit: 1 }], { env: { ...HOLD, MEFISTO_HOLD_PROBE_SECONDS: '5' } })
+    const h = harness([{ events: rateLimit(null, '2026-08-05T10:02:00Z'), exit: 1 }], {
+      env: { ...HOLD, MEFISTO_HOLD_PROBE_SECONDS: '5' },
+      start: Date.parse('2026-08-05T10:00:00Z'),
+    })
     await runToolingAgent(h.ctx, '1', 'writer', 'prompt')
-    const [slept = 0] = h.slept
-    assert.ok(slept >= 175 && slept <= 181, `durmio ${slept}s`)
+    assert.deepEqual(h.slept, [180])
   })
 
   test('agotado el techo aborta nombrando la espera, el limite y la ultima senal, sin TIMEOUT', async () => {
