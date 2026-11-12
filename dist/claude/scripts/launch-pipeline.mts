@@ -10,7 +10,7 @@
 //
 // Dos modos de UI (MEFISTO_UI, MEF-ADR-0057 decision 5): 'mod', desacoplado y default (el
 // pipeline corre como proceso propio que sobrevive al lanzador), y 'herdr', que delega en
-// herdr-pipeline.sh (un pane por corrida).
+// herdr-pipeline.mts (un pane por corrida).
 
 import { existsSync, mkdirSync, statSync } from 'node:fs'
 import { basename, dirname, join, resolve } from 'node:path'
@@ -352,7 +352,7 @@ export async function launchPipeline(ctx: LaunchPipelineContext): Promise<number
     if (!isValidUiMode(env)) abort(`MEFISTO_UI='${uiMode(env)}' no es un modo valido. ${VALID_UI_MODES}`)
     if (!usesDetachedUi(env)) {
       if (insideHerdr(env, ctx.hasCommand)) {
-        return ctx.delegate(join(ctx.scriptsDir, 'herdr-pipeline.sh'), argv, { cwd: ctx.cwd, env })
+        return ctx.delegate(join(ctx.scriptsDir, 'herdr-pipeline.mts'), argv, { cwd: ctx.cwd, env })
       }
       if (uiMode(env) === 'herdr') {
         abort(

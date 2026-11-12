@@ -123,11 +123,11 @@ export interface DelegateOptions {
   env: NodeJS.ProcessEnv
 }
 
-/** Corre un script bash con la terminal heredada y devuelve su codigo de salida. */
+/** Corre un script `.mts` con Node y la terminal heredada, y devuelve su codigo de salida. */
 export type RunDelegate = (script: string, args: readonly string[], options: DelegateOptions) => number
 
 export const runDelegate: RunDelegate = (script, args, options) => {
-  const result = spawnSync('bash', [script, ...args], { cwd: options.cwd, env: options.env, stdio: 'inherit' })
+  const result = spawnSync(process.execPath, [script, ...args], { cwd: options.cwd, env: options.env, stdio: 'inherit' })
   if (result.status !== null) return result.status
   const signal = result.signal === null ? undefined : constants.signals[result.signal]
   return signal === undefined ? 1 : 128 + signal
